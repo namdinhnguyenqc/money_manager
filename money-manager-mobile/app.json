@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "Quản Lý Tài Chính",
+    "slug": "money-manager-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#3b82f6"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.personal.moneymanager",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Cần camera để chụp ảnh hóa đơn.",
+        "NSPhotoLibraryUsageDescription": "Cần truy cập thư viện ảnh để đính kèm hóa đơn."
+      }
+    },
+    "android": {
+      "package": "com.personal.moneymanager",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#3b82f6"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Ứng dụng cần truy cập ảnh để đính kèm hóa đơn.",
+          "cameraPermission": "Ứng dụng cần camera để chụp ảnh hóa đơn."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9b2c3739-625e-49ae-a102-b036f867a8d0"
+      }
+    }
+  }
+}
