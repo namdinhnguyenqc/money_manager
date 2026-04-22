@@ -7,8 +7,11 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "build": "npm run build:web:vercel",
+    "build:web": "expo export --platform web --output-dir dist --max-workers 1",
     "build:web:local": "expo export --platform web --output-dir dist-local-web --max-workers 1",
     "build:web:review": "expo export --platform web --output-dir dist-review-web --max-workers 1",
+    "build:web:vercel": "expo export --platform web --output-dir dist --max-workers 1",
     "serve:web:local": "node scripts/serve-dist-local-web.js"
   },
   "dependencies": {
