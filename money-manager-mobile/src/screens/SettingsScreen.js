@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, RADIUS, SHADOW, TYPOGRAPHY } from '../theme';
 import { getCurrentUser, logOut, subscribeToAuthChanges } from '../services/authService';
 import { migrateSQLiteToFirestore } from '../utils/migrateToCloud';
+import { resetDatabase } from '../database/db';
 import TopAppBar from '../components/ui/TopAppBar';
 import SurfaceCard from '../components/ui/SurfaceCard';
 
@@ -58,6 +59,29 @@ export default function SettingsScreen({ navigation }) {
         },
       },
     ]);
+  const handleReset = () => {
+    Alert.alert(
+      'Xóa toàn bộ dữ liệu',
+      'Thao tác này sẽ xóa sạch mọi phòng trọ, hóa đơn và giao dịch. Bạn có chắc chắn không?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { 
+          text: 'Xóa sạch', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              await resetDatabase();
+              if (Platform.OS !== 'web') {
+                Alert.alert('Thành công', 'Đã xóa toàn bộ dữ liệu.');
+                navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+              }
+            } catch (e) {
+              Alert.alert('Lỗi', 'Không thể xóa dữ liệu.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -97,6 +121,14 @@ export default function SettingsScreen({ navigation }) {
           <TouchableOpacity style={styles.primaryBtn} onPress={handleCloudSync} disabled={migrating}>
             <Ionicons name="rocket-outline" size={16} color="#fff" />
             <Text style={styles.primaryTxt}>{migrating ? 'Đang đồng bộ...' : 'Bắt đầu đồng bộ cũ'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.primaryBtn, { backgroundColor: COLORS.danger, marginTop: 12 }]} 
+            onPress={handleReset}
+          >
+            <Ionicons name="trash-outline" size={16} color="#fff" />
+            <Text style={styles.primaryTxt}>Xóa sạch dữ liệu (Reset)</Text>
           </TouchableOpacity>
         </SurfaceCard>
 

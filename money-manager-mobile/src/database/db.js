@@ -709,6 +709,34 @@ const runMigrations = async (db) => {
   console.log(`Database upgraded to v${SCHEMA_VERSION}`);
 };
 
+export const resetDatabase = async () => {
+  const db = await getDb();
+  await db.execAsync('PRAGMA foreign_keys = OFF');
+  try {
+    const tables = [
+      'invoice_items', 'invoices', 'contract_services', 'contracts', 
+      'tenants', 'rooms', 'transactions', 'trading_items', 
+      'meter_readings', 'trading_categories', 'categories', 'wallets'
+    ];
+    for (const table of tables) {
+      try { await db.runAsync(`DELETE FROM ${table}`); } catch (e) {}
+      try { await db.runAsync(`DELETE FROM sqlite_sequence WHERE name = '${table}'`); } catch (e) {}
+    }
+  } finally {
+    await db.execAsync('PRAGMA foreign_keys = ON');
+  }
+  
+  // Re-init defaults
+  await initWallets(db);
+  await initServices(db);
+  await initCategories(db);
+  
+  // Force reload if web
+  if (isWebRuntime()) {
+    window.location.reload();
+  }
+};
+
 const importFullHistoryV37 = async (db) => {
   console.log("Starting Robust Corrective Historical Import v37...");
   
