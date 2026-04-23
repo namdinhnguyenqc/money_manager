@@ -64,7 +64,7 @@ export const calculateProratedRent = (price, month, year, startDateStr, endDateS
 
     if (diffDays >= daysInMonth) return { amount: price, days: daysInMonth, totalDays: daysInMonth };
     
-    // Round to nearest 1000 for "đẹp bảng kê"
+    // Round to nearest 1000 for cleaner invoice display
     const raw = (price / daysInMonth) * diffDays;
     if (isNaN(raw)) return { amount: price, days: daysInMonth, totalDays: daysInMonth };
     

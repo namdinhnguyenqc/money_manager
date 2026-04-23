@@ -2,7 +2,7 @@ import * as SQLite from 'expo-sqlite';
 import { seedRooms, seedPrices, seedResidents, seedDeps, seedDataByMonth } from './seedData';
 
 const DB_NAME = 'money_manager.db';
-const SCHEMA_VERSION = 37;
+const SCHEMA_VERSION = 39;
 const DB_INSTANCE_KEY = '__mmDbMaster';
 const DB_OPEN_PROMISE_KEY = '__mmDbOpenPromise';
 const DB_INIT_PROMISE_KEY = '__mmDbInitPromise';
@@ -190,13 +190,13 @@ const ensureWebDbTabLock = () => {
 
   const currentLock = readWebDbLock();
   if (currentLock && currentLock.tabId !== getWebTabId() && currentLock.expiresAt > Date.now()) {
-    throw new Error('App web dang mo o mot tab khac. Hay dong tab do truoc khi tiep tuc.');
+    throw new Error('The web app is already open in another tab. Close that tab before continuing.');
   }
 
   writeWebDbLock();
   const claimedLock = readWebDbLock();
   if (!claimedLock || claimedLock.tabId !== getWebTabId()) {
-    throw new Error('App web dang mo o mot tab khac. Hay dong tab do truoc khi tiep tuc.');
+    throw new Error('The web app is already open in another tab. Close that tab before continuing.');
   }
 
   startWebDbLockHeartbeat();
@@ -352,11 +352,11 @@ const openDbWithRetry = async () => {
 
 const normalizeDbError = (error) => {
   const message = String(error?.message || error || '');
-  if (message.includes('App web dang mo o mot tab khac')) {
+  if (message.includes('Web app already open in another tab')) {
     return error;
   }
   if (isWebRuntime() && message.includes('Invalid VFS state')) {
-    const wrapped = new Error('SQLite web bi loi khoi tao. Tai lai trang roi thu lai.');
+    const wrapped = new Error('Web SQLite initialization failed. Reload and try again.');
     wrapped.cause = error;
     return wrapped;
   }
@@ -365,7 +365,7 @@ const normalizeDbError = (error) => {
     (message.includes('createSyncAccessHandle') || message.includes('NoModificationAllowedError'))
   ) {
     const wrapped = new Error(
-      'SQLite web dang bi mo trung. Hay dong tab web khac cua app truoc khi tiep tuc.'
+      'Web SQLite is locked by another app tab. Close other tabs before continuing.'
     );
     wrapped.cause = error;
     return wrapped;
@@ -445,6 +445,7 @@ export const initDb = async () => {
 
     CREATE TABLE IF NOT EXISTS rooms (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      wallet_id INTEGER,
       name TEXT NOT NULL,
       price REAL NOT NULL,
       status TEXT DEFAULT 'vacant',
@@ -487,7 +488,7 @@ export const initDb = async () => {
       type TEXT DEFAULT 'fixed',
       unit_price REAL NOT NULL,
       unit_price_ac REAL DEFAULT 0,
-      unit TEXT DEFAULT 'tháng',
+      unit TEXT DEFAULT 'month',
       icon TEXT DEFAULT '⚡',
       active INTEGER DEFAULT 1
     );
@@ -507,6 +508,7 @@ export const initDb = async () => {
       elec_new REAL,
       water_old REAL,
       water_new REAL,
+      invoice_note TEXT,
       transaction_id INTEGER,
       created_at TEXT DEFAULT (datetime('now','localtime'))
     );
@@ -538,14 +540,14 @@ export const initDb = async () => {
       category TEXT,
       import_price REAL NOT NULL,
       sell_price REAL,
-      target_price REAL, -- Giá dự kiến bán
+      target_price REAL, -- Estimated selling price
       import_date TEXT NOT NULL,
       sell_date TEXT,
       status TEXT DEFAULT 'available', -- 'available', 'sold'
       note TEXT,
-      batch_id TEXT, -- Mã lô hàng
-      transaction_id INTEGER, -- Liên kết giao dịch nhập
-      sell_transaction_id INTEGER, -- Liên kết giao dịch bán
+      batch_id TEXT, -- Batch code
+      transaction_id INTEGER, -- Linked import transaction
+      sell_transaction_id INTEGER, -- Linked sell transaction
       created_at TEXT DEFAULT (datetime('now','localtime'))
     );
 
@@ -597,11 +599,11 @@ const initWallets = async (db) => {
   if (c === 0) {
     console.log("Initializing default wallets...");
     await db.runAsync(`INSERT INTO wallets (name, type, icon, color) VALUES (?, ?, ?, ?)`, 
-      ['Ví Cá Nhân', 'personal', '👛', '#2563eb']);
+      ['Personal Wallet', 'personal', '👛', '#2563eb']);
     await db.runAsync(`INSERT INTO wallets (name, type, icon, color) VALUES (?, ?, ?, ?)`, 
-      ['Quản lý Trọ', 'rental', '🏠', '#10b981']);
+      ['Rental Management', 'rental', '🏠', '#10b981']);
     await db.runAsync(`INSERT INTO wallets (name, type, icon, color) VALUES (?, ?, ?, ?)`, 
-      ['Kinh doanh / Kho', 'trading', '📦', '#f59e0b']);
+      ['Business / Inventory', 'trading', '📦', '#f59e0b']);
   }
 };
 
@@ -614,14 +616,14 @@ const initCategories = async (db) => {
       const wId = wallet ? wallet.id : 1;
 
       const cats = [
-        ['Ăn uống', '🍔', '#ef4444', 'expense'],
-        ['Di chuyển', '🚗', '#3b82f6', 'expense'],
-        ['Mua sắm', '🛒', '#f59e0b', 'expense'],
-        ['Làm đẹp', '💄', '#ec4899', 'expense'],
-        ['Sức khỏe', '💊', '#10b981', 'expense'],
-        ['Hóa đơn', '📄', '#6366f1', 'expense'],
-        ['Thu nhập', '💰', '#10b981', 'income'],
-        ['Khác', '💬', '#94a3b8', 'expense']
+        ['Food & Drinks', '🍔', '#ef4444', 'expense'],
+        ['Transport', '🚗', '#3b82f6', 'expense'],
+        ['Shopping', '🛒', '#f59e0b', 'expense'],
+        ['Beauty', '💄', '#ec4899', 'expense'],
+        ['Health', '💊', '#10b981', 'expense'],
+        ['Bills', '📄', '#6366f1', 'expense'],
+        ['Thu', '💰', '#10b981', 'income'],
+        ['Other', '💬', '#94a3b8', 'expense']
       ];
       for (const [name, icon, color, type] of cats) {
         await db.runAsync(`INSERT INTO categories (name, icon, color, type, wallet_id) VALUES (?, ?, ?, ?, ?)`, [name, icon, color, type, wId]);
@@ -634,10 +636,10 @@ const initCategories = async (db) => {
 
 const initServices = async (db) => {
   const essentialServices = [
-    { name: 'Điện', type: 'meter', price: 3500, unit: 'kWh', icon: '⚡' },
-    { name: 'Nước', type: 'meter', price: 15000, unit: 'm3', icon: '💧' },
-    { name: 'Rác', type: 'fixed', price: 30000, unit: 'tháng', icon: '🗑️' },
-    { name: 'Wifi', type: 'fixed', price: 70000, unit: 'tháng', icon: '📶' }
+    { name: 'Electricity', type: 'meter', price: 3500, unit: 'kWh', icon: '⚡' },
+    { name: 'Water', type: 'meter', price: 15000, unit: 'm3', icon: '💧' },
+    { name: 'Trash', type: 'fixed', price: 30000, unit: 'month', icon: '🗑️' },
+    { name: 'Wifi', type: 'fixed', price: 70000, unit: 'month', icon: '📶' }
   ];
 
   for (const s of essentialServices) {
@@ -674,7 +676,23 @@ const runMigrations = async (db) => {
     await db.execAsync(`PRAGMA user_version = 37`);
   }
 
-  if (currentVersion >= SCHEMA_VERSION) {
+  // v38: Add invoice_note to invoices
+  if (currentVersion < 38) {
+    console.log("Upgrading to v38: Add invoice_note...");
+    try { await db.execAsync(`ALTER TABLE invoices ADD COLUMN invoice_note TEXT`); } catch(e){}
+    await db.execAsync(`PRAGMA user_version = 38`);
+  }
+
+  // v39: Add wallet_id to rooms
+  if (currentVersion < 39) {
+    console.log("Upgrading to v39: Add wallet_id to rooms...");
+    try { 
+      await db.execAsync(`ALTER TABLE rooms ADD COLUMN wallet_id INTEGER`); 
+      // Set existing rooms to default rental wallet (id 2)
+      await db.execAsync(`UPDATE rooms SET wallet_id = 2 WHERE wallet_id IS NULL`);
+    } catch(e){}
+    await db.execAsync(`PRAGMA user_version = 39`);
+  }
     try { await db.execAsync(`ALTER TABLE wallets ADD COLUMN active INTEGER DEFAULT 1`); } catch(e) {}
     try { await db.execAsync(`ALTER TABLE bank_config ADD COLUMN qr_uri TEXT`); } catch(e){}
     try { await db.execAsync(`ALTER TABLE bank_config ADD COLUMN user_avatar TEXT`); } catch(e){}
@@ -727,11 +745,11 @@ const importFullHistoryV37 = async (db) => {
 
         const iRes = await db.runAsync(
           'INSERT INTO transactions (type, amount, description, wallet_id, date) VALUES (?,?,?,?,?)',
-          ['income', item.total, `Hợp đồng ${seedRooms[i]} (T${m})`, 2, dStr]
+          ['income', item.total, `Contract ${seedRooms[i]} (M${m})`, 2, dStr]
         );
         await db.runAsync(
           'INSERT INTO transactions (type, amount, description, wallet_id, date) VALUES (?,?,?,?,?)',
-          ['expense', item.total, `Cân bằng dữ liệu T${m}`, 2, dStr]
+          ['expense', item.total, `Data balancing M${m}`, 2, dStr]
         );
 
         const invRes = await db.runAsync(
@@ -741,7 +759,7 @@ const importFullHistoryV37 = async (db) => {
         );
         
         await db.runAsync('INSERT INTO invoice_items (invoice_id, name, amount) VALUES (?, ?, ?)', [invRes.lastInsertRowId, 'Tiền phòng', item.fee]);
-        await db.runAsync('INSERT INTO invoice_items (invoice_id, name, amount) VALUES (?, ?, ?)', [invRes.lastInsertRowId, 'Tổng dịch vụ', item.total - item.fee]);
+        await db.runAsync('INSERT INTO invoice_items (invoice_id, name, amount) VALUES (?, ?, ?)', [invRes.lastInsertRowId, 'Service total', item.total - item.fee]);
       }
     }
   } catch (err) {

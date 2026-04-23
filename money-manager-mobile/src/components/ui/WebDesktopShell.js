@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, RADIUS, SHADOW, WEB } from '../../theme';
 import SearchBar from '../SearchBar';
@@ -7,27 +7,25 @@ import SurfaceCard from './SurfaceCard';
 
 const NAV_SECTIONS = [
   {
-    title: 'Tong quan',
+    title: 'Tổng quan',
     items: [
-      { route: 'Dashboard', label: 'Dashboard', icon: 'grid-outline' },
-      { route: 'Analytics', label: 'Reports', icon: 'stats-chart-outline' },
-      { route: 'Transactions', label: 'Transactions', icon: 'swap-horizontal-outline' },
+      { route: 'Dashboard', label: 'Bảng điều khiển', icon: 'grid-outline' },
+      { route: 'Analytics', label: 'Báo cáo', icon: 'stats-chart-outline' },
+      { route: 'Transactions', label: 'Giao dịch', icon: 'swap-horizontal-outline' },
     ],
   },
   {
-    title: 'Van hanh',
+    title: 'Vận hành',
     items: [
-      { route: 'Rental', label: 'Cho thue', icon: 'home-outline' },
-      { route: 'Invoices', label: 'Hoa don', icon: 'receipt-outline' },
-      { route: 'Services', label: 'Dich vu', icon: 'construct-outline' },
-      { route: 'Trading', label: 'Kho hang', icon: 'cube-outline' },
+      { route: 'Rental', label: 'Nhà trọ', icon: 'home-outline' },
+      { route: 'Invoices', label: 'Hóa đơn', icon: 'receipt-outline' },
+      { route: 'Trading', label: 'Kho hàng', icon: 'cube-outline' },
     ],
   },
   {
-    title: 'He thong',
+    title: 'Cấu hình hệ thống',
     items: [
-      { route: 'WalletsManager', label: 'So & module', icon: 'wallet-outline' },
-      { route: 'Settings', label: 'Settings', icon: 'settings-outline' },
+      { route: 'Settings', label: 'Cài đặt chung', icon: 'settings-outline' },
     ],
   },
 ];
@@ -58,23 +56,94 @@ export default function WebDesktopShell({
   subtitle,
   children,
   headerAction = null,
-  searchPlaceholder = 'Tim kiem...',
+  searchPlaceholder = 'Tìm kiếm...',
 }) {
   const { height } = useWindowDimensions();
   const [shellSearch, setShellSearch] = useState('');
+  const [isNearTop, setIsNearTop] = useState(true);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const fadeAnim = useState(new Animated.Value(0))[0];
   const activeRoute = useMemo(() => ACTIVE_ROUTE_MAP[routeName] || routeName, [routeName]);
   const viewportHeight = Math.max(height || 0, 1);
+  const isWeb = typeof window !== 'undefined';
+  const [isWebModeDismissed, setIsWebModeDismissed] = useState(true);
+
+  useEffect(() => {
+    if (isWeb) {
+      const dismissed = localStorage.getItem('__mmWebModeDismissed') === 'true';
+      setIsWebModeDismissed(dismissed);
+    }
+  }, [isWeb]);
+
+  const handleDismissWebMode = () => {
+    setIsWebModeDismissed(true);
+    if (isWeb) {
+      localStorage.setItem('__mmWebModeDismissed', 'true');
+    }
+  };
+
+  useEffect(() => {
+    if (!isWeb) return () => {};
+
+    const updateScrollState = () => {
+      let y = window.scrollY || window.pageYOffset || 0;
+      let maxScroll = (document.documentElement?.scrollHeight || 0) - (window.innerHeight || 0);
+
+      const canScroll = maxScroll > 120;
+      setShowScrollBtn(canScroll);
+      setIsNearTop(y < 72);
+    };
+
+    updateScrollState();
+    
+    window.addEventListener('scroll', updateScrollState, { passive: true });
+    window.addEventListener('resize', updateScrollState);
+
+    // Watch for DOM changes in case the page height dynamically changes
+    const observer = new MutationObserver(() => updateScrollState());
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      window.removeEventListener('scroll', updateScrollState);
+      window.removeEventListener('resize', updateScrollState);
+      observer.disconnect();
+    };
+  }, [isWeb]);
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: showScrollBtn ? 1 : 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim, showScrollBtn]);
+
+  const handleSmartScroll = () => {
+    if (!isWeb) return;
+
+    if (isNearTop) {
+      const target = Math.min(
+        Math.max(window.innerHeight * 0.92, 560),
+        Math.max((document.documentElement?.scrollHeight || 0) - window.innerHeight, 0)
+      );
+      
+      window.scrollTo({ top: target, behavior: 'smooth' });
+      return;
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
-    <View style={[styles.root, { height: viewportHeight }]}>
-      <View style={styles.sidebar}>
+    <View style={[styles.root, isWeb ? { minHeight: viewportHeight } : { height: viewportHeight }]}>
+      <View style={[styles.sidebar, isWeb && { position: 'sticky', top: 0, height: viewportHeight }]}>
         <View style={styles.brandRow}>
           <View style={styles.brandBadge}>
             <Ionicons name="wallet-outline" size={18} color={COLORS.primary} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.brandTitle}>Money Manager Pro</Text>
-            <Text style={styles.brandSub}>Desktop Workspace</Text>
+            <Text style={styles.brandSub}>Không gian làm việc website</Text>
           </View>
         </View>
 
@@ -104,11 +173,18 @@ export default function WebDesktopShell({
           ))}
         </ScrollView>
 
-        <SurfaceCard tone="low" style={styles.sidebarCard}>
-          <Text style={styles.sidebarCardEyebrow}>WEB MODE</Text>
-          <Text style={styles.sidebarCardTitle}>Admin-first UI</Text>
-          <Text style={styles.sidebarCardText}>Website da duoc doi sang bo cuc desktop, uu tien van hanh va quet du lieu nhanh.</Text>
-        </SurfaceCard>
+        {!isWebModeDismissed ? (
+          <SurfaceCard tone="low" style={styles.sidebarCard}>
+            <View style={styles.sidebarCardHeader}>
+              <Text style={styles.sidebarCardEyebrow}>CHẾ ĐỘ WEB</Text>
+              <TouchableOpacity onPress={handleDismissWebMode}>
+                <Ionicons name="close" size={16} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.sidebarCardTitle}>Giao diện ưu tiên vận hành</Text>
+            <Text style={styles.sidebarCardText}>Trang web đang hiển thị dạng máy tính để thao tác nhanh và theo dõi dữ liệu thuận tiện hơn.</Text>
+          </SurfaceCard>
+        ) : null}
       </View>
 
       <View style={styles.main}>
@@ -122,10 +198,10 @@ export default function WebDesktopShell({
 
           <View style={styles.utilityRow}>
             <TouchableOpacity style={styles.utilityBtn}>
-              <Text style={styles.utilityText}>Support</Text>
+              <Text style={styles.utilityText}>Hỗ trợ</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.utilityPrimary}>
-              <Text style={styles.utilityPrimaryText}>Workspace</Text>
+              <Text style={styles.utilityPrimaryText}>Không gian</Text>
             </TouchableOpacity>
             <View style={styles.profileBadge}>
               <Ionicons name="person-outline" size={18} color={COLORS.textPrimary} />
@@ -144,6 +220,34 @@ export default function WebDesktopShell({
         ) : null}
 
         <View style={styles.pageBody}>{children}</View>
+
+        {isWeb && showScrollBtn ? (
+          <Animated.View
+            style={[
+              styles.scrollFabWrap,
+              {
+                opacity: fadeAnim,
+                transform: [
+                  {
+                    translateY: fadeAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [10, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <TouchableOpacity style={styles.scrollFab} onPress={handleSmartScroll} activeOpacity={0.9}>
+              <Ionicons
+                name={isNearTop ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'}
+                size={18}
+                color="#fff"
+              />
+              <Text style={styles.scrollFabText}>{isNearTop ? 'Cuộn xuống' : 'Cuộn lên'}</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        ) : null}
       </View>
     </View>
   );
@@ -236,6 +340,11 @@ const styles = StyleSheet.create({
   sidebarCard: {
     marginTop: 'auto',
     backgroundColor: COLORS.surfaceLow,
+  },
+  sidebarCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   sidebarCardEyebrow: {
     fontSize: 11,
@@ -347,5 +456,28 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 0,
     minWidth: 0,
+  },
+  scrollFabWrap: {
+    position: 'absolute',
+    right: 26,
+    bottom: 24,
+    zIndex: 999,
+  },
+  scrollFab: {
+    height: 46,
+    borderRadius: 999,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+    ...SHADOW.md,
+  },
+  scrollFabText: {
+    color: '#fff',
+    fontSize: 12,
+    ...FONTS.bold,
   },
 });

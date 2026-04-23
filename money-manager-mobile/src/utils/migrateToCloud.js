@@ -28,23 +28,27 @@ const sanitizeData = (data) => {
 };
 
 export const migrateSQLiteToFirestore = async (onProgress) => {
-  console.log('[SYNC] Bat dau qua trinh dong bo...');
-  if (onProgress) onProgress('\uD83D\uDE80 Dang khoi dong bo may...');
+  console.log('[SYNC] Starting sync process...');
+  if (onProgress) onProgress('🚀 Bootstrapping local engine...');
 
   let sqliteDb;
   try {
-    console.log('[SYNC] Dang mo SQLite database...');
+    console.log('[SYNC] Opening SQLite database...');
     sqliteDb = await getDb();
-    console.log('[SYNC] SQLite da mo thanh cong!');
+    console.log('[SYNC] SQLite opened successfully!');
   } catch (dbErr) {
-    console.error('[SYNC] Loi mo Database:', dbErr);
-    throw new Error('Khong the mo du lieu may. Thu tat han app va mo lai.');
+    console.error('[SYNC] Database open error:', dbErr);
+    throw new Error('Cannot open local data. Restart the app and try again.');
   }
 
-  if (onProgress) onProgress('\uD83D\uDC64 Kiem tra tai khoan...');
+  if (!auth || !firestoreDb) {
+    throw new Error('Cloud is not configured. Please add EXPO_PUBLIC_* Firebase env vars.');
+  }
+
+  if (onProgress) onProgress('👤 Checking account...');
   const uid = auth.currentUser?.uid;
-  console.log('[SYNC] UID nguoi dung:', uid);
-  if (!uid) throw new Error('Chua dang nhap tai khoan cloud.');
+  console.log('[SYNC] User UID:', uid);
+  if (!uid) throw new Error('Cloud account is not signed in.');
 
   const userDocRef = doc(firestoreDb, 'users', uid);
   const tables = [
@@ -53,13 +57,13 @@ export const migrateSQLiteToFirestore = async (onProgress) => {
     'bank_config', 'trading_items', 'trading_categories', 'meter_readings',
   ];
 
-  if (onProgress) onProgress('\uD83D\uDD0D Dang goi Google Cloud (15s timeout)...');
-  console.log('[SYNC] Dang thu ket noi Google Firestore...');
+  if (onProgress) onProgress('🔍 Contacting Google Cloud (15s timeout)...');
+  console.log('[SYNC] Testing Google Firestore connection...');
 
   // Add a 15-second timeout for cloud connectivity test.
   const cloudTest = new Promise(async (resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error('Mang qua cham, Google Cloud khong phan hoi (timeout 15s)'));
+      reject(new Error('Network too slow, Google Cloud timed out (15s)'));
     }, 15000);
 
     try {
@@ -82,15 +86,15 @@ export const migrateSQLiteToFirestore = async (onProgress) => {
   try {
     await cloudTest;
     if (onProgress) onProgress('\u2705 May xanh da ket noi!');
-    console.log('[SYNC] Ket noi Firestore thanh cong!');
+    console.log('[SYNC] Firestore connected successfully!');
   } catch (err) {
-    console.error('[SYNC] Loi ket noi Cloud:', err);
-    throw new Error(`Ket noi Google loi: ${err.message || 'Kiem tra Rules hoac mang'}`);
+    console.error('[SYNC] Cloud connection error:', err);
+    throw new Error(`Google connection failed: ${err.message || 'Check rules or network'}`);
   }
 
   // Step 1: count rows.
   let totalRowsFound = 0;
-  if (onProgress) onProgress('\uD83D\uDCCA Dang kiem dem du lieu...');
+  if (onProgress) onProgress('📊 Counting local records...');
   for (const t of tables) {
     try {
       const res = await sqliteDb.getFirstAsync(`SELECT COUNT(*) as c FROM ${t}`);
@@ -101,17 +105,17 @@ export const migrateSQLiteToFirestore = async (onProgress) => {
   }
 
   if (totalRowsFound === 0) {
-    throw new Error('Khong tim thay du lieu de chuyen len cloud.');
+    throw new Error('No local data found to migrate to cloud.');
   }
 
   if (onProgress) {
-    onProgress(`\uD83D\uDCC8 Tim thay ${totalRowsFound} ban ghi. Bat dau day len...`);
+    onProgress(`📈 Found ${totalRowsFound} records. Starting upload...`);
   }
 
   // Step 2: upload table by table.
   for (const table of tables) {
     try {
-      if (onProgress) onProgress(`\uD83D\uDCE4 Dang tai: ${table}...`);
+      if (onProgress) onProgress(`📤 Uploading: ${table}...`);
 
       const rows = await sqliteDb.getAllAsync(`SELECT * FROM ${table}`);
       if (!rows || rows.length === 0) continue;
@@ -145,10 +149,10 @@ export const migrateSQLiteToFirestore = async (onProgress) => {
         await batch.commit();
       }
     } catch (tableError) {
-      console.error(`[SYNC] Loi tai bang ${table}:`, tableError);
+      console.error(`[SYNC] Upload error on table ${table}:`, tableError);
     }
   }
 
-  if (onProgress) onProgress('Cloud sync hoan tat! \uD83D\uDE80\u2728');
+  if (onProgress) onProgress('Cloud sync completed! 🚀✨');
   return true;
 };

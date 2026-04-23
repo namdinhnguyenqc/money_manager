@@ -40,14 +40,15 @@ import { promptDialog } from '../utils/dialogs';
 export default function RentalScreen({ route, navigation, walletId: propWalletId, isEmbedded }) {
   const { width } = useWindowDimensions();
   const walletId = propWalletId || route?.params?.walletId;
-  const walletName = route?.params?.walletName || 'Quan ly nha tro';
+  const walletName = route?.params?.walletName || 'Quản lý nhà trọ';
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [rooms, setRooms] = useState([]);
-  const [occupiedCount, setOccupiedCount] = useState(0);
-  const [occupiedRentSum, setOccupiedRentSum] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
   const [monthlyInvoices, setMonthlyInvoices] = useState({});
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTab, setFilterTab] = useState('all'); // all, occupied, vacant, debt
 
   const [showAddRoom, setShowAddRoom] = useState(false);
   const [editingRoom, setEditingRoom] = useState(null);
@@ -65,12 +66,7 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
     try {
       setLoading(true);
       const data = await getRooms(walletId);
-      const rows = data || [];
-      setRooms(rows);
-
-      const occupied = rows.filter((r) => r.status === 'occupied');
-      setOccupiedCount(occupied.length);
-      setOccupiedRentSum(occupied.reduce((sum, r) => sum + Number(r.price || 0), 0));
+      setRooms(data || []);
 
       const now = new Date();
       const currentInvoices = await getInvoices(now.getMonth() + 1, now.getFullYear());
@@ -92,41 +88,32 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
 
   const handleAddRoom = async (id, name, price, hasAc, people) => {
     try {
-      if (!name) {
-        await loadRooms();
-        return;
-      }
-      if (id) {
-        await updateRoom(id, name, price, hasAc, people);
-      } else {
-        await addRoom(name, price, hasAc, people, walletId);
-      }
+      if (!name) { await loadRooms(); return; }
+      if (id) await updateRoom(id, name, price, hasAc, people);
+      else await addRoom(name, price, hasAc, people, walletId);
       setShowAddRoom(false);
       setEditingRoom(null);
       await loadRooms();
     } catch (e) {
-      Alert.alert('Loi', e.message || 'Khong the luu phong');
+      Alert.alert('Lỗi', e.message || 'Không thể lưu phòng');
     }
   };
 
-  const handleTerminate = (room) => {
-    (async () => {
-      const refundInput = await promptDialog({
-        title: 'Thanh ly hop dong',
-        message: `Xac nhan tra phong ${room.name}. Nhap so tien hoan coc:`,
-        defaultValue: String(room.deposit || 0),
-      });
-      if (refundInput === null) return;
-
-      try {
-        const refundAmount = parseInt(String(refundInput).replace(/[^0-9]/g, ''), 10) || 0;
-        await terminateContract(room.contract_id, room.id, refundAmount, walletId);
-        setActiveActionRoom(null);
-        await loadRooms();
-      } catch (e) {
-        Alert.alert('Loi', e.message || 'Khong the thanh ly');
-      }
-    })();
+  const handleTerminate = async (room) => {
+    const refundInput = await promptDialog({
+      title: 'Terminate contract',
+      message: `Xác nhận trả phòng ${room.name}. Nhập số tiền hoàn cọc:`,
+      defaultValue: String(room.deposit || 0),
+    });
+    if (refundInput === null) return;
+    try {
+      const refundAmount = parseInt(String(refundInput).replace(/[^0-9]/g, ''), 10) || 0;
+      await terminateContract(room.contract_id, room.id, refundAmount, walletId);
+      setActiveActionRoom(null);
+      await loadRooms();
+    } catch (e) {
+      Alert.alert('Lỗi', e.message || 'Không thể chấm dứt');
+    }
   };
 
   const handleRoomAction = (action) => {
@@ -135,36 +122,54 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
     setActiveActionRoom(null);
     setTimeout(() => {
       if (action === 'invoice') setShowCreateInvoice(room);
-      if (action === 'contract') {
-        setEditingContract(room);
-        setShowAddTenant(room);
-      }
-      if (action === 'history') navigation.navigate('Transactions', { walletId, walletName: `Phong ${room.name}` });
+      if (action === 'contract') { setEditingContract(room); setShowAddTenant(room); }
+      if (action === 'history') navigation.navigate('Transactions', { walletId, walletName: `Phòng ${room.name}` });
     }, 200);
   };
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>;
-
-  const filteredRooms = rooms.filter(
-    (r) =>
-      String(r.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      String(r.tenant_name || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // KPI Calculations
+  const occupiedCount = rooms.filter((r) => r.status === 'occupied').length;
+  const vacantCount = rooms.length - occupiedCount;
+  const occupiedRentSum = rooms.filter((r) => r.status === 'occupied').reduce((sum, r) => sum + Number(r.price || 0), 0);
   const monthlyInvoiceEntries = Object.values(monthlyInvoices);
-  const pendingInvoiceCount = monthlyInvoiceEntries.filter((invoice) => invoice && invoice.status !== 'paid').length;
-  const paidInvoiceCount = monthlyInvoiceEntries.filter((invoice) => invoice && invoice.status === 'paid').length;
+  const pendingInvoiceCount = monthlyInvoiceEntries.filter((inv) => inv && inv.status !== 'paid').length;
+  const paidInvoiceCount = monthlyInvoiceEntries.filter((inv) => inv && inv.status === 'paid').length;
+
+  // Filter Logic
+  const filteredRooms = rooms.filter((r) => {
+    const matchSearch = String(r.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                        String(r.tenant_name || '').toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchSearch) return false;
+
+    if (filterTab === 'occupied') return r.status === 'occupied';
+    if (filterTab === 'vacant') return r.status !== 'occupied';
+    if (filterTab === 'debt') {
+      const invoice = monthlyInvoices[r.id];
+      return r.status === 'occupied' && invoice && invoice.status !== 'paid';
+    }
+    return true; // filterTab === 'all'
+  });
+
   const isWeb = Platform.OS === 'web';
-  const isDesktopWeb = isWeb && !isEmbedded;
+  const isDesktopWeb = isWeb && width >= 1024 && !isEmbedded;
   const contentMaxWidth = width >= 1440 ? 1280 : width >= 1024 ? 1120 : 960;
-  const roomCardBasis =
-    width >= 1360 ? '24%' : width >= 1080 ? '32%' : width >= 760 ? '48.5%' : '100%';
+  
+  // Cross-browser & React Native valid accurate sizing grid logic
+  const GAP = 16;
+  const columns = width >= 1360 ? 4 : width >= 1080 ? 3 : width >= 760 ? 2 : 1;
+  const safeContainerWidth = isWeb ? Math.min(width - (width > 760 ? 64 : 32), contentMaxWidth) : width - 32;
+  const cardWidth = columns === 1 ? '100%' : (safeContainerWidth - (columns - 1) * GAP) / columns;
+
+  if (loading && rooms.length === 0) {
+    return <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>;
+  }
 
   return (
     <View style={styles.root}>
       {!isEmbedded && !isDesktopWeb ? (
         <TopAppBar
           title={walletName}
-          subtitle="Quan ly nha tro"
+          subtitle="Quản lý nhà trọ"
           onBack={() => navigation.goBack()}
           rightIcon="add"
           onRightPress={() => { setEditingRoom(null); setShowAddRoom(true); }}
@@ -172,427 +177,498 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
       ) : null}
 
       <ScrollView
+        style={{ flex: 1, width: '100%' }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadRooms(); }} tintColor={COLORS.primary} />}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
       >
-        <View style={[styles.container, isWeb && styles.containerWeb, { maxWidth: contentMaxWidth }]}>
-          <View style={[styles.heroBlock, isWeb && styles.heroBlockWeb]}>
-            <SurfaceCard tone="low" style={[styles.kpiCard, isWeb && styles.kpiCardWeb]}>
-              <View style={styles.kpiCol}>
-                <Text style={styles.kpiLabel}>Phong co khach</Text>
-                <Text style={styles.kpiValue}>{occupiedCount}/{rooms.length}</Text>
+        <View style={[styles.container, { maxWidth: contentMaxWidth }]}>
+          
+          {/* KPI Dashboard */}
+          <View style={styles.kpiDashboard}>
+            <View style={[styles.kpiCard, { flex: 1, backgroundColor: COLORS.surfaceLowest }]}>
+              <Ionicons name="home-outline" size={24} color={COLORS.primary} style={styles.kpiIcon} />
+              <View>
+                <Text style={styles.kpiValue}>{occupiedCount} <Text style={styles.kpiSubValue}>/ {rooms.length}</Text></Text>
+                <Text style={styles.kpiLabel}>Phòng cho thuê</Text>
               </View>
-              <View style={styles.kpiDivider} />
-              <View style={styles.kpiCol}>
-                <Text style={styles.kpiLabel}>Doanh thu du kien</Text>
-                <Text style={[styles.kpiValue, { color: COLORS.primary }]}>{formatCurrency(occupiedRentSum)}</Text>
+            </View>
+            <View style={[styles.kpiCard, { flex: 1, backgroundColor: COLORS.surfaceLowest }]}>
+              <Ionicons name="cash-outline" size={24} color={COLORS.success} style={styles.kpiIcon} />
+              <View>
+                <Text style={[styles.kpiValue, { color: COLORS.success }]}>{formatCurrency(occupiedRentSum)}</Text>
+                <Text style={styles.kpiLabel}>Doanh thu hàng tháng</Text>
               </View>
-              {isWeb ? (
-                <>
-                  <View style={styles.kpiDivider} />
-                  <View style={styles.kpiCol}>
-                    <Text style={styles.kpiLabel}>Phong trong</Text>
-                    <Text style={styles.kpiValue}>{Math.max(rooms.length - occupiedCount, 0)}</Text>
+            </View>
+            {isWeb && (
+              <>
+                <View style={[styles.kpiCard, { flex: 1, backgroundColor: COLORS.surfaceLowest }]}>
+                  <Ionicons name="alert-circle-outline" size={24} color={pendingInvoiceCount > 0 ? COLORS.warning : COLORS.textMuted} style={styles.kpiIcon} />
+                  <View>
+                    <Text style={[styles.kpiValue, { color: pendingInvoiceCount > 0 ? COLORS.warning : COLORS.textPrimary }]}>{pendingInvoiceCount}</Text>
+                    <Text style={styles.kpiLabel}>Hóa đơn chờ thu</Text>
                   </View>
-                  <View style={styles.kpiDivider} />
-                  <View style={styles.kpiCol}>
-                    <Text style={styles.kpiLabel}>Bill cho thu</Text>
-                    <Text style={styles.kpiValue}>{pendingInvoiceCount}</Text>
-                  </View>
-                </>
-              ) : null}
-            </SurfaceCard>
-
-            {isWeb ? (
-              <SurfaceCard tone="lowest" style={styles.noticeCard}>
-                <Text style={styles.noticeEyebrow}>QUAN TRI DAY PHONG</Text>
-                <Text style={styles.noticeTitle}>Luong van hanh tren web</Text>
-                <Text style={styles.noticeText}>Chon phong de thao tac hop dong, lap hoa don va theo doi trang thai thu tien. UI duoc bo tri lai theo kieu dashboard quan ly, khong thay doi chuc nang.</Text>
-              </SurfaceCard>
-            ) : null}
-          </View>
-
-          <View style={[styles.summaryStrip, isWeb && styles.summaryStripWeb]}>
-            <SurfaceCard tone="lowest" style={styles.summaryCard}>
-              <Text style={styles.summaryLabel}>Bill da thu trong thang</Text>
-              <Text style={[styles.summaryValue, { color: COLORS.secondary }]}>{paidInvoiceCount}</Text>
-            </SurfaceCard>
-            <SurfaceCard tone="lowest" style={styles.summaryCard}>
-              <Text style={styles.summaryLabel}>Phong dang hien thi</Text>
-              <Text style={styles.summaryValue}>{filteredRooms.length}</Text>
-            </SurfaceCard>
-          </View>
-
-          <View style={[styles.toolbar, isWeb && styles.toolbarWeb]}>
-            <SearchBar
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Tim phong, ten khach..."
-              style={styles.searchBar}
-            />
-            {isWeb ? (
-              <View style={styles.toolbarActions}>
-                <View style={styles.toolbarMeta}>
-                  <Text style={styles.toolbarMetaText}>{filteredRooms.length} phong hien thi</Text>
                 </View>
-                <TouchableOpacity style={styles.toolbarActionBtn} onPress={() => { setEditingRoom(null); setShowAddRoom(true); }}>
+                <View style={[styles.kpiCard, { flex: 1, backgroundColor: COLORS.surfaceLowest }]}>
+                  <Ionicons name="checkmark-circle-outline" size={24} color={COLORS.primary} style={styles.kpiIcon} />
+                  <View>
+                    <Text style={styles.kpiValue}>{paidInvoiceCount}</Text>
+                    <Text style={styles.kpiLabel}>Hóa đơn đã thu</Text>
+                  </View>
+                </View>
+              </>
+            )}
+          </View>
+
+          {/* Action Toolbar */}
+          <SurfaceCard tone="lowest" style={styles.toolbarLayer}>
+            <View style={styles.toolbarHeader}>
+              <Text style={styles.sectionTitle}>Danh sách phòng</Text>
+              <View style={styles.actionGroup}>
+                {isWeb && (
+                  <>
+                    <TouchableOpacity style={[styles.actionBtn, styles.actionBtnOutline]} onPress={() => navigation.navigate('TenantLanding')}>
+                      <Ionicons name="globe-outline" size={16} color={COLORS.primary} />
+                      <Text style={styles.actionBtnTextOutline}>Landing Page</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.actionBtn, styles.actionBtnSoft]} onPress={() => navigation.navigate('SmartBatchBilling')}>
+                      <Ionicons name="flash" size={16} color={COLORS.primary} />
+                      <Text style={styles.actionBtnTextSoft}>Hóa đơn hàng loạt</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+                <TouchableOpacity style={[styles.actionBtn, styles.actionBtnPrimary]} onPress={() => { setEditingRoom(null); setShowAddRoom(true); }}>
                   <Ionicons name="add" size={18} color="#fff" />
-                  <Text style={styles.toolbarActionBtnText}>Them phong</Text>
+                  <Text style={styles.actionBtnTextPrimary}>Thêm phòng</Text>
                 </TouchableOpacity>
               </View>
-            ) : null}
-          </View>
-
-          <View style={[styles.billingActions, isWeb && styles.billingActionsWeb]}>
-            <TouchableOpacity
-              style={[styles.billingActionCard, styles.billingActionPrimary]}
-              onPress={() => navigation.navigate('Invoices')}
-            >
-              <View style={styles.billingActionIcon}>
-                <Ionicons name="receipt-outline" size={18} color="#fff" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.billingActionTitle}>Lap hoa don thang</Text>
-                <Text style={styles.billingActionText}>Vao man hoa don de tao bill tung phong theo thang.</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#fff" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.billingActionCard}
-              onPress={() => navigation.navigate('SmartBatchBilling')}
-            >
-              <View style={[styles.billingActionIcon, styles.billingActionIconSoft]}>
-                <Ionicons name="flash-outline" size={18} color={COLORS.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-              <Text style={styles.billingActionTitleDark}>Lap hoa don hang loat</Text>
-              <Text style={styles.billingActionTextDark}>Mo luong batch billing neu can xu ly nhieu phong cung luc.</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.primary} />
-          </TouchableOpacity>
-          </View>
 
-          <View style={[styles.sectionRow, isWeb && styles.sectionRowWeb]}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>Danh sach phong</Text>
-              <Text style={styles.sectionText}>Theo doi trang thai thue, bill thang va thao tac hop dong ngay tren tung phong.</Text>
+            <View style={styles.searchRow}>
+              <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Tìm theo tên phòng, tên khách..." style={{ flex: 1 }} />
             </View>
-            {isWeb ? (
-              <View style={styles.sectionPill}>
-                <Text style={styles.sectionPillText}>{filteredRooms.length} phong</Text>
-              </View>
-            ) : null}
-          </View>
 
+            <View style={styles.tabsRow}>
+              <TouchableOpacity onPress={() => setFilterTab('all')} style={[styles.tab, filterTab === 'all' && styles.tabActive]}>
+                <Text style={[styles.tabText, filterTab === 'all' && styles.tabTextActive]}>Tất cả ({rooms.length})</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setFilterTab('occupied')} style={[styles.tab, filterTab === 'occupied' && styles.tabActive]}>
+                <Text style={[styles.tabText, filterTab === 'occupied' && styles.tabTextActive]}>Đang thuê ({occupiedCount})</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setFilterTab('vacant')} style={[styles.tab, filterTab === 'vacant' && styles.tabActive]}>
+                <Text style={[styles.tabText, filterTab === 'vacant' && styles.tabTextActive]}>Trống ({vacantCount})</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setFilterTab('debt')} style={[styles.tab, filterTab === 'debt' && styles.tabActive]}>
+                <Text style={[styles.tabText, filterTab === 'debt' && styles.tabTextActive]}>Chờ thu tiền ({pendingInvoiceCount})</Text>
+                {pendingInvoiceCount > 0 && <View style={styles.tabBadge}><Text style={styles.tabBadgeText}>{pendingInvoiceCount}</Text></View>}
+              </TouchableOpacity>
+            </View>
+          </SurfaceCard>
+
+          {/* Room Grid */}
           {filteredRooms.length === 0 ? (
             <View style={styles.emptyWrap}>
-              <Ionicons name="search-outline" size={48} color={COLORS.border} />
-              <Text style={styles.emptyTitle}>Khong tim thay phong phu hop</Text>
-              <Text style={styles.emptyText}>Thu doi tu khoa tim kiem hoac bo loc de xem lai toan bo danh sach phong.</Text>
+              <Ionicons name="search-outline" size={48} color={COLORS.borderStrong} />
+              <Text style={styles.emptyTitle}>Không có phòng nào phù hợp</Text>
+              <Text style={styles.emptyText}>Thử thay đổi bộ lọc hoặc xóa từ khóa tìm kiếm để xem các phòng khác.</Text>
             </View>
           ) : (
             <View style={styles.roomGrid}>
               {filteredRooms.map((room) => {
-              const isOccupied = room.status === 'occupied';
-              const invoice = monthlyInvoices[room.id];
-              const isPaid = invoice?.status === 'paid';
-              const invoiceLabel = !invoice ? 'Chua lap bill' : isPaid ? 'Bill da thu' : 'Bill cho thu';
-              return (
-                <TouchableOpacity
-                  key={room.id}
-                  activeOpacity={isOccupied ? 0.85 : 1}
-                  style={[styles.roomCard, isWeb && styles.roomCardWeb, { width: roomCardBasis }]}
-                  onPress={() => isOccupied && setActiveActionRoom(room)}
-                >
-                  <View style={styles.roomTop}>
-                    <View style={styles.roomBadge}>
-                      <Text style={styles.roomBadgeText}>P{room.name}</Text>
-                    </View>
-                    <View style={styles.roomTopActions}>
-                      {isWeb ? (
-                        <View style={[styles.roomStatePill, { backgroundColor: isOccupied ? COLORS.primaryLight : COLORS.surfaceLow }]}>
-                          <Text style={[styles.roomStateText, { color: isOccupied ? COLORS.primaryDark : COLORS.textMuted }]}>
-                            {isOccupied ? 'Dang thue' : 'Phong trong'}
-                          </Text>
+                const isOccupied = room.status === 'occupied';
+                const invoice = monthlyInvoices[room.id];
+                const isPaid = invoice?.status === 'paid';
+                return (
+                  <TouchableOpacity
+                    key={room.id}
+                    activeOpacity={isOccupied ? 0.7 : 1}
+                    style={[styles.roomCard, { width: cardWidth }]}
+                    onPress={() => isOccupied && setActiveActionRoom(room)}
+                  >
+                    <View style={styles.cardHeader}>
+                      <View style={styles.cardHeaderLeft}>
+                        <View style={[styles.roomNameBadge, !isOccupied && { backgroundColor: COLORS.surfaceHigh }]}>
+                          <Text style={[styles.roomNameText, !isOccupied && { color: COLORS.textSecondary }]}>P.{room.name}</Text>
                         </View>
-                      ) : null}
-                      <TouchableOpacity onPress={() => { setEditingRoom(room); setShowAddRoom(true); }}>
-                        <Ionicons name="pencil" size={14} color={COLORS.textMuted} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {isOccupied ? (
-                    <>
-                      <Text numberOfLines={1} style={styles.tenant}>{room.tenant_name || 'Khach thue'}</Text>
-                      <Text style={styles.roomPrice}>{formatCurrency(room.price || 0)}</Text>
-                      {isWeb ? (
-                        <View style={styles.infoStack}>
-                          <Text style={styles.infoLine}>SDT: {room.tenant_phone || 'Chua cap nhat'}</Text>
-                          <Text style={styles.infoLine}>Nguoi o: {room.num_people || 1}</Text>
-                        </View>
-                      ) : null}
-                      {isWeb ? (
-                        <View style={styles.invoiceRow}>
-                          <View style={[styles.invoicePill, { backgroundColor: invoice ? (isPaid ? COLORS.successLight : COLORS.warningLight) : COLORS.surfaceLow }]}>
-                            <Text style={[styles.invoicePillText, { color: invoice ? (isPaid ? COLORS.secondary : COLORS.warning) : COLORS.textMuted }]}>{invoiceLabel}</Text>
-                          </View>
-                        </View>
-                      ) : null}
-                      <View style={styles.statusRow}>
-                        <View style={[styles.dot, { backgroundColor: isPaid ? COLORS.secondary : COLORS.warning }]} />
-                        <Text style={styles.statusText}>{isPaid ? 'Da thu' : 'Cho thu'}</Text>
+                        {isOccupied ? (
+                           <View style={[styles.statusPill, { backgroundColor: COLORS.primaryLight }]}>
+                             <Text style={[styles.statusPillText, { color: COLORS.primaryDark }]}>Đang thuê</Text>
+                           </View>
+                        ) : (
+                           <View style={[styles.statusPill, { backgroundColor: COLORS.surfaceHigh }]}>
+                             <Text style={[styles.statusPillText, { color: COLORS.textSecondary }]}>Trống</Text>
+                           </View>
+                        )}
                       </View>
-                      {isWeb ? <Text style={styles.cardHint}>Nhan vao the phong de mo thao tac hop dong, lich su va lap bill.</Text> : null}
-                    </>
-                  ) : (
-                    <>
-                      {isWeb ? <Text style={styles.emptyRoomText}>Phong san sang de tao hop dong moi.</Text> : null}
-                      <TouchableOpacity style={styles.rentBtn} onPress={() => setShowAddTenant(room)}>
-                        <Ionicons name="person-add" size={16} color={COLORS.primary} />
-                        <Text style={styles.rentBtnText}>Cho thue ngay</Text>
+                      <TouchableOpacity onPress={() => { setEditingRoom(room); setShowAddRoom(true); }} style={styles.editBtn}>
+                        <Ionicons name="pencil" size={16} color={COLORS.textMuted} />
                       </TouchableOpacity>
-                    </>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+                    </View>
+
+                    <View style={styles.cardBody}>
+                      {isOccupied ? (
+                        <>
+                          <Text style={styles.tenantName} numberOfLines={1}>{room.tenant_name || 'Người thuê'}</Text>
+                          <Text style={styles.roomPrice}>{formatCurrency(room.price || 0)}</Text>
+                          
+                          <View style={styles.infoStrip}>
+                             <Ionicons name="call-outline" size={14} color={COLORS.textMuted} />
+                             <Text style={styles.infoText}>{room.tenant_phone || 'Không có sđt'}</Text>
+                          </View>
+
+                          <View style={styles.invoiceWrap}>
+                            <View style={[styles.invoiceAlertPill, { backgroundColor: invoice ? (isPaid ? COLORS.successLight : COLORS.warningLight) : COLORS.surfaceContainer }]}>
+                               <View style={[styles.dot, { backgroundColor: invoice ? (isPaid ? COLORS.success : COLORS.warning) : COLORS.textMuted }]} />
+                               <Text style={[styles.invoiceAlertText, { color: invoice ? (isPaid ? COLORS.success : COLORS.warning) : COLORS.textSecondary }]}>
+                                 {!invoice ? 'Chưa lập hóa đơn' : isPaid ? 'Đã thanh toán' : 'Chờ thu tiền'}
+                               </Text>
+                            </View>
+                          </View>
+                        </>
+                      ) : (
+                        <View style={styles.vacantBody}>
+                          <View style={styles.vacantIconWrap}>
+                             <Ionicons name="home-outline" size={32} color={COLORS.borderStrong} />
+                          </View>
+                          <Text style={styles.vacantPrice}>{formatCurrency(room.price || 0)}/th</Text>
+                          <TouchableOpacity style={styles.rentBtn} onPress={() => setShowAddTenant(room)}>
+                            <Ionicons name="person-add" size={16} color="#fff" />
+                            <Text style={styles.rentBtnText}>Cho thuê phòng</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
         </View>
       </ScrollView>
 
-      <AddRoomBottomSheet
-        visible={showAddRoom}
-        room={editingRoom}
-        onClose={() => setShowAddRoom(false)}
-        onSave={handleAddRoom}
-        deleteRoom={deleteRoom}
-      />
+      {/* Floating Action Button for Mobile */}
+      {!isDesktopWeb && (
+        <TouchableOpacity 
+          style={styles.fab} 
+          onPress={() => { setEditingRoom(null); setShowAddRoom(true); }}
+        >
+          <Ionicons name="add" size={32} color="#fff" />
+        </TouchableOpacity>
+      )}
 
-      <AddTenantContractSheet
-        visible={Boolean(showAddTenant)}
-        room={showAddTenant}
-        editingContract={editingContract}
-        onClose={() => { setShowAddTenant(null); setEditingContract(null); }}
-        onSave={(data) => {
-          setContractPreviewData(data);
-          setContractPreviewRoom(showAddTenant);
-          setContractPreviewEditing(editingContract);
-          setShowAddTenant(null);
-          setEditingContract(null);
-          setShowContractPreview(true);
-        }}
+      {/* Shared Modals */}
+      <AddRoomBottomSheet 
+        visible={showAddRoom} 
+        room={editingRoom} 
+        onClose={() => { setShowAddRoom(false); setEditingRoom(null); }} 
+        onSave={handleAddRoom} 
+        deleteRoom={deleteRoom} 
       />
-
-      <ContractPreviewModal
-        visible={showContractPreview}
-        data={contractPreviewData}
-        room={contractPreviewRoom}
-        onClose={() => {
-          setShowContractPreview(false);
-          setContractPreviewData(null);
-          setContractPreviewRoom(null);
-          setContractPreviewEditing(null);
-        }}
-        onConfirm={async () => {
-          try {
-            if (!contractPreviewData) return;
-            const { tenantName, phone, idCard, address, startDate, deposit, serviceIds } = contractPreviewData;
-            if (contractPreviewEditing) {
-              await updateTenant(contractPreviewEditing.tenant_id, { name: tenantName, phone, idCard, address });
-              await updateContract(contractPreviewEditing.contract_id, { startDate, deposit, serviceIds });
-            } else {
-              const tenantId = await addTenant(tenantName, phone, idCard, address);
-              await addContract(contractPreviewData.roomId, tenantId, startDate, deposit, serviceIds);
-            }
-            await loadRooms();
-            setShowContractPreview(false);
-            setContractPreviewData(null);
-            setContractPreviewRoom(null);
-            setContractPreviewEditing(null);
-          } catch (e) {
-            Alert.alert('Loi', e.message || 'Khong the luu hop dong');
-          }
-        }}
-      />
-
-      <CreateInvoiceSheet
-        visible={Boolean(showCreateInvoice)}
-        room={showCreateInvoice}
-        onClose={() => setShowCreateInvoice(null)}
-        onSaveSuccessful={() => {
-          setShowCreateInvoice(null);
-          loadRooms();
-        }}
-      />
-
-      <RoomActionSheet
-        visible={Boolean(activeActionRoom)}
-        room={activeActionRoom}
-        hasInvoice={!!(activeActionRoom && monthlyInvoices[activeActionRoom.id])}
-        onClose={() => setActiveActionRoom(null)}
-        onAction={handleRoomAction}
-        onTerminate={() => handleTerminate(activeActionRoom)}
-      />
+      <AddTenantContractSheet visible={Boolean(showAddTenant)} room={showAddTenant} editingContract={editingContract} onClose={() => { setShowAddTenant(null); setEditingContract(null); }} onSave={(d) => { setContractPreviewData(d); setContractPreviewRoom(showAddTenant); setContractPreviewEditing(editingContract); setShowAddTenant(null); setEditingContract(null); setShowContractPreview(true); }} />
+      <ContractPreviewModal visible={showContractPreview} data={contractPreviewData} room={contractPreviewRoom} onClose={() => { setShowContractPreview(false); setContractPreviewData(null); setContractPreviewRoom(null); setContractPreviewEditing(null); }} onConfirm={async () => { try { if (!contractPreviewData) return; const { tenantName, phone, idCard, address, startDate, deposit, serviceIds } = contractPreviewData; if (contractPreviewEditing) { await updateTenant(contractPreviewEditing.tenant_id, { name: tenantName, phone, idCard, address }); await updateContract(contractPreviewEditing.contract_id, { startDate, deposit, serviceIds }); } else { const tId = await addTenant(tenantName, phone, idCard, address); await addContract(contractPreviewData.roomId, tId, startDate, deposit, serviceIds); } await loadRooms(); setShowContractPreview(false); setContractPreviewData(null); setContractPreviewRoom(null); setContractPreviewEditing(null); } catch (e) { Alert.alert('Lỗi', e.message); } }} />
+      <CreateInvoiceSheet visible={Boolean(showCreateInvoice)} room={showCreateInvoice} onClose={() => setShowCreateInvoice(null)} onSaveSuccessful={() => { setShowCreateInvoice(null); loadRooms(); }} />
+      <RoomActionSheet visible={Boolean(activeActionRoom)} room={activeActionRoom} hasInvoice={!!(activeActionRoom && monthlyInvoices[activeActionRoom.id])} onClose={() => setActiveActionRoom(null)} onAction={handleRoomAction} onTerminate={() => handleTerminate(activeActionRoom)} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.surface },
+  root: { flex: 1, backgroundColor: COLORS.surfacePage },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  container: { paddingHorizontal: 16, gap: 12 },
-  containerWeb: { width: '100%', alignSelf: 'center', paddingTop: 20 },
-  heroBlock: { gap: 12 },
-  heroBlockWeb: { flexDirection: 'row', alignItems: 'stretch' },
-  kpiCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  kpiCardWeb: { flex: 1.2 },
-  kpiCol: { flex: 1 },
-  kpiDivider: { width: 1, height: 36, backgroundColor: COLORS.border, marginHorizontal: 10 },
-  kpiLabel: { ...TYPOGRAPHY.label, color: COLORS.textMuted },
-  kpiValue: { marginTop: 4, fontSize: 20, color: COLORS.textPrimary, ...FONTS.bold },
-  noticeCard: { flex: 0.95, justifyContent: 'center' },
-  noticeEyebrow: { color: COLORS.textMuted, fontSize: 11, ...FONTS.bold, letterSpacing: 0.4 },
-  noticeTitle: { marginTop: 8, fontSize: 18, color: COLORS.textPrimary, ...FONTS.bold },
-  noticeText: { marginTop: 8, fontSize: 13, lineHeight: 20, color: COLORS.textSecondary, ...FONTS.medium },
-  toolbar: { gap: 10 },
-  toolbarWeb: { flexDirection: 'row', alignItems: 'center' },
-  searchBar: { flex: 1 },
-  toolbarActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  toolbarMeta: {
-    minWidth: 150,
-    height: 48,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.borderSoft,
-    backgroundColor: COLORS.surfaceLowest,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
+  container: {
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: Platform.OS === 'web' ? 32 : 16,
+    paddingTop: 24,
+    gap: 20,
   },
-  toolbarMetaText: { color: COLORS.textSecondary, fontSize: 12, ...FONTS.semibold },
-  toolbarActionBtn: {
-    height: 48,
-    borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 16,
+  
+  // KPI Dashboards
+  kpiDashboard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    ...SHADOW.sm,
-  },
-  toolbarActionBtnText: { color: '#fff', fontSize: 12, ...FONTS.bold },
-  summaryStrip: { gap: 10 },
-  summaryStripWeb: { flexDirection: 'row', alignItems: 'stretch' },
-  summaryCard: { flex: 1 },
-  summaryLabel: { fontSize: 11, color: COLORS.textMuted, ...FONTS.medium },
-  summaryValue: { marginTop: 6, fontSize: 18, color: COLORS.textPrimary, ...FONTS.bold },
-  billingActions: { gap: 10 },
-  billingActionsWeb: { flexDirection: 'row', alignItems: 'stretch' },
-  billingActionCard: {
-    flex: 1,
-    minHeight: 86,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.borderSoft,
-    backgroundColor: COLORS.surfaceLowest,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 12,
-    ...SHADOW.sm,
   },
-  billingActionPrimary: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  billingActionIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  billingActionIconSoft: {
-    backgroundColor: COLORS.primaryLight,
-  },
-  billingActionTitle: { color: '#fff', fontSize: 14, ...FONTS.bold },
-  billingActionText: { marginTop: 4, color: 'rgba(255,255,255,0.82)', fontSize: 12, lineHeight: 18, ...FONTS.medium },
-  billingActionTitleDark: { color: COLORS.textPrimary, fontSize: 14, ...FONTS.bold },
-  billingActionTextDark: { marginTop: 4, color: COLORS.textSecondary, fontSize: 12, lineHeight: 18, ...FONTS.medium },
-  sectionRow: { gap: 10 },
-  sectionRowWeb: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionTitle: { fontSize: 18, color: COLORS.textPrimary, ...FONTS.bold },
-  sectionText: { marginTop: 4, fontSize: 12, lineHeight: 18, color: COLORS.textSecondary, ...FONTS.medium },
-  sectionPill: {
-    height: 40,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.surfaceLow,
-    borderWidth: 1,
-    borderColor: COLORS.borderSoft,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionPillText: { fontSize: 12, color: COLORS.textSecondary, ...FONTS.bold },
-  emptyWrap: {
-    minHeight: 220,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.borderSoft,
-    backgroundColor: COLORS.surfaceLowest,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  emptyTitle: { marginTop: 12, fontSize: 18, color: COLORS.textPrimary, ...FONTS.bold },
-  emptyText: { marginTop: 8, maxWidth: 420, textAlign: 'center', fontSize: 13, lineHeight: 20, color: COLORS.textSecondary, ...FONTS.medium },
-  roomGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
-  roomCard: {
-    minHeight: 150,
-    backgroundColor: COLORS.surfaceLowest,
-    borderRadius: RADIUS.lg,
-    padding: 14,
-    marginBottom: 10,
-    ...SHADOW.sm,
-  },
-  roomCardWeb: {
-    minHeight: 210,
-    borderWidth: 1,
-    borderColor: COLORS.borderSoft,
-  },
-  roomTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  roomTopActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  roomBadge: { borderRadius: 8, backgroundColor: COLORS.surfaceLow, paddingHorizontal: 9, paddingVertical: 4 },
-  roomBadgeText: { fontSize: 12, color: COLORS.textPrimary, ...FONTS.bold },
-  roomStatePill: { borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 5 },
-  roomStateText: { fontSize: 10, ...FONTS.bold },
-  tenant: { fontSize: 14, color: COLORS.textPrimary, ...FONTS.semibold },
-  roomPrice: { marginTop: 4, fontSize: 16, color: COLORS.secondary, ...FONTS.bold },
-  infoStack: { marginTop: 10, gap: 4 },
-  infoLine: { fontSize: 12, color: COLORS.textSecondary, ...FONTS.medium },
-  invoiceRow: { marginTop: 10 },
-  invoicePill: { alignSelf: 'flex-start', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 6 },
-  invoicePillText: { fontSize: 10, ...FONTS.bold },
-  statusRow: { marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  statusText: { fontSize: 11, color: COLORS.textMuted, ...FONTS.medium },
-  cardHint: { marginTop: 10, fontSize: 11, lineHeight: 16, color: COLORS.textMuted, ...FONTS.medium },
-  emptyRoomText: { marginTop: 10, fontSize: 12, lineHeight: 18, color: COLORS.textSecondary, ...FONTS.medium },
-  rentBtn: {
-    marginTop: 20,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: COLORS.surfaceLow,
-    alignItems: 'center',
-    justifyContent: 'center',
+  kpiCard: {
+    minWidth: '45%',
     flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    gap: 14,
+    ...SHADOW.sm,
+  },
+  kpiIcon: {
+    opacity: 0.8,
+  },
+  kpiValue: {
+    fontSize: 24,
+    color: COLORS.textPrimary,
+    ...FONTS.bold,
+    lineHeight: 28,
+  },
+  kpiSubValue: {
+    fontSize: 16,
+    color: COLORS.textMuted,
+    ...FONTS.medium,
+  },
+  kpiLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    ...FONTS.medium,
+    marginTop: 2,
+  },
+
+  // Toolbar Layer
+  toolbarLayer: {
+    padding: 20,
+    gap: 16,
+  },
+  toolbarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    color: COLORS.textPrimary,
+    ...FONTS.bold,
+  },
+  actionGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  actionBtn: {
+    height: 40,
+    paddingHorizontal: 16,
+    borderRadius: RADIUS.md,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
-  rentBtnText: { fontSize: 12, color: COLORS.primary, ...FONTS.bold },
+  actionBtnPrimary: {
+    backgroundColor: COLORS.primary,
+    ...SHADOW.sm,
+  },
+  actionBtnTextPrimary: { color: '#fff', fontSize: 13, ...FONTS.bold },
+  actionBtnOutline: {
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    backgroundColor: COLORS.surfaceLowest,
+  },
+  actionBtnTextOutline: { color: COLORS.primary, fontSize: 13, ...FONTS.bold },
+  actionBtnSoft: {
+    backgroundColor: COLORS.surfaceContainer,
+  },
+  actionBtnTextSoft: { color: COLORS.primary, fontSize: 13, ...FONTS.bold },
+  
+  searchRow: {
+    flexDirection: 'row',
+  },
+
+  // Tabs
+  tabsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderSoft,
+    paddingBottom: 2,
+    flexWrap: 'wrap', // Allow wrap on small screens
+  },
+  tab: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tabActive: {
+    borderBottomColor: COLORS.primary,
+  },
+  tabText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    ...FONTS.semibold,
+  },
+  tabTextActive: {
+    color: COLORS.primary,
+    ...FONTS.bold,
+  },
+  tabBadge: {
+    backgroundColor: COLORS.error,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  tabBadgeText: {
+    // Exact sizing for badges
+    fontSize: 10,
+    color: '#fff',
+    ...FONTS.bold,
+  },
+
+  // Room Grid
+  roomGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    gap: 16,
+  },
+  roomCard: {
+    backgroundColor: COLORS.surfaceLowest,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    overflow: 'hidden',
+    ...SHADOW.sm,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceContainer,
+  },
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  roomNameBadge: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+  },
+  roomNameText: { color: '#fff', fontSize: 13, ...FONTS.bold },
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+  },
+  statusPillText: { fontSize: 11, ...FONTS.bold },
+  editBtn: {
+    padding: 4,
+  },
+
+  cardBody: {
+    padding: 16,
+    minHeight: 140, // consistent height
+  },
+  tenantName: {
+    fontSize: 16,
+    color: COLORS.textPrimary,
+    ...FONTS.bold,
+    marginBottom: 4,
+  },
+  roomPrice: {
+    fontSize: 18,
+    color: COLORS.textPrimary,
+    ...FONTS.bold,
+    marginBottom: 12,
+  },
+  infoStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    ...FONTS.medium,
+  },
+  invoiceWrap: {
+    marginTop: 'auto',
+    paddingTop: 12,
+  },
+  invoiceAlertPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.sm,
+    alignSelf: 'flex-start',
+    gap: 6,
+  },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  invoiceAlertText: {
+    fontSize: 12,
+    ...FONTS.bold,
+  },
+
+  // Vacant State
+  vacantBody: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  vacantIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.surfaceLow,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  vacantPrice: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    ...FONTS.semibold,
+    marginBottom: 16,
+  },
+  vacantPrice: { fontSize: 13, color: COLORS.textMuted, ...FONTS.medium, marginBottom: 12 },
+  rentBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: RADIUS.md },
+  rentBtnText: { color: '#fff', fontSize: 12, ...FONTS.bold },
+
+  // Empty Search/Filter State
+  emptyWrap: {
+    minHeight: 280,
+    backgroundColor: COLORS.surfaceLowest,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    color: COLORS.textPrimary,
+    ...FONTS.bold,
+    marginTop: 16,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    ...FONTS.medium,
+    marginTop: 8,
+    textAlign: 'center',
+    maxWidth: 320,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOW.lg,
+    zIndex: 999,
+  },
 });

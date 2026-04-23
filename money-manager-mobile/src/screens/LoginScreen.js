@@ -28,7 +28,7 @@ export default function LoginScreen() {
 
   const handleAuth = async () => {
     if (!email || !password) {
-      Alert.alert('Loi', 'Vui long nhap day du Email va Mat khau');
+      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ email và mật khẩu');
       return;
     }
 
@@ -38,16 +38,16 @@ export default function LoginScreen() {
         await login(email, password);
       } else {
         await signUp(email, password);
-        Alert.alert('Thanh cong', 'Da tao tai khoan moi');
+        Alert.alert('Thành công', 'Đã tạo tài khoản mới');
       }
     } catch (error) {
       console.error(error);
-      let msg = error?.message || 'Da co loi xay ra';
-      if (error?.status === 401) msg = 'Email hoac mat khau khong dung';
+      let msg = error?.message || 'Đã xảy ra lỗi';
+      if (error?.status === 401) msg = 'Email hoặc mật khẩu không đúng';
       if (error?.status === 400 && /already registered|already exists/i.test(error?.message || '')) {
-        msg = 'Email nay da duoc su dung';
+        msg = 'Email này đã được sử dụng';
       }
-      Alert.alert('That bai', msg);
+      Alert.alert('Thất bại', msg);
     } finally {
       setLoading(false);
     }
@@ -55,11 +55,11 @@ export default function LoginScreen() {
 
   const formContent = (
     <>
-      <Text style={styles.formTitle}>{isLogin ? 'Dang nhap' : 'Tao tai khoan'}</Text>
+      <Text style={styles.formTitle}>{isLogin ? 'Đăng nhập' : 'Tạo tài khoản'}</Text>
       <Text style={styles.formSub}>
         {isLogin
-          ? 'Truy cap workspace de quan ly phong, hoa don va giao dich.'
-          : 'Tao tai khoan moi de dong bo du lieu va su dung tren website.'}
+          ? 'Vào hệ thống để quản lý phòng, hóa đơn và giao dịch.'
+          : 'Tạo tài khoản để đồng bộ dữ liệu và dùng trên website.'}
       </Text>
 
       <View style={styles.group}>
@@ -79,7 +79,7 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.group}>
-        <Text style={styles.label}>Mat khau</Text>
+        <Text style={styles.label}>Mật khẩu</Text>
         <View style={styles.inputWrap}>
           <Ionicons name="lock-closed-outline" size={18} color={COLORS.textMuted} />
           <TextInput
@@ -94,12 +94,12 @@ export default function LoginScreen() {
       </View>
 
       <TouchableOpacity style={styles.mainBtn} onPress={handleAuth} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{isLogin ? 'Vao trang chu' : 'Dang ky ngay'}</Text>}
+        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{isLogin ? 'Vào trang chủ' : 'Đăng ký ngay'}</Text>}
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => setIsLogin(!isLogin)} style={styles.switchBtn}>
         <Text style={styles.switchText}>
-          {isLogin ? 'Chua co tai khoan? Dang ky' : 'Da co tai khoan? Dang nhap'}
+          {isLogin ? 'Chưa có tài khoản? Đăng ký' : 'Đã có tài khoản? Đăng nhập'}
         </Text>
       </TouchableOpacity>
     </>
@@ -117,25 +117,25 @@ export default function LoginScreen() {
                     <Ionicons name="wallet-outline" size={38} color={COLORS.primary} />
                   </View>
                   <Text style={styles.title}>Money Manager Pro</Text>
-                  <Text style={styles.subtitle}>Workspace van hanh cho tai chinh, nha tro va kinh doanh tren website.</Text>
+                  <Text style={styles.subtitle}>Không gian vận hành tài chính cá nhân, nhà trọ và kinh doanh trên website.</Text>
                 </View>
 
                 <View style={styles.featureStack}>
                   <SurfaceCard tone="lowest" style={styles.featureCard}>
-                    <Text style={styles.featureEyebrow}>RENTAL OPS</Text>
-                    <Text style={styles.featureTitle}>Hoa don theo thang</Text>
-                    <Text style={styles.featureText}>Theo doi phong chua lap, cho thu va da thu trong cung mot giao dien desktop.</Text>
+                    <Text style={styles.featureEyebrow}>VẬN HÀNH NHÀ TRỌ</Text>
+                    <Text style={styles.featureTitle}>Hóa đơn theo tháng</Text>
+                    <Text style={styles.featureText}>Theo dõi phòng chưa lập hóa đơn, chờ thu và đã thu trên cùng một màn hình máy tính.</Text>
                   </SurfaceCard>
                   <SurfaceCard tone="lowest" style={styles.featureCard}>
-                    <Text style={styles.featureEyebrow}>FINANCE OPS</Text>
-                    <Text style={styles.featureTitle}>Dong bo giao dich</Text>
-                    <Text style={styles.featureText}>Tap trung du lieu thu chi, so quan ly va cau hinh ngan hang cho doi soat.</Text>
+                    <Text style={styles.featureEyebrow}>VẬN HÀNH TÀI CHÍNH</Text>
+                    <Text style={styles.featureTitle}>Đồng bộ giao dịch</Text>
+                    <Text style={styles.featureText}>Tập trung dữ liệu thu/chi, sổ tiền và cấu hình ngân hàng để đối soát.</Text>
                   </SurfaceCard>
                 </View>
 
                 <View style={styles.brandFooter}>
-                  <Text style={styles.brandFooterLabel}>Cloud workspace</Text>
-                  <Text style={styles.brandFooterValue}>1 tai khoan, nhieu module van hanh</Text>
+                  <Text style={styles.brandFooterLabel}>Không gian đám mây</Text>
+                  <Text style={styles.brandFooterValue}>1 tài khoản, nhiều module vận hành</Text>
                 </View>
               </View>
 
@@ -150,18 +150,18 @@ export default function LoginScreen() {
                   <Ionicons name="wallet-outline" size={38} color={COLORS.primary} />
                 </View>
                 <Text style={styles.title}>Money Manager Pro</Text>
-                <Text style={styles.subtitle}>Dang nhap de dong bo du lieu tren cloud</Text>
+                <Text style={styles.subtitle}>Đăng nhập để đồng bộ dữ liệu lên đám mây</Text>
               </View>
 
               <SurfaceCard style={styles.form}>
                 {formContent}
               </SurfaceCard>
 
-              <Text style={styles.footer}>Copyright 2026 Money Manager Pro</Text>
+              <Text style={styles.footer}>Bản quyền 2026 Money Manager Pro</Text>
             </>
           )}
         </View>
-        {isDesktopWeb ? <Text style={styles.footerWeb}>Copyright 2026 Money Manager Pro</Text> : null}
+        {isDesktopWeb ? <Text style={styles.footerWeb}>Bản quyền 2026 Money Manager Pro</Text> : null}
       </KeyboardAvoidingView>
     </LinearGradient>
   );

@@ -23,6 +23,7 @@ import BankConfigScreen from '../screens/BankConfigScreen';
 import SmartBatchBillingScreen from '../screens/SmartBatchBillingScreen';
 import ModulesScreen from '../screens/ModulesScreen';
 import LoginScreen from '../screens/LoginScreen';
+import TenantLandingScreen from '../screens/TenantLandingScreen';
 import { subscribeToAuthChanges } from '../services/authService';
 import { isApiDataEnabled } from '../services/dataMode';
 import WebDesktopShell from '../components/ui/WebDesktopShell';
@@ -58,100 +59,100 @@ function withWebDesktopShell(Component, options) {
 
 const WebAnalyticsScreen = withWebDesktopShell(AnalyticsScreen, {
   routeName: 'Analytics',
-  title: 'Bao cao & thong ke',
-  subtitle: 'Dong tien va hieu suat',
-  searchPlaceholder: 'Tim bao cao, danh muc, ky thong ke...',
+  title: 'Báo cáo & phân tích',
+  subtitle: 'Dòng tiền và hiệu suất',
+  searchPlaceholder: 'Tìm báo cáo, danh mục, kỳ...',
 });
 
 const WebRentalScreen = withWebDesktopShell(RentalScreen, {
   routeName: 'Rental',
-  title: (props) => props.route?.params?.walletName || 'Quan ly nha tro',
-  subtitle: 'Van hanh phong tro',
-  searchPlaceholder: 'Tim phong, khach thue, hoa don...',
+  title: (props) => props.route?.params?.walletName || 'Quản lý nhà trọ',
+  subtitle: 'Vận hành cho thuê',
+  searchPlaceholder: 'Tìm phòng, người thuê, hóa đơn...',
 });
 
 const WebTradingScreen = withWebDesktopShell(TradingScreen, {
   routeName: 'Trading',
-  title: (props) => props.route?.params?.walletName || 'Kho va giao dich',
-  subtitle: 'Ton kho, loi nhuan, lo hang',
-  searchPlaceholder: 'Tim san pham, lo hang, danh muc...',
+  title: (props) => props.route?.params?.walletName || 'Kho hàng & kinh doanh',
+  subtitle: 'Tồn kho, lợi nhuận, lô hàng',
+  searchPlaceholder: 'Tìm sản phẩm, lô hàng, phân loại...',
 });
 
 const WebInvoicesScreen = withWebDesktopShell(InvoicesScreen, {
   routeName: 'Invoices',
-  title: 'Hoa don nha tro',
-  subtitle: 'Thu tien theo thang',
-  searchPlaceholder: 'Tim hoa don, phong, trang thai...',
+  title: 'Hóa đơn nhà trọ',
+  subtitle: 'Lập hóa đơn theo tháng',
+  searchPlaceholder: 'Tìm hóa đơn, phòng, trạng thái...',
 });
 
 const WebServicesScreen = withWebDesktopShell(ServicesScreen, {
   routeName: 'Services',
-  title: 'Bang gia dich vu',
-  subtitle: 'Cau hinh don gia',
-  searchPlaceholder: 'Tim dich vu, don gia, cach tinh...',
+  title: 'Bảng giá dịch vụ',
+  subtitle: 'Cấu hình mức phí',
+  searchPlaceholder: 'Tìm dịch vụ, đơn giá, cách tính...',
 });
 
 const WebWalletsManagerScreen = withWebDesktopShell(WalletsManagerScreen, {
   routeName: 'WalletsManager',
-  title: 'So & module',
-  subtitle: 'Quan ly workspace',
-  searchPlaceholder: 'Tim so, module, workspace...',
+  title: 'Sổ tiền & module',
+  subtitle: 'Quản lý không gian làm việc',
+  searchPlaceholder: 'Tìm sổ, module, không gian...',
 });
 
 const WebSettingsScreen = withWebDesktopShell(SettingsScreen, {
   routeName: 'Settings',
-  title: 'Cau hinh he thong',
-  subtitle: 'Tai khoan, sync, ngan hang',
-  searchPlaceholder: 'Tim cau hinh, ngan hang, sync...',
+  title: 'Cài đặt hệ thống',
+  subtitle: 'Tài khoản, đồng bộ, ngân hàng',
+  searchPlaceholder: 'Tìm cài đặt, ngân hàng, đồng bộ...',
 });
 
 const WebContractViewerScreen = withWebDesktopShell(ContractViewerScreen, {
   routeName: 'Rental',
-  title: 'Hop dong thue',
-  subtitle: 'Xem va doi soat',
-  searchPlaceholder: 'Tim hop dong, khach thue...',
+  title: 'Hợp đồng thuê phòng',
+  subtitle: 'Kiểm tra và đối soát',
+  searchPlaceholder: 'Tìm hợp đồng, người thuê...',
 });
 
 const WebTradingCategoriesScreen = withWebDesktopShell(TradingCategoriesScreen, {
   routeName: 'Trading',
-  title: 'Danh muc kinh doanh',
-  subtitle: 'Phan loai hang hoa',
-  searchPlaceholder: 'Tim danh muc hang hoa...',
+  title: 'Phân loại hàng hóa',
+  subtitle: 'Nhóm sản phẩm',
+  searchPlaceholder: 'Tìm phân loại sản phẩm...',
 });
 
 const WebBankConfigScreen = withWebDesktopShell(BankConfigScreen, {
   routeName: 'Settings',
-  title: 'Tai khoan nhan tien',
-  subtitle: 'Cau hinh doi soat',
-  searchPlaceholder: 'Tim tai khoan ngan hang...',
+  title: 'Tài khoản nhận tiền',
+  subtitle: 'Thiết lập đối soát',
+  searchPlaceholder: 'Tìm tài khoản ngân hàng...',
 });
 
 const WebModulesScreen = withWebDesktopShell(ModulesScreen, {
   routeName: 'WalletsManager',
-  title: 'Danh sach nghiep vu',
-  subtitle: 'Chon module',
-  searchPlaceholder: 'Tim module, nghiep vu...',
+  title: 'Danh sách module',
+  subtitle: 'Chọn module',
+  searchPlaceholder: 'Tìm module...',
 });
 
 const WebSmartBatchBillingScreen = withWebDesktopShell(SmartBatchBillingScreen, {
   routeName: 'Invoices',
-  title: 'Batch billing',
-  subtitle: 'Xu ly nhieu phong',
-  searchPlaceholder: 'Tim batch billing, phong, chi so...',
+  title: 'Lập hóa đơn hàng loạt',
+  subtitle: 'Xử lý nhiều phòng cùng lúc',
+  searchPlaceholder: 'Tìm lập hóa đơn loạt, phòng, công tơ...',
 });
 
 const WebCategoriesScreen = withWebDesktopShell(CategoriesScreen, {
   routeName: 'Settings',
-  title: 'Danh muc thu chi',
-  subtitle: 'Cau hinh he thong',
-  searchPlaceholder: 'Tim danh muc thu chi...',
+  title: 'Danh mục thu/chi',
+  subtitle: 'Thiết lập hệ thống',
+  searchPlaceholder: 'Tìm danh mục thu/chi...',
 });
 
 const WebAddTransactionScreen = withWebDesktopShell(AddTransactionScreen, {
   routeName: 'Transactions',
-  title: (props) => (props.route?.params?.editTx ? 'Sua giao dich' : 'Them giao dich'),
-  subtitle: 'Quan ly thu chi',
-  searchPlaceholder: 'Tim giao dich, danh muc, vi...',
+  title: (props) => (props.route?.params?.editTx ? 'Sửa giao dịch' : 'Thêm giao dịch'),
+  subtitle: 'Quản lý thu/chi',
+  searchPlaceholder: 'Tìm giao dịch, danh mục, sổ...',
 });
 
 function HomeStack() {
@@ -201,8 +202,8 @@ function MainTabs() {
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeStack} options={{ tabBarLabel: 'Trang chu' }} />
-      <Tab.Screen name="Analytics" component={AnalyticsScreen} options={{ tabBarLabel: 'Thong ke' }} />
+      <Tab.Screen name="Home" component={HomeStack} options={{ tabBarLabel: 'Trang chủ' }} />
+      <Tab.Screen name="Analytics" component={AnalyticsScreen} options={{ tabBarLabel: 'Phân tích' }} />
     </Tab.Navigator>
   );
 }
@@ -242,9 +243,13 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="Main" component={mainEntry} />
             <Stack.Screen name="AddTransaction" component={Platform.OS === 'web' ? WebAddTransactionScreen : AddTransactionScreen} />
+            <Stack.Screen name="TenantLanding" component={TenantLandingScreen} />
           </>
         ) : (
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="TenantLanding" component={TenantLandingScreen} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

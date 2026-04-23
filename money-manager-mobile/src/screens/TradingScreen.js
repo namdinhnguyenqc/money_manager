@@ -37,7 +37,7 @@ export default function TradingScreen({ route, navigation, walletId: propWalletI
   const [items, setItems] = useState([]);
   const [stats, setStats] = useState({ unsoldCapital: 0, unsoldCount: 0, realizedProfit: 0, soldCount: 0 });
   const [tab, setTab] = useState('available');
-  const [filterCat, setFilterCat] = useState('All');
+  const [filterCat, setFilterCat] = useState('Tất cả');
   const [uniqueCats, setUniqueCats] = useState([]);
 
   const [showAdd, setShowAdd] = useState(false);
@@ -58,7 +58,7 @@ export default function TradingScreen({ route, navigation, walletId: propWalletI
       setStats(s || { unsoldCapital: 0, unsoldCount: 0, realizedProfit: 0, soldCount: 0 });
 
       const currentTabItems = (data || []).filter((i) => i.status === tab);
-      const cats = [...new Set(currentTabItems.map((i) => i.category || 'Mac dinh'))];
+      const cats = [...new Set(currentTabItems.map((i) => i.category || 'Mặc định'))];
       setUniqueCats(cats);
     } catch (e) {
       console.error(e);
@@ -75,16 +75,16 @@ export default function TradingScreen({ route, navigation, walletId: propWalletI
       setEditItem(null);
       await loadData();
     } catch {
-      Alert.alert('Loi', 'Khong the luu san pham');
+      Alert.alert('Lỗi', 'Không thể lưu sản phẩm');
     }
   };
 
   const handleDelete = (id) => {
     (async () => {
       const confirmed = await confirmDialog({
-        title: 'Xoa hang',
-        message: 'Ban chac chan muon xoa?',
-        confirmText: 'Xoa',
+        title: 'Xóa mặt hàng',
+        message: 'Bạn có chắc muốn xóa mặt hàng này?',
+        confirmText: 'Xóa',
       });
       if (!confirmed) return;
       await deleteTradingItem(id);
@@ -95,7 +95,7 @@ export default function TradingScreen({ route, navigation, walletId: propWalletI
   const handleQuickSell = async () => {
     const sellPrice = parseInt(String(sellPriceInput).replace(/[^0-9]/g, ''), 10);
     if (!sellPrice) {
-      Alert.alert('Loi', 'Nhap gia ban hop le');
+      Alert.alert('Lỗi', 'Vui lòng nhập giá bán hợp lệ');
       return;
     }
     try {
@@ -115,7 +115,7 @@ export default function TradingScreen({ route, navigation, walletId: propWalletI
       setSellPriceInput('');
       loadData();
     } catch {
-      Alert.alert('Loi', 'Khong the chot ban');
+      Alert.alert('Lỗi', 'Không thể chốt bán');
     }
   };
 
@@ -132,7 +132,7 @@ export default function TradingScreen({ route, navigation, walletId: propWalletI
 
   const filteredItems = items.filter((i) => {
     const okTab = i.status === tab;
-    const okFilter = filterCat === 'All' || (i.category || 'Mac dinh') === filterCat;
+    const okFilter = filterCat === 'Tất cả' || (i.category || 'Mặc định') === filterCat;
     return okTab && okFilter;
   });
   const isWeb = Platform.OS === 'web';
@@ -144,52 +144,39 @@ export default function TradingScreen({ route, navigation, walletId: propWalletI
     const isProfit = profit >= 0;
 
     return (
-      <TouchableOpacity style={[styles.itemCard, isWeb && styles.itemCardWeb]} onPress={() => { setEditItem(item); setShowAdd(true); }}>
-        <View style={styles.itemTop}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <View style={styles.catBadge}>
-              <Text style={styles.catText}>{item.category || 'Mac dinh'}</Text>
+      <TouchableOpacity style={[styles.itemRow, isWeb && styles.itemRowWeb]} onPress={() => { setEditItem(item); setShowAdd(true); }}>
+        <View style={styles.itemMain}>
+          <View style={styles.itemInfo}>
+            <Text numberOfLines={1} style={styles.itemName}>{item.name}</Text>
+            <View style={styles.itemMeta}>
+              <View style={[styles.catBadge, { backgroundColor: COLORS.primaryLight }]}>
+                <Text style={styles.catText}>{item.category || 'Mặc định'}</Text>
+              </View>
+              <Text style={styles.stockLabel}>Số lượng: 1</Text>
             </View>
-            <Text style={styles.dateText}>{item.status === 'sold' ? `Ban: ${item.sell_date}` : `Nhap: ${item.import_date}`}</Text>
           </View>
-          <TouchableOpacity onPress={() => handleDelete(item.id)} style={{ padding: 4 }}>
-            <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
-          </TouchableOpacity>
-        </View>
 
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text numberOfLines={2} style={styles.itemName}>{item.name}</Text>
-          {item.batch_id ? (
-            <TouchableOpacity style={styles.batchBadge} onPress={() => handleOpenBatch(item.batch_id)}>
-              <Text style={styles.batchText}>Lo {item.batch_sold || 0}/{item.batch_total || 0}</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
+          <View style={styles.itemPrices}>
+            <View style={styles.priceCol}>
+              <Text style={styles.priceLabel}>Giá nhập</Text>
+              <Text style={styles.importPrice}>{formatCurrency(item.import_price || 0)}</Text>
+            </View>
+            <View style={styles.priceCol}>
+              <Text style={styles.priceLabel}>{item.status === 'sold' ? 'Giá bán' : 'Giá niêm yết'}</Text>
+              <Text style={[styles.sellPrice, item.status === 'sold' && { color: COLORS.income }]}>
+                {formatCurrency(item.sell_price || item.target_price || 0)}
+              </Text>
+            </View>
+          </View>
 
-        <View style={styles.itemBottom}>
           {item.status === 'available' ? (
-            <>
-              <View>
-                <Text style={styles.metaLabel}>Von nhap</Text>
-                <Text style={styles.importPrice}>{formatCurrency(item.import_price || 0)}</Text>
-              </View>
-              <TouchableOpacity style={styles.quickSellBtn} onPress={() => { setSellItem(item); setSellPriceInput(''); setSellModal(true); }}>
-                <Text style={styles.quickSellText}>Chot ban</Text>
-              </TouchableOpacity>
-            </>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => { setSellItem(item); setSellPriceInput(''); setSellModal(true); }}>
+              <Ionicons name="checkmark-circle-outline" size={24} color={COLORS.income} />
+            </TouchableOpacity>
           ) : (
-            <>
-              <View>
-                <Text style={styles.metaLabel}>Gia ban</Text>
-                <Text style={styles.sellPrice}>{formatCurrency(item.sell_price || 0)}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.metaLabel}>Loi nhuan</Text>
-                <Text style={[styles.profitText, { color: isProfit ? COLORS.secondary : COLORS.danger }]}>
-                  {isProfit ? '+' : ''}{formatCurrency(profit)}
-                </Text>
-              </View>
-            </>
+            <View style={styles.actionBtn}>
+              <Ionicons name="ribbon-outline" size={24} color={COLORS.secondary} />
+            </View>
           )}
         </View>
       </TouchableOpacity>
@@ -199,47 +186,66 @@ export default function TradingScreen({ route, navigation, walletId: propWalletI
   return (
     <View style={styles.root}>
       {!isEmbedded && !isDesktopWeb ? (
-        <TopAppBar title={walletName} subtitle="Kho va giao dich" onBack={() => navigation.goBack()} />
+        <TopAppBar 
+          title="Kho hàng" 
+          subtitle="Quản lý tồn kho & vận hành" 
+          onBack={() => navigation.goBack()}
+          rightIcon="add"
+          onRightPress={() => { setEditItem(null); setShowAdd(true); }}
+        />
+      ) : null}
+
+      {isDesktopWeb ? (
+        <View style={styles.webHeader}>
+          <View>
+            <Text style={styles.webTitle}>Kho hàng</Text>
+            <Text style={styles.webSub}>Vận hành tồn kho và theo dõi lợi nhuận kinh doanh</Text>
+          </View>
+          <TouchableOpacity style={styles.webAddBtn} onPress={() => { setEditItem(null); setShowAdd(true); }}>
+            <Ionicons name="add" size={18} color="#fff" />
+            <Text style={styles.webAddText}>Thêm hàng mới</Text>
+          </TouchableOpacity>
+        </View>
       ) : null}
 
       <View style={[styles.content, isWeb && styles.contentWeb, { maxWidth: contentMaxWidth }]}>
         <View style={[styles.heroRow, isWeb && styles.heroRowWeb]}>
         <View style={styles.kpiRow}>
           <SurfaceCard tone="low" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Von dang ton</Text>
+            <Text style={styles.kpiLabel}>Giá trị tồn kho hiện tại</Text>
             <Text style={styles.kpiValue}>{formatCurrency(stats.unsoldCapital || 0)}</Text>
-            <Text style={styles.kpiSub}>{stats.unsoldCount || 0} san pham</Text>
+            <Text style={styles.kpiSub}>{stats.unsoldCount || 0} sản phẩm</Text>
           </SurfaceCard>
           <SurfaceCard tone="lowest" style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Loi nhuan da chot</Text>
+            <Text style={styles.kpiLabel}>Lợi nhuận đã chốt</Text>
             <Text style={[styles.kpiValue, { color: (stats.realizedProfit || 0) >= 0 ? COLORS.secondary : COLORS.danger }]}>
               {(stats.realizedProfit || 0) > 0 ? '+' : ''}{formatCurrency(stats.realizedProfit || 0)}
             </Text>
-            <Text style={styles.kpiSub}>{stats.soldCount || 0} san pham da ban</Text>
+            <Text style={styles.kpiSub}>{stats.soldCount || 0} sản phẩm đã bán</Text>
           </SurfaceCard>
         </View>
 
         {isWeb ? (
           <SurfaceCard tone="lowest" style={styles.heroNote}>
-            <Text style={styles.heroEyebrow}>KHO KINH DOANH</Text>
-            <Text style={styles.heroTitle}>Bang dieu phoi hang hoa</Text>
-            <Text style={styles.heroText}>Theo doi ton kho, chot ban va mo chi tiet lo hang trong mot bo cuc hop voi desktop. Nghiep vu va tinh toan loi nhuan giu nguyen.</Text>
+            <Text style={styles.heroEyebrow}>KINH DOANH TỒN KHO</Text>
+            <Text style={styles.heroTitle}>Bảng điều khiển vận hành kho</Text>
+            <Text style={styles.heroText}>Theo dõi tồn kho, chốt bán và xem chi tiết lô trên giao diện máy tính. Logic kinh doanh và cách tính lợi nhuận được giữ nguyên.</Text>
           </SurfaceCard>
         ) : null}
         </View>
 
         <View style={styles.tabRow}>
           <TouchableOpacity style={[styles.tab, tab === 'available' && styles.tabActive]} onPress={() => setTab('available')}>
-            <Text style={[styles.tabText, tab === 'available' && styles.tabTextActive]}>Chua ban</Text>
+            <Text style={[styles.tabText, tab === 'available' && styles.tabTextActive]}>Chưa bán</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.tab, tab === 'sold' && styles.tabActive]} onPress={() => setTab('sold')}>
-            <Text style={[styles.tabText, tab === 'sold' && styles.tabTextActive]}>Da ban</Text>
+            <Text style={[styles.tabText, tab === 'sold' && styles.tabTextActive]}>Đã bán</Text>
           </TouchableOpacity>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-          <TouchableOpacity style={[styles.filterChip, filterCat === 'All' && styles.filterChipActive]} onPress={() => setFilterCat('All')}>
-            <Text style={[styles.filterText, filterCat === 'All' && styles.filterTextActive]}>Tat ca</Text>
+          <TouchableOpacity style={[styles.filterChip, filterCat === 'Tất cả' && styles.filterChipActive]} onPress={() => setFilterCat('Tất cả')}>
+            <Text style={[styles.filterText, filterCat === 'Tất cả' && styles.filterTextActive]}>Tất cả</Text>
           </TouchableOpacity>
           {uniqueCats.map((c) => (
             <TouchableOpacity key={c} style={[styles.filterChip, filterCat === c && styles.filterChipActive]} onPress={() => setFilterCat(c)}>
@@ -256,8 +262,14 @@ export default function TradingScreen({ route, navigation, walletId: propWalletI
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
-              <Ionicons name="cube-outline" size={56} color={COLORS.border} />
-              <Text style={styles.emptyText}>Chua co san pham</Text>
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="cube-outline" size={48} color={COLORS.border} />
+              </View>
+              <Text style={styles.emptyTitle}>Chưa có hàng hóa trong kho</Text>
+              <Text style={styles.emptyText}>Nhấn nút + để bắt đầu nhập hàng và quản lý kinh doanh.</Text>
+              <TouchableOpacity style={styles.emptyCTA} onPress={() => setShowAdd(true)}>
+                <Text style={styles.emptyCTAText}>Nhập hàng ngay</Text>
+              </TouchableOpacity>
             </View>
           }
         />
@@ -278,22 +290,22 @@ export default function TradingScreen({ route, navigation, walletId: propWalletI
       <Modal visible={sellModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Chot ban</Text>
+            <Text style={styles.modalTitle}>Chốt bán</Text>
             <Text style={styles.modalSub}>{sellItem?.name || ''}</Text>
             <TextInput
               style={styles.modalInput}
               keyboardType="number-pad"
-              placeholder="Nhap gia ban"
+              placeholder="Nhập giá bán"
               value={sellPriceInput}
               onChangeText={setSellPriceInput}
               autoFocus
             />
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setSellModal(false)}>
-                <Text style={styles.cancelText}>Huy</Text>
+                <Text style={styles.cancelText}>Hủy</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveBtn} onPress={handleQuickSell}>
-                <Text style={styles.saveText}>Xac nhan</Text>
+                <Text style={styles.saveText}>Xác nhận</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -305,7 +317,7 @@ export default function TradingScreen({ route, navigation, walletId: propWalletI
           <View style={styles.batchBox}>
             <View style={styles.batchHead}>
               <View>
-                <Text style={styles.modalTitle}>Chi tiet lo</Text>
+                <Text style={styles.modalTitle}>Chi tiết lô</Text>
                 <Text style={styles.modalSub}>{batchSummary.id || ''}</Text>
               </View>
               <TouchableOpacity onPress={() => setBatchModal(false)}>
@@ -313,9 +325,9 @@ export default function TradingScreen({ route, navigation, walletId: propWalletI
               </TouchableOpacity>
             </View>
             <SurfaceCard tone="low" style={{ marginBottom: 10 }}>
-              <Text style={styles.kpiLabel}>Tong von</Text>
+              <Text style={styles.kpiLabel}>Tổng giá vốn</Text>
               <Text style={styles.kpiValue}>{formatCurrency(batchSummary.totalImport || 0)}</Text>
-              <Text style={styles.kpiSub}>Thu ve {formatCurrency(batchSummary.totalRevenue || 0)}</Text>
+              <Text style={styles.kpiSub}>Doanh thu {formatCurrency(batchSummary.totalRevenue || 0)}</Text>
             </SurfaceCard>
             <ScrollView style={{ maxHeight: 320 }}>
               {batchItems.map((bi) => {
@@ -324,10 +336,10 @@ export default function TradingScreen({ route, navigation, walletId: propWalletI
                   <View key={bi.id} style={styles.batchItem}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.batchName}>{bi.name}</Text>
-                      <Text style={styles.batchMeta}>{bi.category || 'Mac dinh'}</Text>
+                      <Text style={styles.batchMeta}>{bi.category || 'Mặc định'}</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={styles.batchMeta}>{bi.status === 'sold' ? 'Da ban' : 'Trong kho'}</Text>
+                      <Text style={styles.batchMeta}>{bi.status === 'sold' ? 'Đã bán' : 'Trong kho'}</Text>
                       <Text style={[styles.batchPrice, { color: bi.status === 'sold' ? (p >= 0 ? COLORS.secondary : COLORS.danger) : COLORS.textPrimary }]}>
                         {bi.status === 'sold' ? `${p >= 0 ? '+' : ''}${formatCurrency(p)}` : formatCurrency(bi.import_price || 0)}
                       </Text>
@@ -358,6 +370,11 @@ const styles = StyleSheet.create({
   heroEyebrow: { color: COLORS.textMuted, fontSize: 11, ...FONTS.bold, letterSpacing: 0.4 },
   heroTitle: { marginTop: 8, fontSize: 18, color: COLORS.textPrimary, ...FONTS.bold },
   heroText: { marginTop: 8, fontSize: 13, lineHeight: 20, color: COLORS.textSecondary, ...FONTS.medium },
+  webHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingHorizontal: 4 },
+  webTitle: { fontSize: 28, color: COLORS.textPrimary, ...FONTS.black },
+  webSub: { fontSize: 13, color: COLORS.textMuted, marginTop: 4, ...FONTS.medium },
+  webAddBtn: { height: 42, borderRadius: 12, paddingHorizontal: 18, backgroundColor: COLORS.primary, flexDirection: 'row', alignItems: 'center', gap: 8, ...SHADOW.sm },
+  webAddText: { color: '#fff', ...FONTS.bold, fontSize: 13 },
   tabRow: { flexDirection: 'row', marginTop: 14, gap: 10 },
   tab: { flex: 1, height: 42, borderRadius: 14, backgroundColor: COLORS.surfaceLow, alignItems: 'center', justifyContent: 'center' },
   tabActive: { backgroundColor: COLORS.primary },
@@ -368,30 +385,34 @@ const styles = StyleSheet.create({
   filterChipActive: { backgroundColor: COLORS.primaryDark },
   filterText: { fontSize: 12, color: COLORS.textSecondary, ...FONTS.bold },
   filterTextActive: { color: '#fff' },
-  itemCard: {
+  itemRow: {
     backgroundColor: COLORS.surfaceLowest,
-    borderRadius: RADIUS.lg,
-    padding: 14,
+    borderRadius: 16,
     marginBottom: 10,
-    ...SHADOW.sm,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    ...SHADOW.xs,
   },
-  itemCardWeb: { borderWidth: 1, borderColor: COLORS.borderSoft },
-  itemTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  catBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: COLORS.primaryLight },
+  itemRowWeb: { padding: 4 },
+  itemMain: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 16 },
+  itemInfo: { flex: 1.5, gap: 4 },
+  itemName: { fontSize: 15, color: COLORS.textPrimary, ...FONTS.bold },
+  itemMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  catBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
   catText: { fontSize: 10, color: COLORS.primaryDark, ...FONTS.bold },
-  dateText: { fontSize: 10, color: COLORS.textMuted, ...FONTS.medium },
-  itemName: { marginTop: 10, flex: 1, fontSize: 14, color: COLORS.textPrimary, ...FONTS.bold },
-  batchBadge: { marginLeft: 8, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: COLORS.surfaceLow },
-  batchText: { fontSize: 10, color: COLORS.primary, ...FONTS.bold },
-  itemBottom: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: COLORS.borderSoft, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  metaLabel: { fontSize: 10, color: COLORS.textMuted, ...FONTS.medium },
-  importPrice: { marginTop: 4, fontSize: 16, ...FONTS.bold, color: COLORS.textPrimary },
-  sellPrice: { marginTop: 4, fontSize: 16, ...FONTS.bold, color: COLORS.secondary },
-  profitText: { marginTop: 4, fontSize: 14, ...FONTS.bold },
-  quickSellBtn: { height: 36, borderRadius: 10, paddingHorizontal: 14, backgroundColor: COLORS.secondary, alignItems: 'center', justifyContent: 'center' },
-  quickSellText: { fontSize: 12, color: '#fff', ...FONTS.bold },
-  emptyWrap: { alignItems: 'center', marginTop: 48 },
-  emptyText: { marginTop: 8, fontSize: 13, color: COLORS.textMuted, ...FONTS.medium },
+  stockLabel: { fontSize: 10, color: COLORS.textMuted, ...FONTS.medium },
+  itemPrices: { flex: 2, flexDirection: 'row', gap: 20, justifyContent: 'flex-end', paddingRight: 10 },
+  priceCol: { alignItems: 'flex-end', minWidth: 90 },
+  priceLabel: { fontSize: 10, color: COLORS.textMuted, marginBottom: 2 },
+  importPrice: { fontSize: 14, color: COLORS.textPrimary, ...FONTS.bold },
+  sellPrice: { fontSize: 14, color: COLORS.secondary, ...FONTS.bold },
+  actionBtn: { width: 44, alignItems: 'center', justifyContent: 'center' },
+  emptyWrap: { alignItems: 'center', marginTop: 60, paddingHorizontal: 40 },
+  emptyIconCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: COLORS.surfaceLow, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  emptyTitle: { fontSize: 18, color: COLORS.textPrimary, ...FONTS.bold, marginBottom: 8 },
+  emptyText: { textAlign: 'center', fontSize: 13, color: COLORS.textMuted, lineHeight: 20, marginBottom: 20 },
+  emptyCTA: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, backgroundColor: COLORS.primary },
+  emptyCTAText: { color: '#fff', ...FONTS.bold, fontSize: 14 },
   fab: {
     position: 'absolute',
     right: 24,

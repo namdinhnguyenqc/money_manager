@@ -50,7 +50,7 @@ export default function PieChart({ data, size = 180 }) {
 
         <View style={styles.centerLabel}>
           <Text style={styles.centerTotal}>{(total / 1000000).toFixed(1)}M</Text>
-          <Text style={styles.centerLabelTxt}>Tong chi</Text>
+          <Text style={styles.centerLabelTxt}>Tổng chi tiêu</Text>
         </View>
       </View>
 

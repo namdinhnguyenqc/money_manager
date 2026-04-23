@@ -32,7 +32,7 @@ const PAGE_SIZE = 20;
 export default function TransactionsScreen({ navigation, route, walletId: propWalletId, walletName: propWalletName, isEmbedded }) {
   const { width } = useWindowDimensions();
   const walletId = propWalletId || route?.params?.walletId || null;
-  const walletName = propWalletName || route?.params?.walletName || 'Tai chinh ca nhan';
+  const walletName = propWalletName || route?.params?.walletName || 'Tài chính cá nhân';
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -79,12 +79,12 @@ export default function TransactionsScreen({ navigation, route, walletId: propWa
 
   useFocusEffect(useCallback(() => { loadData(true); }, [loadData]));
 
-  const onDelete = (tx) => {
+  const onXóa = (tx) => {
     (async () => {
       const confirmed = await confirmDialog({
-        title: 'Xoa giao dich',
-        message: `"${tx.description || tx.category_name || 'Giao dich'}" ?`,
-        confirmText: 'Xoa',
+        title: 'Xóa giao dịch',
+        message: `"${tx.description || tx.category_name || 'Giao dịch'}"?`,
+        confirmText: 'Xóa',
       });
       if (!confirmed) return;
       await deleteTransaction(tx.id);
@@ -97,7 +97,7 @@ export default function TransactionsScreen({ navigation, route, walletId: propWa
   transactions.forEach((tx) => {
     const d = new Date(tx.date);
     const day = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
-    const key = `Ngay ${day}`;
+    const key = `Ngày ${day}`;
     if (lastDay !== key) {
       grouped.push({ type: 'header', key });
       lastDay = key;
@@ -130,37 +130,37 @@ export default function TransactionsScreen({ navigation, route, walletId: propWa
           {isDesktopWeb && !isEmbedded ? (
             <View style={styles.heroRow}>
               <SurfaceCard tone="low" style={styles.heroCard}>
-                <Text style={styles.heroEyebrow}>LEDGER WORKSPACE</Text>
-                <Text style={styles.heroTitle}>Nhat ky giao dich va doi soat</Text>
+                <Text style={styles.heroEyebrow}>KHÔNG GIAN SỔ CÁI</Text>
+                <Text style={styles.heroTitle}>Nhật ký giao dịch và đối soát</Text>
                 <Text style={styles.heroText}>
-                  Theo doi giao dich theo ngay, mo nhanh chung tu dinh kem va sua lai tung dong ngay tren giao dien web.
+                  Theo dõi giao dịch theo ngày, mở ảnh đính kèm nhanh và chỉnh sửa trực tiếp trên website.
                 </Text>
                 <View style={styles.heroStatsRow}>
                   <View style={styles.heroStat}>
-                    <Text style={styles.heroStatLabel}>Da tai</Text>
+                    <Text style={styles.heroStatLabel}>Đã tải</Text>
                     <Text style={styles.heroStatValue}>{transactions.length}</Text>
                   </View>
                   <View style={styles.heroStat}>
-                    <Text style={styles.heroStatLabel}>Tong dong</Text>
+                    <Text style={styles.heroStatLabel}>Tổng dòng</Text>
                     <Text style={styles.heroStatValue}>{total}</Text>
                   </View>
                   <View style={styles.heroStat}>
-                    <Text style={styles.heroStatLabel}>Co chung tu</Text>
+                    <Text style={styles.heroStatLabel}>Có chứng từ</Text>
                     <Text style={styles.heroStatValue}>{imageCount}</Text>
                   </View>
                 </View>
               </SurfaceCard>
 
               <SurfaceCard tone="lowest" style={styles.heroNote}>
-                <Text style={styles.heroNoteEyebrow}>THANG HIEN TAI</Text>
+                <Text style={styles.heroNoteEyebrow}>THÁNG HIỆN TẠI</Text>
                 <Text style={[styles.heroNoteValue, { color: (monthStats.balance || 0) >= 0 ? COLORS.secondary : COLORS.danger }]}>
                   {(monthStats.balance || 0) >= 0 ? '+' : '-'}{formatCurrency(Math.abs(monthStats.balance || 0))}
                 </Text>
-                <Text style={styles.heroNoteText}>Can doi hien tai cua so nay trong thang dang mo.</Text>
+                <Text style={styles.heroNoteText}>Số dư hiện tại của sổ trong tháng đang mở.</Text>
                 <View style={styles.heroNoteList}>
                   <Text style={styles.heroNoteItem}>Thu: {formatCurrency(monthStats.income || 0)}</Text>
                   <Text style={styles.heroNoteItem}>Chi: {formatCurrency(monthStats.expense || 0)}</Text>
-                  <Text style={styles.heroNoteItem}>Dong co anh: {imageCount}</Text>
+                  <Text style={styles.heroNoteItem}>Dòng có đính kèm: {imageCount}</Text>
                 </View>
               </SurfaceCard>
             </View>
@@ -169,7 +169,7 @@ export default function TransactionsScreen({ navigation, route, walletId: propWa
           {walletId && !isEmbedded ? (
             <View style={[styles.statsGrid, isDesktopWeb && styles.statsGridWeb]}>
               <SurfaceCard tone="low" style={[styles.statsCard, isDesktopWeb && styles.statsCardWeb]}>
-                <Text style={styles.statsLabel}>Can doi thang nay</Text>
+                <Text style={styles.statsLabel}>Số dư tháng này</Text>
                 <Text style={[styles.balance, { color: (monthStats.balance || 0) >= 0 ? COLORS.secondary : COLORS.danger }]}>
                   {(monthStats.balance || 0) >= 0 ? '+' : '-'}{formatCurrency(Math.abs(monthStats.balance || 0))}
                 </Text>
@@ -181,11 +181,11 @@ export default function TransactionsScreen({ navigation, route, walletId: propWa
               {isDesktopWeb ? (
                 <>
                   <SurfaceCard tone="lowest" style={[styles.statsMiniCard, styles.statsMiniCardWeb]}>
-                    <Text style={styles.statsMiniLabel}>Dong thu</Text>
+                    <Text style={styles.statsMiniLabel}>Dòng thu</Text>
                     <Text style={[styles.statsMiniValue, { color: COLORS.secondary }]}>{incomeCount}</Text>
                   </SurfaceCard>
                   <SurfaceCard tone="lowest" style={[styles.statsMiniCard, styles.statsMiniCardWeb]}>
-                    <Text style={styles.statsMiniLabel}>Dong chi</Text>
+                    <Text style={styles.statsMiniLabel}>Dòng chi</Text>
                     <Text style={[styles.statsMiniValue, { color: COLORS.danger }]}>{expenseCount}</Text>
                   </SurfaceCard>
                 </>
@@ -196,18 +196,18 @@ export default function TransactionsScreen({ navigation, route, walletId: propWa
           {transactions.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>$</Text>
-              <Text style={styles.emptyTitle}>Chua co giao dich</Text>
+              <Text style={styles.emptyTitle}>Chưa có giao dịch</Text>
             </View>
           ) : (
             <View style={styles.listShell}>
               {isDesktopWeb ? (
                 <View style={styles.listHeader}>
                   <View>
-                    <Text style={styles.listTitle}>Nhat ky giao dich</Text>
-                    <Text style={styles.listSub}>Nhan vao tung dong de sua. Nhan giu de xoa.</Text>
+                    <Text style={styles.listTitle}>Nhật ký giao dịch</Text>
+                    <Text style={styles.listSub}>Chạm vào một dòng để sửa. Nhấn giữ để xóa.</Text>
                   </View>
                   <View style={styles.listMeta}>
-                    <Text style={styles.listMetaText}>{transactions.length}/{total} dong dang hien thi</Text>
+                    <Text style={styles.listMetaText}>{transactions.length}/{total} dòng hiển thị</Text>
                   </View>
                 </View>
               ) : null}
@@ -218,35 +218,35 @@ export default function TransactionsScreen({ navigation, route, walletId: propWa
                 }
 
                 const tx = row.tx;
-                const isIncome = tx.type === 'income';
+                const isThu = tx.type === 'income';
                 return (
                   <TouchableOpacity
                     key={tx.id}
                     style={[styles.card, isWeb && styles.cardWeb]}
                     onPress={() => navigation.navigate('AddTransaction', { editTx: tx })}
-                    onLongPress={() => onDelete(tx)}
+                    onLongPress={() => onXóa(tx)}
                     delayLongPress={500}
                   >
                     <View style={[styles.iconWrap, { backgroundColor: `${tx.category_color || COLORS.primary}20` }]}>
                       <Text style={styles.iconTxt}>{tx.category_icon || '$'}</Text>
                     </View>
                     <View style={styles.mid}>
-                      <Text numberOfLines={1} style={styles.desc}>{tx.description || tx.category_name || 'Giao dich'}</Text>
+                      <Text numberOfLines={1} style={styles.desc}>{tx.description || tx.category_name || 'Giao dịch'}</Text>
                       <Text style={styles.meta}>{formatDateTime(tx.date)}</Text>
                       <View style={styles.walletTag}>
-                        <Text style={styles.walletTagTxt}>{tx.wallet_name || 'Vi'}</Text>
+                        <Text style={styles.walletTagTxt}>{tx.wallet_name || 'Sổ'}</Text>
                       </View>
                     </View>
                     <View style={styles.right}>
                       {isDesktopWeb ? (
-                        <View style={[styles.typePill, isIncome ? styles.typePillIncome : styles.typePillExpense]}>
-                          <Text style={[styles.typePillText, isIncome ? styles.typePillTextIncome : styles.typePillTextExpense]}>
-                            {isIncome ? 'Thu' : 'Chi'}
+                        <View style={[styles.typePill, isThu ? styles.typePillThu : styles.typePillChi]}>
+                          <Text style={[styles.typePillText, isThu ? styles.typePillTextThu : styles.typePillTextChi]}>
+                            {isThu ? 'Thu' : 'Chi'}
                           </Text>
                         </View>
                       ) : null}
-                      <Text style={[styles.amount, { color: isIncome ? COLORS.secondary : COLORS.danger }]}>
-                        {isIncome ? '+' : '-'}{formatCurrency(tx.amount || 0)}
+                      <Text style={[styles.amount, { color: isThu ? COLORS.secondary : COLORS.danger }]}>
+                        {isThu ? '+' : '-'}{formatCurrency(tx.amount || 0)}
                       </Text>
                       {tx.image_uri ? (
                         <TouchableOpacity onPress={() => setSelectedImage(tx.image_uri)}>
@@ -260,7 +260,7 @@ export default function TransactionsScreen({ navigation, route, walletId: propWa
 
               {hasMore ? (
                 <TouchableOpacity style={styles.loadMore} onPress={() => loadData(false)} disabled={loadingMore}>
-                  {loadingMore ? <ActivityIndicator color={COLORS.primary} /> : <Text style={styles.loadMoreTxt}>Xem them ({total - transactions.length})</Text>}
+                  {loadingMore ? <ActivityIndicator color={COLORS.primary} /> : <Text style={styles.loadMoreTxt}>Tải thêm ({total - transactions.length})</Text>}
                 </TouchableOpacity>
               ) : null}
               </View>
@@ -298,12 +298,12 @@ export default function TransactionsScreen({ navigation, route, walletId: propWa
         navigation={navigation}
         routeName="Transactions"
         title={walletName}
-        subtitle="So giao dich"
-        searchPlaceholder="Tim giao dich, vi, mo ta..."
+        subtitle="Số lượng giao dịch"
+        searchPlaceholder="Tìm giao dịch, sổ tiền, mô tả..."
         headerAction={(
           <TouchableOpacity style={styles.webHeaderBtn} onPress={() => navigation.navigate('AddTransaction', { walletId })}>
             <Ionicons name="add" size={18} color="#fff" />
-            <Text style={styles.webHeaderBtnText}>Them giao dich</Text>
+            <Text style={styles.webHeaderBtnText}>Thêm giao dịch</Text>
           </TouchableOpacity>
         )}
       >
@@ -320,7 +320,7 @@ export default function TransactionsScreen({ navigation, route, walletId: propWa
       {!isEmbedded ? (
         <TopAppBar
           title={walletName}
-          subtitle="So giao dich"
+          subtitle="Số lượng giao dịch"
           onBack={() => navigation.goBack()}
           light
         />
@@ -444,11 +444,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  typePillIncome: { backgroundColor: COLORS.incomeLight },
-  typePillExpense: { backgroundColor: COLORS.expenseLight },
+  typePillThu: { backgroundColor: COLORS.incomeLight },
+  typePillChi: { backgroundColor: COLORS.expenseLight },
   typePillText: { fontSize: 10, ...FONTS.bold },
-  typePillTextIncome: { color: COLORS.secondary },
-  typePillTextExpense: { color: COLORS.danger },
+  typePillTextThu: { color: COLORS.secondary },
+  typePillTextChi: { color: COLORS.danger },
   amount: { fontSize: 14, ...FONTS.bold },
   loadMore: {
     marginTop: 10,

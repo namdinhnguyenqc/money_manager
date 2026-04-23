@@ -1,4 +1,4 @@
-﻿import 'react-native-gesture-handler';
+import 'react-native-gesture-handler';
 import { initLogger } from './src/utils/logger';
 initLogger();
 import React, { useCallback, useEffect, useState } from 'react';
@@ -48,7 +48,7 @@ export default function App() {
   const shouldReloadForError =
     typeof window !== 'undefined' &&
     typeof error === 'string' &&
-    error.includes('Tai lai trang');
+    error.includes('Reload page');
 
   const setup = useCallback(async () => {
     setError(null);
@@ -57,20 +57,46 @@ export default function App() {
       await initDb();
       if (typeof window !== 'undefined') {
         window.sessionStorage.removeItem(DB_AUTO_RELOAD_KEY);
+
+        // FORCE NATIVE WEB SCROLLING (Fix root cause of all scroll locks)
+        const style = document.createElement('style');
+        style.innerHTML = `
+          /* Prevent RNWeb from locking the document */
+          html, body, #root {
+            height: auto !important;
+            min-height: 100vh !important;
+            overflow: visible !important;
+            overflow-x: hidden !important;
+          }
+          /* Allow AppContainer to grow with content */
+          .css-1dbjc4n[data-testid="root"] {
+            height: auto !important;
+            display: flex !important;
+            flex-direction: column !important;
+            min-height: 100vh !important;
+          }
+          /* Fix ScrollView so it doesn't wrap its own scroll but grows naturally */
+          .rn-scroll-view-web {
+            overflow: visible !important;
+            height: auto !important;
+            flex: 0 0 auto !important;
+          }
+        `;
+        document.head.appendChild(style);
       }
       setDbReady(true);
     } catch (e) {
       console.error('Database init failed:', e);
       if (
         typeof window !== 'undefined' &&
-        String(e?.message || '').includes('Tai lai trang') &&
+        String(e?.message || '').includes('Reload page') &&
         !window.sessionStorage.getItem(DB_AUTO_RELOAD_KEY)
       ) {
         window.sessionStorage.setItem(DB_AUTO_RELOAD_KEY, '1');
         window.location.reload();
         return;
       }
-      setError(e.message || 'Loi khoi tao co so du lieu');
+      setError(e.message || 'Database initialization failed');
     }
   }, []);
 
@@ -83,7 +109,7 @@ export default function App() {
       <View style={[styles.center, { padding: 40 }]}> 
         <Ionicons name="alert-circle-outline" size={64} color={COLORS.danger} />
         <Text style={{ marginTop: 20, fontSize: 18, color: COLORS.textPrimary, textAlign: 'center', fontWeight: 'bold' }}>
-          Oops, co loi xay ra!
+          Oops, something went wrong!
         </Text>
         <Text style={{ marginTop: 10, fontSize: 14, color: COLORS.textSecondary, textAlign: 'center' }}>
           {error}
@@ -98,7 +124,7 @@ export default function App() {
             setup();
           }}
         >
-          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Thu lai</Text>
+          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Retry</Text>
         </TouchableOpacity>
       </View>
     );

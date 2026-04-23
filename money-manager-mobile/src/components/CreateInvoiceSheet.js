@@ -22,12 +22,18 @@ const normalizeText = (text) =>
     .replace(/Đ/g, 'D')
     .toLowerCase();
 
+const hasAnyKeyword = (value, keywords) => {
+  const normalized = normalizeText(value);
+  return keywords.some((keyword) => normalized.includes(keyword));
+};
+
 export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSuccessful }) {
   const { width } = useWindowDimensions();
   const [loading, setLoading] = useState(false);
   const [services, setServices] = useState([]);
   const [meterInputs, setMeterInputs] = useState({});
   const [checkoutDate, setCheckoutDate] = useState('');
+  const [invoiceNote, setInvoiceNote] = useState('');
   const { month, year } = getCurrentMonthYear();
 
   useEffect(() => {
@@ -47,10 +53,10 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
       if (prev) {
         const metered = svcs.filter((service) => {
           const norm = normalizeText(service.name);
-          return (service.type === 'metered' || service.type === 'meter') && norm.includes('dien');
+          return (service.type === 'metered' || service.type === 'meter') && hasAnyKeyword(norm, ['dien', 'electric']);
         });
         metered.forEach((service) => {
-          if (normalizeText(service.name).includes('dien')) {
+          if (hasAnyKeyword(service.name, ['dien', 'electric'])) {
             initialInputs[`${service.id}_old`] = String(prev.elec_new || prev.elec_old || 0);
           }
         });
@@ -74,14 +80,14 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
 
       for (const service of services) {
         const serviceNameNorm = normalizeText(service.name);
-        const isElectricity = serviceNameNorm.includes('dien');
-        const isWater = serviceNameNorm.includes('nuoc');
+        const isElectricity = hasAnyKeyword(serviceNameNorm, ['dien', 'electric']);
+        const isWater = hasAnyKeyword(serviceNameNorm, ['nuoc', 'water']);
 
         if (isWater) {
           const peopleCount = room.num_people || 1;
           items.push({
             name: service.name,
-            detail: `Tinh theo ${peopleCount} nguoi`,
+            detail: `Tính cho ${peopleCount} người`,
             amount: service.unit_price * peopleCount,
             serviceId: service.id,
           });
@@ -91,7 +97,7 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
         if (service.type === 'fixed') {
           items.push({
             name: service.name,
-            detail: 'Co dinh',
+            detail: 'Cố định',
             amount: service.unit_price,
             serviceId: service.id,
           });
@@ -102,7 +108,7 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
           const amount = service.unit_price * (room.num_people || 1);
           items.push({
             name: service.name,
-            detail: `x${room.num_people || 1} nguoi`,
+            detail: `x${room.num_people || 1} người`,
             amount,
             serviceId: service.id,
           });
@@ -119,7 +125,7 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
           }
 
           if (newValue > 0 && newValue < oldValue) {
-            Alert.alert('Loi chi so', `${service.name}: so moi khong the nho hon so cu.`);
+            Alert.alert('Lỗi chỉ số công tơ', `${service.name}: chỉ số mới không được nhỏ hơn chỉ số cũ.`);
             setLoading(false);
             return;
           }
@@ -158,6 +164,7 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
         elecNew,
         waterOld,
         waterNew,
+        invoiceNote,
       });
 
       const detail = await getInvoiceDetails(invoiceId);
@@ -165,7 +172,7 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
       onClose();
     } catch (e) {
       console.error(e);
-      Alert.alert('Loi', `Khong the lap hoa don: ${e.message}`);
+      Alert.alert('Lỗi', `Không thể tạo hóa đơn: ${e.message}`);
     } finally {
       setLoading(false);
     }
@@ -175,7 +182,7 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
   const sheetWidth = width >= 1180 ? 620 : width >= 768 ? 560 : Math.min(width - 24, 520);
   const electricityServices = services.filter((service) => {
     const norm = normalizeText(service.name);
-    return (service.type === 'metered' || service.type === 'meter') && norm.includes('dien');
+    return (service.type === 'metered' || service.type === 'meter') && hasAnyKeyword(norm, ['dien', 'electric']);
   });
 
   return (
@@ -187,8 +194,8 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
             <View style={styles.handle} />
             <View style={styles.header}>
               <View>
-                <Text style={styles.title}>Lap hoa don T{month}</Text>
-                <Text style={styles.subtitle}>Phong {room?.name} · {room?.tenant_name}</Text>
+                <Text style={styles.title}>Tạo hóa đơn tháng {month}</Text>
+                <Text style={styles.subtitle}>Phòng {room?.name} · {room?.tenant_name}</Text>
               </View>
               <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
                 <Ionicons name="close" size={22} color={COLORS.textMuted} />
@@ -208,12 +215,12 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
                   <View style={styles.formColumn}>
                     <View style={styles.sectionHeader}>
                       <Ionicons name="flash-outline" size={16} color={COLORS.primary} />
-                      <Text style={styles.sectionTitle}>Chi so dien thang nay</Text>
+                      <Text style={styles.sectionTitle}>Chỉ số điện tháng này</Text>
                     </View>
 
                     {electricityServices.length === 0 ? (
                       <View style={styles.emptyMeterCard}>
-                        <Text style={styles.emptyMeterText}>Hop dong nay chua co dich vu dien dang hoat dong.</Text>
+                        <Text style={styles.emptyMeterText}>Hợp đồng này chưa có dịch vụ điện đang hoạt động.</Text>
                       </View>
                     ) : electricityServices.map((service) => (
                       <View key={service.id} style={styles.meterCard}>
@@ -224,7 +231,7 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
 
                         <View style={styles.meterInputs}>
                           <View style={styles.meterBox}>
-                            <Text style={styles.meterLabel}>So cu</Text>
+                            <Text style={styles.meterLabel}>Chỉ số cũ</Text>
                             <TextInput
                               style={styles.meterInput}
                               keyboardType="number-pad"
@@ -234,12 +241,12 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
                           </View>
                           <View style={styles.meterDivider} />
                           <View style={styles.meterBox}>
-                            <Text style={styles.meterLabel}>So moi</Text>
+                            <Text style={styles.meterLabel}>Chỉ số mới</Text>
                             <TextInput
                               style={[styles.meterInput, { color: COLORS.primary }]}
                               keyboardType="number-pad"
                               placeholder="..."
-                              autoFocus={service.name.toLowerCase().includes('dien')}
+                              autoFocus={hasAnyKeyword(service.name, ['dien', 'electric'])}
                               value={meterInputs[`${service.id}_new`]}
                               onChangeText={(value) => setMeterInputs((prev) => ({ ...prev, [`${service.id}_new`]: stripToDigits(value) }))}
                             />
@@ -249,7 +256,7 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
                     ))}
 
                     <View style={styles.group}>
-                      <Text style={styles.label}>Ngay tra phong (neu co)</Text>
+                      <Text style={styles.label}>Ngày trả phòng (tùy chọn)</Text>
                       <TextInput
                         style={styles.input}
                         placeholder="YYYY-MM-DD"
@@ -258,16 +265,27 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
                         placeholderTextColor={COLORS.textMuted}
                       />
                     </View>
+
+                    <View style={styles.group}>
+                      <Text style={styles.label}>Ghi chú hóa đơn (tùy chọn)</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Ví dụ: Anh bớt 200k tiền trọ"
+                        value={invoiceNote}
+                        onChangeText={setInvoiceNote}
+                        placeholderTextColor={COLORS.textMuted}
+                      />
+                    </View>
                   </View>
 
                   <View style={styles.summaryColumn}>
                     <View style={styles.summaryCard}>
-                      <Text style={styles.summaryEyebrow}>TOM TAT HOA DON</Text>
-                      <Text style={styles.summaryRoom}>Phong {room?.name || 'N/A'}</Text>
-                      <Text style={styles.summaryText}>Khach: {room?.tenant_name || 'Chua co thong tin'}</Text>
-                      <Text style={styles.summaryText}>Gia phong: {formatCurrency(room?.price || 0)}</Text>
-                      <Text style={styles.summaryText}>Cong thuc: tien phong + dien chenh lech + nuoc theo so nguoi + wifi/rac/dich vu co dinh.</Text>
-                      <Text style={styles.summaryText}>Nguoi o hien tai: {room?.num_people || 1}</Text>
+                      <Text style={styles.summaryEyebrow}>TÓM TẮT HÓA ĐƠN</Text>
+                      <Text style={styles.summaryRoom}>Phòng {room?.name || 'N/A'}</Text>
+                      <Text style={styles.summaryText}>Người thuê: {room?.tenant_name || 'Không có dữ liệu'}</Text>
+                      <Text style={styles.summaryText}>Tiền phòng: {formatCurrency(room?.price || 0)}</Text>
+                      <Text style={styles.summaryText}>Công thức: tiền phòng + điện theo đồng hồ + nước theo đầu người + wifi/rác/dịch vụ cố định.</Text>
+                      <Text style={styles.summaryText}>Số người ở hiện tại: {room?.num_people || 1}</Text>
                     </View>
 
                     <TouchableOpacity style={[styles.confirmBtn, loading && { opacity: 0.7 }]} onPress={handleCreate} disabled={loading}>
@@ -275,7 +293,7 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
                         <ActivityIndicator color="#fff" />
                       ) : (
                         <>
-                          <Text style={styles.confirmText}>Xac nhan lap hoa don</Text>
+                          <Text style={styles.confirmText}>Xác nhận tạo hóa đơn</Text>
                           <Ionicons name="chevron-forward-circle" size={20} color="#fff" />
                         </>
                       )}

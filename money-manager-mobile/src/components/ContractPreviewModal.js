@@ -16,12 +16,12 @@ export default function ContractPreviewModal({ visible, data, room, onClose, onC
     try {
       const uri = await captureRef(contractRef, { format: 'png', quality: 1.0 });
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { dialogTitle: 'Gui hop dong cho khach' });
+        await Sharing.shareAsync(uri, { dialogTitle: 'Chia sẻ hợp đồng với người thuê' });
       } else {
-        Alert.alert('Thong bao', 'Chuc nang chia se khong kha dung.');
+        Alert.alert('Thông báo', 'Thiết bị không hỗ trợ chia sẻ.');
       }
     } catch (e) {
-      Alert.alert('Loi', `Khong the chup anh hop dong: ${e.message}`);
+      Alert.alert('Lỗi', `Không thể xuất ảnh hợp đồng: ${e.message}`);
     }
   };
 
@@ -36,7 +36,7 @@ export default function ContractPreviewModal({ visible, data, room, onClose, onC
           <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
             <Ionicons name="chevron-back" size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Hop dong thue phong tro</Text>
+          <Text style={styles.headerTitle}>Hợp đồng thuê phòng</Text>
           <TouchableOpacity onPress={handleShare} style={styles.headerBtn}>
             <Ionicons name="share-social-outline" size={20} color={COLORS.primary} />
           </TouchableOpacity>
@@ -45,71 +45,70 @@ export default function ContractPreviewModal({ visible, data, room, onClose, onC
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View ref={contractRef} style={[styles.contractPage, isWeb && styles.contractPageWeb, { maxWidth: contentWidth }]} collapsable={false}>
             <View style={styles.legalHeader}>
-              <Text style={styles.nationalTitle}>CONG HOA XA HOI CHU NGHIA VIET NAM</Text>
-              <Text style={styles.nationalSub}>Doc lap - Tu do - Hanh phuc</Text>
+              <Text style={styles.nationalTitle}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</Text>
+              <Text style={styles.nationalSub}>Độc lập - Tự do - Hạnh phúc</Text>
               <View style={styles.legalLine} />
             </View>
 
-            <Text style={styles.contractMainTitle}>HOP DONG THUE PHONG TRO</Text>
+            <Text style={styles.contractMainTitle}>HỢP ĐỒNG THUÊ PHÒNG</Text>
 
             <Text style={styles.textBody}>
-              Hom nay ngay {now.getDate()} thang {now.getMonth() + 1} nam {now.getFullYear()},
-              tai dia chi 60/7/4A duong so 4, phuong Thu Duc, TP Ho Chi Minh.
+              Hôm nay, {now.getDate()}/{now.getMonth() + 1}/{now.getFullYear()}, tại địa chỉ 60/7/4A Đường số 4, phường Thủ Đức, TP. Hồ Chí Minh.
             </Text>
-            <Text style={styles.textBody}>Chung toi gom:</Text>
+            <Text style={styles.textBody}>Các bên tham gia:</Text>
 
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>1. Ben cho thue (Ben A)</Text>
-              <Text style={styles.infoLine}>Ong/ba: <Text style={styles.boldText}>Nguyen Dinh Ha Nam</Text> - Sinh ngay: 26/11/1999</Text>
-              <Text style={styles.infoLine}>Noi dang ky HK: 90 Nguyen Van Cu, Phuong Tuy Hoa, Tinh Dak Lak</Text>
-              <Text style={styles.infoLine}>CMND: 054099004728 cap ngay 21/01/2025 tai Bo Cong An</Text>
-              <Text style={styles.infoLine}>So dien thoai: 0927368772</Text>
+              <Text style={styles.sectionLabel}>1. Bên cho thuê (Bên A)</Text>
+              <Text style={styles.infoLine}>Họ tên: <Text style={styles.boldText}>Nguyen Dinh Ha Nam</Text> - Ngày sinh: 26/11/1999</Text>
+              <Text style={styles.infoLine}>Địa chỉ đăng ký: 90 Nguyen Van Cu, Phuong Tuy Hoa, Tinh Dak Lak</Text>
+              <Text style={styles.infoLine}>Số CCCD/CMND: 054099004728 cấp ngày 21/01/2025 bởi Bộ Công an</Text>
+              <Text style={styles.infoLine}>Điện thoại: 0927368772</Text>
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>2. Ben thue (Ben B)</Text>
-              <Text style={styles.infoLine}>Ong/ba: <Text style={styles.boldText}>{(data.tenantName || '................').toUpperCase()}</Text></Text>
-              <Text style={styles.infoLine}>Noi dang ky HK thuong tru: {data.address || '................'}</Text>
-              <Text style={styles.infoLine}>So CMND: {data.idCard || '................'}</Text>
-              <Text style={styles.infoLine}>So dien thoai: {data.phone || '................'}</Text>
+              <Text style={styles.sectionLabel}>2. Bên thuê (Bên B)</Text>
+              <Text style={styles.infoLine}>Họ tên: <Text style={styles.boldText}>{(data.tenantName || '................').toUpperCase()}</Text></Text>
+              <Text style={styles.infoLine}>Địa chỉ thường trú: {data.address || '................'}</Text>
+              <Text style={styles.infoLine}>Số CCCD/CMND: {data.idCard || '................'}</Text>
+              <Text style={styles.infoLine}>Điện thoại: {data.phone || '................'}</Text>
             </View>
 
             <View style={[styles.financeGrid, isWeb && styles.financeGridWeb]}>
               <View style={styles.section}>
-                <Text style={styles.sectionLabel}>3. Dieu khoan tai chinh</Text>
-                <Text style={styles.textBody}>Gia thue: <Text style={styles.boldText}>{formatCurrency(room?.price)}/thang</Text></Text>
-                <Text style={styles.textBody}>Hinh thuc thanh toan: Chuyen khoan hoac tien mat</Text>
-                <Text style={styles.textBody}>Tien dien: 3400 d/kwh (khong may lanh) hoac 4000 d/kwh (co may lanh)</Text>
-                <Text style={styles.textBody}>Tien nuoc: 13.100 d/nguoi/thang</Text>
-                <Text style={styles.textBody}>Tien rac: 36.500 d/thang</Text>
-                <Text style={styles.textBody}>Tien dat coc: <Text style={styles.boldText}>{formatCurrency(data.deposit)}</Text></Text>
-                <Text style={styles.textBody}>Hop dong co gia tri tu ngay {data.startDate} den {data.endDate || '........'}</Text>
+                <Text style={styles.sectionLabel}>3. Điều khoản tài chính</Text>
+                <Text style={styles.textBody}>Tiền phòng: <Text style={styles.boldText}>{formatCurrency(room?.price)}/tháng</Text></Text>
+                <Text style={styles.textBody}>Phương thức thanh toán: Chuyển khoản hoặc tiền mặt</Text>
+                <Text style={styles.textBody}>Điện: 3400 VND/kWh (phòng thường) hoặc 4000 VND/kWh (phòng có máy lạnh)</Text>
+                <Text style={styles.textBody}>Nước: 13,100 VND/người/tháng</Text>
+                <Text style={styles.textBody}>Phí rác: 36.500 VNĐ/tháng</Text>
+                <Text style={styles.textBody}>Tiền cọc: <Text style={styles.boldText}>{formatCurrency(data.deposit)}</Text></Text>
+                <Text style={styles.textBody}>Hợp đồng có hiệu lực từ {data.startDate} đến {data.endDate || '........'}</Text>
               </View>
 
               <View style={styles.summaryPanel}>
-                <Text style={styles.summaryEyebrow}>TOM TAT HOP DONG</Text>
-                <Text style={styles.summaryLine}>Phong: {room?.name || 'N/A'}</Text>
-                <Text style={styles.summaryLine}>Khach: {data.tenantName || 'N/A'}</Text>
-                <Text style={styles.summaryLine}>Tien coc: {formatCurrency(data.deposit || 0)}</Text>
-                <Text style={styles.summaryLine}>Ngay vao o: {data.startDate || 'N/A'}</Text>
+                <Text style={styles.summaryEyebrow}>TÓM TẮT HỢP ĐỒNG</Text>
+                <Text style={styles.summaryLine}>Phòng: {room?.name || 'N/A'}</Text>
+                <Text style={styles.summaryLine}>Người thuê: {data.tenantName || 'N/A'}</Text>
+                <Text style={styles.summaryLine}>Tiền cọc: {formatCurrency(data.deposit || 0)}</Text>
+                <Text style={styles.summaryLine}>Ngày vào ở: {data.startDate || 'N/A'}</Text>
               </View>
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>TRACH NHIEM CAC BEN</Text>
-              <Text style={styles.textSmall}>- Ben A dam bao dien, nuoc va dieu kien o theo thoa thuan.</Text>
-              <Text style={styles.textSmall}>- Ben B thanh toan dung han, giu gin tai san, chap hanh noi quy.</Text>
-              <Text style={styles.textSmall}>- Neu vi pham dieu khoan, ben con lai co quyen don phuong cham dut hop dong.</Text>
+              <Text style={styles.sectionLabel}>TRÁCH NHIỆM CỦA HAI BÊN</Text>
+              <Text style={styles.textSmall}>- Bên A đảm bảo điện, nước và điều kiện sinh hoạt như thỏa thuận.</Text>
+              <Text style={styles.textSmall}>- Bên B thanh toán đúng hạn, giữ gìn tài sản và tuân thủ nội quy.</Text>
+              <Text style={styles.textSmall}>- Nếu vi phạm điều khoản, bên còn lại có quyền đơn phương chấm dứt hợp đồng.</Text>
             </View>
 
             <View style={styles.signatureRow}>
               <View style={styles.sigBox}>
-                <Text style={styles.sigLabel}>DAI DIEN BEN B</Text>
+                <Text style={styles.sigLabel}>ĐẠI DIỆN BÊN B</Text>
                 <View style={{ height: 60 }} />
                 <Text style={styles.sigName}>{data.tenantName}</Text>
               </View>
               <View style={styles.sigBox}>
-                <Text style={styles.sigLabel}>DAI DIEN BEN A</Text>
+                <Text style={styles.sigLabel}>ĐẠI DIỆN BÊN A</Text>
                 <View style={{ height: 60 }} />
                 <Text style={styles.sigName}>Nguyen Dinh Ha Nam</Text>
               </View>
@@ -119,7 +118,7 @@ export default function ContractPreviewModal({ visible, data, room, onClose, onC
 
         <View style={styles.footer}>
           <TouchableOpacity style={styles.confirmBtn} onPress={onConfirm}>
-            <Text style={styles.confirmBtnTxt}>Ky ket hop dong</Text>
+            <Text style={styles.confirmBtnTxt}>Ký hợp đồng</Text>
             <Ionicons name="checkmark-done" size={20} color="#fff" />
           </TouchableOpacity>
         </View>

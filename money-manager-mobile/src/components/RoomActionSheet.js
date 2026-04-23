@@ -19,29 +19,29 @@ export default function RoomActionSheet({ visible, room, hasInvoice, onClose, on
           <View style={styles.dragPill} />
 
           <View style={styles.header}>
-            <Text style={styles.roomName}>Phong {room.name}</Text>
+            <Text style={styles.roomName}>Phòng {room.name}</Text>
             <Text style={styles.tenant}>{room.tenant_name}</Text>
           </View>
 
           <View style={styles.grid}>
             <TouchableOpacity style={[styles.card, hasInvoice && !isPaid && styles.cardActive]} onPress={() => onAction('invoice')}>
               <Ionicons name="receipt-outline" size={30} color={hasInvoice ? COLORS.secondary : COLORS.primary} />
-              <Text style={styles.cardLabel}>{hasInvoice ? 'Sua hoa don' : 'Lap hoa don'}</Text>
+              <Text style={styles.cardLabel}>{hasInvoice ? 'Sửa hóa đơn' : 'Tạo hóa đơn'}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.card} onPress={() => onAction('contract')}>
               <Ionicons name="document-text-outline" size={30} color={COLORS.primary} />
-              <Text style={styles.cardLabel}>Hop dong</Text>
+              <Text style={styles.cardLabel}>Hợp đồng</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.card} onPress={() => onAction('history')}>
               <Ionicons name="time-outline" size={30} color={COLORS.primary} />
-              <Text style={styles.cardLabel}>Lich su</Text>
+              <Text style={styles.cardLabel}>Lịch sử</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.card, styles.dangerCard]} onPress={onTerminate}>
               <Ionicons name="log-out-outline" size={30} color={COLORS.danger} />
-              <Text style={[styles.cardLabel, { color: COLORS.danger }]}>Thanh ly</Text>
+              <Text style={[styles.cardLabel, { color: COLORS.danger }]}>Trả phòng</Text>
             </TouchableOpacity>
           </View>
         </View>

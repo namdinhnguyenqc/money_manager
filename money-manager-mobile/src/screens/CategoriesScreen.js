@@ -71,7 +71,7 @@ export default function CategoriesScreen({ route, navigation }) {
 
   const handleSave = async () => {
     if (!catName.trim()) {
-      Alert.alert('Loi', 'Vui long nhap ten danh muc');
+      Alert.alert('Lỗi', 'Vui lòng nhập tên danh mục');
       return;
     }
     if (editCat) {
@@ -86,9 +86,9 @@ export default function CategoriesScreen({ route, navigation }) {
   const handleDelete = (cat) => {
     (async () => {
       const confirmed = await confirmDialog({
-        title: 'Xoa danh muc',
-        message: `Xoa "${cat.name}"? Giao dich da tao se khong bi xoa.`,
-        confirmText: 'Xoa',
+        title: 'Xóa danh mục',
+        message: `Xóa "${cat.name}"? Các giao dịch hiện có sẽ không bị xóa.`,
+        confirmText: 'Xóa',
       });
       if (!confirmed) return;
       await deleteCategory(cat.id);
@@ -112,8 +112,8 @@ export default function CategoriesScreen({ route, navigation }) {
     <View style={styles.root}>
       {!isDesktopWeb ? (
         <TopAppBar
-          title="Danh muc"
-          subtitle="Quan ly thu chi"
+          title="Categories"
+          subtitle="Thu/expense management"
           onBack={() => navigation.goBack()}
           rightIcon="add"
           onRightPress={openAdd}
@@ -156,7 +156,7 @@ export default function CategoriesScreen({ route, navigation }) {
         {isDesktopWeb ? (
           <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
             <Ionicons name="add" size={16} color="#fff" />
-            <Text style={styles.addBtnText}>Them danh muc</Text>
+            <Text style={styles.addBtnText}>Thêm danh mục</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -165,8 +165,8 @@ export default function CategoriesScreen({ route, navigation }) {
         {categories.length === 0 ? (
           <SurfaceCard style={styles.emptyCard}>
             <Text style={styles.emptyIcon}>📂</Text>
-            <Text style={styles.emptyTitle}>Chua co danh muc nao</Text>
-            <Text style={styles.emptySub}>Nhan nut + de tao danh muc moi.</Text>
+            <Text style={styles.emptyTitle}>Chưa có danh mục</Text>
+            <Text style={styles.emptySub}>Nhấn + để tạo danh mục mới.</Text>
           </SurfaceCard>
         ) : rootCategories.map((cat) => {
           const children = categories.filter((c) => c.parent_id === cat.id);
@@ -210,12 +210,12 @@ export default function CategoriesScreen({ route, navigation }) {
         <View style={[styles.overlay, isDesktopWeb && styles.overlayWeb]}>
           <SurfaceCard style={[styles.modal, isDesktopWeb && styles.modalWeb]}>
             <View style={styles.handle} />
-            <Text style={styles.modalTitle}>{editCat ? 'Sua danh muc' : 'Them danh muc moi'}</Text>
+            <Text style={styles.modalTitle}>{editCat ? 'Sửa danh mục' : 'Thêm danh mục mới'}</Text>
 
-            <Text style={styles.label}>Ten danh muc</Text>
+            <Text style={styles.label}>Tên danh mục</Text>
             <TextInput
               style={styles.input}
-              placeholder="VD: An uong, xang xe"
+              placeholder="e.g. Food, fuel"
               value={catName}
               onChangeText={setCatName}
               autoFocus
@@ -241,7 +241,7 @@ export default function CategoriesScreen({ route, navigation }) {
               ))}
             </ScrollView>
 
-            <Text style={styles.label}>Mau sac</Text>
+            <Text style={styles.label}>Color</Text>
             <View style={styles.colorRow}>
               {COLOR_SUGGESTIONS.map((color) => (
                 <TouchableOpacity
@@ -254,13 +254,13 @@ export default function CategoriesScreen({ route, navigation }) {
 
             {selectedWalletId === 3 ? (
               <View style={styles.parentSection}>
-                <Text style={styles.label}>Danh muc cha (tuy chon)</Text>
+                <Text style={styles.label}>Danh mục cha (tùy chọn)</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <TouchableOpacity
                     style={[styles.emojiChip, !catParentId && styles.emojiActive]}
                     onPress={() => setCatParentId(null)}
                   >
-                    <Text style={styles.parentLabel}>La muc cha</Text>
+                    <Text style={styles.parentLabel}>Đặt làm danh mục cha</Text>
                   </TouchableOpacity>
                   {categories
                     .filter((c) => !c.parent_id && c.id !== editCat?.id)
@@ -279,10 +279,10 @@ export default function CategoriesScreen({ route, navigation }) {
 
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowModal(false)}>
-                <Text style={styles.cancelText}>Huy</Text>
+                <Text style={styles.cancelText}>Hủy</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.saveBtn, { backgroundColor: catColor }]} onPress={handleSave}>
-                <Text style={styles.saveText}>{editCat ? 'Cap nhat' : 'Them'}</Text>
+                <Text style={styles.saveText}>{editCat ? 'Cập nhật' : 'Thêm'}</Text>
               </TouchableOpacity>
             </View>
           </SurfaceCard>

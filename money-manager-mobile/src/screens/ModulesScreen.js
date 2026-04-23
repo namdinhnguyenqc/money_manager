@@ -29,8 +29,8 @@ export default function ModulesScreen({ navigation }) {
   const modules = [
     {
       id: 'rental',
-      name: 'Day phong tro',
-      desc: 'Quan ly phong, hop dong va hoa don',
+      name: 'Nhà trọ',
+      desc: 'Quản lý phòng, hợp đồng và hóa đơn',
       icon: 'business-outline',
       color: COLORS.secondary,
       route: 'Rental',
@@ -38,15 +38,15 @@ export default function ModulesScreen({ navigation }) {
     {
       id: 'trading',
       name: 'Kinh doanh',
-      desc: 'Theo doi hang hoa, ton kho va loi nhuan',
+      desc: 'Theo dõi sản phẩm, tồn kho và lợi nhuận',
       icon: 'cube-outline',
       color: COLORS.warning,
       route: 'Trading',
     },
     {
       id: 'personal',
-      name: 'Vi ca nhan',
-      desc: 'Thu chi va giao dich tai chinh ca nhan',
+      name: 'Tài chính cá nhân',
+      desc: 'Quản lý thu chi và giao dịch cá nhân',
       icon: 'wallet-outline',
       color: COLORS.primary,
       route: 'Transactions',
@@ -70,32 +70,32 @@ export default function ModulesScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
-      {!isDesktopWeb ? <TopAppBar title="Danh sach nghiep vu" subtitle="Chon module" onBack={() => navigation.goBack()} /> : null}
+      {!isDesktopWeb ? <TopAppBar title="Danh sách module" subtitle="Chọn module" onBack={() => navigation.goBack()} /> : null}
 
       <ScrollView contentContainerStyle={[styles.content, isWeb && styles.contentWeb, { maxWidth: contentMaxWidth }]} showsVerticalScrollIndicator={false}>
         <View style={[styles.heroRow, isWeb && styles.heroRowWeb]}>
           <SurfaceCard tone="low" style={styles.introCard}>
-            <Text style={styles.introEyebrow}>WORKSPACE PORTAL</Text>
-            <Text style={styles.introTitle}>Chon dung luong van hanh</Text>
+            <Text style={styles.introEyebrow}>CỔNG KHÔNG GIAN LÀM VIỆC</Text>
+            <Text style={styles.introTitle}>Chọn luồng vận hành phù hợp</Text>
             <Text style={styles.intro}>
-              Website duoc to chuc lai theo portal desktop. Moi module mo vao dung workspace, du lieu va bo giao dien quan tri rieng.
+              Trang web đã được tổ chức lại theo dạng cổng máy tính. Mỗi module mở với không gian làm việc, dữ liệu và giao diện quản trị riêng.
             </Text>
             <View style={[styles.heroStatRow, isWeb && styles.heroStatRowWeb]}>
               <View style={styles.heroStatCard}>
-                <Text style={styles.heroStatLabel}>Module san sang</Text>
+                <Text style={styles.heroStatLabel}>Module sẵn sàng</Text>
                 <Text style={styles.heroStatValue}>{readyModuleCount}/{modules.length}</Text>
               </View>
               <View style={styles.heroStatCard}>
-                <Text style={styles.heroStatLabel}>So dang co</Text>
+                <Text style={styles.heroStatLabel}>Sổ đang hoạt động</Text>
                 <Text style={styles.heroStatValue}>{wallets.length}</Text>
               </View>
             </View>
           </SurfaceCard>
           {isWeb ? (
             <SurfaceCard tone="lowest" style={styles.noteCard}>
-              <Text style={styles.noteEyebrow}>DIEU HUONG WEB</Text>
-              <Text style={styles.noteTitle}>Truy cap module</Text>
-              <Text style={styles.noteText}>Khu nay duoc bo tri lai de giong portal quan tri. Moi module mo vao dung bo du lieu va man hinh lam viec rieng.</Text>
+              <Text style={styles.noteEyebrow}>ĐIỀU HƯỚNG WEB</Text>
+              <Text style={styles.noteTitle}>Truy cập module</Text>
+              <Text style={styles.noteText}>Khu vực này được bố trí như cổng quản trị. Mỗi module mở với bộ dữ liệu và không gian làm việc riêng.</Text>
             </SurfaceCard>
           ) : null}
         </View>
@@ -118,7 +118,7 @@ export default function ModulesScreen({ navigation }) {
                       {isWeb ? (
                         <View style={[styles.statusPill, linkedWallet ? styles.statusPillReady : styles.statusPillPending]}>
                           <Text style={[styles.statusText, linkedWallet ? styles.statusTextReady : styles.statusTextPending]}>
-                            {linkedWallet ? 'Da ket noi' : 'Chua khoi tao'}
+                            {linkedWallet ? 'Đã kết nối' : 'Chưa khởi tạo'}
                           </Text>
                         </View>
                       ) : null}
@@ -126,7 +126,7 @@ export default function ModulesScreen({ navigation }) {
                       <Text style={styles.desc}>{module.desc}</Text>
                       {isWeb ? (
                         <Text style={styles.metaText}>
-                          {linkedWallet ? `Workspace: ${linkedWallet.name}` : 'Se mo man hinh khoi tao neu chua co workspace.'}
+                          {linkedWallet ? `Không gian: ${linkedWallet.name}` : 'Nếu chưa có không gian, màn hình thiết lập sẽ mở ra.'}
                         </Text>
                       ) : null}
                     </View>
@@ -140,7 +140,7 @@ export default function ModulesScreen({ navigation }) {
 
         <SurfaceCard tone="low">
           <Text style={styles.footer}>
-            Co the tuy chinh danh muc va cau hinh tung module trong man Cai dat.
+            Bạn có thể tùy chỉnh danh mục và thiết lập module trong màn hình Cài đặt.
           </Text>
         </SurfaceCard>
       </ScrollView>

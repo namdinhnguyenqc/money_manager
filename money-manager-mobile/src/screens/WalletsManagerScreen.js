@@ -47,13 +47,13 @@ export default function WalletsManagerScreen({ navigation }) {
     try {
       const activeCount = wallets.filter((w) => w.active === 1 || w.active === true).length;
       if (currentActive && activeCount <= 1) {
-        Alert.alert('Loi', 'Phai giu it nhat 1 so dang bat');
+        Alert.alert('Lỗi', 'Cần ít nhất một sổ tiền đang hoạt động');
         return;
       }
       await toggleWalletStatus(id, !currentActive);
       loadData();
     } catch {
-      Alert.alert('Loi', 'Khong the cap nhat trang thai');
+      Alert.alert('Lỗi', 'Không thể cập nhật trạng thái');
     }
   };
 
@@ -68,7 +68,7 @@ export default function WalletsManagerScreen({ navigation }) {
       setShowAdd(false);
       loadData();
     } catch {
-      Alert.alert('Loi', 'Khong the luu so');
+      Alert.alert('Lỗi', 'Không thể lưu sổ');
     }
   };
 
@@ -96,8 +96,8 @@ export default function WalletsManagerScreen({ navigation }) {
     <View style={styles.root}>
       {!isDesktopWeb ? (
         <TopAppBar
-          title="Danh sach so"
-          subtitle="Quan ly module hien thi"
+          title="Danh sách sổ"
+          subtitle="Quản lý module đang hiển thị"
           onBack={() => navigation.goBack()}
           rightIcon="add"
           onRightPress={openAdd}
@@ -108,13 +108,13 @@ export default function WalletsManagerScreen({ navigation }) {
       <ScrollView contentContainerStyle={[styles.content, isWeb && styles.contentWeb, { maxWidth: contentMaxWidth }]}>
         <View style={[styles.heroRow, isWeb && styles.heroRowWeb]}>
           <SurfaceCard tone="low" style={styles.noteCard}>
-            <Text style={styles.note}>Bat/tat so de hien thi tren man hinh chinh. Tat so khong xoa du lieu.</Text>
+            <Text style={styles.note}>Bật/tắt sổ tiền trên màn hình chính. Tắt sổ sẽ không xóa dữ liệu.</Text>
           </SurfaceCard>
           {isWeb ? (
             <SurfaceCard tone="lowest" style={styles.heroCard}>
-              <Text style={styles.heroEyebrow}>QUAN LY SO</Text>
-              <Text style={styles.heroTitle}>Cau hinh workspace</Text>
-              <Text style={styles.heroText}>Moi so tuong ung voi mot khu vuc nghiep vu. Web duoc doi sang bo cuc desktop de de bat/tat va cap nhat ten/loai so.</Text>
+              <Text style={styles.heroEyebrow}>QUẢN LÝ SỔ TIỀN</Text>
+              <Text style={styles.heroTitle}>Cấu hình không gian làm việc</Text>
+              <Text style={styles.heroText}>Mỗi sổ tiền tương ứng một mảng vận hành. Giao diện website dạng máy tính giúp bật/tắt và cập nhật tên/loại sổ dễ hơn.</Text>
             </SurfaceCard>
           ) : null}
         </View>
@@ -129,7 +129,7 @@ export default function WalletsManagerScreen({ navigation }) {
               <TouchableOpacity style={{ flex: 1 }} onPress={() => openEditor(w)}>
                 <Text style={styles.name}>{w.name}</Text>
                 <Text style={styles.type}>
-                  {w.type === 'personal' ? 'Tai chinh ca nhan' : w.type === 'rental' ? 'Quan ly nha tro' : 'Kinh doanh'}
+                  {w.type === 'personal' ? 'Tài chính cá nhân' : w.type === 'rental' ? 'Quản lý nhà trọ' : 'Kinh doanh'}
                 </Text>
               </TouchableOpacity>
               <Switch
@@ -146,17 +146,17 @@ export default function WalletsManagerScreen({ navigation }) {
       <Modal visible={showAdd} transparent animationType="fade">
         <View style={[styles.overlay, isWeb && styles.overlayWeb]}>
           <View style={[styles.modal, isWeb && styles.modalWeb, { width: isWeb ? modalWidth : '100%' }]}>
-            <Text style={styles.modalTitle}>{editId ? 'Sua so' : 'Them so moi'}</Text>
+            <Text style={styles.modalTitle}>{editId ? 'Sửa sổ' : 'Thêm sổ mới'}</Text>
 
-            <Text style={styles.label}>Ten so</Text>
-            <TextInput style={styles.input} placeholder="VD: Chi tieu, Kinh doanh..." value={newName} onChangeText={setNewName} />
+            <Text style={styles.label}>Tên sổ</Text>
+            <TextInput style={styles.input} placeholder="VD: Chi tiêu, Kinh doanh..." value={newName} onChangeText={setNewName} />
 
-            <Text style={styles.label}>Loai so</Text>
+            <Text style={styles.label}>Loại sổ</Text>
             <View style={styles.types}>
               {[
-                { id: 'personal', icon: '👛', title: 'Ca nhan', sub: 'Thu chi sinh hoat' },
-                { id: 'rental', icon: '🏠', title: 'Nha tro', sub: 'Phong, hop dong, bill' },
-                { id: 'trading', icon: '📦', title: 'Kinh doanh', sub: 'Nhap xuat va loi nhuan' },
+                { id: 'personal', icon: '👛', title: 'Cá nhân', sub: 'Thu/chi hằng ngày' },
+                { id: 'rental', icon: '🏠', title: 'Nhà trọ', sub: 'Phòng, hợp đồng, hóa đơn' },
+                { id: 'trading', icon: '📦', title: 'Kinh doanh', sub: 'Nhập/xuất kho và lợi nhuận' },
               ].map((item) => (
                 <TouchableOpacity key={item.id} style={[styles.typeBtn, newType === item.id && styles.typeBtnActive]} onPress={() => setNewType(item.id)}>
                   <Text style={{ fontSize: 18 }}>{item.icon}</Text>
@@ -171,10 +171,10 @@ export default function WalletsManagerScreen({ navigation }) {
 
             <View style={styles.modalBtns}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAdd(false)}>
-                <Text style={styles.cancelTxt}>Huy</Text>
+                <Text style={styles.cancelTxt}>Hủy</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-                <Text style={styles.saveTxt}>{editId ? 'Cap nhat' : 'Tao so'}</Text>
+                <Text style={styles.saveTxt}>{editId ? 'Cập nhật' : 'Tạo sổ'}</Text>
               </TouchableOpacity>
             </View>
           </View>

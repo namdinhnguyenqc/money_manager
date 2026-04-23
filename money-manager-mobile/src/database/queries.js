@@ -9,9 +9,9 @@ import { apiTradingRepository } from '../repositories/api/ApiTradingRepository';
 import { apiRentalRepository } from '../repositories/api/ApiRentalRepository';
 
 const DEFAULT_WALLETS = [
-  { name: 'Ví Cá Nhân', type: 'personal' },
-  { name: 'Quản lý Trọ', type: 'rental' },
-  { name: 'Kinh doanh / Kho', type: 'trading' },
+  { name: 'Tài chính cá nhân', type: 'personal' },
+  { name: 'Quản lý nhà trọ', type: 'rental' },
+  { name: 'Kinh doanh / Tồn kho', type: 'trading' },
 ];
 
 const DEFAULT_CATEGORIES_BY_WALLET_TYPE = {
@@ -27,7 +27,7 @@ const DEFAULT_CATEGORIES_BY_WALLET_TYPE = {
     ],
   },
   rental: {
-    expense: [{ name: 'Sửa chữa', icon: '🔧', color: '#f59e0b' }],
+    expense: [{ name: 'Bảo trì', icon: '🔧', color: '#f59e0b' }],
     income: [{ name: 'Thu tiền phòng', icon: '🏠', color: '#10b981' }],
   },
   trading: {
@@ -39,8 +39,8 @@ const DEFAULT_CATEGORIES_BY_WALLET_TYPE = {
 const DEFAULT_RENTAL_SERVICES = [
   { name: 'Điện', type: 'metered', unitPrice: 3500, unitPriceAc: 4000, unit: 'kWh', icon: '⚡' },
   { name: 'Nước', type: 'metered', unitPrice: 15000, unitPriceAc: 0, unit: 'm3', icon: '💧' },
-  { name: 'Rác', type: 'fixed', unitPrice: 30000, unitPriceAc: 0, unit: 'tháng', icon: '🗑️' },
-  { name: 'Wifi', type: 'fixed', unitPrice: 70000, unitPriceAc: 0, unit: 'tháng', icon: '📶' },
+  { name: 'Rác', type: 'fixed', unitPrice: 30000, unitPriceAc: 0, unit: 'month', icon: '🗑️' },
+  { name: 'Wifi', type: 'fixed', unitPrice: 70000, unitPriceAc: 0, unit: 'month', icon: '📶' },
 ];
 
 let apiBootstrapPromise = null;
@@ -347,7 +347,7 @@ export const getCategoryBreakdown = async (type, month, year) => {
     filtered.forEach((tx) => {
       const key = tx.category_id == null ? 'null' : String(tx.category_id);
       const prev = grouped.get(key) || {
-        name: tx.category_name || 'Khac',
+        name: tx.category_name || 'Other',
         icon: tx.category_icon || '💬',
         color: tx.category_color || '#64748b',
         total: 0,
@@ -492,32 +492,39 @@ export const getRooms = async (walletId = null) => {
   if (shouldUseApiData()) return await apiRentalRepository.getRooms(walletId);
   // TODO: Refactor adapter pattern for dual backend  if (auth.currentUser) return await cloud.getRooms();
   const db = await getDb();
-  return await db.getAllAsync(`
+  let query = `
     SELECT r.*, c.id as contract_id, c.deposit, c.start_date, c.end_date,
            t.id as tenant_id, t.name as tenant_name, t.phone as tenant_phone, 
            t.id_card as tenant_id_card, t.address as tenant_address
     FROM rooms r
     LEFT JOIN contracts c ON r.id = c.room_id AND c.status = 'active'
     LEFT JOIN tenants t ON c.tenant_id = t.id
-    ORDER BY r.name ASC
-  `);
+  `;
+  const params = [];
+  if (walletId) {
+    query += ` WHERE r.wallet_id = ? `;
+    params.push(walletId);
+  }
+  query += ` ORDER BY r.name ASC `;
+  
+  return await db.getAllAsync(query, params);
 };
 
 export const addRoom = async (name, price, hasAc = false, numPeople = 1, walletId = null) => {
   if (shouldUseApiData()) return await apiRentalRepository.addRoom(name, price, hasAc, numPeople, walletId);
   // TODO: Refactor adapter pattern for dual backend  if (auth.currentUser) return await cloud.addRoom(name, price, hasAc, numPeople);
-  if (!name) throw new Error("Tên phòng không được để trống");
+  if (!name) throw new Error('Tên phòng không được để trống');
   const db = await getDb();
   const r = await db.runAsync(
-    `INSERT INTO rooms (name, price, has_ac, num_people, status) VALUES (?,?,?,?,'vacant')`,
-    [name.trim(), price || 0, hasAc ? 1 : 0, numPeople || 1]
+    `INSERT INTO rooms (wallet_id, name, price, has_ac, num_people, status) VALUES (?,?,?,?,?, 'vacant')`,
+    [walletId, name.trim(), price || 0, hasAc ? 1 : 0, numPeople || 1]
   );
   return r.lastInsertRowId;
 };
 
 export const updateRoom = async (id, name, price, hasAc, numPeople) => {
   if (shouldUseApiData()) return await apiRentalRepository.updateRoom(id, name, price, hasAc, numPeople);
-  if (!name) throw new Error("Tên phòng không được để trống");
+  if (!name) throw new Error('Tên phòng không được để trống');
   const db = await getDb();
   await db.runAsync(
     `UPDATE rooms SET name=?, price=?, has_ac=?, num_people=? WHERE id=?`,
@@ -536,7 +543,7 @@ export const deleteRoom = async (id) => {
   );
   
   if (activeContract) {
-    throw new Error('Không thể xóa phòng đang có khách thuê. Vui lòng thanh lý hợp đồng trước.');
+    throw new Error('Không thể xóa phòng đang có người thuê. Vui lòng trả phòng trước.');
   }
 
   // 2. Perform manual cascading delete for history (SQLite fallback)
@@ -546,10 +553,10 @@ export const deleteRoom = async (id) => {
   await db.runAsync(`DELETE FROM contract_services WHERE contract_id IN (SELECT id FROM contracts WHERE room_id = ?)`, [id]);
   await db.runAsync(`DELETE FROM contracts WHERE room_id = ?`, [id]);
   
-  // 3. Delete room itself
+  // 3. Xóa phòng itself
   const result = await db.runAsync(`DELETE FROM rooms WHERE id=?`, [id]);
   if (result.changes === 0) {
-    throw new Error('Lỗi khi xóa phòng hoặc phòng không tồn tại.');
+    throw new Error('Failed to delete room or room does not exist.');
   }
 };
 
@@ -649,7 +656,7 @@ export const terminateContract = async (id, roomId, refundAmount = 0, walletId =
   const db = await getDb();
   const now = new Date().toISOString().split('T')[0];
   
-  // 1. Update contract status
+  // 1. Cập nhật hợp đồng status
   await db.runAsync(
     `UPDATE contracts SET status='terminated', end_date=? WHERE id=?`,
     [now, id]
@@ -664,7 +671,7 @@ export const terminateContract = async (id, roomId, refundAmount = 0, walletId =
     await addTransaction({
       type: 'expense',
       amount: refundAmount,
-      description: `Hoàn tiền cọc phòng ${room?.name || ''}`,
+      description: `Deposit refund for room ${room?.name || ''}`,
       categoryId: null, // Optional: could link to a 'Refund' category
       walletId: walletId,
       imageUri: null,
@@ -717,7 +724,7 @@ export const getInvoices = async (month, year) => {
   if (shouldUseApiData()) return await apiInvoiceRepository.getInvoices(month, year);
   const db = await getDb();
   return await db.getAllAsync(`
-    SELECT i.*, r.name as room_name, t.name as tenant_name, t.phone as tenant_phone
+    SELECT i.*, r.name as room_name, t.name as tenant_name, t.phone as tenant_phone, i.invoice_note
     FROM invoices i
     JOIN contracts c ON i.contract_id = c.id
     JOIN rooms r ON c.room_id = r.id
@@ -746,13 +753,13 @@ export const getInvoiceDetails = async (invoiceId) => {
 export const createInvoice = async (data) => {
   if (shouldUseApiData()) return await apiInvoiceRepository.createInvoice(data);
   const db = await getDb();
-  const { roomId, contractId, month, year, roomFee, items, previousDebt = 0, elecOld, elecNew, waterOld, waterNew } = data;
+  const { roomId, contractId, month, year, roomFee, items, previousDebt = 0, elecOld, elecNew, waterOld, waterNew, invoiceNote } = data;
   const serviceFees = items.reduce((s, i) => s + i.amount, 0);
   const total = roomFee + serviceFees + previousDebt;
 
   const r = await db.runAsync(
-    `INSERT INTO invoices (room_id, contract_id, month, year, room_fee, total_amount, previous_debt, elec_old, elec_new, water_old, water_new) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-    [roomId, contractId, month, year, roomFee, total, previousDebt, elecOld || null, elecNew || null, waterOld || null, waterNew || null]
+    `INSERT INTO invoices (room_id, contract_id, month, year, room_fee, total_amount, previous_debt, elec_old, elec_new, water_old, water_new, invoice_note) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [roomId, contractId, month, year, roomFee, total, previousDebt, elecOld || null, elecNew || null, waterOld || null, waterNew || null, invoiceNote || null]
   );
   const invoiceId = r.lastInsertRowId;
 
@@ -914,7 +921,7 @@ export const addTradingItem = async ({ walletId, name, category, importPrice, im
   const txId = await addTransaction({
     type: 'expense',
     amount: importPrice,
-    description: `Nhập hàng: ${name}${quantity > 1 ? ' (x'+quantity+')' : ''}${batchId ? ' (Lô: '+batchId+')' : ''}`,
+    description: `Stock import: ${name}${quantity > 1 ? ' (x'+quantity+')' : ''}${batchId ? ' (Batch: '+batchId+')' : ''}`,
     walletId,
     date: importDate
   });
@@ -927,7 +934,7 @@ export const addTradingItem = async ({ walletId, name, category, importPrice, im
   const itemsToCreate = subItems.length > 0 
     ? subItems.map(si => ({ name: `${name} - ${si.name}`, category: si.category || category }))
     : Array.from({ length: quantity }, (_, i) => ({ 
-        name: quantity > 1 ? `${name} - sp ${i + 1}` : name,
+        name: quantity > 1 ? `${name} - item ${i + 1}` : name,
         category: category 
       }));
 

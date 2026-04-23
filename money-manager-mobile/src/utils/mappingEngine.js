@@ -1,14 +1,14 @@
 /**
- * Thuật toán khớp chỉ số với phòng dựa trên giải thuật "Best Match"
- * @param {Array} readings - [{ value: number, type: 'electricity' }] từ AI
- * @param {Array} contracts - Danh sách hợp đồng đang hoạt động kèm chỉ số cũ
- * @returns {Array} - Danh sách kết quả gán [{ roomName: string, oldValue: number, newValue: number, status: 'match'|'ambiguous' }]
+ * Match meter readings to rooms using a "Best Match" strategy.
+ * @param {Array} readings - [{ value: number, type: 'electricity' }] extracted by AI
+ * @param {Array} contracts - Active contracts with previous readings
+ * @returns {Array} - Mapping results [{ roomName: string, oldValue: number, newValue: number, status: 'match'|'ambiguous' }]
  */
 export const matchReadingsToRooms = (readings, contracts) => {
   const result = [];
   const usedReadingIndices = new Set();
 
-  // 1. Đếm số lượng ảnh AI không đọc được
+  // 1. Count how many images AI could not read
   const unreadableCount = readings.filter(r => r.value === null).length;
 
   contracts.forEach(contract => {
@@ -50,7 +50,7 @@ export const matchReadingsToRooms = (readings, contracts) => {
         newValue: 0,
         consumption: 0,
         status: 'not_found',
-        hasUnreadable: unreadableCount > 0 // Gợi ý nếu có ảnh AI mờ
+        hasUnreadable: unreadableCount > 0 // Hint when there are blurry images
       });
     }
   });

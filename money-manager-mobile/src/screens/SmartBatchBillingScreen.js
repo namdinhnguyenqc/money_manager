@@ -29,7 +29,10 @@ export default function SmartBatchBillingScreen({ navigation }) {
     try {
       const [cs, svcs] = await Promise.all([getActiveContracts(), getServices()]);
       setContracts(cs);
-      const eSvc = svcs.find((svc) => svc.name.toLowerCase().includes('dien'));
+      const eSvc = svcs.find((svc) => {
+        const name = String(svc.name || '').toLowerCase();
+        return name.includes('dien') || name.includes('electric');
+      });
       setElecSvc(eSvc);
     } catch (e) {
       console.error(e);
@@ -40,7 +43,7 @@ export default function SmartBatchBillingScreen({ navigation }) {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Quyen truy cap', 'Can cap quyen truy cap de chon anh.');
+        Alert.alert('Cần cấp quyền', 'Vui lòng cấp quyền thư viện ảnh để chọn hình.');
         return;
       }
 
@@ -66,7 +69,7 @@ export default function SmartBatchBillingScreen({ navigation }) {
 
   const startAiAnalysis = async () => {
     if (images.length === 0) {
-      Alert.alert('Thong bao', 'Vui long chon it nhat 1 anh dong ho dien');
+      Alert.alert('Thông báo', 'Vui lòng chọn ít nhất 1 ảnh công tơ điện');
       return;
     }
 
@@ -83,7 +86,7 @@ export default function SmartBatchBillingScreen({ navigation }) {
       setStep(3);
     } catch (e) {
       console.error(e);
-      Alert.alert('Loi AI', e.message);
+      Alert.alert('Lỗi AI', e.message);
       setStep(1);
     } finally {
       setLoading(false);
@@ -103,11 +106,11 @@ export default function SmartBatchBillingScreen({ navigation }) {
           const invoiceItems = [];
           for (const svc of activeServices) {
             if (svc.type === 'fixed') {
-              invoiceItems.push({ name: svc.name, amount: svc.unit_price, detail: 'Co dinh', serviceId: svc.id });
+              invoiceItems.push({ name: svc.name, amount: svc.unit_price, detail: 'Cố định', serviceId: svc.id });
             } else if (svc.type === 'per_person') {
               const contract = contracts.find((c) => c.id === res.contractId);
               const amt = svc.unit_price * (contract?.num_people || 1);
-              invoiceItems.push({ name: svc.name, amount: amt, detail: `x${contract?.num_people} nguoi`, serviceId: svc.id });
+              invoiceItems.push({ name: svc.name, amount: amt, detail: `x${contract?.num_people} người`, serviceId: svc.id });
             } else if ((svc.type === 'metered' || svc.type === 'meter') && svc.id === elecSvc?.id) {
               const used = res.newValue - res.oldValue;
               const amt = used * svc.unit_price;
@@ -129,10 +132,10 @@ export default function SmartBatchBillingScreen({ navigation }) {
           });
         }
       }
-      Alert.alert('Thanh cong', 'Da lap xong hoa don.', [{ text: 'OK', onPress: () => navigation.navigate('Invoices') }]);
+      Alert.alert('Thành công', 'Đã tạo hóa đơn thành công.', [{ text: 'OK', onPress: () => navigation.navigate('Invoices') }]);
     } catch (e) {
       console.error(e);
-      Alert.alert('Loi', e.message);
+      Alert.alert('Lỗi', e.message);
     } finally {
       setLoading(false);
     }
@@ -150,7 +153,7 @@ export default function SmartBatchBillingScreen({ navigation }) {
           <View style={[styles.badge, { backgroundColor: matched ? '#e8fff4' : '#ffeceb' }]}>
             <Ionicons name={matched ? 'checkmark-circle' : 'alert-circle'} size={14} color={matched ? COLORS.success : COLORS.danger} />
             <Text style={[styles.badgeText, { color: matched ? COLORS.success : COLORS.danger }]}>
-              {matched ? 'Da khop' : 'Can kiem tra'}
+              {matched ? 'Đã khớp' : 'Cần rà soát'}
             </Text>
           </View>
         </View>
@@ -158,24 +161,24 @@ export default function SmartBatchBillingScreen({ navigation }) {
         {matched ? (
           <View style={styles.dataRow}>
             <View style={styles.dataItem}>
-              <Text style={styles.dataLabel}>So cu</Text>
+              <Text style={styles.dataLabel}>Chỉ số cũ</Text>
               <Text style={styles.dataValue}>{item.oldValue}</Text>
             </View>
             <Ionicons name="chevron-forward" size={12} color={COLORS.outline} />
             <View style={styles.dataItem}>
-              <Text style={styles.dataLabel}>So moi</Text>
+              <Text style={styles.dataLabel}>Chỉ số mới</Text>
               <Text style={[styles.dataValue, { color: COLORS.primary }]}>{item.newValue}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.dataItem}>
-              <Text style={styles.dataLabel}>Tieu thu</Text>
+              <Text style={styles.dataLabel}>Tiêu thụ</Text>
               <Text style={[styles.dataValue, { color: COLORS.success }]}>{item.consumption} kWh</Text>
             </View>
           </View>
         ) : (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>
-              {item.hasUnreadable ? 'AI khong doc ro anh nay. Vui long nhap tay.' : 'Thieu anh dong ho hoac sai lech du lieu.'}
+              {item.hasUnreadable ? 'AI chưa đọc rõ được ảnh này. Vui lòng nhập thủ công.' : 'Thiếu ảnh công tơ hoặc dữ liệu chưa khớp.'}
             </Text>
           </View>
         )}
@@ -188,7 +191,7 @@ export default function SmartBatchBillingScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
-      {!isDesktopWeb ? <TopAppBar title="Hoa don dien AI" subtitle="Tinh nang AI" onBack={() => navigation.goBack()} /> : null}
+      {!isDesktopWeb ? <TopAppBar title="Lập hóa đơn điện bằng AI" subtitle="Tính năng AI" onBack={() => navigation.goBack()} /> : null}
 
       {step === 1 ? (
         <ScrollView
@@ -200,14 +203,14 @@ export default function SmartBatchBillingScreen({ navigation }) {
             {isDesktopWeb ? (
               <View style={styles.headerRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.headerTitle}>Batch billing bang AI</Text>
-                  <Text style={styles.headerSub}>Tai nhieu anh dong ho, AI se de xuat chi so theo phong truoc khi lap bill.</Text>
+                  <Text style={styles.headerTitle}>Lập hóa đơn hàng loạt bằng AI</Text>
+                  <Text style={styles.headerSub}>Tải nhiều ảnh công tơ, AI sẽ gợi ý chỉ số theo từng phòng trước khi tạo hóa đơn.</Text>
                 </View>
               </View>
             ) : null}
             <SurfaceCard>
-              <Text style={styles.welcomeTitle}>Quet dong ho dien theo lo</Text>
-              <Text style={styles.welcomeSub}>Chon nhieu anh cung luc, AI se de xuat so cho tung phong.</Text>
+              <Text style={styles.welcomeTitle}>Quét công tơ điện hàng loạt</Text>
+              <Text style={styles.welcomeSub}>Chọn nhiều ảnh cùng lúc, AI sẽ gợi ý chỉ số cho từng phòng.</Text>
             </SurfaceCard>
 
             <SurfaceCard>
@@ -222,14 +225,14 @@ export default function SmartBatchBillingScreen({ navigation }) {
                 ))}
                 <TouchableOpacity style={styles.addImage} onPress={pickImages}>
                   <Ionicons name="add" size={30} color={COLORS.primary} />
-                  <Text style={styles.addText}>Them anh</Text>
+                  <Text style={styles.addText}>Thêm ảnh</Text>
                 </TouchableOpacity>
               </ScrollView>
             </SurfaceCard>
 
             {images.length > 0 ? (
               <TouchableOpacity style={styles.primaryBtn} onPress={startAiAnalysis}>
-                <Text style={styles.primaryBtnText}>Bat dau phan tich ({images.length} anh)</Text>
+                <Text style={styles.primaryBtnText}>Bắt đầu phân tích ({images.length} ảnh)</Text>
                 <Ionicons name="flash" size={16} color="#fff" />
               </TouchableOpacity>
             ) : null}
@@ -240,14 +243,14 @@ export default function SmartBatchBillingScreen({ navigation }) {
       {step === 2 ? (
         <View style={[styles.content, isDesktopWeb && styles.contentWeb, { maxWidth: contentMaxWidth }, styles.center]}>
           <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingTitle}>AI dang xu ly du lieu...</Text>
-          <Text style={styles.loadingSub}>Dang trich xuat chi so va khop phong.</Text>
+          <Text style={styles.loadingTitle}>AI đang xử lý dữ liệu...</Text>
+          <Text style={styles.loadingSub}>Đang trích xuất chỉ số và đối chiếu phòng.</Text>
         </View>
       ) : null}
 
       {step === 3 ? (
         <View style={[styles.content, isDesktopWeb && styles.contentWeb, { maxWidth: contentMaxWidth }]}>
-          <Text style={styles.reviewTitle}>Ket qua de xuat ({results.filter((r) => r.status === 'match').length}/{contracts.length})</Text>
+          <Text style={styles.reviewTitle}>Kết quả gợi ý ({results.filter((r) => r.status === 'match').length}/{contracts.length})</Text>
           <FlatList
             style={styles.reviewList}
             data={results}
@@ -259,14 +262,14 @@ export default function SmartBatchBillingScreen({ navigation }) {
 
           <View style={styles.footer}>
             <TouchableOpacity style={styles.repickBtn} onPress={() => setStep(1)}>
-              <Text style={styles.repickText}>Chon lai</Text>
+              <Text style={styles.repickText}>Chọn lại</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.confirmBtn} onPress={saveAllInvoices} disabled={loading}>
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <Text style={styles.confirmText}>Xac nhan va lap hoa don</Text>
+                  <Text style={styles.confirmText}>Xác nhận và tạo hóa đơn</Text>
                   <Ionicons name="checkmark-done" size={18} color="#fff" />
                 </>
               )}

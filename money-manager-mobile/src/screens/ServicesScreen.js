@@ -22,16 +22,16 @@ import SurfaceCard from '../components/ui/SurfaceCard';
 import { confirmDialog } from '../utils/dialogs';
 
 const SERVICE_DESCRIPTIONS = {
-  metered: 'Tinh theo dong ho',
-  meter: 'Tinh theo dong ho',
-  fixed: 'Phi co dinh',
-  per_person: 'Tinh theo nguoi',
+  metered: 'Theo đồng hồ',
+  meter: 'Theo đồng hồ',
+  fixed: 'Phí cố định',
+  per_person: 'Theo đầu người',
 };
 
 const SERVICE_TYPES = [
-  { key: 'fixed', label: 'Co dinh', icon: 'ðŸ“Œ' },
-  { key: 'metered', label: 'Dong ho', icon: 'ðŸ“Š' },
-  { key: 'per_person', label: 'Theo nguoi', icon: 'ðŸ‘¥' },
+  { key: 'fixed', label: 'Cố định', icon: '📌' },
+  { key: 'metered', label: 'Theo đồng hồ', icon: '📊' },
+  { key: 'per_person', label: 'Theo đầu người', icon: '👥' },
 ];
 
 const normalizeText = (value = '') =>
@@ -56,8 +56,8 @@ export default function ServicesScreen({ navigation }) {
   const [newType, setNewType] = useState('fixed');
   const [newPrice, setNewPrice] = useState('');
   const [newPriceAc, setNewPriceAc] = useState('');
-  const [newUnit, setNewUnit] = useState('thang');
-  const [newIcon, setNewIcon] = useState('âš™ï¸');
+  const [newUnit, setNewUnit] = useState('month');
+  const [newIcon, setNewIcon] = useState('⚙️');
 
   const loadServices = useCallback(async () => {
     try {
@@ -82,7 +82,7 @@ export default function ServicesScreen({ navigation }) {
     const price = parseInt(editPrice.replace(/[^0-9]/g, ''), 10);
     const priceAc = parseInt(editPriceAc.replace(/[^0-9]/g, ''), 10) || 0;
     if (!price || price < 1) {
-      Alert.alert('Loi', 'Gia khong hop le');
+      Alert.alert('Lỗi', 'Giá không hợp lệ');
       return;
     }
     await updateService(svc.id, { unitPrice: price, unitPriceAc: priceAc, active: true });
@@ -93,9 +93,9 @@ export default function ServicesScreen({ navigation }) {
   const handleDelete = (svc) => {
     (async () => {
       const confirmed = await confirmDialog({
-        title: 'Xoa dich vu',
-        message: `Xoa ${svc.name}?`,
-        confirmText: 'Xoa',
+        title: 'Xóa dịch vụ',
+        message: `Xóa ${svc.name}?`,
+        confirmText: 'Xóa',
       });
       if (!confirmed) return;
       await deleteService(svc.id);
@@ -105,12 +105,12 @@ export default function ServicesScreen({ navigation }) {
 
   const handleAddService = async () => {
     if (!newName.trim()) {
-      Alert.alert('Loi', 'Nhap ten dich vu');
+      Alert.alert('Lỗi', 'Nhập tên dịch vụ');
       return;
     }
     const price = parseInt(newPrice.replace(/[^0-9]/g, ''), 10);
     if (!price || price < 1) {
-      Alert.alert('Loi', 'Gia khong hop le');
+      Alert.alert('Lỗi', 'Giá không hợp lệ');
       return;
     }
     const priceAc = parseInt(newPriceAc.replace(/[^0-9]/g, ''), 10) || 0;
@@ -120,8 +120,8 @@ export default function ServicesScreen({ navigation }) {
       type: newType,
       unitPrice: price,
       unitPriceAc: priceAc,
-      unit: newUnit.trim() || 'thang',
-      icon: newIcon || 'âš™ï¸',
+      unit: newUnit.trim() || 'month',
+      icon: newIcon || '⚙️',
     });
 
     setShowAddModal(false);
@@ -129,8 +129,8 @@ export default function ServicesScreen({ navigation }) {
     setNewType('fixed');
     setNewPrice('');
     setNewPriceAc('');
-    setNewUnit('thang');
-    setNewIcon('âš™ï¸');
+    setNewUnit('month');
+    setNewIcon('⚙️');
     loadServices();
   };
 
@@ -140,17 +140,24 @@ export default function ServicesScreen({ navigation }) {
   const isDesktopWeb = isWeb;
   const contentMaxWidth = width >= 1440 ? 1240 : width >= 1024 ? 1120 : 960;
   const serviceCardBasis = width >= 1320 ? '32%' : width >= 900 ? '48.5%' : '100%';
-  const fixedServices = services.filter((svc) => svc.type === 'fixed' && !normalizeText(svc.name).includes('nuoc'));
+  const fixedServices = services.filter((svc) => {
+    const serviceName = normalizeText(svc.name);
+    const isWater = serviceName.includes('nuoc') || serviceName.includes('water');
+    return svc.type === 'fixed' && !isWater;
+  });
   const meteredServices = services.filter((svc) => svc.type === 'metered' || svc.type === 'meter');
-  const perPersonServices = services.filter((svc) => svc.type === 'per_person' || normalizeText(svc.name).includes('nuoc'));
+  const perPersonServices = services.filter((svc) => {
+    const serviceName = normalizeText(svc.name);
+    return svc.type === 'per_person' || serviceName.includes('nuoc') || serviceName.includes('water');
+  });
   const monthlyFixedTotal = fixedServices.reduce((sum, svc) => sum + Number(svc.unit_price || 0), 0);
 
   return (
     <View style={styles.root}>
       {!isDesktopWeb ? (
         <TopAppBar
-          title="Dich vu nha tro"
-          subtitle="Cau hinh don gia"
+          title="Dịch vụ nhà trọ"
+          subtitle="Cấu hình đơn giá"
           onBack={() => navigation.goBack()}
           rightIcon="add"
           onRightPress={() => setShowAddModal(true)}
@@ -162,25 +169,25 @@ export default function ServicesScreen({ navigation }) {
         <View style={[styles.container, isWeb && styles.containerWeb, { maxWidth: contentMaxWidth }]}>
           <View style={[styles.heroRow, isWeb && styles.heroRowWeb]}>
             <SurfaceCard tone="low" style={styles.heroCard}>
-              <Text style={styles.heroEyebrow}>DANH MUC DICH VU</Text>
-              <Text style={styles.heroTitle}>Bang gia van hanh nha tro</Text>
-              <Text style={styles.heroText}>Quan ly gia dien, nuoc, wifi, rac va cac phi phat sinh theo bo cuc desktop de doi soat nhanh tren website.</Text>
+              <Text style={styles.heroEyebrow}>BẢNG DỊCH VỤ</Text>
+              <Text style={styles.heroTitle}>Bảng giá vận hành nhà trọ</Text>
+              <Text style={styles.heroText}>Quản lý điện, nước, wifi, rác và các khoản phí khác trên giao diện máy tính để đối soát nhanh hơn.</Text>
 
               <View style={[styles.heroStats, isWeb && styles.heroStatsWeb]}>
                 <View style={styles.heroStatItem}>
-                  <Text style={styles.heroStatLabel}>Tong dich vu</Text>
+                  <Text style={styles.heroStatLabel}>Tổng dịch vụ</Text>
                   <Text style={styles.heroStatValue}>{services.length}</Text>
                 </View>
                 <View style={styles.heroStatItem}>
-                  <Text style={styles.heroStatLabel}>Phi co dinh</Text>
+                  <Text style={styles.heroStatLabel}>Phí cố định</Text>
                   <Text style={styles.heroStatValue}>{fixedServices.length}</Text>
                 </View>
                 <View style={styles.heroStatItem}>
-                  <Text style={styles.heroStatLabel}>Theo dong ho</Text>
+                  <Text style={styles.heroStatLabel}>Theo đồng hồ</Text>
                   <Text style={styles.heroStatValue}>{meteredServices.length}</Text>
                 </View>
                 <View style={styles.heroStatItem}>
-                  <Text style={styles.heroStatLabel}>Theo nguoi</Text>
+                  <Text style={styles.heroStatLabel}>Theo đầu người</Text>
                   <Text style={styles.heroStatValue}>{perPersonServices.length}</Text>
                 </View>
               </View>
@@ -188,13 +195,13 @@ export default function ServicesScreen({ navigation }) {
 
             {isWeb ? (
               <SurfaceCard tone="lowest" style={styles.heroAside}>
-                <Text style={styles.heroAsideTitle}>Tong phi co dinh hang thang</Text>
+                <Text style={styles.heroAsideTitle}>Tổng phí cố định theo tháng</Text>
                 <Text style={styles.heroAsideValue}>{formatCurrency(monthlyFixedTotal)}</Text>
-                <Text style={styles.heroAsideText}>Tong nay chua bao gom dich vu tinh theo chi so dien va nuoc tinh theo so nguoi o.</Text>
+                <Text style={styles.heroAsideText}>Tổng này chưa bao gồm điện tính theo công tơ và nước tính theo đầu người.</Text>
                 <View style={styles.heroAsideList}>
-                  <Text style={styles.heroAsideItem}>Nuoc tren web hien thi theo nguoi</Text>
-                  <Text style={styles.heroAsideItem}>Dien giu nguyen theo chi so</Text>
-                  <Text style={styles.heroAsideItem}>Co the cap nhat gia ngay tren tung the dich vu</Text>
+                  <Text style={styles.heroAsideItem}>Nước trên website đang hiển thị theo đầu người</Text>
+                  <Text style={styles.heroAsideItem}>Điện vẫn được tính theo công tơ</Text>
+                  <Text style={styles.heroAsideItem}>Bạn có thể cập nhật đơn giá trực tiếp trên từng thẻ dịch vụ</Text>
                 </View>
               </SurfaceCard>
             ) : null}
@@ -202,13 +209,13 @@ export default function ServicesScreen({ navigation }) {
 
           <View style={[styles.toolbar, isWeb && styles.toolbarWeb]}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>Bang gia dang ap dung</Text>
-              <Text style={styles.sectionText}>Cap nhat don gia dich vu dang dung cho toan bo luong lap hoa don hang thang.</Text>
+              <Text style={styles.sectionTitle}>Bảng giá đang áp dụng</Text>
+              <Text style={styles.sectionText}>Cập nhật đơn giá dịch vụ dùng trong quy trình lập hóa đơn tháng.</Text>
             </View>
             {isWeb ? (
               <TouchableOpacity style={styles.addActionBtn} onPress={() => setShowAddModal(true)}>
                 <Ionicons name="add" size={18} color="#fff" />
-                <Text style={styles.addActionText}>Them dich vu</Text>
+                <Text style={styles.addActionText}>Thêm dịch vụ</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -216,22 +223,23 @@ export default function ServicesScreen({ navigation }) {
           {services.length === 0 ? (
             <View style={styles.emptyWrap}>
               <Ionicons name="construct-outline" size={48} color={COLORS.border} />
-              <Text style={styles.emptyTitle}>Chua co dich vu nao</Text>
-              <Text style={styles.emptyText}>Them bang gia dien, nuoc, wifi hoac cac phi co dinh de bat dau lap hoa don.</Text>
+              <Text style={styles.emptyTitle}>Chưa có dịch vụ</Text>
+              <Text style={styles.emptyText}>Thêm điện, nước, wifi hoặc phí cố định để bắt đầu lập hóa đơn.</Text>
             </View>
           ) : (
             <View style={styles.serviceGrid}>
               {services.map((svc) => {
                 const isEditing = editing === svc.id;
                 const isMetered = svc.type === 'metered' || svc.type === 'meter';
-                const isWater = normalizeText(svc.name).includes('nuoc');
-                const displayType = isWater ? 'Tinh theo nguoi' : (SERVICE_DESCRIPTIONS[svc.type] || svc.type);
-                const displayUnit = isWater ? 'nguoi' : svc.unit;
+                const serviceName = normalizeText(svc.name);
+                const isWater = serviceName.includes('nuoc') || serviceName.includes('water');
+                const displayType = isWater ? 'Theo đầu người' : (SERVICE_DESCRIPTIONS[svc.type] || svc.type);
+                const displayUnit = isWater ? 'người' : svc.unit;
                 const cardHint = isWater
-                  ? 'Ap dung theo so nguoi trong phong moi thang'
+                  ? 'Tính theo số người ở mỗi tháng'
                   : isMetered
-                    ? 'Nhap chi so cu va moi khi lap bill'
-                    : 'Cong thang vao hoa don';
+                    ? 'Nhập số cũ/số mới khi lập hóa đơn'
+                    : 'Cộng theo tháng vào hóa đơn';
 
                 return (
                   <SurfaceCard key={svc.id} tone="lowest" style={[styles.card, isWeb && styles.cardWeb, { width: isWeb ? serviceCardBasis : '100%' }]}>
@@ -270,7 +278,7 @@ export default function ServicesScreen({ navigation }) {
                             keyboardType="number-pad"
                             value={editPrice}
                             onChangeText={setEditPrice}
-                            placeholder="Don gia"
+                            placeholder="Đơn giá"
                           />
                           {isMetered ? (
                             <TextInput
@@ -278,23 +286,23 @@ export default function ServicesScreen({ navigation }) {
                               keyboardType="number-pad"
                               value={editPriceAc}
                               onChangeText={setEditPriceAc}
-                              placeholder="Gia AC"
+                              placeholder="Giá phòng máy lạnh"
                             />
                           ) : null}
                         </View>
                         <View style={styles.editActions}>
                           <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditing(null)}>
-                            <Text style={styles.cancelTxt}>Huy</Text>
+                            <Text style={styles.cancelTxt}>Hủy</Text>
                           </TouchableOpacity>
                           <TouchableOpacity style={styles.saveBtn} onPress={() => saveEdit(svc)}>
-                            <Text style={styles.saveTxt}>Luu</Text>
+                            <Text style={styles.saveTxt}>Lưu</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
                     ) : (
                       <View style={styles.priceRow}>
                         <Text style={styles.price}>{formatCurrency(svc.unit_price || 0)}/{displayUnit}</Text>
-                        {isWater ? <Text style={styles.priceHint}>Ap dung theo so nguoi trong phong moi thang</Text> : null}
+                        {isWater ? <Text style={styles.priceHint}>Tính theo số người ở mỗi tháng</Text> : null}
                         {isMetered && Number(svc.unit_price_ac || 0) > 0 ? (
                           <Text style={styles.priceAc}>AC {formatCurrency(svc.unit_price_ac || 0)}/{svc.unit}</Text>
                         ) : null}
@@ -311,11 +319,11 @@ export default function ServicesScreen({ navigation }) {
       <Modal visible={showAddModal} transparent animationType={isWeb ? 'fade' : 'slide'}>
         <View style={[styles.overlay, isWeb && styles.overlayWeb]}>
           <View style={[styles.modalBox, isWeb && styles.modalBoxWeb]}>
-            <Text style={styles.modalTitle}>Them dich vu</Text>
-            <Text style={styles.modalSub}>Cau hinh bang gia se duoc ap dung cho luong lap hoa don tren web.</Text>
+            <Text style={styles.modalTitle}>Thêm dịch vụ</Text>
+            <Text style={styles.modalSub}>Đơn giá tại đây sẽ áp dụng cho luồng lập hóa đơn trên website.</Text>
 
             <View style={[styles.modalTopRow, isWeb && styles.modalTopRowWeb]}>
-              <TextInput style={[styles.modalInput, isWeb && styles.modalInputWide]} placeholder="Ten dich vu" value={newName} onChangeText={setNewName} />
+              <TextInput style={[styles.modalInput, isWeb && styles.modalInputWide]} placeholder="Tên dịch vụ" value={newName} onChangeText={setNewName} />
               <TextInput style={[styles.modalInput, isWeb && styles.modalInputIcon]} placeholder="Icon" value={newIcon} onChangeText={setNewIcon} maxLength={2} />
             </View>
 
@@ -326,8 +334,8 @@ export default function ServicesScreen({ navigation }) {
                   style={[styles.typeChip, newType === t.key && styles.typeChipActive]}
                   onPress={() => {
                     setNewType(t.key);
-                    if (t.key === 'fixed') setNewUnit('thang');
-                    else if (t.key === 'per_person') setNewUnit('nguoi');
+                    if (t.key === 'fixed') setNewUnit('month');
+                    else if (t.key === 'per_person') setNewUnit('person');
                     else setNewUnit('kWh');
                   }}
                 >
@@ -338,20 +346,20 @@ export default function ServicesScreen({ navigation }) {
             </View>
 
             <View style={styles.modalRow}>
-              <TextInput style={styles.modalInputHalf} placeholder="Gia" keyboardType="number-pad" value={newPrice} onChangeText={setNewPrice} />
-              <TextInput style={styles.modalInputHalf} placeholder="Don vi" value={newUnit} onChangeText={setNewUnit} />
+              <TextInput style={styles.modalInputHalf} placeholder="Đơn giá" keyboardType="number-pad" value={newPrice} onChangeText={setNewPrice} />
+              <TextInput style={styles.modalInputHalf} placeholder="Đơn vị" value={newUnit} onChangeText={setNewUnit} />
             </View>
 
             {newType === 'metered' ? (
-              <TextInput style={styles.modalInput} placeholder="Gia phong co AC" keyboardType="number-pad" value={newPriceAc} onChangeText={setNewPriceAc} />
+              <TextInput style={styles.modalInput} placeholder="Giá cho phòng máy lạnh" keyboardType="number-pad" value={newPriceAc} onChangeText={setNewPriceAc} />
             ) : null}
 
             <View style={styles.modalBtns}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAddModal(false)}>
-                <Text style={styles.cancelTxt}>Huy</Text>
+                <Text style={styles.cancelTxt}>Hủy</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveBtn} onPress={handleAddService}>
-                <Text style={styles.saveTxt}>Them</Text>
+                <Text style={styles.saveTxt}>Thêm</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -475,5 +483,3 @@ const styles = StyleSheet.create({
   modalInputHalf: { flex: 1, height: 42, borderRadius: 10, borderWidth: 1.5, borderColor: COLORS.border, paddingHorizontal: 12, color: COLORS.textPrimary, marginBottom: 10 },
   modalBtns: { flexDirection: 'row', gap: 8, marginTop: 4 },
 });
-
-

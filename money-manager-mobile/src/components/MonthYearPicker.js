@@ -4,9 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, RADIUS, FONTS, SHADOW } from '../theme';
 
 const MONTHS = [
-  'Thang 1', 'Thang 2', 'Thang 3', 'Thang 4',
-  'Thang 5', 'Thang 6', 'Thang 7', 'Thang 8',
-  'Thang 9', 'Thang 10', 'Thang 11', 'Thang 12',
+  'January', 'February', 'March', 'April',
+  'May', 'June', 'July', 'August',
+  'September', 'October', 'November', 'December',
 ];
 
 export default function MonthYearPicker({ visible, initialMonth, initialYear, onClose, onSelect }) {
@@ -35,7 +35,7 @@ export default function MonthYearPicker({ visible, initialMonth, initialYear, on
         <Pressable style={styles.blur} onPress={onClose} />
         <View style={[styles.modalBox, isWeb && styles.modalBoxWeb, { width: dialogWidth }]}>
           <View style={styles.header}>
-            <Text style={styles.title}>Chon thoi gian</Text>
+            <Text style={styles.title}>Chọn kỳ</Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
@@ -67,10 +67,10 @@ export default function MonthYearPicker({ visible, initialMonth, initialYear, on
 
           <View style={styles.footer}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-              <Text style={styles.cancelBtnText}>Huy</Text>
+              <Text style={styles.cancelBtnText}>Hủy</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.applyBtn} onPress={handleApply}>
-              <Text style={styles.applyBtnText}>Ap dung</Text>
+              <Text style={styles.applyBtnText}>Áp dụng</Text>
             </TouchableOpacity>
           </View>
         </View>

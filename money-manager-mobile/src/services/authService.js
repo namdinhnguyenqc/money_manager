@@ -60,7 +60,7 @@ const applyAuthPayload = async (payload, { emit = true } = {}) => {
   const session = toPublicSession(payload?.session);
 
   if (!user || !session) {
-    throw new Error('Phien dang nhap khong hop le');
+    throw new Error('Invalid auth session');
   }
 
   authState.user = user;
@@ -85,7 +85,7 @@ export const isAuthenticated = () => Boolean(authState.user && authState.session
 export const refreshSession = async ({ silent = false } = {}) => {
   const refreshToken = authState.session?.refreshToken;
   if (!refreshToken) {
-    if (!silent) throw new Error('Khong co refresh token');
+    if (!silent) throw new Error('No refresh token');
     return false;
   }
 
@@ -175,7 +175,7 @@ export const signUp = async (email, password) => {
     { auth: false, retryOn401: false }
   );
   if (!payload?.session) {
-    throw new Error('Dang ky thanh cong. Vui long kiem tra email de xac thuc tai khoan.');
+    throw new Error('Sign-up successful. Please check your email to verify your account.');
   }
   return applyAuthPayload(payload);
 };

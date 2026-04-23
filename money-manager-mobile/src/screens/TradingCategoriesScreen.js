@@ -30,7 +30,7 @@ export default function TradingCategoriesScreen({ navigation }) {
       setCategories(cats);
     } catch (e) {
       console.error(e);
-      Alert.alert('Loi', 'Khong the tai danh sach phan loai');
+      Alert.alert('Lỗi', 'Không thể tải danh sách danh mục');
     } finally {
       setLoading(false);
     }
@@ -56,7 +56,7 @@ export default function TradingCategoriesScreen({ navigation }) {
 
   const handleSave = async () => {
     if (!catName.trim()) {
-      Alert.alert('Loi', 'Vui long nhap ten phan loai');
+      Alert.alert('Lỗi', 'Vui lòng nhập tên danh mục');
       return;
     }
     try {
@@ -69,16 +69,16 @@ export default function TradingCategoriesScreen({ navigation }) {
       loadData();
     } catch (e) {
       console.error(e);
-      Alert.alert('Loi', 'Khong the luu phan loai');
+      Alert.alert('Lỗi', 'Không thể lưu danh mục');
     }
   };
 
   const handleDelete = (id) => {
     (async () => {
       const confirmed = await confirmDialog({
-        title: 'Xoa phan loai',
-        message: 'Ban co chac muon xoa phan loai nay?',
-        confirmText: 'Xoa',
+        title: 'Xóa danh mục',
+        message: 'Bạn có chắc muốn xóa danh mục này?',
+        confirmText: 'Xóa',
       });
       if (!confirmed) return;
       try {
@@ -86,7 +86,7 @@ export default function TradingCategoriesScreen({ navigation }) {
         loadData();
       } catch (e) {
         console.error(e);
-        Alert.alert('Loi', 'Khong the xoa');
+        Alert.alert('Lỗi', 'Không thể xóa');
       }
     })();
   };
@@ -106,8 +106,8 @@ export default function TradingCategoriesScreen({ navigation }) {
     <View style={styles.root}>
       {!isDesktopWeb ? (
         <TopAppBar
-          title="Phan loai san pham"
-          subtitle="Kinh doanh"
+          title="Product categories"
+          subtitle="Business"
           onBack={() => navigation.goBack()}
           rightIcon="add"
           onRightPress={handleOpenAdd}
@@ -117,19 +117,19 @@ export default function TradingCategoriesScreen({ navigation }) {
       <ScrollView contentContainerStyle={[styles.content, isDesktopWeb && styles.contentWeb, { maxWidth: contentMaxWidth }]} showsVerticalScrollIndicator={false}>
         <SurfaceCard tone="low">
           <Text style={styles.hint}>
-            Danh muc nay dung rieng cho mat hang kinh doanh (xe, phu tung, linh kien).
+            This category list is for business products only (vehicles, parts, accessories).
           </Text>
         </SurfaceCard>
 
         {isDesktopWeb ? (
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>Danh sach phan loai</Text>
-              <Text style={styles.sectionSub}>Cap nhat nhom hang hoa de loc ton kho va bao cao loi nhuan.</Text>
+              <Text style={styles.sectionTitle}>Danh sách danh mục</Text>
+              <Text style={styles.sectionSub}>Cập nhật nhóm sản phẩm để lọc tồn kho và báo cáo lợi nhuận.</Text>
             </View>
             <TouchableOpacity style={styles.addBtn} onPress={handleOpenAdd}>
               <Ionicons name="add" size={16} color="#fff" />
-              <Text style={styles.addBtnText}>Them phan loai</Text>
+              <Text style={styles.addBtnText}>Thêm danh mục</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -137,8 +137,8 @@ export default function TradingCategoriesScreen({ navigation }) {
         {categories.length === 0 ? (
           <SurfaceCard style={styles.empty}>
             <Ionicons name="pricetags-outline" size={54} color={COLORS.outline} />
-            <Text style={styles.emptyTitle}>Chua co phan loai nao</Text>
-            <Text style={styles.emptySub}>Nhan nut + de tao phan loai moi.</Text>
+            <Text style={styles.emptyTitle}>Chưa có danh mục</Text>
+            <Text style={styles.emptySub}>Nhấn + để tạo danh mục mới.</Text>
           </SurfaceCard>
         ) : (
           <View style={styles.grid}>
@@ -162,9 +162,9 @@ export default function TradingCategoriesScreen({ navigation }) {
       <Modal visible={showModal} transparent animationType="fade">
         <View style={[styles.overlay, isDesktopWeb && styles.overlayWeb]}>
           <SurfaceCard style={[styles.modal, isDesktopWeb && styles.modalWeb]}>
-            <Text style={styles.modalTitle}>{editCat ? 'Sua phan loai' : 'Them phan loai hang'}</Text>
+            <Text style={styles.modalTitle}>{editCat ? 'Sửa danh mục' : 'Thêm phân loại sản phẩm'}</Text>
 
-            <Text style={styles.label}>Ten phan loai *</Text>
+            <Text style={styles.label}>Tên danh mục *</Text>
             <TextInput
               style={styles.input}
               placeholder="VD: Xe Honda, Ohlins"
@@ -172,7 +172,7 @@ export default function TradingCategoriesScreen({ navigation }) {
               onChangeText={setCatName}
             />
 
-            <Text style={styles.label}>Bieu tuong</Text>
+            <Text style={styles.label}>Biểu tượng</Text>
             <View style={styles.emojiRow}>
               {EMOJI_SUGGESTIONS.map((emoji) => (
                 <TouchableOpacity
@@ -185,7 +185,7 @@ export default function TradingCategoriesScreen({ navigation }) {
               ))}
             </View>
 
-            <Text style={styles.label}>Mau chu dao</Text>
+            <Text style={styles.label}>Màu chính</Text>
             <View style={styles.colorRow}>
               {COLOR_SUGGESTIONS.map((color) => (
                 <TouchableOpacity
@@ -198,10 +198,10 @@ export default function TradingCategoriesScreen({ navigation }) {
 
             <View style={styles.actions}>
               <TouchableOpacity style={styles.cancel} onPress={() => setShowModal(false)}>
-                <Text style={styles.cancelText}>Huy</Text>
+                <Text style={styles.cancelText}>Hủy</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.save} onPress={handleSave}>
-                <Text style={styles.saveText}>Luu</Text>
+                <Text style={styles.saveText}>Lưu</Text>
               </TouchableOpacity>
             </View>
           </SurfaceCard>

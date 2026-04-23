@@ -9,7 +9,7 @@ export const confirmDialog = async ({ title, message, confirmText = 'OK' }) => {
 
   return await new Promise((resolve) => {
     Alert.alert(title, message, [
-      { text: 'Huy', style: 'cancel', onPress: () => resolve(false) },
+      { text: 'Hủy', style: 'cancel', onPress: () => resolve(false) },
       { text: confirmText, onPress: () => resolve(true) },
     ]);
   });
@@ -28,8 +28,8 @@ export const promptDialog = async ({ title, message, defaultValue = '' }) => {
         title,
         message,
         [
-          { text: 'Huy', style: 'cancel', onPress: () => resolve(null) },
-          { text: 'Xac nhan', onPress: (value) => resolve(value ?? '') },
+          { text: 'Hủy', style: 'cancel', onPress: () => resolve(null) },
+          { text: 'Xác nhận', onPress: (value) => resolve(value ?? '') },
         ],
         'plain-text',
         defaultValue

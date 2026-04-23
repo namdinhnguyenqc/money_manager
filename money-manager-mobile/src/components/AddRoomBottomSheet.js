@@ -17,7 +17,7 @@ export default function AddRoomBottomSheet({ visible, onClose, onSave, room, del
   useEffect(() => {
     if (room && visible) {
       setName(room.name);
-      setPrice(room.price.toString());
+      setPrice(room.price?.toString() || '0');
       setHasAc(room.has_ac === 1);
       setNumPeople(room.num_people?.toString() || '1');
       return;
@@ -32,12 +32,12 @@ export default function AddRoomBottomSheet({ visible, onClose, onSave, room, del
 
   const handleSave = () => {
     if (!name.trim()) {
-      Alert.alert('Loi', 'Vui long nhap ten phong');
+      Alert.alert('Lỗi', 'Vui lòng nhập tên phòng');
       return;
     }
     const parsedPrice = parseInt(price.replace(/[^0-9]/g, ''), 10);
     if (!parsedPrice || parsedPrice < 1000) {
-      Alert.alert('Loi', 'Gia thue toi thieu 1.000d');
+      Alert.alert('Lỗi', 'Giá phòng tối thiểu là 1.000 VND');
       return;
     }
     const people = parseInt(numPeople, 10) || 1;
@@ -48,9 +48,9 @@ export default function AddRoomBottomSheet({ visible, onClose, onSave, room, del
     if (!room) return;
     (async () => {
       const confirmed = await confirmDialog({
-        title: 'Xoa phong',
-        message: `Ban chac chan muon xoa phong ${room.name}?`,
-        confirmText: 'Xoa',
+        title: 'Xóa phòng',
+        message: `Bạn có chắc muốn xóa phòng ${room.name}?`,
+        confirmText: 'Xóa',
       });
       if (!confirmed) return;
 
@@ -60,7 +60,7 @@ export default function AddRoomBottomSheet({ visible, onClose, onSave, room, del
         onSave();
       } catch (e) {
         console.error(e);
-        Alert.alert('Loi', 'Chi co the xoa phong trong chua co hop dong.');
+        Alert.alert('Lỗi', 'Chỉ có thể xóa phòng trống và không có hợp đồng.');
       }
     })();
   };
@@ -78,13 +78,13 @@ export default function AddRoomBottomSheet({ visible, onClose, onSave, room, del
 
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>{room ? 'Sua thong tin phong' : 'Them phong moi'}</Text>
-              {room ? <Text style={styles.subTitle}>Ma phong: {room.name}</Text> : null}
+              <Text style={styles.title}>{room ? 'Sửa thông tin phòng' : 'Thêm phòng mới'}</Text>
+              {room ? <Text style={styles.subTitle}>Mã phòng: {room.name}</Text> : null}
             </View>
             {room ? (
               <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
                 <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
-                <Text style={styles.deleteText}>Xoa</Text>
+                <Text style={styles.deleteText}>Xóa</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -93,10 +93,10 @@ export default function AddRoomBottomSheet({ visible, onClose, onSave, room, del
             <View style={[styles.formGrid, isWeb && styles.formGridWeb]}>
               <View style={styles.formCol}>
                 <View style={styles.group}>
-                  <Text style={styles.label}>Ten phong *</Text>
+                  <Text style={styles.label}>Tên phòng *</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="VD: P101, Phong 1"
+                    placeholder="VD: P101, Phòng 1"
                     value={name}
                     onChangeText={setName}
                     placeholderTextColor={COLORS.textMuted}
@@ -104,7 +104,7 @@ export default function AddRoomBottomSheet({ visible, onClose, onSave, room, del
                 </View>
 
                 <View style={styles.group}>
-                  <Text style={styles.label}>Gia thue (d/thang) *</Text>
+                  <Text style={styles.label}>Giá phòng (VND/tháng) *</Text>
                   <TextInput
                     style={styles.input}
                     keyboardType="number-pad"
@@ -116,7 +116,7 @@ export default function AddRoomBottomSheet({ visible, onClose, onSave, room, del
                 </View>
 
                 <View style={styles.group}>
-                  <Text style={styles.label}>So nguoi o toi da</Text>
+                  <Text style={styles.label}>Số người tối đa</Text>
                   <TextInput
                     style={styles.input}
                     keyboardType="number-pad"
@@ -130,15 +130,15 @@ export default function AddRoomBottomSheet({ visible, onClose, onSave, room, del
 
               <View style={styles.sideCol}>
                 <View style={styles.infoCard}>
-                  <Text style={styles.infoEyebrow}>CAU HINH PHONG</Text>
-                  <Text style={styles.infoTitle}>Thong tin van hanh</Text>
-                  <Text style={styles.infoText}>Nhap cac thuoc tinh co ban de phong hien thi dung trong danh sach quan ly va luong lap hop dong.</Text>
+                  <Text style={styles.infoEyebrow}>THIẾT LẬP PHÒNG</Text>
+                  <Text style={styles.infoTitle}>Thông tin vận hành</Text>
+                  <Text style={styles.infoText}>Thiết lập thông tin cơ bản để phòng hiển thị đúng trong luồng quản lý và hợp đồng.</Text>
                 </View>
 
                 <View style={styles.switchBox}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.switchTitle}>Phong co may lanh</Text>
-                    <Text style={styles.switchSub}>Ap dung don gia dien phu hop.</Text>
+                    <Text style={styles.switchTitle}>Phòng có máy lạnh</Text>
+                    <Text style={styles.switchSub}>Áp dụng đúng đơn giá điện.</Text>
                   </View>
                   <Switch
                     value={hasAc}
@@ -152,10 +152,10 @@ export default function AddRoomBottomSheet({ visible, onClose, onSave, room, del
 
             <View style={styles.actions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-                <Text style={styles.cancelText}>Bo qua</Text>
+                <Text style={styles.cancelText}>Bỏ qua</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-                <Text style={styles.saveText}>{room ? 'Cap nhat' : 'Them phong'}</Text>
+                <Text style={styles.saveText}>{room ? 'Cập nhật' : 'Thêm phòng'}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>

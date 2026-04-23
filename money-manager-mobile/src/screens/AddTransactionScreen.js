@@ -79,7 +79,7 @@ export default function AddTransactionScreen({ navigation, route }) {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Loi', 'Can cap quyen thu vien anh');
+      Alert.alert('Lỗi', 'Cần cấp quyền thư viện ảnh');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -93,7 +93,7 @@ export default function AddTransactionScreen({ navigation, route }) {
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Loi', 'Can cap quyen camera');
+      Alert.alert('Lỗi', 'Cần cấp quyền camera');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.6 });
@@ -103,11 +103,11 @@ export default function AddTransactionScreen({ navigation, route }) {
   const validateAndSave = async () => {
     const amount = parseInt(amountRaw, 10);
     if (!amountRaw || Number.isNaN(amount) || amount < 1000) {
-      Alert.alert('Loi', 'So tien toi thieu 1.000d');
+      Alert.alert('Lỗi', 'Số tiền tối thiểu là 1.000đ');
       return;
     }
     if (!walletId) {
-      Alert.alert('Loi', 'Vui long chon so');
+      Alert.alert('Lỗi', 'Vui lòng chọn sổ');
       return;
     }
 
@@ -118,7 +118,7 @@ export default function AddTransactionScreen({ navigation, route }) {
       else await addTransaction(payload);
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Loi', e.message || 'Khong the luu giao dich');
+      Alert.alert('Lỗi', e.message || 'Không thể lưu giao dịch');
     } finally {
       setSaving(false);
     }
@@ -136,8 +136,8 @@ export default function AddTransactionScreen({ navigation, route }) {
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       {!isDesktopWeb ? (
         <TopAppBar
-          title={editTx ? 'Sua giao dich' : 'Them giao dich'}
-          subtitle="Quan ly thu chi"
+          title={type === 'expense' ? (editTx ? 'Sửa khoản chi' : 'Thêm khoản chi') : (editTx ? 'Sửa khoản thu' : 'Thêm khoản thu')}
+          subtitle={type === 'expense' ? 'Quản lý chi phí' : 'Quản lý thu nhập'}
           onBack={() => navigation.goBack()}
           rightIcon="checkmark"
           onRightPress={validateAndSave}
@@ -149,11 +149,11 @@ export default function AddTransactionScreen({ navigation, route }) {
         {isDesktopWeb ? (
           <View style={styles.webActionRow}>
             <TouchableOpacity style={styles.webGhostBtn} onPress={() => navigation.goBack()}>
-              <Text style={styles.webGhostBtnText}>Huy</Text>
+              <Text style={styles.webGhostBtnText}>Hủy</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.webPrimaryBtn, saving && { opacity: 0.7 }]} disabled={saving} onPress={validateAndSave}>
               <Ionicons name="checkmark" size={16} color="#fff" />
-              <Text style={styles.webPrimaryBtnText}>{saving ? 'Dang luu...' : (editTx ? 'Cap nhat' : 'Luu giao dich')}</Text>
+              <Text style={styles.webPrimaryBtnText}>{saving ? 'Đang lưu...' : (editTx ? 'Cập nhật' : (type === 'expense' ? 'Lưu khoản chi' : 'Lưu khoản thu'))}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -162,7 +162,7 @@ export default function AddTransactionScreen({ navigation, route }) {
           {['expense', 'income'].map((t) => (
             <TouchableOpacity key={t} style={[styles.typeBtn, type === t && styles.typeBtnActive(t)]} onPress={() => { setType(t); setCategoryId(null); }}>
               <Ionicons name={t === 'income' ? 'arrow-up-circle' : 'arrow-down-circle'} size={18} color={type === t ? '#fff' : COLORS.textSecondary} />
-              <Text style={[styles.typeTxt, type === t && { color: '#fff' }]}>{t === 'income' ? 'Khoan thu' : 'Khoan chi'}</Text>
+              <Text style={[styles.typeTxt, type === t && { color: '#fff' }]}>{t === 'income' ? 'Thu' : 'Chi'}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -172,56 +172,62 @@ export default function AddTransactionScreen({ navigation, route }) {
           <TextInput
             style={styles.amountInput}
             keyboardType={Platform.OS === 'ios' ? 'number-pad' : 'numeric'}
-            placeholder="0"
+            placeholder="Nhập số tiền"
+            placeholderTextColor={COLORS.textMuted}
             value={displayAmount(amountRaw)}
             onChangeText={(t) => setAmountRaw(stripToDigits(t))}
           />
         </SurfaceCard>
 
-        <Text style={styles.label}>So quan ly</Text>
+        <Text style={styles.label}>Sổ tiền</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
           {wallets.map((w) => (
             <TouchableOpacity key={w.id} style={[styles.walletChip, walletId === w.id && { backgroundColor: w.color, borderColor: w.color }]} onPress={() => { setWalletId(w.id); setCategoryId(null); }}>
               <Text>{w.icon || '💼'}</Text>
-              <Text style={[styles.walletChipTxt, walletId === w.id && { color: '#fff' }]}>{w.name || 'Vi'}</Text>
+              <Text style={[styles.walletChipTxt, walletId === w.id && { color: '#fff' }]}>{w.name || 'Sổ'}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
         <View style={styles.sectionHead}>
-          <Text style={styles.label}>Danh muc</Text>
+          <Text style={styles.label}>Danh mục</Text>
           <TouchableOpacity style={styles.inlineBtn} onPress={() => setShowCatModal(true)}>
             <Ionicons name="add" size={14} color={COLORS.primary} />
-            <Text style={styles.inlineTxt}>Them</Text>
+            <Text style={styles.inlineTxt}>Thêm</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.catGrid}>
           {categories.map((c) => (
             <TouchableOpacity key={c.id} style={[styles.catChip, categoryId === c.id && { borderColor: c.color, backgroundColor: `${c.color}20` }]} onPress={() => setCategoryId(c.id)}>
               <Text style={styles.catIcon}>{c.icon || '📦'}</Text>
-              <Text style={[styles.catName, categoryId === c.id && { color: c.color }]}>{c.name || 'Danh muc'}</Text>
+              <Text style={[styles.catName, categoryId === c.id && { color: c.color }]}>{c.name || 'Danh mục'}</Text>
             </TouchableOpacity>
           ))}
+          {categories.length === 0 ? (
+            <TouchableOpacity style={styles.emptyCatCTA} onPress={() => navigation.navigate('Settings', { screen: 'Categories' })}>
+              <Text style={styles.emptyCatCTATxt}>Bạn chưa có danh mục {type === 'expense' ? 'chi' : 'thu'}. Click để tạo ngay.</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
-        <Text style={styles.label}>Ghi chu</Text>
+        <Text style={styles.label}>Ghi chú</Text>
         <TextInput
           style={styles.noteInput}
           value={description}
           onChangeText={setDescription}
-          placeholder="Mo ta giao dich..."
+          placeholder="Mô tả giao dịch..."
           multiline
         />
 
-        <Text style={styles.label}>Anh chung tu</Text>
+        <Text style={styles.label}>Ảnh chứng từ</Text>
         <View style={styles.imageRow}>
           <TouchableOpacity style={styles.imageBtn} onPress={takePhoto}>
             <Ionicons name="camera-outline" size={18} color={COLORS.textSecondary} />
-            <Text style={styles.imageBtnTxt}>Chup</Text>
+            <Text style={styles.imageBtnTxt}>Chụp ảnh</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.imageBtn} onPress={pickImage}>
             <Ionicons name="image-outline" size={18} color={COLORS.textSecondary} />
-            <Text style={styles.imageBtnTxt}>Thu vien</Text>
+            <Text style={styles.imageBtnTxt}>Thư viện</Text>
           </TouchableOpacity>
           {imageUri ? (
             <View style={styles.previewWrap}>
@@ -234,7 +240,7 @@ export default function AddTransactionScreen({ navigation, route }) {
         </View>
 
         <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.7 }]} disabled={saving} onPress={validateAndSave}>
-          <Text style={styles.saveTxt}>{saving ? 'Dang luu...' : (editTx ? 'Cap nhat' : 'Luu giao dich')}</Text>
+          <Text style={styles.saveTxt}>{saving ? 'Đang lưu...' : (editTx ? 'Cập nhật' : (type === 'expense' ? 'Lưu khoản chi' : 'Lưu khoản thu'))}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 50 }} />
@@ -243,10 +249,10 @@ export default function AddTransactionScreen({ navigation, route }) {
       <Modal visible={showCatModal} transparent animationType="fade">
         <View style={styles.overlay}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Them danh muc</Text>
+            <Text style={styles.modalTitle}>Thêm danh mục</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="Ten danh muc"
+              placeholder="Tên danh mục"
               value={newCatName}
               onChangeText={setNewCatName}
               autoFocus
@@ -254,10 +260,10 @@ export default function AddTransactionScreen({ navigation, route }) {
             />
             <View style={styles.modalBtns}>
               <TouchableOpacity style={styles.modalCancel} onPress={() => { setShowCatModal(false); setNewCatName(''); }}>
-                <Text style={styles.modalCancelTxt}>Huy</Text>
+                <Text style={styles.modalCancelTxt}>Hủy</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalSave} onPress={handleAddCategory}>
-                <Text style={styles.modalSaveTxt}>Them</Text>
+                <Text style={styles.modalSaveTxt}>Thêm</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -309,6 +315,17 @@ const styles = StyleSheet.create({
   catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 36, borderRadius: 10, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: COLORS.surfaceLowest },
   catIcon: { fontSize: 16 },
   catName: { fontSize: 11, color: COLORS.textSecondary, ...FONTS.medium },
+  emptyCatCTA: {
+    width: '100%',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    backgroundColor: COLORS.primaryLight + '10',
+  },
+  emptyCatCTATxt: { fontSize: 12, color: COLORS.primary, ...FONTS.bold },
   noteInput: { minHeight: 96, borderRadius: RADIUS.lg, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: COLORS.surfaceLowest, padding: 12, fontSize: 14, color: COLORS.textPrimary, marginBottom: 14, textAlignVertical: 'top' },
   imageRow: { flexDirection: 'row', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 },
   imageBtn: { height: 40, borderRadius: 12, paddingHorizontal: 12, backgroundColor: COLORS.surfaceLow, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },

@@ -7,7 +7,8 @@ import { db, auth } from "./firebase";
 
 // Helper to get current user root document.
 const getUserRef = () => {
-  if (!auth.currentUser) throw new Error("Chua dang nhap");
+  if (!auth || !db) throw new Error("Cloud is not configured");
+  if (!auth.currentUser) throw new Error("Not signed in");
   return doc(db, "users", auth.currentUser.uid);
 };
 
@@ -150,10 +151,10 @@ export const addContract = async (roomId, tenantId, startDate, deposit, serviceI
 
 // ------------------------------------------------------------
 export const getWalletStats = async (walletId) => {
-  const qIncome = query(getColRef("transactions"), where("wallet_id", "==", String(walletId)), where("type", "==", "income"));
-  const qExpense = query(getColRef("transactions"), where("wallet_id", "==", String(walletId)), where("type", "==", "expense"));
+  const qThu = query(getColRef("transactions"), where("wallet_id", "==", String(walletId)), where("type", "==", "income"));
+  const qChi = query(getColRef("transactions"), where("wallet_id", "==", String(walletId)), where("type", "==", "expense"));
   
-  const [snapInc, snapExp] = await Promise.all([getDocs(qIncome), getDocs(qExpense)]);
+  const [snapInc, snapExp] = await Promise.all([getDocs(qThu), getDocs(qChi)]);
   
   const income = snapInc.docs.reduce((sum, d) => sum + (d.data().amount || 0), 0);
   const expense = snapExp.docs.reduce((sum, d) => sum + (d.data().amount || 0), 0);
@@ -243,7 +244,7 @@ export const addTradingItem = async ({ walletId, name, category, importPrice, im
   const txId = await addTransaction({
     type: "expense",
     amount: safeImportPrice,
-    description: `Nhap hang: ${name}${safeQuantity > 1 ? ` (x${safeQuantity})` : ""}${batchId ? ` (Lo: ${batchId})` : ""}`,
+    description: `Stock import: ${name}${safeQuantity > 1 ? ` (x${safeQuantity})` : ""}${batchId ? ` (Batch: ${batchId})` : ""}`,
     walletId,
     date: importDate,
   });
@@ -252,7 +253,7 @@ export const addTradingItem = async ({ walletId, name, category, importPrice, im
   const itemsToCreate = subItems.length > 0
     ? subItems.map(si => ({ name: `${name} - ${si.name}`, category: si.category || category }))
     : Array.from({ length: safeQuantity }, (_, i) => ({
-        name: safeQuantity > 1 ? `${name} - sp ${i + 1}` : name,
+        name: safeQuantity > 1 ? `${name} - item ${i + 1}` : name,
         category,
       }));
 

@@ -59,23 +59,23 @@ export default function DashboardScreen({ navigation }) {
       <View style={[styles.container, isDesktopWeb && styles.containerDesktop, !isDesktopWeb && isWeb && styles.containerWeb, { maxWidth: isDesktopWeb ? undefined : contentMaxWidth }]}>
         <View style={[styles.heroLayout, isWeb && styles.heroLayoutWeb]}>
           <SurfaceCard tone="lowest" style={styles.hero}>
-            <Text style={styles.heroLabel}>Tong tai san</Text>
+            <Text style={styles.heroLabel}>Tổng tài sản</Text>
             <Text style={styles.heroValue}>{formatCurrency(netWorth.totalNetWorth || 0)}</Text>
             <View style={styles.heroRow}>
               <View style={[styles.kpiDot, { backgroundColor: COLORS.secondary }]} />
-              <Text style={styles.heroSub}>Tien mat {formatCurrency(netWorth.cashBalance || 0)}</Text>
+              <Text style={styles.heroSub}>Tiền mặt {formatCurrency(netWorth.cashBalance || 0)}</Text>
             </View>
             <View style={styles.heroRow}>
               <View style={[styles.kpiDot, { backgroundColor: COLORS.warning }]} />
-              <Text style={styles.heroSub}>Hang ton {formatCurrency(netWorth.inventoryValue || 0)}</Text>
+              <Text style={styles.heroSub}>Hàng tồn {formatCurrency(netWorth.inventoryValue || 0)}</Text>
             </View>
           </SurfaceCard>
 
           {isWeb ? (
             <SurfaceCard tone="low" style={styles.heroNote}>
-              <Text style={styles.heroNoteEyebrow}>DASHBOARD WEB</Text>
-              <Text style={styles.heroNoteTitle}>Bang tong quan van hanh</Text>
-              <Text style={styles.heroNoteText}>Trang tong hop du lieu duoc chinh lai theo bo cuc desktop: khu tong quan, luong cong viec va danh sach giao dich gan day de thao tac nhanh.</Text>
+              <Text style={styles.heroNoteEyebrow}>BẢNG ĐIỀU KHIỂN WEB</Text>
+              <Text style={styles.heroNoteTitle}>Bảng tổng quan vận hành</Text>
+              <Text style={styles.heroNoteText}>Trang tổng hợp dữ liệu được thiết kế lại cho máy tính: tổng quan, lối tắt thao tác và giao dịch gần đây để xử lý nhanh.</Text>
             </SurfaceCard>
           ) : null}
         </View>
@@ -83,12 +83,12 @@ export default function DashboardScreen({ navigation }) {
         <View style={styles.todayRow}>
           <SurfaceCard tone="high" style={styles.todayCard}>
             <Ionicons name="arrow-down-circle" size={18} color={COLORS.secondary} />
-            <Text style={styles.todayLabel}>Thu hom nay</Text>
+            <Text style={styles.todayLabel}>Thu hôm nay</Text>
             <Text style={[styles.todayValue, { color: COLORS.secondary }]}>+{formatCurrency(todayStats.income || 0)}</Text>
           </SurfaceCard>
           <SurfaceCard tone="high" style={styles.todayCard}>
             <Ionicons name="arrow-up-circle" size={18} color={COLORS.danger} />
-            <Text style={styles.todayLabel}>Chi hom nay</Text>
+            <Text style={styles.todayLabel}>Chi hôm nay</Text>
             <Text style={[styles.todayValue, { color: COLORS.danger }]}>-{formatCurrency(todayStats.expense || 0)}</Text>
           </SurfaceCard>
         </View>
@@ -102,8 +102,8 @@ export default function DashboardScreen({ navigation }) {
               <Ionicons name="document-text-outline" size={18} color="#fff" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.quickActionTitle}>Hoa don thang nay</Text>
-              <Text style={styles.quickActionText}>Mo ngay danh sach phong chua lap bill trong thang hien tai.</Text>
+              <Text style={styles.quickActionTitle}>Hóa đơn tháng này</Text>
+              <Text style={styles.quickActionText}>Mở danh sách phòng chưa lập hóa đơn trong tháng hiện tại.</Text>
             </View>
           </TouchableOpacity>
 
@@ -115,8 +115,8 @@ export default function DashboardScreen({ navigation }) {
               <Ionicons name="flash-outline" size={18} color={COLORS.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.quickActionTitleDark}>Lap bill hang loat</Text>
-              <Text style={styles.quickActionTextDark}>Mo luong xu ly nhieu phong khi den ky chot tien.</Text>
+              <Text style={styles.quickActionTitleDark}>Tạo hóa đơn hàng loạt</Text>
+              <Text style={styles.quickActionTextDark}>Mở luồng xử lý nhiều phòng khi chốt kỳ hóa đơn.</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -124,24 +124,24 @@ export default function DashboardScreen({ navigation }) {
         <View style={[styles.moduleRow, isWeb && styles.moduleRowWeb]}>
           <TouchableOpacity style={styles.moduleCard} onPress={() => openModule('personal', 'Transactions')}>
             <Ionicons name="wallet-outline" size={24} color={COLORS.primary} />
-            <Text style={styles.moduleTitle}>Tai chinh ca nhan</Text>
-            <Text style={styles.moduleSub}>Thu chi</Text>
+            <Text style={styles.moduleTitle}>Tài chính cá nhân</Text>
+            <Text style={styles.moduleSub}>Thu/Chi</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.moduleCard} onPress={() => openModule('rental', 'Rental')}>
             <Ionicons name="home-outline" size={24} color={COLORS.primary} />
-            <Text style={styles.moduleTitle}>Quan ly nha tro</Text>
-            <Text style={styles.moduleSub}>Hoa don va hop dong</Text>
+            <Text style={styles.moduleTitle}>Quản lý nhà trọ</Text>
+            <Text style={styles.moduleSub}>Hóa đơn và hợp đồng</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.moduleCard} onPress={() => openModule('trading', 'Trading')}>
             <Ionicons name="cube-outline" size={24} color={COLORS.primary} />
             <Text style={styles.moduleTitle}>Kinh doanh</Text>
-            <Text style={styles.moduleSub}>Nhap xuat va loi nhuan</Text>
+            <Text style={styles.moduleSub}>Nhập/xuất kho và lợi nhuận</Text>
           </TouchableOpacity>
         </View>
 
         <SurfaceCard tone="low" style={styles.chartWrap}>
           <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>Dong tien 6 thang</Text>
+            <Text style={styles.sectionTitle}>Dòng tiền 6 tháng</Text>
             <Text style={styles.sectionSub}>T1-T6</Text>
           </View>
           <View style={styles.chartBars}>
@@ -159,9 +159,9 @@ export default function DashboardScreen({ navigation }) {
         </SurfaceCard>
 
         <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Giao dich gan day</Text>
+          <Text style={styles.sectionTitle}>Giao dịch gần đây</Text>
           <TouchableOpacity onPress={() => navigation.navigate('WalletsManager')}>
-            <Text style={styles.sectionLink}>Quan ly so</Text>
+            <Text style={styles.sectionLink}>Quản lý sổ</Text>
           </TouchableOpacity>
         </View>
         <TransactionsScreen navigation={navigation} isEmbedded />
@@ -174,9 +174,9 @@ export default function DashboardScreen({ navigation }) {
       <WebDesktopShell
         navigation={navigation}
         routeName="Dashboard"
-        title={`Chao buoi sang, ${userConfig?.account_name || 'Van A'}`}
-        subtitle="Bang dieu khien chien luoc"
-        searchPlaceholder="Tim kiem giao dich, phong, kho..."
+        title={`Xin chào, ${userConfig?.account_name || 'Bạn'}`}
+        subtitle="Bảng điều khiển tổng quan"
+        searchPlaceholder="Tìm giao dịch, phòng, hàng tồn..."
       >
         <View style={styles.root}>{dashboardContent}</View>
       </WebDesktopShell>
@@ -193,7 +193,7 @@ export default function DashboardScreen({ navigation }) {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.greet}>Money Manager Pro</Text>
-          <Text numberOfLines={1} style={styles.name}>{userConfig?.account_name || 'Tong quan tai chinh'}</Text>
+          <Text numberOfLines={1} style={styles.name}>{userConfig?.account_name || 'Tổng quan tài chính'}</Text>
         </View>
         <View style={styles.topActions}>
           <TouchableOpacity onPress={() => navigation.navigate('Modules')} style={styles.iconBtn}>

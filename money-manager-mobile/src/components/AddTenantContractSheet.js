@@ -52,7 +52,7 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
       }
     } catch (e) {
       console.error('Load contract data error:', e);
-      Alert.alert('Loi', `Khong the tai thong tin dich vu: ${e.message || 'Loi he thong'}`);
+      Alert.alert('Lỗi', `Không thể tải thông tin dịch vụ: ${e.message || 'Lỗi hệ thống'}`);
     } finally {
       setLoading(false);
     }
@@ -64,7 +64,7 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
 
   const handleSave = () => {
     if (!tenantName.trim()) {
-      Alert.alert('Loi', 'Vui long nhap ten khach thue');
+      Alert.alert('Lỗi', 'Vui lòng nhập tên người thuê');
       return;
     }
     const dep = parseFloat(deposit.replace(/[^0-9]/g, '') || '0');
@@ -93,9 +93,9 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
 
             <View style={styles.header}>
               <View>
-                <Text style={styles.title}>{editingContract ? 'Cap nhat hop dong' : 'Lap hop dong moi'}</Text>
+                <Text style={styles.title}>{editingContract ? 'Cập nhật hợp đồng' : 'Tạo hợp đồng mới'}</Text>
                 <Text style={styles.subtitle}>
-                  Phong {String(room?.name || '')} · {formatCurrency(room?.price)}/thang
+                  Phòng {String(room?.name || '')} · {formatCurrency(room?.price)}/tháng
                 </Text>
               </View>
               <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
@@ -110,14 +110,14 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
                 <View style={styles.formColumn}>
                   <View style={styles.sectionHeader}>
                     <Ionicons name="person-circle-outline" size={16} color={COLORS.secondary} />
-                    <Text style={styles.sectionTitle}>Thong tin khach thue</Text>
+                    <Text style={styles.sectionTitle}>Thông tin người thuê</Text>
                   </View>
 
                   <View style={styles.group}>
-                    <Text style={styles.label}>Ho ten *</Text>
+                    <Text style={styles.label}>Họ và tên *</Text>
                     <TextInput
                       style={styles.input}
-                      placeholder="VD: Nguyen Van A"
+                      placeholder="VD: Nguyễn Văn A"
                       value={tenantName}
                       onChangeText={setTenantName}
                       placeholderTextColor={COLORS.textMuted}
@@ -126,7 +126,7 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
 
                   <View style={styles.row}>
                     <View style={[styles.group, { flex: 1 }]}>
-                      <Text style={styles.label}>So dien thoai</Text>
+                      <Text style={styles.label}>Số điện thoại</Text>
                       <TextInput
                         style={styles.input}
                         keyboardType="phone-pad"
@@ -137,7 +137,7 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
                       />
                     </View>
                     <View style={[styles.group, { flex: 1 }]}>
-                      <Text style={styles.label}>CCCD/CMND</Text>
+                      <Text style={styles.label}>CMND/CCCD</Text>
                       <TextInput
                         style={styles.input}
                         placeholder="..."
@@ -149,10 +149,10 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
                   </View>
 
                   <View style={styles.group}>
-                    <Text style={styles.label}>Dia chi thuong tru</Text>
+                    <Text style={styles.label}>Địa chỉ thường trú</Text>
                     <TextInput
                       style={styles.input}
-                      placeholder="Xa, Huyen, Tinh"
+                      placeholder="Phường/xã, quận/huyện, tỉnh/thành"
                       value={address}
                       onChangeText={setAddress}
                       placeholderTextColor={COLORS.textMuted}
@@ -161,12 +161,12 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
 
                   <View style={[styles.sectionHeader, { marginTop: 8 }]}>
                     <Ionicons name="briefcase-outline" size={16} color={COLORS.warning} />
-                    <Text style={styles.sectionTitle}>Dieu khoan tai chinh</Text>
+                    <Text style={styles.sectionTitle}>Điều khoản tài chính</Text>
                   </View>
 
                   <View style={styles.row}>
                     <View style={[styles.group, { flex: 1 }]}>
-                      <Text style={styles.label}>Ngay vao o</Text>
+                      <Text style={styles.label}>Ngày vào ở</Text>
                       <TextInput
                         style={styles.input}
                         placeholder="YYYY-MM-DD"
@@ -176,7 +176,7 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
                       />
                     </View>
                     <View style={[styles.group, { flex: 1 }]}>
-                      <Text style={styles.label}>Tien coc</Text>
+                      <Text style={styles.label}>Tiền cọc</Text>
                       <TextInput
                         style={styles.input}
                         keyboardType="numeric"
@@ -191,13 +191,13 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
 
                 <View style={styles.serviceColumn}>
                   <View style={styles.summaryCard}>
-                    <Text style={styles.summaryEyebrow}>PHONG DANG CHON</Text>
-                    <Text style={styles.summaryRoom}>Phong {String(room?.name || '')}</Text>
-                    <Text style={styles.summaryPrice}>{formatCurrency(room?.price)}/thang</Text>
-                    <Text style={styles.summaryText}>Chon bo dich vu ap dung cho hop dong. Luong xu ly va tinh tien giu nguyen, chi thay doi cach hien thi cho hop voi man hinh web.</Text>
+                    <Text style={styles.summaryEyebrow}>PHÒNG ĐANG CHỌN</Text>
+                    <Text style={styles.summaryRoom}>Phòng {String(room?.name || '')}</Text>
+                    <Text style={styles.summaryPrice}>{formatCurrency(room?.price)}/tháng</Text>
+                    <Text style={styles.summaryText}>Chọn các dịch vụ áp dụng cho hợp đồng này. Quy trình tính toán giữ nguyên, giao diện được tối ưu cho website.</Text>
                   </View>
 
-                  <Text style={[styles.label, { marginBottom: 10 }]}>Dich vu ap dung hang thang</Text>
+                  <Text style={[styles.label, { marginBottom: 10 }]}>Dịch vụ áp dụng theo tháng</Text>
                   <View style={styles.serviceList}>
                     {allServices.map((service) => {
                       const active = selectedServices.includes(service.id);
@@ -223,7 +223,7 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
               </View>
 
               <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-                <Text style={styles.saveText}>{editingContract ? 'Cap nhat hop dong' : 'Xac nhan ky ket'}</Text>
+                <Text style={styles.saveText}>{editingContract ? 'Cập nhật hợp đồng' : 'Xác nhận ký'}</Text>
                 <Ionicons name="chevron-forward-circle" size={20} color="#fff" />
               </TouchableOpacity>
             </ScrollView>

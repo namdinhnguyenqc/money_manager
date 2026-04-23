@@ -88,8 +88,8 @@ export default function AnalyticsScreen({ navigation }) {
     <View style={styles.root}>
       {!isDesktopWeb ? (
         <TopAppBar
-          title="Thong ke"
-          subtitle={`Thang ${month}/${year}`}
+          title="Phân tích"
+          subtitle={`Tháng ${month}/${year}`}
           onBack={() => navigation.goBack()}
           rightIcon="calendar-outline"
           onRightPress={() => setShowPicker(true)}
@@ -112,39 +112,39 @@ export default function AnalyticsScreen({ navigation }) {
           <View style={styles.periodToolbar}>
             <TouchableOpacity style={styles.periodChip} onPress={() => setShowPicker(true)}>
               <Ionicons name="calendar-outline" size={16} color={COLORS.primary} />
-              <Text style={styles.periodText}>Ky thong ke: Thang {month}/{year}</Text>
+              <Text style={styles.periodText}>Kỳ báo cáo: Tháng {month}/{year}</Text>
             </TouchableOpacity>
             <View style={styles.periodMeta}>
-              <Text style={styles.periodMetaText}>Tong hop thu chi, can doi va xu huong tai san theo ky.</Text>
+              <Text style={styles.periodMetaText}>Tổng hợp thu, chi, số dư và xu hướng tài sản theo từng kỳ.</Text>
             </View>
           </View>
         ) : (
           <TouchableOpacity style={styles.periodChip} onPress={() => setShowPicker(true)}>
             <Ionicons name="calendar-outline" size={16} color={COLORS.primary} />
-            <Text style={styles.periodText}>Ky thong ke: Thang {month}/{year}</Text>
+            <Text style={styles.periodText}>Kỳ báo cáo: Tháng {month}/{year}</Text>
           </TouchableOpacity>
         )}
 
         {isDesktopWeb ? (
           <View style={styles.heroRow}>
             <SurfaceCard tone="low" style={styles.heroCard}>
-              <Text style={styles.heroEyebrow}>ANALYTICS DESK</Text>
-              <Text style={styles.heroTitle}>Bang tong hop hieu suat tai chinh</Text>
+              <Text style={styles.heroEyebrow}>BẢNG PHÂN TÍCH</Text>
+              <Text style={styles.heroTitle}>Bảng tổng hợp hiệu quả tài chính</Text>
               <Text style={styles.heroText}>
-                Theo doi can doi, xem xu huong tong tai san va doi soat tung so quan ly tren giao dien web.
+                Theo dõi số dư, xem xu hướng tổng tài sản và đối soát từng sổ trên giao diện máy tính.
               </Text>
             </SurfaceCard>
 
             <SurfaceCard tone="lowest" style={styles.heroAside}>
-              <Text style={styles.heroAsideLabel}>So quan ly on dinh</Text>
+              <Text style={styles.heroAsideLabel}>Sổ ổn định</Text>
               <Text style={[styles.heroAsideValue, { color: stats.balance >= 0 ? COLORS.secondary : COLORS.danger }]}>
                 {positiveWalletCount}/{wallets.length}
               </Text>
-              <Text style={styles.heroAsideText}>So co can doi duong trong ky dang xem.</Text>
+              <Text style={styles.heroAsideText}>Sổ có số dư dương trong kỳ đã chọn.</Text>
               <View style={styles.heroAsideList}>
-                <Text style={styles.heroAsideItem}>Danh muc chi: {expBreakdown.length}</Text>
-                <Text style={styles.heroAsideItem}>Nguon thu: {incBreakdown.length}</Text>
-                <Text style={styles.heroAsideItem}>Moc xu huong: {nwTrend.length}</Text>
+                <Text style={styles.heroAsideItem}>Danh mục chi: {expBreakdown.length}</Text>
+                <Text style={styles.heroAsideItem}>Nguồn thu: {incBreakdown.length}</Text>
+                <Text style={styles.heroAsideItem}>Mốc xu hướng: {nwTrend.length}</Text>
               </View>
             </SurfaceCard>
           </View>
@@ -153,13 +153,13 @@ export default function AnalyticsScreen({ navigation }) {
         <View style={[styles.summaryRow, isDesktopWeb && styles.summaryRowWeb]}>
           <SurfaceCard style={[styles.summaryCard, styles.incomeBorder]}>
             <Ionicons name="arrow-up-circle" size={20} color={COLORS.income} />
-            <Text style={styles.summaryLabel}>Tong thu</Text>
+            <Text style={styles.summaryLabel}>Tổng thu</Text>
             <Text style={[styles.summaryValue, { color: COLORS.income }]}>{formatCurrency(stats.income)}</Text>
           </SurfaceCard>
 
           <SurfaceCard style={[styles.summaryCard, styles.expenseBorder]}>
             <Ionicons name="arrow-down-circle" size={20} color={COLORS.expense} />
-            <Text style={styles.summaryLabel}>Tong chi</Text>
+            <Text style={styles.summaryLabel}>Tổng chi</Text>
             <Text style={[styles.summaryValue, { color: COLORS.expense }]}>{formatCurrency(stats.expense)}</Text>
           </SurfaceCard>
 
@@ -170,7 +170,7 @@ export default function AnalyticsScreen({ navigation }) {
                 size={20}
                 color={stats.balance >= 0 ? COLORS.income : COLORS.expense}
               />
-              <Text style={styles.summaryLabel}>Can doi</Text>
+              <Text style={styles.summaryLabel}>Cân đối</Text>
               <Text style={[styles.summaryValue, { color: stats.balance >= 0 ? COLORS.income : COLORS.expense }]}>
                 {stats.balance >= 0 ? '+' : ''}
                 {formatCurrency(stats.balance)}
@@ -181,7 +181,7 @@ export default function AnalyticsScreen({ navigation }) {
 
         {!isDesktopWeb ? (
           <SurfaceCard style={[styles.balanceCard, stats.balance >= 0 ? styles.balancePositive : styles.balanceNegative]}>
-            <Text style={styles.balanceLabel}>Du/Thieu thang nay</Text>
+            <Text style={styles.balanceLabel}>Thặng dư/Thâm hụt tháng này</Text>
             <Text style={[styles.balanceValue, { color: stats.balance >= 0 ? COLORS.income : COLORS.expense }]}>
               {stats.balance >= 0 ? '+' : ''}
               {formatCurrency(stats.balance)}
@@ -191,14 +191,14 @@ export default function AnalyticsScreen({ navigation }) {
 
         {nwTrend.length > 0 ? (
           <>
-            <Text style={styles.sectionTitle}>Bien dong tong tai san (6 thang)</Text>
+            <Text style={styles.sectionTitle}>Biến động tổng tài sản (6 tháng)</Text>
             <SurfaceCard style={[styles.chartCard, isDesktopWeb && styles.chartCardWeb]}>
               <LineChart data={nwTrend} />
             </SurfaceCard>
           </>
         ) : null}
 
-        <Text style={styles.sectionTitle}>Theo so quan ly</Text>
+        <Text style={styles.sectionTitle}>Theo sổ tiền</Text>
         <View style={[styles.walletGrid, isDesktopWeb && styles.walletGridWeb]}>
           {wallets.map((wallet) => {
             const walletSummary = walletStats[wallet.id] || {};
@@ -225,7 +225,7 @@ export default function AnalyticsScreen({ navigation }) {
 
         {expBreakdown.length > 0 ? (
           <>
-            <Text style={styles.sectionTitle}>Chi tieu theo danh muc</Text>
+            <Text style={styles.sectionTitle}>Chi theo danh mục</Text>
             <View style={[styles.breakdownSplit, isDesktopWeb && styles.breakdownSplitWeb]}>
               <SurfaceCard style={[styles.chartCard, styles.breakdownChartCard]}>
                 <PieChart data={expBreakdown.slice(0, 5)} />
@@ -238,7 +238,7 @@ export default function AnalyticsScreen({ navigation }) {
                       <Text style={styles.breakIcon}>{row.icon || '$'}</Text>
                       <View style={styles.breakBody}>
                         <View style={styles.breakTop}>
-                          <Text style={styles.breakName}>{row.name || 'Khac'}</Text>
+                          <Text style={styles.breakName}>{row.name || 'Khác'}</Text>
                           <Text style={styles.breakValue}>{formatCurrency(row.total)}</Text>
                         </View>
                         <View style={styles.barBg}>
@@ -256,14 +256,14 @@ export default function AnalyticsScreen({ navigation }) {
 
         {incBreakdown.length > 0 ? (
           <>
-            <Text style={styles.sectionTitle}>Nguon thu</Text>
+            <Text style={styles.sectionTitle}>Nguồn thu</Text>
             <SurfaceCard>
               {incBreakdown.map((row, index) => (
                 <View key={index} style={[styles.breakdownRow, index === incBreakdown.length - 1 && styles.breakdownLast]}>
                   <Text style={styles.breakIcon}>{row.icon || '+'}</Text>
                   <View style={styles.breakBody}>
                     <View style={styles.breakTop}>
-                      <Text style={styles.breakName}>{row.name || 'Khac'}</Text>
+                      <Text style={styles.breakName}>{row.name || 'Khác'}</Text>
                       <Text style={[styles.breakValue, styles.incomeText]}>{formatCurrency(row.total)}</Text>
                     </View>
                   </View>
@@ -276,8 +276,8 @@ export default function AnalyticsScreen({ navigation }) {
         {stats.income === 0 && stats.expense === 0 ? (
           <SurfaceCard style={styles.emptyCard}>
             <Text style={styles.emptyIcon}>#</Text>
-            <Text style={styles.emptyTitle}>Chua co du lieu cho ky nay</Text>
-            <Text style={styles.emptySub}>Them giao dich de he thong thong ke chinh xac.</Text>
+            <Text style={styles.emptyTitle}>Không có dữ liệu trong kỳ này</Text>
+            <Text style={styles.emptySub}>Thêm giao dịch để báo cáo phân tích chính xác hơn.</Text>
           </SurfaceCard>
         ) : null}
       </ScrollView>

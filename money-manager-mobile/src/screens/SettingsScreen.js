@@ -26,18 +26,18 @@ export default function SettingsScreen({ navigation }) {
   useEffect(() => subscribeToAuthChanges((u) => setUser(u)), []);
 
   const handleCloudSync = () => {
-    Alert.alert('Legacy sync', 'Push local SQLite data to legacy Firebase?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert('Đồng bộ cũ', 'Đẩy dữ liệu SQLite local lên Firebase cũ?', [
+      { text: 'Hủy', style: 'cancel' },
       {
-        text: 'Sync',
+        text: 'Đồng bộ',
         onPress: async () => {
           setMigrating(true);
           try {
-            setSyncStatus('Starting...');
+            setSyncStatus('Đang bắt đầu...');
             await migrateSQLiteToFirestore((msg) => setSyncStatus(msg));
-            Alert.alert('Done', 'Legacy sync completed');
+            Alert.alert('Hoàn tất', 'Đồng bộ dữ liệu cũ thành công');
           } catch (e) {
-            Alert.alert('Sync failed', e?.message || 'Unknown error');
+            Alert.alert('Đồng bộ thất bại', e?.message || 'Lỗi không xác định');
           } finally {
             setMigrating(false);
             setSyncStatus('');
@@ -48,10 +48,10 @@ export default function SettingsScreen({ navigation }) {
   };
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Do you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert('Đăng xuất', 'Bạn có muốn đăng xuất không?', [
+      { text: 'Hủy', style: 'cancel' },
       {
-        text: 'Logout',
+        text: 'Đăng xuất',
         style: 'destructive',
         onPress: async () => {
           await logOut();
@@ -65,8 +65,8 @@ export default function SettingsScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
       {!isDesktopWeb ? (
         <TopAppBar
-          title="Settings"
-          subtitle={user?.email || 'Not logged in'}
+          title="Cài đặt"
+          subtitle={user?.email || 'Chưa đăng nhập'}
           onBack={() => navigation.goBack()}
           rightIcon="log-out-outline"
           onRightPress={handleLogout}
@@ -75,15 +75,15 @@ export default function SettingsScreen({ navigation }) {
       ) : null}
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 50 }} showsVerticalScrollIndicator={false}>
-        <Text style={styles.section}>Data</Text>
+        <Text style={styles.section}>Dữ liệu</Text>
         <SurfaceCard tone="lowest" style={styles.card}>
           <View style={styles.row}>
             <View style={[styles.icon, { backgroundColor: COLORS.primaryLight }]}>
               <Ionicons name="cloud-upload-outline" size={20} color={COLORS.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.title}>Legacy Firebase Sync</Text>
-              <Text style={styles.sub}>Only for old migration flow.</Text>
+              <Text style={styles.title}>Đồng bộ Firebase cũ</Text>
+              <Text style={styles.sub}>Chỉ dùng cho luồng chuyển đổi dữ liệu cũ.</Text>
             </View>
           </View>
 
@@ -96,17 +96,17 @@ export default function SettingsScreen({ navigation }) {
 
           <TouchableOpacity style={styles.primaryBtn} onPress={handleCloudSync} disabled={migrating}>
             <Ionicons name="rocket-outline" size={16} color="#fff" />
-            <Text style={styles.primaryTxt}>{migrating ? 'Syncing...' : 'Start Legacy Sync'}</Text>
+            <Text style={styles.primaryTxt}>{migrating ? 'Đang đồng bộ...' : 'Bắt đầu đồng bộ cũ'}</Text>
           </TouchableOpacity>
         </SurfaceCard>
 
-        <Text style={styles.section}>Config</Text>
+        <Text style={styles.section}>Cấu hình</Text>
         <SurfaceCard tone="lowest" style={styles.card}>
           <TouchableOpacity style={styles.item} onPress={() => navigation.navigate('WalletsManager')}>
             <View style={[styles.icon, { backgroundColor: '#e8f0ff' }]}>
               <Ionicons name="wallet-outline" size={20} color={COLORS.primary} />
             </View>
-            <Text style={styles.itemTxt}>Wallets</Text>
+            <Text style={styles.itemTxt}>Sổ tiền</Text>
             <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
           </TouchableOpacity>
 
@@ -114,7 +114,7 @@ export default function SettingsScreen({ navigation }) {
             <View style={[styles.icon, { backgroundColor: '#e8f0ff' }]}>
               <Ionicons name="build-outline" size={20} color={COLORS.primary} />
             </View>
-            <Text style={styles.itemTxt}>Services</Text>
+            <Text style={styles.itemTxt}>Dịch vụ</Text>
             <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
           </TouchableOpacity>
 
@@ -122,7 +122,7 @@ export default function SettingsScreen({ navigation }) {
             <View style={[styles.icon, { backgroundColor: '#e8f0ff' }]}>
               <Ionicons name="card-outline" size={20} color={COLORS.primary} />
             </View>
-            <Text style={styles.itemTxt}>Bank Config</Text>
+            <Text style={styles.itemTxt}>Cấu hình ngân hàng</Text>
             <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
           </TouchableOpacity>
         </SurfaceCard>

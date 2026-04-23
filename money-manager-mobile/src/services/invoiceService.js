@@ -10,7 +10,12 @@ const normalizeText = (text) =>
     .replace(/Đ/g, 'D')
     .toLowerCase();
 
-export const generateInvoiceData = async ({ contract, month, year, meterInputs, checkoutDateInput }) => {
+const hasAnyKeyword = (value, keywords) => {
+  const normalized = normalizeText(value);
+  return keywords.some((keyword) => normalized.includes(keyword));
+};
+
+export const generateInvoiceData = async ({ contract, month, year, meterInputs, checkoutDateInput, invoiceNoteInput }) => {
   const items = [];
   let elecOld = 0;
   let elecNew = 0;
@@ -21,8 +26,8 @@ export const generateInvoiceData = async ({ contract, month, year, meterInputs, 
 
   for (const svc of activeServices) {
     const serviceNameNorm = normalizeText(svc.name);
-    const isElectricity = serviceNameNorm.includes('dien');
-    const isWater = serviceNameNorm.includes('nuoc');
+    const isElectricity = hasAnyKeyword(serviceNameNorm, ['dien', 'electric']);
+    const isWater = hasAnyKeyword(serviceNameNorm, ['nuoc', 'water']);
 
     // Business rule for monthly room billing:
     // - Electricity is metered
@@ -31,7 +36,7 @@ export const generateInvoiceData = async ({ contract, month, year, meterInputs, 
       const numPeople = contract.num_people || 1;
       items.push({
         name: svc.name,
-        detail: `${svc.unit_price.toLocaleString('vi-VN')}d x ${numPeople} nguoi`,
+        detail: `${svc.unit_price.toLocaleString('vi-VN')}d x ${numPeople} người`,
         amount: svc.unit_price * numPeople,
         serviceId: svc.id,
       });
@@ -41,7 +46,7 @@ export const generateInvoiceData = async ({ contract, month, year, meterInputs, 
     if (svc.type === 'fixed') {
       items.push({
         name: svc.name,
-        detail: `${svc.unit_price.toLocaleString('vi-VN')}d co dinh`,
+        detail: `${svc.unit_price.toLocaleString('vi-VN')}d cố định`,
         amount: svc.unit_price,
         serviceId: svc.id,
       });
@@ -52,7 +57,7 @@ export const generateInvoiceData = async ({ contract, month, year, meterInputs, 
       const numPeople = contract.num_people || 1;
       items.push({
         name: svc.name,
-        detail: `${svc.unit_price.toLocaleString('vi-VN')}d x ${numPeople} nguoi`,
+        detail: `${svc.unit_price.toLocaleString('vi-VN')}d x ${numPeople} người`,
         amount: svc.unit_price * numPeople,
         serviceId: svc.id,
       });
@@ -71,7 +76,7 @@ export const generateInvoiceData = async ({ contract, month, year, meterInputs, 
       }
 
       if (newVal > 0 && newVal < oldVal) {
-        throw new Error(`${svc.name}: so moi (${newVal}) khong the nho hon so cu (${oldVal}).`);
+        throw new Error(`${svc.name}: chỉ số mới (${newVal}) không được nhỏ hơn chỉ số cũ (${oldVal}).`);
       }
 
       if (newVal > 0 && newVal >= oldVal) {
@@ -109,6 +114,7 @@ export const generateInvoiceData = async ({ contract, month, year, meterInputs, 
     elecNew,
     waterOld,
     waterNew,
+    invoiceNote: invoiceNoteInput || null,
   };
 };
 

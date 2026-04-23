@@ -21,7 +21,7 @@ const parseJsonArrayFromText = (text) => {
  */
 export const extractMeterReadings = async (images) => {
   if (!GEMINI_API_KEY) {
-    throw new Error('Chua cau hinh EXPO_PUBLIC_GEMINI_API_KEY.');
+    throw new Error('EXPO_PUBLIC_GEMINI_API_KEY is not configured.');
   }
 
   if (!Array.isArray(images) || images.length === 0) {
@@ -30,7 +30,7 @@ export const extractMeterReadings = async (images) => {
 
   const missingBase64 = images.some((img) => !img?.base64);
   if (missingBase64) {
-    throw new Error('Thieu du lieu base64 cua anh de gui cho AI.');
+    throw new Error('Missing image base64 data for AI request.');
   }
 
   const parts = images.map((img) => ({
@@ -54,7 +54,7 @@ export const extractMeterReadings = async (images) => {
     result = await response.json();
   } catch (error) {
     console.error('AI request error:', error);
-    throw new Error('Khong the ket noi dich vu AI.');
+    throw new Error('Cannot connect to AI service.');
   }
 
   if (result?.error) {
@@ -68,5 +68,5 @@ export const extractMeterReadings = async (images) => {
   }
 
   console.log('Unexpected AI response:', JSON.stringify(result));
-  throw new Error('AI khong tra ve du lieu hop le tu anh.');
+  throw new Error('AI did not return valid data from the image.');
 };

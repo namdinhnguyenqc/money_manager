@@ -1,6 +1,6 @@
 export const seedRooms = ['P101','P102','P103','P104','P105','P106','P107','P108','P109'];
 export const seedPrices = [2400000, 1900000, 1900000, 2000000, 2200000, 2000000, 2200000, 2200000, 2300000];
-export const seedResidents = ['Bảo Ngọc','Khánh Linh','Mạnh Quân','Minh Thức','Huỳnh Như','Huy Nguyễn','Phương Anh','Hiếu','Khánh Giao'];
+export const seedResidents = ['Anna','Lina','Quinn','Milo','Nora','Hugh','Ava','Leo','Gina'];
 export const seedDeps = [2400000, 1000000, 1000000, 500000, 2200000, 1000000, 1000000, 2200000, 1000000];
 
 export const seedDataByMonth = {
