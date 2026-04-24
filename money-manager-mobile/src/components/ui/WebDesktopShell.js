@@ -58,13 +58,11 @@ export default function WebDesktopShell({
   headerAction = null,
   searchPlaceholder = 'Tìm kiếm...',
 }) {
-  const { height } = useWindowDimensions();
   const [shellSearch, setShellSearch] = useState('');
   const [isNearTop, setIsNearTop] = useState(true);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
   const activeRoute = useMemo(() => ACTIVE_ROUTE_MAP[routeName] || routeName, [routeName]);
-  const viewportHeight = Math.max(height || 0, 1);
   const isWeb = typeof window !== 'undefined';
   const [isWebModeDismissed, setIsWebModeDismissed] = useState(true);
 
@@ -83,31 +81,10 @@ export default function WebDesktopShell({
   };
 
   useEffect(() => {
-    if (!isWeb) return () => {};
-
-    const updateScrollState = () => {
-      let y = window.scrollY || window.pageYOffset || 0;
-      let maxScroll = (document.documentElement?.scrollHeight || 0) - (window.innerHeight || 0);
-
-      const canScroll = maxScroll > 120;
-      setShowScrollBtn(canScroll);
-      setIsNearTop(y < 72);
-    };
-
-    updateScrollState();
-    
-    window.addEventListener('scroll', updateScrollState, { passive: true });
-    window.addEventListener('resize', updateScrollState);
-
-    // Watch for DOM changes in case the page height dynamically changes
-    const observer = new MutationObserver(() => updateScrollState());
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    return () => {
-      window.removeEventListener('scroll', updateScrollState);
-      window.removeEventListener('resize', updateScrollState);
-      observer.disconnect();
-    };
+    // Navigation and internal ScrollViews handle scrolling in web mode.
+    // Document-level scroll is disabled to prevent infinite loops.
+    setShowScrollBtn(false);
+    return () => {};
   }, [isWeb]);
 
   useEffect(() => {
@@ -119,24 +96,12 @@ export default function WebDesktopShell({
   }, [fadeAnim, showScrollBtn]);
 
   const handleSmartScroll = () => {
-    if (!isWeb) return;
-
-    if (isNearTop) {
-      const target = Math.min(
-        Math.max(window.innerHeight * 0.92, 560),
-        Math.max((document.documentElement?.scrollHeight || 0) - window.innerHeight, 0)
-      );
-      
-      window.scrollTo({ top: target, behavior: 'smooth' });
-      return;
-    }
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Logic handled by inner ScrollViews
   };
 
   return (
-    <View style={[styles.root, isWeb ? { minHeight: viewportHeight } : { height: viewportHeight }]}>
-      <View style={[styles.sidebar, isWeb && { position: 'sticky', top: 0, height: viewportHeight }]}>
+    <View style={styles.root}>
+      <View style={styles.sidebar}>
         <View style={styles.brandRow}>
           <View style={styles.brandBadge}>
             <Ionicons name="wallet-outline" size={18} color={COLORS.primary} />
@@ -256,14 +221,29 @@ export default function WebDesktopShell({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    height: '100%',
     width: '100%',
-    minWidth: 0,
     flexDirection: 'row',
     backgroundColor: COLORS.surfacePage,
+    overflow: 'hidden',
+  },
+  main: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+    paddingHorizontal: WEB.shellPaddingX,
+    paddingTop: WEB.shellPaddingY,
+    paddingBottom: 22,
+  },
+  pageBody: {
+    flex: 1,
+    minHeight: 0,
+    minWidth: 0,
+    height: '100%',
   },
   sidebar: {
     width: WEB.sidebarWidth,
-    minHeight: 0,
+    height: '100%',
     backgroundColor: COLORS.surfaceLowest,
     borderRightWidth: 1,
     borderRightColor: COLORS.borderStrong,
@@ -365,14 +345,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     ...FONTS.medium,
   },
-  main: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 0,
-    paddingHorizontal: WEB.shellPaddingX,
-    paddingTop: WEB.shellPaddingY,
-    paddingBottom: 22,
-  },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -451,11 +423,6 @@ const styles = StyleSheet.create({
   },
   pageAction: {
     marginLeft: 'auto',
-  },
-  pageBody: {
-    flex: 1,
-    minHeight: 0,
-    minWidth: 0,
   },
   scrollFabWrap: {
     position: 'absolute',

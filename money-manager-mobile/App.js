@@ -1,8 +1,10 @@
 import 'react-native-gesture-handler';
 import { initLogger } from './src/utils/logger';
-initLogger();
+if (__DEV__) {
+  initLogger();
+}
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AppNavigator from './src/navigation/AppNavigator';
 import { initDb } from './src/database/db';
@@ -55,31 +57,23 @@ export default function App() {
     setDbReady(false);
     try {
       await initDb();
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.removeItem(DB_AUTO_RELOAD_KEY);
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.sessionStorage?.removeItem(DB_AUTO_RELOAD_KEY);
 
-        // FORCE NATIVE WEB SCROLLING (Fix root cause of all scroll locks)
+        // STABLE WEB LAYOUT
         const style = document.createElement('style');
         style.innerHTML = `
-          /* Prevent RNWeb from locking the document */
           html, body, #root {
-            height: auto !important;
-            min-height: 100vh !important;
-            overflow: visible !important;
-            overflow-x: hidden !important;
+            width: 100%;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden !important;
           }
-          /* Allow AppContainer to grow with content */
-          .css-1dbjc4n[data-testid="root"] {
-            height: auto !important;
-            display: flex !important;
-            flex-direction: column !important;
-            min-height: 100vh !important;
-          }
-          /* Fix ScrollView so it doesn't wrap its own scroll but grows naturally */
-          .rn-scroll-view-web {
-            overflow: visible !important;
-            height: auto !important;
-            flex: 0 0 auto !important;
+          #root {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
           }
         `;
         document.head.appendChild(style);
@@ -88,9 +82,10 @@ export default function App() {
     } catch (e) {
       console.error('Database init failed:', e);
       if (
+        Platform.OS === 'web' &&
         typeof window !== 'undefined' &&
         String(e?.message || '').includes('Reload page') &&
-        !window.sessionStorage.getItem(DB_AUTO_RELOAD_KEY)
+        !window.sessionStorage?.getItem(DB_AUTO_RELOAD_KEY)
       ) {
         window.sessionStorage.setItem(DB_AUTO_RELOAD_KEY, '1');
         window.location.reload();
@@ -140,12 +135,19 @@ export default function App() {
 
   return (
     <RootErrorBoundary>
-      <AppNavigator />
+      <View style={styles.appRoot}>
+        <AppNavigator />
+      </View>
     </RootErrorBoundary>
   );
 }
 
 const styles = StyleSheet.create({
+  appRoot: {
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: '#fff',
+  },
   center: {
     flex: 1,
     justifyContent: 'center',

@@ -55,7 +55,11 @@ export default function DashboardScreen({ navigation }) {
   const contentMaxWidth = width >= 1440 ? 1240 : width >= 1024 ? 1120 : 960;
 
   const dashboardContent = (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+    <ScrollView 
+      style={{ flex: 1, height: '100%' }}
+      showsVerticalScrollIndicator={true} 
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: 120 }}
+    >
       <View style={[styles.container, isDesktopWeb && styles.containerDesktop, !isDesktopWeb && isWeb && styles.containerWeb, { maxWidth: isDesktopWeb ? undefined : contentMaxWidth }]}>
         <View style={[styles.heroLayout, isWeb && styles.heroLayoutWeb]}>
           <SurfaceCard tone="lowest" style={styles.hero}>

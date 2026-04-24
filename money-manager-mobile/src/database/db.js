@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
 import { seedRooms, seedPrices, seedResidents, seedDeps, seedDataByMonth } from './seedData';
 
 const DB_NAME = 'money_manager.db';
@@ -23,7 +24,7 @@ const WEB_SNAPSHOT_LISTENERS_KEY = '__mmDbWebSnapshotListeners';
 const WEB_SNAPSHOT_DEBOUNCE_MS = 800;
 
 const getDbStore = () => globalThis;
-const isWebRuntime = () => typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+const isWebRuntime = () => Platform.OS === 'web';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -671,8 +672,7 @@ const runMigrations = async (db) => {
 
   // v37 FINAL CORRECTIVE Block
   if (currentVersion < 37) {
-    console.log("Upgrading to v37: FINAL Corrective Historical Import...");
-    await importFullHistoryV37(db);
+    console.log("Upgrading to v37: Marking migration complete.");
     await db.execAsync(`PRAGMA user_version = 37`);
   }
 
@@ -692,12 +692,6 @@ const runMigrations = async (db) => {
       await db.execAsync(`UPDATE rooms SET wallet_id = 2 WHERE wallet_id IS NULL`);
     } catch(e){}
     await db.execAsync(`PRAGMA user_version = 39`);
-  }
-    try { await db.execAsync(`ALTER TABLE wallets ADD COLUMN active INTEGER DEFAULT 1`); } catch(e) {}
-    try { await db.execAsync(`ALTER TABLE bank_config ADD COLUMN qr_uri TEXT`); } catch(e){}
-    try { await db.execAsync(`ALTER TABLE bank_config ADD COLUMN user_avatar TEXT`); } catch(e){}
-    try { await db.execAsync(`ALTER TABLE transactions ADD COLUMN type TEXT NOT NULL DEFAULT 'expense'`); } catch(e){}
-    return;
   }
 
   // legacy migrations
@@ -737,63 +731,3 @@ export const resetDatabase = async () => {
   }
 };
 
-const importFullHistoryV37 = async (db) => {
-  console.log("Starting Robust Corrective Historical Import v37...");
-  
-  await db.execAsync('PRAGMA foreign_keys = OFF');
-  
-  try {
-    await db.runAsync('DELETE FROM invoice_items');
-    await db.runAsync('DELETE FROM invoices');
-    await db.runAsync('DELETE FROM contract_services');
-    await db.runAsync('DELETE FROM contracts');
-    await db.runAsync('DELETE FROM tenants');
-    await db.runAsync('DELETE FROM rooms');
-    await db.runAsync("DELETE FROM transactions WHERE wallet_id = 2 AND date LIKE '2026-0%'");
-    
-    try { await db.runAsync("DELETE FROM sqlite_sequence WHERE name IN ('rooms', 'tenants', 'contracts', 'invoices', 'invoice_items', 'transactions')"); } catch (e) {}
-
-    for (let i = 0; i < seedRooms.length; i++) {
-       const uId = i + 1;
-       await db.runAsync("INSERT INTO rooms (id, name, price, status) VALUES (?, ?, ?, 'occupied')", [uId, seedRooms[i], seedPrices[i]]);
-       await db.runAsync('INSERT INTO tenants (id, name) VALUES (?, ?)', [uId, seedResidents[i]]);
-       await db.runAsync("INSERT INTO contracts (id, room_id, tenant_id, start_date, deposit, status) VALUES (?, ?, ?, ?, ?, 'active')", 
-         [uId, uId, uId, '2026-01-01', seedDeps[i]]);
-    }
-
-    const monthList = [1, 2, 3, 4];
-    for (const m of monthList) {
-      const entries = seedDataByMonth[m];
-      const dStr = `2026-0${m}-01`;
-      
-      for (let i = 0; i < entries.length; i++) {
-        const item = entries[i];
-        const rId = i + 1;
-        const cId = i + 1;
-
-        const iRes = await db.runAsync(
-          'INSERT INTO transactions (type, amount, description, wallet_id, date) VALUES (?,?,?,?,?)',
-          ['income', item.total, `Contract ${seedRooms[i]} (M${m})`, 2, dStr]
-        );
-        await db.runAsync(
-          'INSERT INTO transactions (type, amount, description, wallet_id, date) VALUES (?,?,?,?,?)',
-          ['expense', item.total, `Data balancing M${m}`, 2, dStr]
-        );
-
-        const invRes = await db.runAsync(
-          `INSERT INTO invoices (contract_id, room_id, month, year, room_fee, total_amount, elec_old, elec_new, water_old, water_new, status, transaction_id) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [cId, rId, m, 2026, item.fee, item.total, item.elec[0], item.elec[1], item.water[0], item.water[1], item.paid ? 'paid' : 'sent', iRes.lastInsertRowId]
-        );
-        
-        await db.runAsync('INSERT INTO invoice_items (invoice_id, name, amount) VALUES (?, ?, ?)', [invRes.lastInsertRowId, 'Tiền phòng', item.fee]);
-        await db.runAsync('INSERT INTO invoice_items (invoice_id, name, amount) VALUES (?, ?, ?)', [invRes.lastInsertRowId, 'Service total', item.total - item.fee]);
-      }
-    }
-  } catch (err) {
-    console.error("Migration v37 Execution Error:", err);
-    throw err;
-  } finally {
-    await db.execAsync('PRAGMA foreign_keys = ON');
-  }
-};

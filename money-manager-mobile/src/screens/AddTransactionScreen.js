@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import { COLORS, FONTS, RADIUS, SHADOW, TYPOGRAPHY } from '../theme';
 import { toISODate } from '../utils/format';
 import {

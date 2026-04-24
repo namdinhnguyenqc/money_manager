@@ -261,7 +261,7 @@ export default function InvoicesScreen({ navigation, route }) {
 
   const handleShare = async () => {
     try {
-      if (!invoiceViewRef.current) return;
+      if (!invoiceViewRef.current || !viewingInvoice) return;
       const uri = await captureRef(invoiceViewRef, { format: 'png', quality: 1.0 });
       if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { dialogTitle: 'Chia sẻ hóa đơn' });
     } catch (e) {

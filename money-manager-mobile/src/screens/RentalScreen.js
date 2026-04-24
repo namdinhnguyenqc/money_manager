@@ -623,12 +623,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
-  vacantPrice: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    ...FONTS.semibold,
-    marginBottom: 16,
-  },
   vacantPrice: { fontSize: 13, color: COLORS.textMuted, ...FONTS.medium, marginBottom: 12 },
   rentBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: RADIUS.md },
   rentBtnText: { color: '#fff', fontSize: 12, ...FONTS.bold },

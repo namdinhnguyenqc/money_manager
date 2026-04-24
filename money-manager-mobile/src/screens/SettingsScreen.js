@@ -59,6 +59,7 @@ export default function SettingsScreen({ navigation }) {
         },
       },
     ]);
+  };
   const handleReset = () => {
     Alert.alert(
       'Xóa toàn bộ dữ liệu',
