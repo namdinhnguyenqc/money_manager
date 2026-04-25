@@ -8,7 +8,6 @@ import {
   generateRefreshToken,
   addDays,
   User,
-  generateRefreshToken as genRt,
 } from "../lib/auth.js";
 import { parseJson } from "../utils/validation.js";
 import { requireAuth, getClientIp, getDeviceInfo } from "../middleware/auth.js";
@@ -25,9 +24,14 @@ const refreshSchema = z.object({
   refreshToken: z.string().min(10),
 });
 
-const logoutSchema = z.object({
-  refreshToken: z.string().min(10),
+const adminLoginSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
 });
+
+// ----- Admin credentials (hardcoded for dev, use env vars in production) -----
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin";
 
 let googleOAuth2Client: OAuth2Client | null = null;
 
@@ -43,6 +47,10 @@ async function logLoginAttempt(
   success: boolean,
   failReason?: string
 ) {
+  if (env.IS_MOCK) {
+    console.log("Mock login attempt logged:", { userId, success, failReason });
+    return;
+  }
   const { error } = await supabaseAdmin.from("login_logs").insert({
     user_id: userId,
     provider: "GOOGLE",
@@ -55,9 +63,11 @@ async function logLoginAttempt(
 }
 
 async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string) {
-  if (!env.GOOGLE_CLIENT_ID || !googleOAuth2Client) {
+  const client = getGoogleClient();
+  if (!env.GOOGLE_CLIENT_ID || !client) {
+    // Mock mode: return a regular USER (not admin)
     const mockUser = {
-      id: "mock-user-id",
+      id: "mock-google-user",
       google_id: "mock-google-id",
       email: "user@gmail.com",
       name: "Mock User",
@@ -152,15 +162,17 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
 
 async function createAuthResponse(user: any, isNewUser: boolean) {
   const accessToken = await generateAccessToken(user);
-  const refreshToken = generateRefreshToken();
+  const refreshToken = await generateRefreshToken();
   const tokenHash = await hashToken(refreshToken);
   const expiresAt = addDays(new Date(), env.REFRESH_TOKEN_EXPIRY_DAYS);
 
-  await supabaseAdmin.from("refresh_tokens").insert({
-    user_id: user.id,
-    token_hash: tokenHash,
-    expires_at: expiresAt.toISOString(),
-  });
+  if (!env.IS_MOCK) {
+    await supabaseAdmin.from("refresh_tokens").insert({
+      user_id: user.id,
+      token_hash: tokenHash,
+      expires_at: expiresAt.toISOString(),
+    });
+  }
 
   return {
     accessToken,
@@ -177,6 +189,45 @@ async function createAuthResponse(user: any, isNewUser: boolean) {
   };
 }
 
+// ==================== ROUTES ====================
+
+// POST /auth/admin-login — Username/Password login for Web Admin
+authRoutes.post("/admin-login", async (c) => {
+  const parsed = await parseJson(c, adminLoginSchema);
+  if (!parsed.ok) return parsed.response;
+
+  const { username, password } = parsed.data;
+
+  if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+    return c.json({ code: "INVALID_CREDENTIALS", message: "Sai tên đăng nhập hoặc mật khẩu." }, 401);
+  }
+
+  const adminUser = {
+    id: "admin-builtin",
+    email: "admin@moneymanager.local",
+    name: "Administrator",
+    avatar: null,
+    role: "SUPER_ADMIN",
+    status: "ACTIVE",
+    provider: "LOCAL",
+  };
+
+  const accessToken = await generateAccessToken(adminUser);
+
+  return c.json({
+    accessToken,
+    user: {
+      id: adminUser.id,
+      email: adminUser.email,
+      name: adminUser.name,
+      avatar: adminUser.avatar,
+      role: adminUser.role,
+      status: adminUser.status,
+    },
+  });
+});
+
+// POST /auth/google — Google Sign-In for Mobile/Web App
 authRoutes.post("/google", async (c) => {
   const parsed = await parseJson(c, googleAuthSchema);
   if (!parsed.ok) return parsed.response;
@@ -193,19 +244,17 @@ authRoutes.post("/google", async (c) => {
   return c.json(result);
 });
 
+// POST /auth/refresh
 authRoutes.post("/refresh", async (c) => {
   const parsed = await parseJson(c, refreshSchema);
   if (!parsed.ok) return parsed.response;
 
   const { refreshToken } = parsed.data;
 
-  if (env.IS_MOCK && refreshToken === "mock-refresh") {
-    const { data: mockUser } = await supabaseAdmin
-      .from("users")
-      .select("*")
-      .eq("id", "mock-user-id")
-      .single();
-    const accessToken = await generateAccessToken(mockUser || { id: "mock-user-id", email: "mock@example.com", role: "USER", status: "ACTIVE", google_id: "", provider: "" });
+  if (env.IS_MOCK) {
+    // In mock mode, just return a new access token for the mock user
+    const mockUser = { id: "mock-google-user", email: "user@gmail.com", role: "USER", status: "ACTIVE", google_id: "", provider: "GOOGLE" };
+    const accessToken = await generateAccessToken(mockUser);
     return c.json({ accessToken });
   }
 
@@ -231,25 +280,40 @@ authRoutes.post("/refresh", async (c) => {
   return c.json({ accessToken });
 });
 
-authRoutes.post("/logout", requireAuth, async (c) => {
-  const parsed = await parseJson(c, logoutSchema);
-  if (!parsed.ok) return parsed.response;
-
-  const { refreshToken } = parsed.data;
-
-  if (!env.IS_MOCK) {
-    const tokenHash = await hashToken(refreshToken);
-    await supabaseAdmin
-      .from("refresh_tokens")
-      .update({ revoked_at: new Date().toISOString() })
-      .eq("token_hash", tokenHash);
-  }
+// POST /auth/logout
+authRoutes.post("/logout", async (c) => {
+  // Try to parse body for refreshToken, but don't fail if missing (admin logout has no refresh token)
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const refreshToken = body?.refreshToken;
+    if (refreshToken && !env.IS_MOCK) {
+      const tokenHash = await hashToken(refreshToken);
+      await supabaseAdmin
+        .from("refresh_tokens")
+        .update({ revoked_at: new Date().toISOString() })
+        .eq("token_hash", tokenHash);
+    }
+  } catch {}
 
   return c.json({ success: true });
 });
 
+// GET /auth/me — Get current user info from JWT
 authRoutes.get("/me", requireAuth, async (c) => {
   const user = c.get("user");
+
+  // For built-in admin or mock mode, return from JWT payload directly
+  if (user.id === "admin-builtin" || (env.IS_MOCK && user.id?.startsWith("mock-"))) {
+    return c.json({
+      id: user.id,
+      email: user.email,
+      name: user.id === "admin-builtin" ? "Administrator" : "Mock User",
+      avatar: null,
+      role: user.role,
+      status: user.status || "ACTIVE",
+    });
+  }
+
   const { data: dbUser } = await supabaseAdmin
     .from("users")
     .select("id, email, name, avatar, role, status")

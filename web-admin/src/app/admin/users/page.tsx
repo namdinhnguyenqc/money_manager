@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { API_URL } from '@/lib/api';
 
 type User = {
   id: string;
@@ -40,7 +41,7 @@ export default function UsersPage() {
     if (!token || !pendingAction) { setConfirmOpen(false); setPendingAction(null); return; }
     try {
       if (pendingAction.action === 'status') {
-        await fetch(`/admin/users/${pendingAction.id}/status`, {
+        await fetch(`${API_URL}/admin/users/${pendingAction.id}/status`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -49,7 +50,7 @@ export default function UsersPage() {
           body: JSON.stringify({ status: pendingAction.value })
         });
       } else if (pendingAction.action === 'role') {
-        await fetch(`/admin/users/${pendingAction.id}/role`, {
+        await fetch(`${API_URL}/admin/users/${pendingAction.id}/role`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -58,7 +59,7 @@ export default function UsersPage() {
           body: JSON.stringify({ role: pendingAction.value })
         });
       } else if (pendingAction.action === 'delete') {
-        await fetch(`/admin/users/${pendingAction.id}`, {
+        await fetch(`${API_URL}/admin/users/${pendingAction.id}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -77,7 +78,7 @@ export default function UsersPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/admin/users?page=${page}&limit=${limit}`, {
+      const res = await fetch(`${API_URL}/admin/users?page=${page}&limit=${limit}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error('Failed to load users');

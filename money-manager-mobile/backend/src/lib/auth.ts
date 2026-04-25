@@ -67,9 +67,9 @@ export async function hashToken(token: string): Promise<string> {
   return createHash("sha256").update(token).digest("hex");
 }
 
-export function generateRefreshToken(): string {
+export async function generateRefreshToken(): Promise<string> {
   // Use crypto.randomBytes for cryptographic security — Math.random() is NOT safe
-  const { randomBytes } = require("crypto");
+  const { randomBytes } = await import("crypto");
   return randomBytes(48).toString("hex"); // 96-char hex string, 384 bits of entropy
 }
 

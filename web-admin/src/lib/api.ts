@@ -16,7 +16,7 @@ export async function apiClient<T>(
       "Content-Type": "application/json",
       ...getAuthHeaders(),
       ...options.headers,
-    },
+    } as HeadersInit,
   });
 
   if (res.status === 401) {
