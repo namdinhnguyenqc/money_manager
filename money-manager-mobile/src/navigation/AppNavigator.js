@@ -24,6 +24,7 @@ import SmartBatchBillingScreen from '../screens/SmartBatchBillingScreen';
 import ModulesScreen from '../screens/ModulesScreen';
 import LoginScreen from '../screens/LoginScreen';
 import TenantLandingScreen from '../screens/TenantLandingScreen';
+import InvoiceHistoryScreen from '../screens/InvoiceHistoryScreen';
 import { subscribeToAuthChanges } from '../services/authService';
 import { isApiDataEnabled } from '../services/dataMode';
 import WebDesktopShell from '../components/ui/WebDesktopShell';
@@ -173,6 +174,7 @@ function HomeStack() {
       <Stack.Screen name="TradingCategories" component={WebTradingCategoriesScreen} />
       <Stack.Screen name="BankConfig" component={WebBankConfigScreen} />
       <Stack.Screen name="SmartBatchBilling" component={WebSmartBatchBillingScreen} />
+      <Stack.Screen name="InvoiceHistory" component={InvoiceHistoryScreen} />
     </Stack.Navigator>
   );
 }

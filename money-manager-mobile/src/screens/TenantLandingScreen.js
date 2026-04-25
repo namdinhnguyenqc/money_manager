@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, RADIUS, SHADOW, TYPOGRAPHY } from '../theme';
-import { getRooms, addTenant, addContract } from '../database/queries';
+import { getRooms, addTenant, addContract, getBankConfig } from '../database/queries';
 import { formatCurrency } from '../utils/format';
 
 export default function TenantLandingScreen({ navigation }) {
@@ -24,6 +24,7 @@ export default function TenantLandingScreen({ navigation }) {
   const [rooms, setRooms] = useState([]);
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [bankConfig, setBankConfig] = useState(null);
 
   const scrollViewRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -35,8 +36,12 @@ export default function TenantLandingScreen({ navigation }) {
         setLoading(true);
         // Assuming walletId can be null to fetch all, or we fetch a specific one. 
         // For preview purpose, fetching all rooms.
-        const data = await getRooms(null);
+        const [data, config] = await Promise.all([
+          getRooms(null),
+          getBankConfig()
+        ]);
         setRooms(data || []);
+        setBankConfig(config);
         
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -97,7 +102,7 @@ export default function TenantLandingScreen({ navigation }) {
         </TouchableOpacity>
         <View style={styles.navCall}>
           <Ionicons name="call" size={16} color={COLORS.primary} />
-          <Text style={styles.navCallText}>0909 123 456</Text>
+          <Text style={styles.navCallText}>{bankConfig?.phone || 'Hotline'}</Text>
         </View>
       </View>
 

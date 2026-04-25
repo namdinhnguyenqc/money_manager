@@ -151,10 +151,14 @@ export default function DashboardScreen({ navigation }) {
           <View style={styles.chartBars}>
             {chartData.slice(-6).map((d, idx) => {
               const max = Math.max(...chartData.map((x) => Math.max(x.income || 0, x.expense || 0)), 1);
-              const h = Math.max(10, ((d.income || 0) / max) * 84);
+              const hIncome = Math.max(2, ((d.income || 0) / max) * 84);
+              const hExpense = Math.max(2, ((d.expense || 0) / max) * 84);
               return (
                 <View key={`${idx}-${d.label}`} style={styles.barCol}>
-                  <View style={[styles.bar, { height: h }]} />
+                  <View style={styles.barGroup}>
+                    <View style={[styles.bar, { height: hIncome }]} />
+                    <View style={[styles.bar, styles.barExpense, { height: hExpense }]} />
+                  </View>
                   <Text style={styles.barLabel}>{d.label}</Text>
                 </View>
               );
@@ -330,9 +334,11 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, color: COLORS.textPrimary, ...FONTS.semibold },
   sectionSub: { fontSize: 11, color: COLORS.textMuted, ...FONTS.medium },
   sectionLink: { fontSize: 12, color: COLORS.primary, ...FONTS.bold },
-  chartBars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 106, marginTop: 16 },
-  barCol: { alignItems: 'center', gap: 6 },
-  bar: { width: 14, backgroundColor: COLORS.primary, borderRadius: 8 },
+  chartBars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 106, marginTop: 16, paddingHorizontal: 4 },
+  barCol: { alignItems: 'center', gap: 6, flex: 1 },
+  barGroup: { flexDirection: 'row', alignItems: 'flex-end', gap: 2 },
+  bar: { width: 8, backgroundColor: COLORS.secondary, borderRadius: 2 },
+  barExpense: { backgroundColor: COLORS.danger },
   barLabel: { fontSize: 10, color: COLORS.textMuted, ...FONTS.medium },
   fab: {
     position: 'absolute',

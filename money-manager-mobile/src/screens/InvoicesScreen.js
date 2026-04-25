@@ -38,6 +38,7 @@ import MonthYearPicker from '../components/MonthYearPicker';
 import TopAppBar from '../components/ui/TopAppBar';
 import SurfaceCard from '../components/ui/SurfaceCard';
 import BankConfigModal from '../components/BankConfigModal';
+import CreateInvoiceSheet from '../components/CreateInvoiceSheet';
 import { confirmDialog } from '../utils/dialogs';
 
 const stripToDigits = (text) => (text || '').replace(/[^0-9]/g, '');
@@ -93,6 +94,15 @@ const getInvoiceStatusMeta = (invoice) => {
     };
   }
 
+  if (invoice.status === 'partially_paid') {
+    return {
+      label: 'Thu thiếu',
+      backgroundColor: COLORS.warningLight,
+      color: '#d97706',
+      subText: `Đã thu: ${formatCurrency(invoice.paid_amount || 0)} / ${formatCurrency(invoice.total_amount || 0)}`,
+    };
+  }
+
   return {
     label: 'Chờ thu',
     backgroundColor: COLORS.warningLight,
@@ -126,6 +136,10 @@ export default function InvoicesScreen({ navigation, route }) {
   const [invoiceNoteInput, setInvoiceNoteInput] = useState('');
   const [showBankConfig, setShowBankConfig] = useState(false);
   const [rentalWalletId, setRentalWalletId] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentAmountInput, setPaymentAmountInput] = useState('');
+  const [showCreateInvoice, setShowCreateInvoice] = useState(null);
+  const [editingInvoice, setEditingInvoice] = useState(null);
 
   const invoiceViewRef = useRef(null);
 
@@ -165,28 +179,25 @@ export default function InvoicesScreen({ navigation, route }) {
   const notCreatedContracts = contracts.filter((contract) => !hasInvoice(contract.id));
   const visibleContracts = contracts.filter((contract) => matchesFilter(filter, hasInvoice(contract.id)));
 
-  const openCreateInvoice = async (contract) => {
-    const previousReadings = await getLatestMeterReadings(contract.room_id);
-    if (previousReadings) {
-      const nextInputs = { ...meterInputs };
-      const electricityService = findMeteredService(metered, ['dien', 'electric']);
-      const waterService = findMeteredService(metered, ['nuoc', 'water']);
-
-      if (electricityService) {
-        nextInputs[`${contract.id}_${electricityService.id}_old`] = String(previousReadings.elec_old || 0);
-      }
-      if (waterService) {
-        nextInputs[`${contract.id}_${waterService.id}_old`] = String(previousReadings.water_old || 0);
-      }
-
-      setMeterInputs(nextInputs);
-    }
-    setCreatingFor(contract.id);
+  const openCreateInvoice = (contract) => {
+    setEditingInvoice(null);
+    setShowCreateInvoice(contract);
   };
 
   const openInvoiceDetail = async (invoiceId) => {
     const detail = await getInvoiceDetails(invoiceId);
     setViewingInvoice(detail);
+  };
+
+  const handleEditInvoice = () => {
+    const contract = contracts.find(c => c.id === viewingInvoice.contract_id);
+    if (!contract) {
+      Alert.alert('Lỗi', 'Không tìm thấy thông tin hợp đồng liên quan.');
+      return;
+    }
+    setEditingInvoice(viewingInvoice);
+    setViewingInvoice(null);
+    setShowCreateInvoice(contract);
   };
 
   const handleCreate = async (contract) => {
@@ -211,37 +222,40 @@ export default function InvoicesScreen({ navigation, route }) {
     }
   };
 
-  const handleMarkPaid = (invoice) => {
-    (async () => {
-      if (!rentalWalletId) {
-        Alert.alert('Thiếu ví', 'Không tìm thấy ví nhà trọ đang hoạt động để ghi nhận thanh toán.');
-        return;
-      }
+  const openPaymentModal = () => {
+    const remain = (viewingInvoice?.total_amount || 0) - (viewingInvoice?.paid_amount || 0);
+    setPaymentAmountInput(remain.toString());
+    setShowPaymentModal(true);
+  };
 
-      const confirmed = await confirmDialog({
-        title: 'Xác nhận đã thu',
-        message: `Xác nhận đã thu ${formatCurrency(invoice.total_amount)} cho phòng ${invoice.room_name}?`,
-        confirmText: 'Xác nhận',
+  const executePayment = async () => {
+    if (!rentalWalletId) {
+      Alert.alert('Thiếu ví', 'Không tìm thấy ví nhà trọ đang hoạt động để ghi nhận thanh toán.');
+      return;
+    }
+    const amt = parseFloat(stripToDigits(paymentAmountInput)) || 0;
+    if (amt <= 0) {
+      Alert.alert('Lỗi', 'Số tiền thu phải lớn hơn 0');
+      return;
+    }
+
+    try {
+      const txId = await addTransaction({
+        type: 'income',
+        amount: amt,
+        description: `Thu tiền phòng ${viewingInvoice.room_name} T${viewingInvoice.month}/${viewingInvoice.year}`,
+        categoryId: null,
+        walletId: rentalWalletId,
+        imageUri: null,
+        date: new Date().toISOString().split('T')[0],
       });
-      if (!confirmed) return;
-
-      try {
-        const txId = await addTransaction({
-          type: 'income',
-          amount: invoice.total_amount,
-          description: `Thu tiền phòng ${invoice.room_name} T${invoice.month}/${invoice.year}`,
-          categoryId: null,
-          walletId: rentalWalletId,
-          imageUri: null,
-          date: new Date().toISOString().split('T')[0],
-        });
-        await markInvoicePaid(invoice.id, invoice.total_amount, txId);
-        await loadData();
-        setViewingInvoice(null);
-      } catch (e) {
-        Alert.alert('Lỗi', e.message || 'Không thể cập nhật trạng thái thanh toán');
-      }
-    })();
+      await markInvoicePaid(viewingInvoice.id, amt, txId);
+      await loadData();
+      setShowPaymentModal(false);
+      setViewingInvoice(null);
+    } catch (e) {
+      Alert.alert('Lỗi', e.message || 'Không thể cập nhật trạng thái thanh toán');
+    }
   };
 
   const handleDeleteInvoice = (invoice) => {
@@ -446,64 +460,13 @@ export default function InvoicesScreen({ navigation, route }) {
                     </View>
 
                     {!existing ? (
-                      creatingFor === c.id ? (
-                        <View style={[styles.createBox, isWeb && styles.createBoxWeb]}>
-                          {electricityMetered.length === 0 ? (
-                            <View style={styles.inlineNotice}>
-                              <Text style={styles.inlineNoticeText}>Hợp đồng này chưa có dịch vụ điện đang hoạt động.</Text>
-                            </View>
-                          ) : electricityMetered.map((svc) => (
-                            <View key={svc.id} style={styles.meterRow}>
-                              <Text style={styles.meterName}>{svc.icon} {svc.name}</Text>
-                              <View style={styles.meterInputs}>
-                                <TextInput
-                                  style={styles.meterInput}
-                                  keyboardType="number-pad"
-                                  placeholder="Cũ"
-                                  value={meterInputs[`${c.id}_${svc.id}_old`]}
-                                  onChangeText={(v) => setMeterInputs((prev) => ({ ...prev, [`${c.id}_${svc.id}_old`]: stripToDigits(v) }))}
-                                />
-                                <TextInput
-                                  style={[styles.meterInput, { color: COLORS.primary }]}
-                                  keyboardType="number-pad"
-                                  placeholder="Mới"
-                                  value={meterInputs[`${c.id}_${svc.id}_new`]}
-                                  onChangeText={(v) => setMeterInputs((prev) => ({ ...prev, [`${c.id}_${svc.id}_new`]: stripToDigits(v) }))}
-                                />
-                              </View>
-                            </View>
-                          ))}
-                          <TextInput
-                            style={styles.checkoutInput}
-                            placeholder="Ngày trả phòng (YYYY-MM-DD, tùy chọn)"
-                            value={checkoutDateInput}
-                            onChangeText={setCheckoutDateInput}
-                          />
-                          <TextInput
-                            style={styles.checkoutInput}
-                            placeholder="Ghi chú hóa đơn (VD: Giảm 200k tiền đặt cọc...)"
-                            value={invoiceNoteInput}
-                            onChangeText={setInvoiceNoteInput}
-                          />
-                          {isWeb ? <Text style={styles.formHint}>Nhập chỉ số công tơ tháng này và ngày trả phòng nếu chốt hợp đồng.</Text> : null}
-                          <View style={styles.actionRow}>
-                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setCreatingFor(null)}>
-                              <Text style={styles.cancelText}>Hủy</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.createBtn} onPress={() => handleCreate(c)}>
-                              <Text style={styles.createText}>Tạo hóa đơn</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      ) : (
-                        <TouchableOpacity
-                          style={[styles.primaryLineBtn, isWeb && styles.primaryLineBtnWeb]}
-                          onPress={() => openCreateInvoice(c)}
-                        >
-                          <Ionicons name="document-text-outline" size={16} color={COLORS.primary} />
-                          <Text style={styles.primaryLineText}>Tạo hóa đơn tháng {month}</Text>
-                        </TouchableOpacity>
-                      )
+                      <TouchableOpacity
+                        style={[styles.primaryLineBtn, isWeb && styles.primaryLineBtnWeb]}
+                        onPress={() => openCreateInvoice(c)}
+                      >
+                        <Ionicons name="document-text-outline" size={16} color={COLORS.primary} />
+                        <Text style={styles.primaryLineText}>Tạo hóa đơn tháng {month}</Text>
+                      </TouchableOpacity>
                     ) : (
                       <View style={[styles.existingRow, isWeb && styles.existingRowWeb]}>
                         <View style={styles.existingMeta}>
@@ -607,6 +570,16 @@ export default function InvoicesScreen({ navigation, route }) {
               <View style={styles.totalBox}>
                 <Text style={styles.previewLine}>Nợ kỳ trước: {formatCurrency(viewingInvoice?.previous_debt || 0)}</Text>
                 <Text style={styles.totalText}>Tổng cần thanh toán: {formatCurrency(viewingInvoice?.total_amount || 0)}</Text>
+                {(viewingInvoice?.paid_amount || 0) > 0 && (
+                  <Text style={[styles.previewLine, { color: COLORS.success, marginTop: 4, ...FONTS.bold }]}>
+                    Đã thanh toán: {formatCurrency(viewingInvoice.paid_amount)}
+                  </Text>
+                )}
+                {(viewingInvoice?.paid_amount || 0) > 0 && (viewingInvoice?.status === 'partially_paid') && (
+                  <Text style={[styles.previewLine, { color: '#d97706', marginTop: 2, ...FONTS.bold }]}>
+                    Còn thiếu: {formatCurrency(viewingInvoice.total_amount - viewingInvoice.paid_amount)}
+                  </Text>
+                )}
               </View>
 
               <View style={styles.qrRow}>
@@ -631,16 +604,62 @@ export default function InvoicesScreen({ navigation, route }) {
                 <Text style={styles.deleteText}>Xóa</Text>
               </TouchableOpacity>
               {viewingInvoice?.status !== 'paid' ? (
-                <TouchableOpacity style={styles.paidBtn} onPress={() => handleMarkPaid(viewingInvoice)}>
-                  <Ionicons name="checkmark-done-circle" size={20} color="#fff" />
-                  <Text style={styles.paidText}>Đánh dấu đã thu</Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity style={[styles.deleteBtn, { borderColor: COLORS.border }]} onPress={handleEditInvoice}>
+                    <Ionicons name="create-outline" size={18} color={COLORS.textSecondary} />
+                    <Text style={[styles.deleteText, { color: COLORS.textSecondary }]}>Sửa</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.paidBtn} onPress={openPaymentModal}>
+                    <Ionicons name="checkmark-done-circle" size={20} color="#fff" />
+                    <Text style={styles.paidText}>Ghi nhận thanh toán</Text>
+                  </TouchableOpacity>
+                </>
               ) : null}
             </View>
             <View style={{ height: 30 }} />
           </ScrollView>
         </View>
       </Modal>
+
+      <Modal visible={showPaymentModal} transparent animationType="fade">
+        <View style={styles.overlay}>
+          <View style={styles.paymentModalCard}>
+            <Text style={styles.paymentModalTitle}>Nhập số tiền đã thu</Text>
+            <Text style={styles.paymentModalSub}>Thanh toán cho phòng {viewingInvoice?.room_name}</Text>
+            <TextInput
+              style={styles.paymentInput}
+              keyboardType="number-pad"
+              value={paymentAmountInput ? Number(stripToDigits(paymentAmountInput)).toLocaleString('vi-VN') : ''}
+              onChangeText={(v) => setPaymentAmountInput(stripToDigits(v))}
+              autoFocus
+            />
+            <View style={styles.actionRow}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowPaymentModal(false)}>
+                <Text style={styles.cancelText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.createBtn} onPress={executePayment}>
+                <Text style={styles.createText}>Xác nhận</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <CreateInvoiceSheet
+        visible={!!showCreateInvoice}
+        room={showCreateInvoice}
+        editingInvoice={editingInvoice}
+        onClose={() => {
+          setShowCreateInvoice(null);
+          setEditingInvoice(null);
+        }}
+        onSaveSuccessful={async (detail) => {
+          setShowCreateInvoice(null);
+          setEditingInvoice(null);
+          await loadData();
+          setViewingInvoice(detail);
+        }}
+      />
     </View>
   );
 }
@@ -821,4 +840,9 @@ const styles = StyleSheet.create({
   deleteText: { marginTop: 2, fontSize: 10, color: COLORS.danger, ...FONTS.bold },
   paidBtn: { flex: 1, height: 48, borderRadius: 12, backgroundColor: COLORS.secondary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
   paidText: { color: '#fff', ...FONTS.bold },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  paymentModalCard: { width: '100%', maxWidth: 400, backgroundColor: '#fff', borderRadius: RADIUS.lg, padding: 20, ...SHADOW.lg },
+  paymentModalTitle: { fontSize: 18, color: COLORS.textPrimary, ...FONTS.bold },
+  paymentModalSub: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4, marginBottom: 16 },
+  paymentInput: { height: 50, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, fontSize: 18, ...FONTS.bold, color: COLORS.primary, textAlign: 'center', marginBottom: 20 },
 });

@@ -11,6 +11,7 @@ import {
   getLatestMeterReadings,
   getPreviousDebt,
   createInvoice,
+  updateInvoice,
   getInvoiceDetails,
 } from '../database/queries';
 
@@ -27,7 +28,7 @@ const hasAnyKeyword = (value, keywords) => {
   return keywords.some((keyword) => normalized.includes(keyword));
 };
 
-export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSuccessful }) {
+export default function CreateInvoiceSheet({ visible, room, editingInvoice = null, onClose, onSaveSuccessful }) {
   const { width } = useWindowDimensions();
   const [loading, setLoading] = useState(false);
   const [services, setServices] = useState([]);
@@ -50,14 +51,31 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
 
       const prev = await getLatestMeterReadings(room.id);
       const initialInputs = {};
-      if (prev) {
-        const metered = svcs.filter((service) => {
-          const norm = normalizeText(service.name);
-          return (service.type === 'metered' || service.type === 'meter') && hasAnyKeyword(norm, ['dien', 'electric']);
-        });
+      const metered = svcs.filter(
+        (service) => service.type === 'metered' || service.type === 'meter'
+      );
+      
+      if (editingInvoice) {
         metered.forEach((service) => {
-          if (hasAnyKeyword(service.name, ['dien', 'electric'])) {
+          const isElec = hasAnyKeyword(service.name, ['dien', 'electric']);
+          const isWater = hasAnyKeyword(service.name, ['nuoc', 'water']);
+          if (isElec) {
+            initialInputs[`${service.id}_old`] = String(editingInvoice.elec_old || 0);
+            initialInputs[`${service.id}_new`] = String(editingInvoice.elec_new || 0);
+          } else if (isWater) {
+            initialInputs[`${service.id}_old`] = String(editingInvoice.water_old || 0);
+            initialInputs[`${service.id}_new`] = String(editingInvoice.water_new || 0);
+          }
+        });
+        setInvoiceNote(editingInvoice.invoice_note || '');
+      } else if (prev) {
+        metered.forEach((service) => {
+          const isElec = hasAnyKeyword(service.name, ['dien', 'electric']);
+          const isWater = hasAnyKeyword(service.name, ['nuoc', 'water']);
+          if (isElec) {
             initialInputs[`${service.id}_old`] = String(prev.elec_new || prev.elec_old || 0);
+          } else if (isWater) {
+            initialInputs[`${service.id}_old`] = String(prev.water_new || prev.water_old || 0);
           }
         });
       }
@@ -83,7 +101,7 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
         const isElectricity = hasAnyKeyword(serviceNameNorm, ['dien', 'electric']);
         const isWater = hasAnyKeyword(serviceNameNorm, ['nuoc', 'water']);
 
-        if (isWater) {
+        if (isWater && service.type !== 'metered' && service.type !== 'meter') {
           const peopleCount = room.num_people || 1;
           items.push({
             name: service.name,
@@ -122,6 +140,9 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
           if (isElectricity) {
             elecOld = oldValue;
             elecNew = newValue;
+          } else if (isWater) {
+            waterOld = oldValue;
+            waterNew = newValue;
           }
 
           if (newValue > 0 && newValue < oldValue) {
@@ -152,11 +173,11 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
       );
       const debt = await getPreviousDebt(room.id, month, year);
 
-      const invoiceId = await createInvoice({
+      const payload = {
         roomId: room.id,
         contractId: room.contract_id,
-        month,
-        year,
+        month: editingInvoice ? editingInvoice.month : month,
+        year: editingInvoice ? editingInvoice.year : year,
         roomFee: proration.amount,
         items,
         previousDebt: debt,
@@ -165,7 +186,14 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
         waterOld,
         waterNew,
         invoiceNote,
-      });
+      };
+
+      let invoiceId;
+      if (editingInvoice) {
+        invoiceId = await updateInvoice(editingInvoice.id, payload);
+      } else {
+        invoiceId = await createInvoice(payload);
+      }
 
       const detail = await getInvoiceDetails(invoiceId);
       onSaveSuccessful(detail);
@@ -180,9 +208,8 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
 
   const isWeb = Platform.OS === 'web';
   const sheetWidth = width >= 1180 ? 620 : width >= 768 ? 560 : Math.min(width - 24, 520);
-  const electricityServices = services.filter((service) => {
-    const norm = normalizeText(service.name);
-    return (service.type === 'metered' || service.type === 'meter') && hasAnyKeyword(norm, ['dien', 'electric']);
+  const meteredServices = services.filter((service) => {
+    return service.type === 'metered' || service.type === 'meter';
   });
 
   return (
@@ -194,7 +221,7 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
             <View style={styles.handle} />
             <View style={styles.header}>
               <View>
-                <Text style={styles.title}>Tạo hóa đơn tháng {month}</Text>
+                <Text style={styles.title}>{editingInvoice ? `Sửa hóa đơn tháng ${editingInvoice.month}` : `Tạo hóa đơn tháng ${month}`}</Text>
                 <Text style={styles.subtitle}>Phòng {room?.name} · {room?.tenant_name}</Text>
               </View>
               <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
@@ -214,15 +241,15 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
                 <View style={[styles.layoutGrid, isWeb && styles.layoutGridWeb]}>
                   <View style={styles.formColumn}>
                     <View style={styles.sectionHeader}>
-                      <Ionicons name="flash-outline" size={16} color={COLORS.primary} />
-                      <Text style={styles.sectionTitle}>Chỉ số điện tháng này</Text>
+                      <Ionicons name="speedometer-outline" size={16} color={COLORS.primary} />
+                      <Text style={styles.sectionTitle}>Chỉ số công tơ tháng này</Text>
                     </View>
 
-                    {electricityServices.length === 0 ? (
+                    {meteredServices.length === 0 ? (
                       <View style={styles.emptyMeterCard}>
-                        <Text style={styles.emptyMeterText}>Hợp đồng này chưa có dịch vụ điện đang hoạt động.</Text>
+                        <Text style={styles.emptyMeterText}>Hợp đồng này chưa có dịch vụ tính theo đồng hồ.</Text>
                       </View>
-                    ) : electricityServices.map((service) => (
+                    ) : meteredServices.map((service) => (
                       <View key={service.id} style={styles.meterCard}>
                         <View style={styles.meterTop}>
                           <Text style={styles.meterIcon}>{service.icon}</Text>
@@ -293,7 +320,7 @@ export default function CreateInvoiceSheet({ visible, room, onClose, onSaveSucce
                         <ActivityIndicator color="#fff" />
                       ) : (
                         <>
-                          <Text style={styles.confirmText}>Xác nhận tạo hóa đơn</Text>
+                          <Text style={styles.confirmText}>{editingInvoice ? 'Cập nhật hóa đơn' : 'Xác nhận tạo hóa đơn'}</Text>
                           <Ionicons name="chevron-forward-circle" size={20} color="#fff" />
                         </>
                       )}

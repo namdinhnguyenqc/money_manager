@@ -43,7 +43,8 @@
           "photosPermission": "Ứng dụng cần truy cập ảnh để đính kèm hóa đơn.",
           "cameraPermission": "Ứng dụng cần camera để chụp ảnh hóa đơn."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {

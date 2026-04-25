@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// No direct AsyncStorage import needed — token access is handled via configureApiClient(getAccessToken)
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8787';
 
@@ -82,9 +82,7 @@ const apiClient = {
         headers['Content-Type'] = 'application/json';
       }
       if (auth) {
-        const tokenFromConfig = await clientConfig.getAccessToken();
-        const legacyToken = tokenFromConfig ? null : await AsyncStorage.getItem('auth_token');
-        const token = tokenFromConfig || legacyToken;
+        const token = await clientConfig.getAccessToken();
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
         }
@@ -115,8 +113,6 @@ const apiClient = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          await AsyncStorage.removeItem('auth_token');
-          await AsyncStorage.removeItem('user_data');
           await clientConfig.onUnauthorized();
         }
         const error = new Error(result?.error || result?.message || 'Something went wrong');

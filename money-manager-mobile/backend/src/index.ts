@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import { env } from "./config/env.js";
 import healthRoutes from "./routes/health.js";
 import authRoutes from "./routes/auth.js";
+import adminRoutes from "./routes/admin.js";
 import walletsRoutes from "./routes/wallets.js";
 import transactionsRoutes from "./routes/transactions.js";
 import rentalRoutes from "./routes/rental.js";
@@ -18,14 +19,21 @@ const app = new Hono<AppEnv>();
 app.use(
   "*",
   cors({
-    origin: "*",
+    origin: (origin) => {
+      // In dev/mock mode, allow all. In production, validate against whitelist.
+      if (env.IS_MOCK) return origin || "*";
+      if (!origin) return null;
+      return env.CORS_ORIGINS.includes(origin) ? origin : null;
+    },
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
 
 app.route("/health", healthRoutes);
 app.route("/auth", authRoutes);
+app.route("/admin", adminRoutes);
 app.route("/wallets", walletsRoutes);
 app.route("/categories", categoriesRoutes);
 app.route("/transactions", transactionsRoutes);

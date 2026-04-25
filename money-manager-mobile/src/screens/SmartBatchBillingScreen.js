@@ -245,6 +245,9 @@ export default function SmartBatchBillingScreen({ navigation }) {
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingTitle}>AI đang xử lý dữ liệu...</Text>
           <Text style={styles.loadingSub}>Đang trích xuất chỉ số và đối chiếu phòng.</Text>
+          <TouchableOpacity style={styles.cancelProcessingBtn} onPress={() => { setStep(1); setLoading(false); }}>
+            <Text style={styles.cancelProcessingText}>Hủy bỏ</Text>
+          </TouchableOpacity>
         </View>
       ) : null}
 
@@ -321,6 +324,8 @@ const styles = StyleSheet.create({
   primaryBtnText: { color: '#fff', ...FONTS.bold },
   loadingTitle: { marginTop: 20, color: COLORS.textPrimary, fontSize: 18, ...FONTS.bold },
   loadingSub: { marginTop: 6, color: COLORS.textSecondary },
+  cancelProcessingBtn: { marginTop: 24, paddingVertical: 10, paddingHorizontal: 20, borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceLow },
+  cancelProcessingText: { color: COLORS.textSecondary, ...FONTS.bold },
   reviewTitle: { color: COLORS.textSecondary, fontSize: 12, ...FONTS.bold, textTransform: 'uppercase', letterSpacing: 0.3 },
   reviewList: { flex: 1, minHeight: 0 },
   listContent: { paddingBottom: 90, gap: 10 },

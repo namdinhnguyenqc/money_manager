@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, RADIUS, SHADOW, TYPOGRAPHY } from '../theme';
 import { getCurrentUser, logOut, subscribeToAuthChanges } from '../services/authService';
-import { migrateSQLiteToFirestore } from '../utils/migrateToCloud';
+import { shouldUseApiData } from '../services/dataMode';
 import { resetDatabase } from '../database/db';
 import TopAppBar from '../components/ui/TopAppBar';
 import SurfaceCard from '../components/ui/SurfaceCard';
@@ -26,26 +26,21 @@ export default function SettingsScreen({ navigation }) {
 
   useEffect(() => subscribeToAuthChanges((u) => setUser(u)), []);
 
-  const handleCloudSync = () => {
-    Alert.alert('Đồng bộ cũ', 'Đẩy dữ liệu SQLite local lên Firebase cũ?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Đồng bộ',
-        onPress: async () => {
-          setMigrating(true);
-          try {
-            setSyncStatus('Đang bắt đầu...');
-            await migrateSQLiteToFirestore((msg) => setSyncStatus(msg));
-            Alert.alert('Hoàn tất', 'Đồng bộ dữ liệu cũ thành công');
-          } catch (e) {
-            Alert.alert('Đồng bộ thất bại', e?.message || 'Lỗi không xác định');
-          } finally {
-            setMigrating(false);
-            setSyncStatus('');
-          }
-        },
-      },
-    ]);
+  // Cloud mode info — no Firebase needed, backend handles all sync via API
+  const handleCloudInfo = () => {
+    if (!shouldUseApiData()) {
+      Alert.alert(
+        'Chế độ Offline',
+        'Bạn đang dùng ở chế độ local (offline). Dữ liệu lưu trên thiết bị.\n\nĐể bật đồng bộ đám mây, hãy đăng nhập bằng Gmail.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    Alert.alert(
+      'Đồng bộ đám mây',
+      `Bạn đang đăng nhập với:\n${user?.email || 'Không xác định'}\n\nDữ liệu được đồng bộ tự động lên máy chủ khi bạn thực hiện mọi thao tác.`,
+      [{ text: 'OK' }]
+    );
   };
 
   const handleLogout = () => {
@@ -103,29 +98,32 @@ export default function SettingsScreen({ navigation }) {
         <Text style={styles.section}>Dữ liệu</Text>
         <SurfaceCard tone="lowest" style={styles.card}>
           <View style={styles.row}>
-            <View style={[styles.icon, { backgroundColor: COLORS.primaryLight }]}>
-              <Ionicons name="cloud-upload-outline" size={20} color={COLORS.primary} />
+            <View style={[styles.icon, { backgroundColor: shouldUseApiData() ? COLORS.primaryLight : '#f1f5f9' }]}>
+              <Ionicons
+                name={shouldUseApiData() ? 'cloud-done-outline' : 'cloud-offline-outline'}
+                size={20}
+                color={shouldUseApiData() ? COLORS.primary : COLORS.textMuted}
+              />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.title}>Đồng bộ Firebase cũ</Text>
-              <Text style={styles.sub}>Chỉ dùng cho luồng chuyển đổi dữ liệu cũ.</Text>
+              <Text style={styles.title}>
+                {shouldUseApiData() ? 'Đồng bộ đám mây' : 'Chế độ Offline'}
+              </Text>
+              <Text style={styles.sub}>
+                {shouldUseApiData()
+                  ? `Đang đồng bộ • ${user?.email || ''}`
+                  : 'Dữ liệu lưu trên thiết bị. Đăng nhập để bật Cloud.'}
+              </Text>
             </View>
           </View>
 
-          {migrating ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={COLORS.primary} />
-              <Text style={styles.syncText}>{syncStatus}</Text>
-            </View>
-          ) : null}
-
-          <TouchableOpacity style={styles.primaryBtn} onPress={handleCloudSync} disabled={migrating}>
-            <Ionicons name="rocket-outline" size={16} color="#fff" />
-            <Text style={styles.primaryTxt}>{migrating ? 'Đang đồng bộ...' : 'Bắt đầu đồng bộ cũ'}</Text>
+          <TouchableOpacity style={styles.primaryBtn} onPress={handleCloudInfo}>
+            <Ionicons name="information-circle-outline" size={16} color="#fff" />
+            <Text style={styles.primaryTxt}>Xem trạng thái đồng bộ</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.primaryBtn, { backgroundColor: COLORS.danger, marginTop: 12 }]} 
+          <TouchableOpacity
+            style={[styles.primaryBtn, { backgroundColor: COLORS.danger, marginTop: 12 }]}
             onPress={handleReset}
           >
             <Ionicons name="trash-outline" size={16} color="#fff" />

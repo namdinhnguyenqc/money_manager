@@ -9,6 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AppNavigator from './src/navigation/AppNavigator';
 import { initDb } from './src/database/db';
 import { COLORS } from './src/theme';
+import { AuthProvider } from './src/contexts/AuthContext';
+import { configureGoogleSignIn } from './src/services/authService';
 
 const DB_AUTO_RELOAD_KEY = '__mmDbAutoReloaded';
 
@@ -56,6 +58,7 @@ export default function App() {
     setError(null);
     setDbReady(false);
     try {
+      configureGoogleSignIn('231632049960-g6ji40vdfprdl8dq6otnatl8llt6utuk.apps.googleusercontent.com');
       await initDb();
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         window.sessionStorage?.removeItem(DB_AUTO_RELOAD_KEY);
@@ -135,9 +138,11 @@ export default function App() {
 
   return (
     <RootErrorBoundary>
-      <View style={styles.appRoot}>
-        <AppNavigator />
-      </View>
+      <AuthProvider>
+        <View style={styles.appRoot}>
+          <AppNavigator />
+        </View>
+      </AuthProvider>
     </RootErrorBoundary>
   );
 }

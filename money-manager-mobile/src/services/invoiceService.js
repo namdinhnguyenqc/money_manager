@@ -1,4 +1,4 @@
-import { createInvoice, getContractServices, getPreviousDebt } from '../database/queries';
+import { createInvoice, updateInvoice, getContractServices, getPreviousDebt } from '../database/queries';
 import { calculateProratedRent } from '../utils/format';
 
 export const stripToDigits = (text) => (text || '').replace(/[^0-9]/g, '');
@@ -16,6 +16,17 @@ const hasAnyKeyword = (value, keywords) => {
 };
 
 export const generateInvoiceData = async ({ contract, month, year, meterInputs, checkoutDateInput, invoiceNoteInput }) => {
+  if (checkoutDateInput) {
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regex.test(checkoutDateInput)) {
+      throw new Error('Ngày trả phòng không hợp lệ. Vui lòng nhập theo định dạng YYYY-MM-DD (VD: 2026-04-30).');
+    }
+    const d = new Date(checkoutDateInput);
+    if (isNaN(d.getTime())) {
+      throw new Error('Ngày trả phòng không tồn tại.');
+    }
+  }
+
   const items = [];
   let elecOld = 0;
   let elecNew = 0;
@@ -29,10 +40,8 @@ export const generateInvoiceData = async ({ contract, month, year, meterInputs, 
     const isElectricity = hasAnyKeyword(serviceNameNorm, ['dien', 'electric']);
     const isWater = hasAnyKeyword(serviceNameNorm, ['nuoc', 'water']);
 
-    // Business rule for monthly room billing:
-    // - Electricity is metered
-    // - Water is charged by occupants/room, not by meter
-    if (isWater) {
+    // If it's water and NOT metered, fallback to per person
+    if (isWater && svc.type !== 'metered' && svc.type !== 'meter') {
       const numPeople = contract.num_people || 1;
       items.push({
         name: svc.name,
@@ -73,6 +82,9 @@ export const generateInvoiceData = async ({ contract, month, year, meterInputs, 
       if (isElectricity) {
         elecOld = oldVal;
         elecNew = newVal;
+      } else if (isWater) {
+        waterOld = oldVal;
+        waterNew = newVal;
       }
 
       if (newVal > 0 && newVal < oldVal) {
@@ -119,3 +131,4 @@ export const generateInvoiceData = async ({ contract, month, year, meterInputs, 
 };
 
 export const executeCreateInvoice = async (invoicePayload) => createInvoice(invoicePayload);
+export const executeUpdateInvoice = async (invoiceId, invoicePayload) => updateInvoice(invoiceId, invoicePayload);

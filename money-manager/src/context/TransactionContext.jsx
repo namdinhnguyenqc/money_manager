@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getCurrentUser } from './AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 
 const TransactionContext = createContext();
@@ -27,14 +28,19 @@ export function TransactionProvider({ children }) {
   });
 
   useEffect(() => {
-    localStorage.setItem('money_mgr_transactions', JSON.stringify(transactions));
+    // Persist user-scoped transactions
+    const currentUser = getCurrentUser();
+    const scoped = transactions.filter(t => !currentUser || t.userId === currentUser.id);
+    localStorage.setItem('money_mgr_transactions', JSON.stringify(scoped));
   }, [transactions]);
 
   const addTransaction = (transaction) => {
+    const currentUser = getCurrentUser();
     const newTx = {
       ...transaction,
       id: uuidv4(),
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      userId: currentUser?.id || null
     };
     setTransactions(prev => [newTx, ...prev]);
   };

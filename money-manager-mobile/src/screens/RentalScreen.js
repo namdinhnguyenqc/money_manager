@@ -123,7 +123,7 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
     setTimeout(() => {
       if (action === 'invoice') setShowCreateInvoice(room);
       if (action === 'contract') { setEditingContract(room); setShowAddTenant(room); }
-      if (action === 'history') navigation.navigate('Transactions', { walletId, walletName: `Phòng ${room.name}` });
+      if (action === 'history') navigation.navigate('InvoiceHistory', { contractId: room.contract_id, roomName: room.name });
     }, 200);
   };
 

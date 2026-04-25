@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { seedRooms, seedPrices, seedResidents, seedDeps, seedDataByMonth } from './seedData';
 
 const DB_NAME = 'money_manager.db';
-const SCHEMA_VERSION = 39;
+const SCHEMA_VERSION = 40;
 const DB_INSTANCE_KEY = '__mmDbMaster';
 const DB_OPEN_PROMISE_KEY = '__mmDbOpenPromise';
 const DB_INIT_PROMISE_KEY = '__mmDbInitPromise';
@@ -417,6 +417,7 @@ export const initDb = async () => {
       icon TEXT,
       color TEXT,
       active INTEGER DEFAULT 1,
+      user_id TEXT,
       created_at TEXT DEFAULT (datetime('now','localtime'))
     );
 
@@ -461,6 +462,7 @@ export const initDb = async () => {
       phone TEXT,
       id_card TEXT,
       address TEXT,
+      wallet_id INTEGER,
       created_at TEXT DEFAULT (datetime('now','localtime'))
     );
 
@@ -491,7 +493,8 @@ export const initDb = async () => {
       unit_price_ac REAL DEFAULT 0,
       unit TEXT DEFAULT 'month',
       icon TEXT DEFAULT '⚡',
-      active INTEGER DEFAULT 1
+      active INTEGER DEFAULT 1,
+      wallet_id INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS invoices (
@@ -531,7 +534,8 @@ export const initDb = async () => {
       account_name TEXT NOT NULL,
       qr_uri TEXT,
       user_avatar TEXT,
-      active INTEGER DEFAULT 1
+      active INTEGER DEFAULT 1,
+      wallet_id INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS trading_items (
@@ -566,6 +570,7 @@ export const initDb = async () => {
       name TEXT NOT NULL,
       icon TEXT,
       color TEXT,
+      wallet_id INTEGER,
       created_at TEXT DEFAULT (datetime('now','localtime'))
     );
   `);
@@ -692,6 +697,27 @@ const runMigrations = async (db) => {
       await db.execAsync(`UPDATE rooms SET wallet_id = 2 WHERE wallet_id IS NULL`);
     } catch(e){}
     await db.execAsync(`PRAGMA user_version = 39`);
+  }
+
+  // v40: Multi-user Data Isolation
+  if (currentVersion < 40) {
+    console.log("Upgrading to v40: Adding user_id/wallet_id for isolation...");
+    try {
+      await db.execAsync(`
+        ALTER TABLE wallets ADD COLUMN user_id TEXT;
+        ALTER TABLE tenants ADD COLUMN wallet_id INTEGER;
+        ALTER TABLE services ADD COLUMN wallet_id INTEGER;
+        ALTER TABLE bank_config ADD COLUMN wallet_id INTEGER;
+        ALTER TABLE trading_categories ADD COLUMN wallet_id INTEGER;
+      `);
+      
+      // Migration logic: Link existing orphans to a default wallet if possible
+      // For a single-user app transitioning to multi-user, we assume local-user owns existing wallets
+      await db.execAsync(`UPDATE wallets SET user_id = 'local-user' WHERE user_id IS NULL`);
+    } catch(e) {
+      console.warn("v40 migration warning:", e);
+    }
+    await db.execAsync(`PRAGMA user_version = 40`);
   }
 
   // legacy migrations
