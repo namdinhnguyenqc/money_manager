@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "../lib/supabase.js";
 import { requireAuth, requireAdmin, requireSuperAdmin } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
+import { env } from "../config/env.js";
 
 const adminRoutes = new Hono<AppEnv>();
 
@@ -16,6 +17,15 @@ const userRoleSchema = z.object({
 
 // GET /admin/users - List all users with pagination
 adminRoutes.get("/users", requireAuth, requireAdmin, async (c) => {
+  if (env.IS_MOCK) {
+    return c.json({
+      data: [
+        { id: "mock-google-user", email: "user@gmail.com", name: "Mock User", avatar: null, role: "USER", status: "ACTIVE", provider: "GOOGLE", created_at: new Date().toISOString(), last_login_at: new Date().toISOString() },
+      ],
+      pagination: { page: 1, limit: 20, total: 1 },
+    });
+  }
+
   const { page = "1", limit = "20", search = "", role = "", status = "ACTIVE", sortBy = "created_at", sortOrder = "desc" } = c.req.query();
 
   const pageNum = parseInt(page) || 1;
@@ -68,6 +78,21 @@ adminRoutes.get("/users", requireAuth, requireAdmin, async (c) => {
 // GET /admin/users/:id - Get user detail with login logs
 adminRoutes.get("/users/:id", requireAuth, requireAdmin, async (c) => {
   const userId = c.req.param("id");
+
+  if (env.IS_MOCK) {
+    return c.json({
+      id: userId,
+      email: "user@gmail.com",
+      name: "Mock User",
+      avatar: null,
+      role: "USER",
+      status: "ACTIVE",
+      provider: "GOOGLE",
+      created_at: new Date().toISOString(),
+      last_login_at: new Date().toISOString(),
+      loginLogs: [],
+    });
+  }
 
   const { data: user, error } = await supabaseAdmin
     .from("users")
@@ -210,6 +235,10 @@ adminRoutes.delete("/users/:id", requireAuth, requireAdmin, async (c) => {
 
 // GET /admin/stats - Dashboard stats
 adminRoutes.get("/stats", requireAuth, requireAdmin, async (c) => {
+  if (env.IS_MOCK) {
+    return c.json({ total: 1, active: 1, blocked: 0, newThisMonth: 1, loginsThisMonth: 1 });
+  }
+
   const { data: allUsers } = await supabaseAdmin.from("users").select("id, status, role, created_at");
   const { data: recentLogins } = await supabaseAdmin
     .from("login_logs")

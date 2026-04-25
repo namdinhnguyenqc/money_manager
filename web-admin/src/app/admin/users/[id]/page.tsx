@@ -56,7 +56,7 @@ export default function UserDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/admin/users/${userId}`, { headers: authHeaders() });
+      const res = await fetch(`${API_URL}/admin/users/${userId}`, { headers: authHeaders() as HeadersInit });
       if (res.status === 401 || res.status === 403) {
         router.replace("/login");
         return;
@@ -82,7 +82,7 @@ export default function UserDetailPage() {
     try {
       const res = await fetch(`${API_URL}/admin/users/${userId}/status`, {
         method: "PATCH",
-        headers: authHeaders(),
+        headers: authHeaders() as HeadersInit,
         body: JSON.stringify({ status }),
       });
       if (!res.ok) {
@@ -103,7 +103,7 @@ export default function UserDetailPage() {
     try {
       const res = await fetch(`${API_URL}/admin/users/${userId}/role`, {
         method: "PATCH",
-        headers: authHeaders(),
+        headers: authHeaders() as HeadersInit,
         body: JSON.stringify({ role }),
       });
       if (!res.ok) {
@@ -124,7 +124,7 @@ export default function UserDetailPage() {
     try {
       const res = await fetch(`${API_URL}/admin/users/${userId}`, {
         method: "DELETE",
-        headers: authHeaders(),
+        headers: authHeaders() as HeadersInit,
       });
       if (!res.ok) {
         const d = await res.json();

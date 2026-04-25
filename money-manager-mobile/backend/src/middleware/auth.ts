@@ -47,17 +47,24 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
     return c.json({ error: "Missing bearer token" }, 401);
   }
 
-  if (env.IS_MOCK && token === "mock-jwt") {
-    c.set("user", { id: "mock-user-id", email: "mock@example.com", role: "USER" });
-    return await next();
-  }
-
+  // Verify JWT token (works for both admin-login and google-login tokens)
   const payload = await verifyAccessToken(token);
   if (!payload) {
     return c.json({ error: "Invalid or expired token" }, 401);
   }
 
-  // Check user status
+  // For built-in admin or mock users, skip Supabase lookup
+  if (payload.sub === "admin-builtin" || (env.IS_MOCK && payload.sub?.startsWith("mock-"))) {
+    c.set("user", {
+      id: payload.sub,
+      email: payload.email,
+      role: payload.role,
+      status: payload.status || "ACTIVE",
+    });
+    return await next();
+  }
+
+  // For real users, verify status in database
   const { data: user, error: findError } = await supabaseAdmin
     .from("users")
     .select("id, status")
@@ -88,7 +95,7 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
 export const requireAdmin = createMiddleware<AppEnv>(async (c, next) => {
   const user = c.get("user");
   if (!user || !["ADMIN", "SUPER_ADMIN"].includes(user.role)) {
-    return c.json({ error: "Admin access required" }, 403);
+    return c.json({ error: "Forbidden: admin access required" }, 403);
   }
   await next();
 });

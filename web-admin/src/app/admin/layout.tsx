@@ -78,7 +78,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const handleLogout = async () => {
     try {
-      await apiClient("/auth/logout", { method: "POST" });
+      const token = localStorage.getItem("accessToken");
+      if (token) {
+        await fetch(`${API_URL}/auth/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        });
+      }
     } catch {}
     localStorage.removeItem("accessToken");
     router.push("/login");
