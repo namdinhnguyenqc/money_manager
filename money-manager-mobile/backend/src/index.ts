@@ -5,6 +5,7 @@ import { env } from "./config/env.js";
 import healthRoutes from "./routes/health.js";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
+import ownerRoutes from "./routes/owner.js";
 import walletsRoutes from "./routes/wallets.js";
 import transactionsRoutes from "./routes/transactions.js";
 import rentalRoutes from "./routes/rental.js";
@@ -34,6 +35,7 @@ app.use(
 app.route("/health", healthRoutes);
 app.route("/auth", authRoutes);
 app.route("/admin", adminRoutes);
+app.route("/owner", ownerRoutes);
 app.route("/wallets", walletsRoutes);
 app.route("/categories", categoriesRoutes);
 app.route("/transactions", transactionsRoutes);

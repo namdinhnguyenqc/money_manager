@@ -149,10 +149,10 @@ export const initAuth = async () => {
         }
       }
 
-  if (authState.session?.accessToken) {
+      if (authState.session?.accessToken) {
         try {
-        const me = await apiClient.get('/auth/me', { retryOn401: true });
-        const user = toPublicUser(me);
+          const me = await apiClient.get('/auth/me', { retryOn401: true });
+          const user = toPublicUser(me);
           if (user) {
             authState.user = user;
             await persistState();
@@ -252,7 +252,7 @@ export const logOut = async () => {
       console.warn('Google sign out failed:', e);
     }
     await clearAuthState({ emit: true });
-    
+
     // Clear local database to prevent data leaking to next user
     try {
       const { resetDatabase } = require('../database/db');
