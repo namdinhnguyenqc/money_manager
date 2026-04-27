@@ -108,6 +108,14 @@ export const requireSuperAdmin = createMiddleware<AppEnv>(async (c, next) => {
   await next();
 });
 
+export const requireOwner = createMiddleware<AppEnv>(async (c, next) => {
+  const user = c.get("user");
+  if (!user) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  await next();
+});
+
 export const getClientIp = (c: any): string => {
   return c.req.header("x-forwarded-for")?.split(",")[0]?.trim()
     || c.req.header("x-real-ip")

@@ -22,7 +22,7 @@ let dbReady = false;
   try {
     const { default: dotenvDefault } = await import('dotenv');
     // no-op: dotenv already initialized at top
-  } catch {}
+  } catch { }
   try {
     // @ts-ignore
     const { initDB } = await import('./db.js');
@@ -48,8 +48,8 @@ function hashToken(token) {
 
 async function verifyGoogleIdToken(idToken) {
   if (!GOOGLE_CLIENT_ID) {
-  // Mock mode
-  return { sub: 'mock-user', email: 'mock@example.com', name: 'Mock User', picture: null };
+    // Mock mode
+    return { sub: 'mock-user', email: 'mock@example.com', name: 'Mock User', picture: null };
   }
   const client = new OAuth2Client(GOOGLE_CLIENT_ID);
   const ticket = await client.verifyIdToken({ idToken, audience: GOOGLE_CLIENT_ID });
@@ -85,24 +85,24 @@ app.post('/auth/google', async (req, res) => {
     const avatar = payload?.picture;
 
     // Try DB path first if available
-  let user = null;
-  let isNew = false;
-  // Hybrid: use DB path only for canary cloud mode, otherwise fall back to memory path for safety
-  if (dbReady && isCloudModeEnabled() && canaryForUser(googleId)) {
-    try {
-      user = await getUserByGoogleId(googleId);
-      if (!user) {
-        user = await upsertUser({ google_id: googleId, email, name, avatar, role: 'USER', status: 'ACTIVE', provider: 'GOOGLE' });
-        isNew = true;
-      } else {
-        // Update profile details if changed
-        user = await upsertUser({ google_id: googleId, email, name, avatar, role: user.role, status: user.status, provider: user.provider });
+    let user = null;
+    let isNew = false;
+    // Hybrid: use DB path only for canary cloud mode, otherwise fall back to memory path for safety
+    if (dbReady && isCloudModeEnabled() && canaryForUser(googleId)) {
+      try {
+        user = await getUserByGoogleId(googleId);
+        if (!user) {
+          user = await upsertUser({ google_id: googleId, email, name, avatar, role: 'USER', status: 'ACTIVE', provider: 'GOOGLE' });
+          isNew = true;
+        } else {
+          // Update profile details if changed
+          user = await upsertUser({ google_id: googleId, email, name, avatar, role: user.role, status: user.status, provider: user.provider });
+        }
+      } catch {
+        user = null;
       }
-    } catch {
-      user = null;
     }
-  }
-  if (!user) {
+    if (!user) {
       const id = crypto.randomUUID();
       user = { id, google_id: googleId, email, name, avatar, role: 'USER', status: 'ACTIVE', provider: 'GOOGLE' };
       users.set(id, user);
@@ -159,7 +159,7 @@ app.get('/me', authMiddleware, async (req, res) => {
 // Admin endpoints
 const adminAuth = (req, res, next) => {
   const user = req.user;
-  if (!user || !['ADMIN','SUPER_ADMIN'].includes(user.role)) {
+  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   next();
@@ -173,7 +173,7 @@ app.get('/admin/users', authMiddleware, adminAuth, async (req, res) => {
     const list = await getAllUsers({ page, limit });
     all = list;
   } else {
-    all = Array.from(users.values()).slice((page-1)*limit, (page-1)*limit + limit);
+    all = Array.from(users.values()).slice((page - 1) * limit, (page - 1) * limit + limit);
   }
   const start = (page - 1) * limit;
   const data = Array.isArray(all) ? all.map(u => ({ id: u.id, email: u.email, name: u.name, avatar: u.avatar, role: u.role, status: u.status, provider: u.provider, created_at: u.created_at })) : [];
@@ -200,7 +200,7 @@ app.patch('/admin/users/:id/status', authMiddleware, adminAuth, async (req, res)
       return res.status(400).json({ code: 'CANNOT_BLOCK_SELF', message: 'Không thể tự khóa tài khoản của mình.' });
     }
     const status = req.body?.status;
-    if (!['ACTIVE','BLOCKED','DELETED'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+    if (!['ACTIVE', 'BLOCKED', 'DELETED'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
     const updated = await updateUserStatus(id, status);
     if (!updated) return res.status(404).json({ error: 'User not found' });
     return res.json({ success: true, user: { id, status } });
@@ -211,7 +211,7 @@ app.patch('/admin/users/:id/status', authMiddleware, adminAuth, async (req, res)
     return res.status(400).json({ code: 'CANNOT_BLOCK_SELF', message: 'Không thể tự khóa tài khoản của mình.' });
   }
   const status = req.body?.status;
-  if (!['ACTIVE','BLOCKED','DELETED'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  if (!['ACTIVE', 'BLOCKED', 'DELETED'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
   target.status = status;
   users.set(id, target);
   res.json({ success: true, user: { id, status } });
@@ -221,7 +221,7 @@ app.patch('/admin/users/:id/role', authMiddleware, adminAuth, async (req, res) =
   const id = req.params.id;
   if (dbReady) {
     const role = req.body?.role;
-    if (!['USER','ADMIN','SUPER_ADMIN'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+    if (!['USER', 'ADMIN', 'SUPER_ADMIN'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
     const updated = await updateUserRole(id, role);
     if (!updated) return res.status(404).json({ error: 'User not found' });
     return res.json({ success: true, user: { id, role } });
@@ -232,7 +232,7 @@ app.patch('/admin/users/:id/role', authMiddleware, adminAuth, async (req, res) =
     return res.status(403).json({ code: 'INSUFFICIENT_PERMISSION', message: 'Không thể thay đổi role của SUPER_ADMIN.' });
   }
   const role = req.body?.role;
-  if (!['USER','ADMIN','SUPER_ADMIN'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+  if (!['USER', 'ADMIN', 'SUPER_ADMIN'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
   target.role = role;
   users.set(id, target);
   res.json({ success: true, user: { id, role } });
