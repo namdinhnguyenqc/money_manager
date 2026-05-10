@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, RADIUS, FONTS, SHADOW } from '../theme';
 import { toISODate, formatCurrency } from '../utils/format';
 import { getServices, getContractServices } from '../database/queries';
+import { getDeposits } from '../database/repositories/DepositRepository';
 
 export default function AddTenantContractSheet({ visible, room, onClose, onSave, editingContract }) {
   const { width } = useWindowDimensions();
@@ -19,6 +20,7 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
   const [allServices, setAllServices] = useState([]);
   const [selectedServices, setSelectedServices] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [reservation, setReservation] = useState(null);
 
   useEffect(() => {
     if (!visible) return;
@@ -42,12 +44,26 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
         const mySvcs = await getContractServices(editingContract.contract_id);
         setSelectedServices(mySvcs.map((service) => service.id));
       } else {
-        setTenantName('');
-        setPhone('');
+        // NEW: Check for reservation
+        if (room?.status === 'reserved') {
+          const deps = await getDeposits('active');
+          const res = deps.find(d => String(d.room_id) === String(room.id));
+          if (res) {
+            setReservation(res);
+            setTenantName(res.tenant_name);
+            setPhone(res.tenant_phone);
+            setDeposit(String(res.amount));
+          }
+        } else {
+          setReservation(null);
+          setTenantName('');
+          setPhone('');
+          setDeposit('');
+        }
+        
         setIdCard('');
         setAddress('');
         setStartDate(toISODate(new Date()));
-        setDeposit('');
         setSelectedServices(svcs.map((service) => service.id));
       }
     } catch (e) {
@@ -176,15 +192,20 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
                       />
                     </View>
                     <View style={[styles.group, { flex: 1 }]}>
-                      <Text style={styles.label}>Tiền cọc</Text>
+                      <Text style={styles.label}>{reservation ? 'Cọc bổ sung' : 'Tiền cọc'}</Text>
                       <TextInput
-                        style={styles.input}
+                        style={[styles.input, reservation && { borderColor: COLORS.warning, backgroundColor: '#FFF9C4' }]}
                         keyboardType="numeric"
                         placeholder="0"
                         value={deposit}
                         onChangeText={setDeposit}
                         placeholderTextColor={COLORS.textMuted}
                       />
+                      {reservation && (
+                        <Text style={{ fontSize: 10, color: COLORS.warning, marginTop: 4, fontWeight: 'bold' }}>
+                          Đã cọc giữ chỗ: {formatCurrency(reservation.amount)}
+                        </Text>
+                      )}
                     </View>
                   </View>
                 </View>

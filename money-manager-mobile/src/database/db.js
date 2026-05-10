@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { seedRooms, seedPrices, seedResidents, seedDeps, seedDataByMonth } from './seedData';
 
 const DB_NAME = 'money_manager.db';
-const SCHEMA_VERSION = 40;
+const SCHEMA_VERSION = 43;
 const DB_INSTANCE_KEY = '__mmDbMaster';
 const DB_OPEN_PROMISE_KEY = '__mmDbOpenPromise';
 const DB_INIT_PROMISE_KEY = '__mmDbInitPromise';
@@ -573,6 +573,45 @@ export const initDb = async () => {
       wallet_id INTEGER,
       created_at TEXT DEFAULT (datetime('now','localtime'))
     );
+
+    CREATE TABLE IF NOT EXISTS deposit_refunds (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      contract_id INTEGER NOT NULL UNIQUE,
+      tenant_id INTEGER,
+      room_id INTEGER,
+      original_deposit_amount REAL NOT NULL,
+      refund_amount REAL NOT NULL,
+      deduction_amount REAL NOT NULL,
+      refund_date TEXT NOT NULL,
+      refund_method TEXT,
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      action TEXT NOT NULL,
+      resource_type TEXT NOT NULL,
+      resource_id TEXT,
+      details TEXT,
+      created_at TEXT DEFAULT (datetime('now','localtime'))
+    );
+
+    CREATE TABLE IF NOT EXISTS deposits (
+      id TEXT PRIMARY KEY,
+      room_id TEXT NOT NULL,
+      tenant_name TEXT NOT NULL,
+      tenant_phone TEXT,
+      amount REAL NOT NULL DEFAULT 0,
+      type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      recorded_at TEXT NOT NULL,
+      payment_method TEXT DEFAULT 'cash',
+      contract_id TEXT,
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now','localtime'))
+    );
   `);
 
   try {
@@ -718,6 +757,80 @@ const runMigrations = async (db) => {
       console.warn("v40 migration warning:", e);
     }
     await db.execAsync(`PRAGMA user_version = 40`);
+  }
+
+  // v41: Add deposit_refunds table
+  if (currentVersion < 41) {
+    console.log("Upgrading to v41: Adding deposit_refunds table...");
+    try {
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS deposit_refunds (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          contract_id INTEGER NOT NULL UNIQUE,
+          tenant_id INTEGER,
+          room_id INTEGER,
+          original_deposit_amount REAL NOT NULL,
+          refund_amount REAL NOT NULL,
+          deduction_amount REAL NOT NULL,
+          refund_date TEXT NOT NULL,
+          refund_method TEXT,
+          note TEXT,
+          created_at TEXT DEFAULT (datetime('now','localtime')),
+          FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE CASCADE
+        );
+      `);
+    } catch(e) {
+      console.warn("v41 migration warning:", e);
+    }
+    await db.execAsync(`PRAGMA user_version = 41`);
+  }
+
+  // v42: Add audit_logs table
+  if (currentVersion < 42) {
+    console.log("Upgrading to v42: Adding audit_logs table...");
+    try {
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS audit_logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          action TEXT NOT NULL,
+          resource_type TEXT NOT NULL,
+          resource_id TEXT,
+          details TEXT,
+          created_at TEXT DEFAULT (datetime('now','localtime'))
+        );
+      `);
+    } catch(e) {
+      console.warn("v42 migration warning:", e);
+    }
+    await db.execAsync(`PRAGMA user_version = 42`);
+  }
+
+  // v43: Add deposits table and settlement columns
+  if (currentVersion < 43) {
+    console.log("Upgrading to v43: Adding deposits table and settlement columns...");
+    try {
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS deposits (
+          id TEXT PRIMARY KEY,
+          room_id TEXT NOT NULL,
+          tenant_name TEXT NOT NULL,
+          tenant_phone TEXT,
+          amount REAL NOT NULL DEFAULT 0,
+          type TEXT NOT NULL,
+          status TEXT NOT NULL,
+          recorded_at TEXT NOT NULL,
+          payment_method TEXT DEFAULT 'cash',
+          contract_id TEXT,
+          note TEXT,
+          created_at TEXT DEFAULT (datetime('now','localtime'))
+        );
+        ALTER TABLE contracts ADD COLUMN settlement_status TEXT DEFAULT 'none';
+        ALTER TABLE contracts ADD COLUMN settlement_amount REAL DEFAULT 0;
+      `);
+    } catch(e) {
+      console.warn("v43 migration warning:", e);
+    }
+    await db.execAsync(`PRAGMA user_version = 43`);
   }
 
   // legacy migrations

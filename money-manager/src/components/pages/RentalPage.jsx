@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Home, Plus, RefreshCw, User, FileText, Clock, AlertCircle } from 'lucide-react';
+import { Home, Plus, RefreshCw, User, FileText, AlertCircle } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 import { ContractModal, TerminateModal, BillingModal } from '../RentalModals';
 
@@ -8,16 +8,18 @@ const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0)) + '
 export default function RentalPage() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [selectedRoom, setSelectedRoom] = useState(null); // For action panel
   const [modalType, setModalType] = useState(null); // 'contract', 'terminate', 'billing'
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
+      setError('');
       const res = await apiClient.get('/rental/rooms');
       setRooms(res?.data || []);
     } catch (e) {
-      console.error(e);
+      setError(e.message || 'Không tải được danh sách phòng.');
     } finally {
       setLoading(false);
     }
@@ -76,41 +78,53 @@ export default function RentalPage() {
         </div>
       </div>
 
-      {/* Room Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-        {rooms.map((room) => {
-          const isOccupied = room.status === 'occupied';
-          return (
-            <button
-              key={room.id}
-              onClick={() => setSelectedRoom(selectedRoom?.id === room.id ? null : room)}
-              className={`bento-card text-left transition-all hover:shadow-bento hover:-translate-y-0.5 ${selectedRoom?.id === room.id ? 'ring-2 ring-primary' : ''}`}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${isOccupied ? 'bg-primary-light text-primary' : 'bg-background text-text-muted'}`}>
-                  {room.name}
-                </span>
-                <span className={`w-2.5 h-2.5 rounded-full ${isOccupied ? 'bg-success' : 'bg-border'}`} />
-              </div>
+      {error && (
+        <div className="mb-4 rounded-xl border border-danger/20 bg-danger-light px-4 py-3 text-sm text-danger">
+          {error}
+        </div>
+      )}
 
-              {isOccupied ? (
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-1.5">
-                    <User size={12} className="text-text-muted" />
-                    <span className="text-sm font-semibold text-text-primary truncate">{room.tenant_name || 'Khách thuê'}</span>
+      {/* Room Grid */}
+      {rooms.length === 0 ? (
+        <div className="bento-card py-10 text-center text-sm text-text-muted">
+          Chưa có phòng nào. Hiện UI này đã nối đúng API danh sách, nhưng cần thêm luồng tạo phòng nếu bạn muốn vận hành hoàn toàn trên web.
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {rooms.map((room) => {
+            const isOccupied = room.status === 'occupied';
+            return (
+              <button
+                key={room.id}
+                onClick={() => setSelectedRoom(selectedRoom?.id === room.id ? null : room)}
+                className={`bento-card text-left transition-all hover:shadow-bento hover:-translate-y-0.5 ${selectedRoom?.id === room.id ? 'ring-2 ring-primary' : ''}`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${isOccupied ? 'bg-primary-light text-primary' : 'bg-background text-text-muted'}`}>
+                    {room.name}
+                  </span>
+                  <span className={`w-2.5 h-2.5 rounded-full ${isOccupied ? 'bg-success' : 'bg-border'}`} />
+                </div>
+
+                {isOccupied ? (
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5">
+                      <User size={12} className="text-text-muted" />
+                      <span className="text-sm font-semibold text-text-primary truncate">{room.tenant_name || 'Khách thuê'}</span>
+                    </div>
+                    <span className="text-sm font-bold text-success">{fmt(room.price)}</span>
                   </div>
-                  <span className="text-sm font-bold text-success">{fmt(room.price)}</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 mt-1">
-                  <Plus size={14} className="text-text-muted" />
-                  <span className="text-xs text-text-muted font-medium">Phòng trống</span>
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Plus size={14} className="text-text-muted" />
+                    <span className="text-xs text-text-muted font-medium">Phòng trống</span>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Action Panel */}
       {selectedRoom && (
@@ -133,7 +147,6 @@ export default function RentalPage() {
               {[
                 { id: 'billing', icon: FileText, label: 'Lập Hóa Đơn', color: 'primary', disabled: selectedRoom.status !== 'occupied' },
                 { id: 'contract', icon: User, label: 'Hợp Đồng', color: 'primary', disabled: selectedRoom.status === 'occupied' }, // Mới: Hợp đồng khi phòng trống
-                { id: 'history', icon: Clock, label: 'Lịch Sử', color: 'primary', disabled: false },
                 { id: 'terminate', icon: AlertCircle, label: 'Thanh Lý', color: 'danger', disabled: selectedRoom.status !== 'occupied' },
               ].map(({ id, icon: Icon, label, color, disabled }) => (
                 <button

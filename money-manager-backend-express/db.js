@@ -1,10 +1,10 @@
 import { Pool } from 'pg';
 
-let pool = null;
-let dbAvailable = false;
+export let pool = null;
+export let dbAvailable = false;
 
 // Simple in-memory fallback for environments without DB
-const memoryUsers = new Map();
+export const memoryUsers = new Map();
 
 export async function initDB(connectionString) {
   if (connectionString) {

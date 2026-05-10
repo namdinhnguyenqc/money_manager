@@ -13,7 +13,7 @@ export class ApiInvoiceRepository extends IInvoiceRepository {
 
   async createInvoice(data) {
     const res = await apiClient.post('/invoices', data);
-    return Number(res?.data?.id);
+    return res?.data?.id;
   }
 
   async getInvoiceDetails(invoiceId) {

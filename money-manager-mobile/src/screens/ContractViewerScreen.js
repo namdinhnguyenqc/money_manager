@@ -5,7 +5,7 @@ import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
 import { COLORS, RADIUS, FONTS } from '../theme';
 import { formatCurrency } from '../utils/format';
-import { getInvoiceHistory } from '../database/queries';
+import { getInvoiceHistory, getDepositRefund } from '../database/queries';
 import { useFocusEffect } from '@react-navigation/native';
 import TopAppBar from '../components/ui/TopAppBar';
 import SurfaceCard from '../components/ui/SurfaceCard';
@@ -14,18 +14,23 @@ export default function ContractViewerScreen({ route, navigation }) {
   const { width } = useWindowDimensions();
   const { contract } = route.params;
   const [history, setHistory] = useState([]);
+  const [refund, setRefund] = useState(null);
   const viewRef = useRef(null);
 
-  const loadHistory = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
-      const data = await getInvoiceHistory(contract.id);
-      setHistory(data);
+      const [histData, refundData] = await Promise.all([
+        getInvoiceHistory(contract.id),
+        getDepositRefund(contract.id).catch(() => null)
+      ]);
+      setHistory(histData || []);
+      setRefund(refundData);
     } catch (e) {
-      console.error('History load error:', e);
+      console.error('Data load error:', e);
     }
   }, [contract.id]);
 
-  useFocusEffect(useCallback(() => { loadHistory(); }, [loadHistory]));
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const handleShare = async () => {
     try {
@@ -128,6 +133,26 @@ export default function ContractViewerScreen({ route, navigation }) {
           </View>
         </SurfaceCard>
 
+        {refund && (
+          <SurfaceCard style={{ borderLeftWidth: 4, borderLeftColor: COLORS.primary }}>
+            <View style={styles.historyHeader}>
+              <Ionicons name="receipt-outline" size={18} color={COLORS.primary} />
+              <Text style={styles.historyTitle}>Thông tin tất toán cọc</Text>
+            </View>
+            <View style={{ gap: 8 }}>
+              <View style={styles.refundRow}><Text style={styles.refundLabel}>Tiền cọc ban đầu:</Text><Text style={styles.refundValue}>{formatCurrency(refund.original_deposit_amount)}</Text></View>
+              <View style={styles.refundRow}><Text style={styles.refundLabel}>Số tiền đã trả:</Text><Text style={styles.refundValue}>{formatCurrency(refund.refund_amount)}</Text></View>
+              <View style={styles.refundRow}><Text style={styles.refundLabel}>Số tiền khấu trừ:</Text><Text style={styles.refundValue}>{formatCurrency(refund.deduction_amount)}</Text></View>
+              <View style={styles.refundRow}><Text style={styles.refundLabel}>Ngày trả:</Text><Text style={styles.refundValue}>{refund.refund_date}</Text></View>
+              {refund.note ? (
+                <View style={{ marginTop: 4, padding: 10, backgroundColor: COLORS.surfaceContainer, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>Ghi chú: {refund.note}</Text>
+                </View>
+              ) : null}
+            </View>
+          </SurfaceCard>
+        )}
+
         <SurfaceCard>
           <View style={styles.historyHeader}>
             <Ionicons name="time" size={18} color={COLORS.primary} />
@@ -202,4 +227,7 @@ const styles = StyleSheet.create({
   timelineMonth: { color: COLORS.textPrimary, ...FONTS.bold, fontSize: 14 },
   timelineStatus: { ...FONTS.bold, fontSize: 10 },
   timelineAmount: { marginTop: 4, color: COLORS.textSecondary, ...FONTS.medium },
+  refundRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  refundLabel: { fontSize: 13, color: COLORS.textSecondary },
+  refundValue: { fontSize: 13, color: COLORS.textPrimary, ...FONTS.bold },
 });

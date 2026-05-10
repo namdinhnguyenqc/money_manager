@@ -1,72 +1,113 @@
 import React, { useState } from 'react';
+import { Wallet, KeyRound, UserRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { Wallet } from 'lucide-react';
+
+const DEMO_ACCOUNTS = [
+  {
+    label: 'User demo',
+    email: 'user@example.com',
+    password: 'user123456',
+    note: 'Dùng để test dashboard, nhà trọ, giao dịch và kinh doanh.',
+  },
+  {
+    label: 'Admin demo',
+    email: 'admin@example.com',
+    password: 'admin123456',
+    note: 'Có thể dùng để test API role cao hơn nếu backend cần.',
+  },
+];
 
 export default function LoginPage() {
-  const { login, signUp } = useAuth();
-  const [mode, setMode] = useState('login'); // 'login' | 'signup'
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { login } = useAuth();
+  const [email, setEmail] = useState(DEMO_ACCOUNTS[0].email);
+  const [password, setPassword] = useState(DEMO_ACCOUNTS[0].password);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const fillDemo = (account) => {
+    setEmail(account.email);
+    setPassword(account.password);
+    setError('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      if (mode === 'login') await login(email, password);
-      else await signUp(email, password);
+      await login(email, password);
     } catch (err) {
-      setError(err.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
+      setError(err.message || 'Không thể đăng nhập. Kiểm tra lại backend local.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-bento mb-4">
-            <Wallet size={32} className="text-white" />
+    <div className="min-h-screen bg-background px-4 py-8 lg:px-6">
+      <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-5xl items-center gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <section className="rounded-2xl bg-surface p-6 shadow-bento border border-border/40 lg:p-8">
+          <div className="mb-8 flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-white">
+              <Wallet size={28} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-text-primary">Money Manager</h1>
+              <p className="mt-1 text-sm text-text-secondary">
+                App vận hành tài chính, phòng trọ và nhập bán hàng.
+              </p>
+            </div>
           </div>
-          <h1 className="text-2xl font-black text-text-primary">Money Manager</h1>
-          <p className="text-text-muted text-sm mt-1">Quản lý tài chính thông minh</p>
-        </div>
 
-        {/* Form Card */}
-        <div className="bento-card p-6">
-          <div className="flex gap-1 p-1 bg-background rounded-xl mb-6">
-            <button
-              onClick={() => setMode('login')}
-              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${mode === 'login' ? 'bg-white shadow-card text-text-primary' : 'text-text-muted'}`}
-            >
+          <div className="grid gap-3 md:grid-cols-2">
+            {DEMO_ACCOUNTS.map((account) => (
+              <button
+                key={account.label}
+                type="button"
+                onClick={() => fillDemo(account)}
+                className="rounded-xl border border-border bg-background p-4 text-left transition-colors hover:border-primary hover:bg-primary-light"
+              >
+                <div className="mb-2 flex items-center gap-2 text-sm font-bold text-text-primary">
+                  <UserRound size={16} />
+                  {account.label}
+                </div>
+                <div className="text-xs text-text-secondary">{account.email}</div>
+                <div className="mt-1 text-xs text-text-muted">{account.note}</div>
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6 rounded-xl bg-primary-light p-4 text-sm text-primary">
+            Flow đăng ký chưa được backend hỗ trợ. Màn này chỉ giữ lại luồng đăng nhập thật để tránh người dùng đi vào nhánh giả.
+          </div>
+        </section>
+
+        <section className="rounded-2xl bg-surface p-6 shadow-bento border border-border/40 lg:p-8">
+          <div className="mb-6">
+            <div className="mb-2 flex items-center gap-2 text-sm font-bold text-text-secondary">
+              <KeyRound size={16} />
               Đăng nhập
-            </button>
-            <button
-              onClick={() => setMode('signup')}
-              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${mode === 'signup' ? 'bg-white shadow-card text-text-primary' : 'text-text-muted'}`}
-            >
-              Đăng ký
-            </button>
+            </div>
+            <p className="text-sm text-text-muted">
+              Dùng account demo hoặc nhập tài khoản API local.
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
-              <label className="text-xs font-bold text-text-secondary mb-1.5 block">Email</label>
+              <label className="mb-1.5 block text-xs font-bold text-text-secondary">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
                 required
-                className="w-full px-4 py-3 rounded-xl border border-border bg-background text-text-primary text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
+
             <div>
-              <label className="text-xs font-bold text-text-secondary mb-1.5 block">Mật khẩu</label>
+              <label className="mb-1.5 block text-xs font-bold text-text-secondary">Mật khẩu</label>
               <input
                 type="password"
                 value={password}
@@ -74,12 +115,12 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 required
                 minLength={6}
-                className="w-full px-4 py-3 rounded-xl border border-border bg-background text-text-primary text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
 
             {error && (
-              <div className="bg-danger-light border border-danger/20 text-danger text-sm rounded-xl px-4 py-3 font-medium">
+              <div className="rounded-xl border border-danger/20 bg-danger-light px-4 py-3 text-sm font-medium text-danger">
                 {error}
               </div>
             )}
@@ -87,12 +128,12 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full py-3 text-base mt-1 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="btn-primary mt-2 w-full py-3 text-base disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? 'Đang xử lý...' : mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
+              {loading ? 'Đang đăng nhập...' : 'Vào ứng dụng'}
             </button>
           </form>
-        </div>
+        </section>
       </div>
     </div>
   );

@@ -1,0 +1,283 @@
+{
+  "numTotalTestSuites": 14,
+  "numPassedTestSuites": 14,
+  "numFailedTestSuites": 0,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 17,
+  "numPassedTests": 14,
+  "numFailedTests": 3,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "startTime": 1778352815339,
+  "success": false,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "",
+            "KPICard"
+          ],
+          "fullName": " KPICard renders title and value",
+          "status": "passed",
+          "title": "renders title and value",
+          "duration": 13,
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "KPICard"
+          ],
+          "fullName": " KPICard renders suffix when provided",
+          "status": "passed",
+          "title": "renders suffix when provided",
+          "duration": 2,
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "KPICard"
+          ],
+          "fullName": " KPICard renders delta when provided",
+          "status": "passed",
+          "title": "renders delta when provided",
+          "duration": 1,
+          "failureMessages": []
+        }
+      ],
+      "startTime": 1778352816259,
+      "endTime": 1778352816275,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/thao/money_manager/web-admin/__tests__/KPICard.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "",
+            "LeadForm"
+          ],
+          "fullName": " LeadForm submits payload via onSubmit",
+          "status": "passed",
+          "title": "submits payload via onSubmit",
+          "duration": 33,
+          "failureMessages": []
+        }
+      ],
+      "startTime": 1778352816257,
+      "endTime": 1778352816290,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/thao/money_manager/web-admin/__tests__/LeadForm.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "",
+            "Not Authorized Page"
+          ],
+          "fullName": " Not Authorized Page renders Not Authorized message",
+          "status": "passed",
+          "title": "renders Not Authorized message",
+          "duration": 21,
+          "failureMessages": []
+        }
+      ],
+      "startTime": 1778352816276,
+      "endTime": 1778352816297,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/thao/money_manager/web-admin/__tests__/NotAuthorized.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "",
+            "ProfileFormCard"
+          ],
+          "fullName": " ProfileFormCard keeps typed values when a server field error is shown",
+          "status": "passed",
+          "title": "keeps typed values when a server field error is shown",
+          "duration": 35,
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "ProfileFormCard"
+          ],
+          "fullName": " ProfileFormCard hides the stale server error when the user edits that field",
+          "status": "passed",
+          "title": "hides the stale server error when the user edits that field",
+          "duration": 9,
+          "failureMessages": []
+        }
+      ],
+      "startTime": 1778352816310,
+      "endTime": 1778352816354,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/thao/money_manager/web-admin/__tests__/ProfileFormCard.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "",
+            "RBACGuard"
+          ],
+          "fullName": " RBACGuard renders children when role is allowed",
+          "status": "passed",
+          "title": "renders children when role is allowed",
+          "duration": 15,
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "RBACGuard"
+          ],
+          "fullName": " RBACGuard rejects roles that are not allowed",
+          "status": "passed",
+          "title": "rejects roles that are not allowed",
+          "duration": 0,
+          "failureMessages": []
+        }
+      ],
+      "startTime": 1778352816258,
+      "endTime": 1778352816274,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/thao/money_manager/web-admin/__tests__/RBACGuard.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "",
+            "RBAC guard logic (evaluateRBACGuard)"
+          ],
+          "fullName": " RBAC guard logic (evaluateRBACGuard) allows access when token present and role OWNER",
+          "status": "passed",
+          "title": "allows access when token present and role OWNER",
+          "duration": 1,
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "RBAC guard logic (evaluateRBACGuard)"
+          ],
+          "fullName": " RBAC guard logic (evaluateRBACGuard) redirects to login when no token",
+          "status": "passed",
+          "title": "redirects to login when no token",
+          "duration": 0,
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "RBAC guard logic (evaluateRBACGuard)"
+          ],
+          "fullName": " RBAC guard logic (evaluateRBACGuard) redirects to not-authorized when non-owner with token",
+          "status": "passed",
+          "title": "redirects to not-authorized when non-owner with token",
+          "duration": 0,
+          "failureMessages": []
+        }
+      ],
+      "startTime": 1778352816136,
+      "endTime": 1778352816137,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/thao/money_manager/web-admin/__tests__/RBACGuardLogic.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "",
+            "rental tenant validation"
+          ],
+          "fullName": " rental tenant validation rejects invalid tenant phone and id card before calling API",
+          "status": "failed",
+          "title": "rejects invalid tenant phone and id card before calling API",
+          "duration": 7,
+          "failureMessages": [
+            "expected TypeError: Cannot read properties of unde… to be an instance of RentalValidationError"
+          ],
+          "location": {
+            "line": 13,
+            "column": 5
+          }
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "rental tenant validation"
+          ],
+          "fullName": " rental tenant validation returns field-level messages for invalid tenant input",
+          "status": "failed",
+          "title": "returns field-level messages for invalid tenant input",
+          "duration": 3,
+          "failureMessages": [
+            "expected undefined to be 'Số điện thoại phải có đúng 10 số.' // Object.is equality"
+          ],
+          "location": {
+            "line": 33,
+            "column": 40
+          }
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "rental tenant validation"
+          ],
+          "fullName": " rental tenant validation rejects old 9-digit identity numbers for CCCD rental flow",
+          "status": "failed",
+          "title": "rejects old 9-digit identity numbers for CCCD rental flow",
+          "duration": 2,
+          "failureMessages": [
+            "expected true to be false // Object.is equality"
+          ],
+          "location": {
+            "line": 47,
+            "column": 23
+          }
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "rental tenant validation"
+          ],
+          "fullName": " rental tenant validation accepts valid tenant identity data",
+          "status": "passed",
+          "title": "accepts valid tenant identity data",
+          "duration": 1,
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "rental tenant validation"
+          ],
+          "fullName": " rental tenant validation strips non-digits and caps CCCD/phone input length",
+          "status": "passed",
+          "title": "strips non-digits and caps CCCD/phone input length",
+          "duration": 0,
+          "failureMessages": []
+        }
+      ],
+      "startTime": 1778352816227,
+      "endTime": 1778352816240,
+      "status": "failed",
+      "message": "",
+      "name": "/Users/thao/money_manager/web-admin/__tests__/rentalOps.validation.test.tsx"
+    }
+  ]
+}

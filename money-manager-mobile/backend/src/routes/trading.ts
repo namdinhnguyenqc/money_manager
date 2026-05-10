@@ -1,11 +1,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { supabaseAdmin } from "../lib/supabase.js";
+import crypto from "crypto";
 import { requireAuth } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
-import { parseJson, toNumberId } from "../utils/validation.js";
-import { env } from "../config/env.js";
-import { mockDb, updateMockBalance } from "../mockDb.js";
+import { parseJson, toId } from "../utils/validation.js";
 
 const tradingRoutes = new Hono<AppEnv>();
 
@@ -17,7 +15,7 @@ const subItemSchema = z.object({
 });
 
 const addTradingItemSchema = z.object({
-  walletId: z.number().int().positive(),
+  walletId: z.string().min(1),
   name: z.string().min(1),
   category: z.string().optional(),
   importPrice: z.number().positive(),
@@ -65,20 +63,18 @@ const enrichBatchFields = <T extends { batch_id: string | null; status: string }
 };
 
 tradingRoutes.get("/items", async (c) => {
-  if (env.IS_MOCK) {
-    return c.json({ data: mockDb.tradingItems });
-  }
   const user = c.get("user");
   const walletIdRaw = c.req.query("walletId");
-  if (!walletIdRaw) return c.json({ error: "walletId is required" }, 400);
-  const walletId = Number(walletIdRaw);
-  if (!Number.isInteger(walletId) || walletId <= 0) return c.json({ error: "Invalid walletId" }, 400);
+  if (!walletIdRaw) {
+    return c.json({ error: "walletId is required" }, 400);
+  }
 
-  const { data, error } = await supabaseAdmin
+  const db = c.get("supabase");
+  const { data, error } = await db
     .from("trading_items")
     .select("*")
     .eq("user_id", user.id)
-    .eq("wallet_id", walletId)
+    .eq("wallet_id", walletIdRaw)
     .order("import_date", { ascending: false });
 
   if (error) return c.json({ error: error.message }, 500);
@@ -90,7 +86,8 @@ tradingRoutes.get("/items/batch/:batchId", async (c) => {
   const batchId = c.req.param("batchId");
   if (!batchId) return c.json({ error: "Invalid batch id" }, 400);
 
-  const { data, error } = await supabaseAdmin
+  const db = c.get("supabase");
+  const { data, error } = await db
     .from("trading_items")
     .select("*")
     .eq("user_id", user.id)
@@ -108,23 +105,10 @@ tradingRoutes.post("/items", async (c) => {
 
   const quantity = parsed.data.quantity ?? 1;
 
-  if (env.IS_MOCK) {
-    const newItems = Array.from({ length: quantity }, (_, i) => ({
-      id: Date.now() + i,
-      name: quantity > 1 ? `${parsed.data.name} - sp ${i + 1}` : parsed.data.name,
-      category: parsed.data.category || "",
-      import_price: parsed.data.importPrice / quantity,
-      import_date: parsed.data.importDate,
-      status: "available"
-    }));
-    mockDb.tradingItems.push(...newItems);
-    updateMockBalance(parsed.data.walletId, -parsed.data.importPrice);
-    return c.json({ data: newItems }, 201);
-  }
-
   const subItems = parsed.data.subItems ?? [];
 
-  const txRes = await supabaseAdmin
+  const db = c.get("supabase");
+  const txRes = await db
     .from("transactions")
     .insert({
       user_id: user.id,
@@ -159,11 +143,11 @@ tradingRoutes.post("/items", async (c) => {
     status: "available",
     note: parsed.data.note || "",
     batch_id: parsed.data.batchId ?? null,
-    transaction_id: Number(txRes.data.id),
+    transaction_id: txRes.data.id,
     sell_transaction_id: null,
   }));
 
-  const insertRes = await supabaseAdmin.from("trading_items").insert(rows).select("*");
+  const insertRes = await db.from("trading_items").insert(rows).select("*");
   if (insertRes.error) return c.json({ error: insertRes.error.message }, 400);
 
   return c.json({ data: insertRes.data ?? [] }, 201);
@@ -171,25 +155,11 @@ tradingRoutes.post("/items", async (c) => {
 
 tradingRoutes.patch("/items/:id", async (c) => {
   const user = c.get("user");
-  const id = toNumberId(c.req.param("id"));
+  const id = toId(c.req.param("id"));
   if (!id) return c.json({ error: "Invalid item id" }, 400);
 
   const parsed = await parseJson(c, updateTradingItemSchema);
   if (!parsed.ok) return parsed.response;
-
-  if (env.IS_MOCK) {
-    const item = mockDb.tradingItems.find(x => x.id === id);
-    if (!item) return c.json({ error: "Item not found" }, 404);
-    if (parsed.data.status) item.status = parsed.data.status;
-    if (parsed.data.sellPrice) item.sell_price = parsed.data.sellPrice;
-    if (parsed.data.sellDate) item.sell_date = parsed.data.sellDate;
-    
-    // Simulate updating a wallet balance (we just use wallet 4 for trading mock)
-    if (parsed.data.status === "sold" && parsed.data.sellPrice) {
-      updateMockBalance(4, parsed.data.sellPrice);
-    }
-    return c.json({ data: item });
-  }
 
   const payload: Record<string, unknown> = {};
   if (parsed.data.name !== undefined) payload.name = parsed.data.name;
@@ -203,7 +173,8 @@ tradingRoutes.patch("/items/:id", async (c) => {
   if (parsed.data.note !== undefined) payload.note = parsed.data.note;
   payload.updated_at = new Date().toISOString();
 
-  const { data, error } = await supabaseAdmin
+  const db = c.get("supabase");
+  const { data, error } = await db
     .from("trading_items")
     .update(payload)
     .eq("user_id", user.id)
@@ -217,10 +188,11 @@ tradingRoutes.patch("/items/:id", async (c) => {
 
 tradingRoutes.delete("/items/:id", async (c) => {
   const user = c.get("user");
-  const id = toNumberId(c.req.param("id"));
+  const id = toId(c.req.param("id"));
   if (!id) return c.json({ error: "Invalid trading item id" }, 400);
 
-  const { error } = await supabaseAdmin
+  const db = c.get("supabase");
+  const { error } = await db
     .from("trading_items")
     .delete()
     .eq("user_id", user.id)
@@ -231,20 +203,19 @@ tradingRoutes.delete("/items/:id", async (c) => {
 });
 
 tradingRoutes.get("/stats", async (c) => {
-  if (env.IS_MOCK) {
-    return c.json({ data: { unsoldCapital: 50000, unsoldCount: 1, realizedProfit: 100000, soldCount: 1 } });
-  }
   const user = c.get("user");
-  const walletIdRaw = c.req.query("walletId");
-  if (!walletIdRaw) return c.json({ error: "walletId is required" }, 400);
-  const walletId = Number(walletIdRaw);
-  if (!Number.isInteger(walletId) || walletId <= 0) return c.json({ error: "Invalid walletId" }, 400);
 
-  const { data, error } = await supabaseAdmin
+  const walletIdRaw = c.req.query("walletId");
+  if (!walletIdRaw) {
+    return c.json({ error: "walletId is required" }, 400);
+  }
+
+  const db = c.get("supabase");
+  const { data, error } = await db
     .from("trading_items")
     .select("import_price,sell_price,status")
     .eq("user_id", user.id)
-    .eq("wallet_id", walletId);
+    .eq("wallet_id", walletIdRaw);
 
   if (error) return c.json({ error: error.message }, 500);
 

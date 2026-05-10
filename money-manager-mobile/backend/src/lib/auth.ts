@@ -20,8 +20,8 @@ export interface User {
   google_id: string;
   email: string;
   name: string | null;
-  avatar: string | null;
-  role: "USER" | "ADMIN" | "SUPER_ADMIN";
+  avatarUrl: string | null;
+  role: "USER" | "OWNER" | "ADMIN" | "SUPER_ADMIN";
   status: "ACTIVE" | "BLOCKED" | "DELETED";
   provider: string;
   last_login_at: string | null;
@@ -34,17 +34,35 @@ export interface JwtPayload {
   email: string;
   role: string;
   status: string;
+  name?: string | null;
+  avatarUrl?: string | null;
+  provider?: string | null;
+  isProfileCompleted?: boolean;
+  onboardingStep?: "COMPLETE_PROFILE" | "DONE";
   iat: number;
   exp: number;
 }
 
-export async function generateAccessToken(user: User): Promise<string> {
+export async function generateAccessToken(
+  user: Pick<User, "id" | "email" | "role" | "status"> & {
+    name?: string | null;
+    avatarUrl?: string | null;
+    provider?: string | null;
+    isProfileCompleted?: boolean;
+    onboardingStep?: "COMPLETE_PROFILE" | "DONE";
+  }
+): Promise<string> {
   const { SignJWT } = await import("jose");
   return new SignJWT({
     sub: user.id,
     email: user.email,
     role: user.role,
     status: user.status,
+    name: user.name ?? null,
+    avatarUrl: user.avatarUrl ?? null,
+    provider: user.provider ?? null,
+    isProfileCompleted: user.isProfileCompleted,
+    onboardingStep: user.onboardingStep,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()

@@ -1,27 +1,38 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard, Home, Package, BarChart,
-  LogOut, Wallet, Menu, X, ChevronRight
+  ArrowLeftRight,
+  CircleUserRound,
+  Home,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Package,
+  Settings,
+  Wallet,
+  X,
 } from 'lucide-react';
 
 import DashboardPage from './pages/DashboardPage';
 import RentalPage from './pages/RentalPage';
 import TradingPage from './pages/TradingPage';
-import AnalyticsPage from './pages/AnalyticsPage';
+import TransactionsPage from './pages/TransactionsPage';
+import SettingsPage from './pages/SettingsPage';
 
 const NAV = [
   { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
-  { id: 'rental',    label: 'Nhà trọ',   icon: Home },
-  { id: 'trading',   label: 'Kinh doanh', icon: Package },
-  { id: 'analytics', label: 'Thống kê',   icon: BarChart },
+  { id: 'transactions', label: 'Giao dịch', icon: ArrowLeftRight },
+  { id: 'rental', label: 'Nhà trọ', icon: Home },
+  { id: 'trading', label: 'Kinh doanh', icon: Package },
+  { id: 'settings', label: 'Thiết lập', icon: Settings },
 ];
 
 const PAGE_MAP = {
   dashboard: DashboardPage,
-  rental:    RentalPage,
-  trading:   TradingPage,
-  analytics: AnalyticsPage,
+  transactions: TransactionsPage,
+  rental: RentalPage,
+  trading: TradingPage,
+  settings: SettingsPage,
 };
 
 export default function AppLayout() {
@@ -30,6 +41,10 @@ export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const ActivePage = PAGE_MAP[activePage] || DashboardPage;
+  const pageLabel = useMemo(
+    () => NAV.find((item) => item.id === activePage)?.label || 'Tổng quan',
+    [activePage]
+  );
 
   const navigate = (page) => {
     setActivePage(page);
@@ -37,38 +52,49 @@ export default function AppLayout() {
   };
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      {/* Mobile overlay */}
+    <div className="flex h-screen overflow-hidden bg-background">
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-20 lg:hidden animate-fade-in"
+          className="fixed inset-0 z-20 bg-black/40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
-      <aside className={`
-        fixed lg:static inset-y-0 left-0 z-30
-        w-64 bg-white border-r border-border flex flex-col
-        transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
-        {/* Brand */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-border">
-          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center">
-            <Wallet size={18} className="text-white" />
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-border bg-white transition-transform duration-300 ease-in-out lg:static ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}
+      >
+        <div className="border-b border-border px-5 py-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white">
+              <Wallet size={20} />
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-black text-text-primary">Money Manager</div>
+              <div className="truncate text-xs text-text-muted">{user?.email}</div>
+            </div>
+            <button
+              className="ml-auto text-text-muted lg:hidden"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Đóng menu"
+            >
+              <X size={20} />
+            </button>
           </div>
-          <div>
-            <div className="font-black text-text-primary text-sm leading-none">Money Manager</div>
-            <div className="text-xs text-text-muted mt-0.5">{user?.email}</div>
+
+          <div className="mt-4 rounded-xl bg-background px-3 py-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+              <CircleUserRound size={16} />
+              {user?.name || user?.email || 'Tài khoản'}
+            </div>
+            <div className="mt-1 text-xs uppercase tracking-wide text-text-muted">
+              {user?.role || 'USER'}
+            </div>
           </div>
-          <button className="ml-auto lg:hidden text-text-muted" onClick={() => setSidebarOpen(false)}>
-            <X size={20} />
-          </button>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
+        <nav className="flex-1 space-y-1 px-3 py-4">
           {NAV.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -77,13 +103,11 @@ export default function AppLayout() {
             >
               <Icon size={18} />
               <span>{label}</span>
-              {activePage === id && <ChevronRight size={14} className="ml-auto" />}
             </button>
           ))}
         </nav>
 
-        {/* Logout */}
-        <div className="px-3 pb-5 border-t border-border pt-3">
+        <div className="border-t border-border px-3 pb-5 pt-3">
           <button
             onClick={logOut}
             className="sidebar-link w-full text-left text-danger hover:bg-danger-light hover:text-danger"
@@ -94,21 +118,21 @@ export default function AppLayout() {
         </div>
       </aside>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile top-bar */}
-        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-border">
-          <button onClick={() => setSidebarOpen(true)} className="text-text-secondary">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex items-center gap-3 border-b border-border bg-white px-4 py-3 lg:px-6">
+          <button onClick={() => setSidebarOpen(true)} className="text-text-secondary lg:hidden" aria-label="Mở menu">
             <Menu size={22} />
           </button>
-          <span className="font-bold text-text-primary text-sm">
-            {NAV.find(n => n.id === activePage)?.label}
-          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-black text-text-primary lg:text-base">{pageLabel}</div>
+            <div className="truncate text-xs text-text-muted">
+              {user?.name || user?.email}
+            </div>
+          </div>
         </header>
 
-        {/* Page */}
         <main className="flex-1 overflow-y-auto">
-          <ActivePage />
+          <ActivePage navigate={navigate} />
         </main>
       </div>
     </div>

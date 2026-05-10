@@ -7,24 +7,19 @@ import { env } from "../config/env.js";
 
 const adminRoutes = new Hono<AppEnv>();
 
+
+
 const userStatusSchema = z.object({
   status: z.enum(["ACTIVE", "BLOCKED", "DELETED"]),
 });
 
 const userRoleSchema = z.object({
-  role: z.enum(["USER", "ADMIN"]),
+  role: z.enum(["USER", "OWNER", "ADMIN"]),
 });
 
 // GET /admin/users - List all users with pagination
 adminRoutes.get("/users", requireAuth, requireAdmin, async (c) => {
-  if (env.IS_MOCK) {
-    return c.json({
-      data: [
-        { id: "mock-google-user", email: "user@gmail.com", name: "Mock User", avatar: null, role: "USER", status: "ACTIVE", provider: "GOOGLE", created_at: new Date().toISOString(), last_login_at: new Date().toISOString() },
-      ],
-      pagination: { page: 1, limit: 20, total: 1 },
-    });
-  }
+
 
   const { page = "1", limit = "20", search = "", role = "", status = "ACTIVE", sortBy = "created_at", sortOrder = "desc" } = c.req.query();
 
@@ -79,20 +74,7 @@ adminRoutes.get("/users", requireAuth, requireAdmin, async (c) => {
 adminRoutes.get("/users/:id", requireAuth, requireAdmin, async (c) => {
   const userId = c.req.param("id");
 
-  if (env.IS_MOCK) {
-    return c.json({
-      id: userId,
-      email: "user@gmail.com",
-      name: "Mock User",
-      avatar: null,
-      role: "USER",
-      status: "ACTIVE",
-      provider: "GOOGLE",
-      created_at: new Date().toISOString(),
-      last_login_at: new Date().toISOString(),
-      loginLogs: [],
-    });
-  }
+
 
   const { data: user, error } = await supabaseAdmin
     .from("users")
@@ -142,6 +124,8 @@ adminRoutes.patch("/users/:id/status", requireAuth, requireAdmin, async (c) => {
 
   const { status } = validation.data;
 
+
+
   const { data: targetUser, error: findError } = await supabaseAdmin
     .from("users")
     .select("role")
@@ -176,6 +160,8 @@ adminRoutes.patch("/users/:id/role", requireAuth, requireSuperAdmin, async (c) =
 
   const { role } = validation.data;
 
+
+
   const { data: targetUser, error: findError } = await supabaseAdmin
     .from("users")
     .select("role")
@@ -207,6 +193,8 @@ adminRoutes.delete("/users/:id", requireAuth, requireAdmin, async (c) => {
     return c.json({ code: "CANNOT_DELETE_SELF", message: "Không thể tự xóa tài khoản của mình." }, 400);
   }
 
+
+
   const { data: targetUser, error: findError } = await supabaseAdmin
     .from("users")
     .select("role")
@@ -235,9 +223,7 @@ adminRoutes.delete("/users/:id", requireAuth, requireAdmin, async (c) => {
 
 // GET /admin/stats - Dashboard stats
 adminRoutes.get("/stats", requireAuth, requireAdmin, async (c) => {
-  if (env.IS_MOCK) {
-    return c.json({ total: 1, active: 1, blocked: 0, newThisMonth: 1, loginsThisMonth: 1 });
-  }
+
 
   const { data: allUsers } = await supabaseAdmin.from("users").select("id, status, role, created_at");
   const { data: recentLogins } = await supabaseAdmin
@@ -269,14 +255,7 @@ adminRoutes.get("/stats", requireAuth, requireAdmin, async (c) => {
 
 // GET /admin/boarding-houses - List all boarding houses with pagination
 adminRoutes.get("/boarding-houses", requireAuth, requireAdmin, async (c) => {
-  if (env.IS_MOCK) {
-    return c.json({
-      data: [
-        { id: "mock-bh-1", name: "Mock Boarding House 1", address: "123 Main St", status: "ACTIVE", isPublic: true, ownerId: "mock-user-1", created_at: new Date().toISOString() },
-      ],
-      pagination: { page: 1, limit: 20, total: 1 },
-    });
-  }
+
 
   const { page = "1", limit = "20", search = "", status = "", isPublic = "", ownerId = "" } = c.req.query();
 
@@ -335,20 +314,7 @@ adminRoutes.get("/boarding-houses", requireAuth, requireAdmin, async (c) => {
 adminRoutes.get("/boarding-houses/:id", requireAuth, requireAdmin, async (c) => {
   const bhId = c.req.param("id");
 
-  if (env.IS_MOCK) {
-    return c.json({
-      id: bhId,
-      name: "Mock Boarding House",
-      address: "123 Main St",
-      description: "Mock description",
-      latitude: 10.8231,
-      longitude: 106.6297,
-      status: "ACTIVE",
-      isPublic: true,
-      ownerId: "mock-user-1",
-      createdAt: new Date().toISOString(),
-    });
-  }
+
 
   const { data, error } = await supabaseAdmin
     .from("boarding_houses")
@@ -508,14 +474,7 @@ adminRoutes.delete("/boarding-houses/:id", requireAuth, requireAdmin, async (c) 
 
 // GET /admin/rooms - List all rooms with pagination
 adminRoutes.get("/rooms", requireAuth, requireAdmin, async (c) => {
-  if (env.IS_MOCK) {
-    return c.json({
-      data: [
-        { id: "mock-room-1", name: "Room 101", boardingHouseId: "mock-bh-1", price: 1500000, status: "AVAILABLE", isPublic: true, created_at: new Date().toISOString() },
-      ],
-      pagination: { page: 1, limit: 20, total: 1 },
-    });
-  }
+
 
   const { page = "1", limit = "20", search = "", status = "", isPublic = "", boardingHouseId = "" } = c.req.query();
 
@@ -571,17 +530,7 @@ adminRoutes.get("/rooms", requireAuth, requireAdmin, async (c) => {
 adminRoutes.get("/rooms/:id", requireAuth, requireAdmin, async (c) => {
   const roomId = c.req.param("id");
 
-  if (env.IS_MOCK) {
-    return c.json({
-      id: roomId,
-      name: "Mock Room",
-      boardingHouseId: "mock-bh-1",
-      price: 1500000,
-      status: "AVAILABLE",
-      isPublic: true,
-      createdAt: new Date().toISOString(),
-    });
-  }
+
 
   const { data, error } = await supabaseAdmin
     .from("rooms")

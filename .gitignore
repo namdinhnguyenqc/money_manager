@@ -1,4 +1,5 @@
 node_modules/
+.next/
 dist/
 build/
 coverage/
@@ -8,6 +9,17 @@ coverage/
 .npm-cache/
 .DS_Store
 .env
+.env.local
+.env.production
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Subdirectories
+web-admin/node_modules/
+web-admin/.next/
+web-admin/out/
 money-manager/node_modules/
 money-manager/dist/
 money-manager-mobile/node_modules/
@@ -19,3 +31,6 @@ money-manager-mobile/.expo/
 money-manager-mobile/.expo-cache/
 money-manager-mobile/.local-home/
 money-manager-mobile/.npm-cache/
+money-manager-mobile/backend/node_modules/
+money-manager-mobile/backend/dist/
+money-manager-mobile/backend/.env

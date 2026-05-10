@@ -2,9 +2,38 @@ import { getDb } from '../db';
 import { shouldUseApiData } from '../../services/dataMode';
 import { apiRentalRepository } from '../../repositories/api/ApiRentalRepository';
 import { addTransaction } from './TransactionRepository';
+import { logAuditAction } from './AuditRepository';
 
 const normalizeServiceType = (type) => (type === 'meter' ? 'metered' : type);
 export const normalizeServiceRow = (row) => ({ ...row, type: normalizeServiceType(row?.type) });
+
+/**
+ * Tính số ngày trong tháng của một chuỗi ngày (YYYY-MM-DD)
+ */
+export const getDaysInMonth = (dateStr) => {
+  const date = new Date(dateStr);
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+};
+
+/**
+ * Tính tiền thuê thực tế (Prorated) cho tháng đầu/cuối
+ */
+export const calculateProratedAmount = (monthlyRent, startDateStr, endDateStr) => {
+  const daysInMonth = getDaysInMonth(startDateStr);
+  const dailyRent = monthlyRent / daysInMonth;
+  
+  const start = new Date(startDateStr);
+  const end = new Date(endDateStr);
+  const diffTime = Math.abs(end - start);
+  const stayedDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  
+  return {
+    dailyRent,
+    stayedDays,
+    total: Math.round(dailyRent * stayedDays),
+    daysInMonth
+  };
+};
 
 // ─── ROOMS ──────────────────────────────────────────────────────────────────
 export const getRooms = async (walletId = null) => {
@@ -13,7 +42,9 @@ export const getRooms = async (walletId = null) => {
   let query = `
     SELECT r.*, c.id as contract_id, c.deposit, c.start_date, c.end_date,
            t.id as tenant_id, t.name as tenant_name, t.phone as tenant_phone, 
-           t.id_card as tenant_id_card, t.address as tenant_address
+           t.id_card as tenant_id_card, t.address as tenant_address,
+           (SELECT tenant_name FROM deposits WHERE room_id = r.id AND status = 'active' LIMIT 1) as res_tenant_name,
+           (SELECT tenant_phone FROM deposits WHERE room_id = r.id AND status = 'active' LIMIT 1) as res_tenant_phone
     FROM rooms r
     LEFT JOIN contracts c ON r.id = c.room_id AND c.status = 'active'
     LEFT JOIN tenants t ON c.tenant_id = t.id
@@ -114,6 +145,16 @@ export const getActiveContracts = async () => {
 export const addContract = async (roomId, tenantId, startDate, deposit, serviceIds = []) => {
   if (shouldUseApiData()) return await apiRentalRepository.addContract(roomId, tenantId, startDate, deposit, serviceIds);
   const db = await getDb();
+
+  // 1. Check for existing active contract
+  const existing = await db.getFirstAsync(
+    `SELECT id FROM contracts WHERE room_id=? AND status='active'`,
+    [roomId]
+  );
+  if (existing) {
+    throw new Error("Phòng này đã có hợp đồng đang hoạt động.");
+  }
+
   const r = await db.runAsync(
     `INSERT INTO contracts (room_id, tenant_id, start_date, deposit) VALUES (?,?,?,?)`,
     [roomId, tenantId, startDate, deposit]
@@ -123,6 +164,7 @@ export const addContract = async (roomId, tenantId, startDate, deposit, serviceI
   for (const sid of serviceIds) {
     await db.runAsync(`INSERT INTO contract_services (contract_id, service_id) VALUES (?,?)`, [contractId, sid]);
   }
+  await logAuditAction('contract_created', 'contract', contractId, { roomId, deposit });
   return contractId;
 };
 
@@ -153,27 +195,67 @@ export const getContractServices = async (contractId) => {
   return rows.map(normalizeServiceRow);
 };
 
-export const terminateContract = async (id, roomId, refundAmount = 0, walletId = null) => {
-  if (shouldUseApiData()) return await apiRentalRepository.terminateContract(id, roomId, refundAmount, walletId);
+export const terminateContract = async (id, roomId, refundData) => {
+  if (shouldUseApiData()) return await apiRentalRepository.terminateContract(id, roomId, refundData);
   const db = await getDb();
   const now = new Date().toISOString().split('T')[0];
+  
+  // 1. End contract
+  // NEW RULE: We should check settlement status before ending
+  const contract = await db.getFirstAsync(`SELECT settlement_status FROM contracts WHERE id=?`, [id]);
+  if (contract?.settlement_status !== 'paid' && refundData.forceTerminate !== true) {
+     throw new Error("Vui lòng hoàn tất thanh toán thanh lý trước khi kết thúc hợp đồng.");
+  }
+
   await db.runAsync(
-    `UPDATE contracts SET status='terminated', end_date=? WHERE id=?`,
+    `UPDATE contracts SET status='ended', end_date=?, settlement_status='paid' WHERE id=?`,
     [now, id]
   );
+  
+  // 2. Clear room
   await db.runAsync(`UPDATE rooms SET status='vacant' WHERE id=?`, [roomId]);
-  if (refundAmount > 0 && walletId) {
-    const room = await db.getFirstAsync(`SELECT name FROM rooms WHERE id=?`, [roomId]);
-    await addTransaction({
-      type: 'expense',
-      amount: refundAmount,
-      description: `Deposit refund for room ${room?.name || ''}`,
-      categoryId: null,
-      walletId: walletId,
-      imageUri: null,
-      date: now,
+  
+  // 3. Fetch contract info for refund record
+  const contract = await db.getFirstAsync(
+    `SELECT room_id, tenant_id, deposit FROM contracts WHERE id=?`, [id]
+  );
+  
+  if (contract) {
+    const refundAmount = Number(refundData.refundAmount || 0);
+    const deduction = Math.max(0, Number(contract.deposit || 0) - refundAmount);
+    
+    // 4. Save refund record
+    await db.runAsync(
+      `INSERT INTO deposit_refunds (contract_id, tenant_id, room_id, original_deposit_amount, refund_amount, deduction_amount, refund_date, refund_method, note)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
+      [id, contract.tenant_id, contract.room_id, contract.deposit, refundAmount, deduction, refundData.refundDate || now, refundData.refundMethod, refundData.note]
+    );
+
+    // 5. Create transaction if refund > 0
+    if (refundAmount > 0 && refundData.walletId) {
+      const room = await db.getFirstAsync(`SELECT name FROM rooms WHERE id=?`, [roomId]);
+      await addTransaction({
+        type: 'expense',
+        amount: refundAmount,
+        description: `Trả tiền cọc - Phòng ${room?.name || ''}`,
+        categoryId: null,
+        walletId: refundData.walletId,
+        imageUri: null,
+        date: refundData.refundDate || now,
+      });
+    }
+    await logAuditAction('contract_terminated', 'contract', id, { 
+      roomId, 
+      refundAmount, 
+      deduction: Number(contract.deposit || 0) - refundAmount 
     });
   }
+};
+
+export const getDepositRefund = async (contractId) => {
+  if (shouldUseApiData()) return await apiRentalRepository.getDepositRefund(contractId);
+  const db = await getDb();
+  return await db.getFirstAsync(`SELECT * FROM deposit_refunds WHERE contract_id=?`, [contractId]);
 };
 
 // ─── SERVICES ───────────────────────────────────────────────────────────────
