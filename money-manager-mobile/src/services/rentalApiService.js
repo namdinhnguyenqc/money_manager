@@ -66,6 +66,11 @@ export async function collectInvoiceApi(invoiceId, body) {
   return res?.data ?? res;
 }
 
+export async function createInvoiceApi(body) {
+  const res = await apiPost('/invoices', body);
+  return res?.data ?? res;
+}
+
 // ─── Wallets ──────────────────────────────────────────────
 export async function getWalletsApi() {
   const res = await apiGet('/wallets');

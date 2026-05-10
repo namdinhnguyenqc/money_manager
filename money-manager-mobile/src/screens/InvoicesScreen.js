@@ -405,8 +405,18 @@ export default function InvoicesScreen({ navigation, route }) {
                 <Ionicons name="flash-outline" size={18} color={COLORS.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.entryActionTitleDark}>Tạo hàng loạt</Text>
-                <Text style={styles.entryActionTextDark}>Mở luồng hóa đơn hàng loạt để xử lý nhiều phòng nhanh hơn.</Text>
+                <Text style={styles.entryActionTitleDark}>Tạo hàng loạt (AI)</Text>
+                <Text style={styles.entryActionTextDark}>Dùng AI quét ảnh công tơ điện hàng loạt.</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.entryActionCard} onPress={() => navigation.navigate('ManualBatchBilling')}>
+              <View style={[styles.entryActionIcon, styles.entryActionIconSoft]}>
+                <Ionicons name="list-outline" size={18} color={COLORS.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.entryActionTitleDark}>Nhập số hàng loạt</Text>
+                <Text style={styles.entryActionTextDark}>Bảng nhập số điện nước tập trung cho sll.</Text>
               </View>
             </TouchableOpacity>
 
