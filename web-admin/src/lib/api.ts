@@ -1,32 +1,32 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8787";
+import { clearClientSession, getStoredRefreshToken, setClientSession } from "@/utils/session";
+import { authFetch, handleUnauthorizedLogout } from "@/utils/authFetch";
 
-const getAuthHeaders = () => {
-  if (typeof window === "undefined") return {};
-  const token = localStorage.getItem("accessToken");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8787";
 
 export async function apiClient<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const res = await fetch(`${API_URL}${endpoint}`, {
+  const res = await authFetch(`${API_URL}${endpoint}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(),
       ...options.headers,
     } as HeadersInit,
   });
 
   if (res.status === 401) {
-    localStorage.removeItem("accessToken");
-    window.location.href = "/login";
+    handleUnauthorizedLogout();
     throw new Error("Unauthorized");
   }
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
+    if (res.status === 403 && data?.code === "PROFILE_REQUIRED") {
+      sessionStorage.setItem("profileRequiredMessage", data?.message || "Vui lòng hoàn tất hồ sơ để tiếp tục sử dụng hệ thống.");
+      window.location.href = "/complete-profile";
+      throw new Error(data?.message || "Profile required");
+    }
     throw new Error(data.error || data.message || "API Error");
   }
 
@@ -47,7 +47,15 @@ export async function login(email: string, password: string) {
 
   const data = await res.json();
   if (data.session?.access_token) {
-    localStorage.setItem("accessToken", data.session.access_token);
+    setClientSession({
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+      role: data?.user?.role,
+      name: data?.user?.name,
+      email: data?.user?.email,
+      isProfileCompleted: data?.user?.isProfileCompleted,
+      onboardingStep: data?.user?.onboardingStep,
+    });
   }
   return data;
 }
@@ -62,9 +70,9 @@ export async function logout() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ refreshToken: getStoredRefreshToken() }),
       });
     } catch {}
   }
-  localStorage.removeItem("accessToken");
+  clearClientSession();
 }

@@ -9,7 +9,7 @@ type User = {
   email: string;
   name: string;
   avatar?: string;
-  role: "USER" | "ADMIN" | "SUPER_ADMIN";
+  role: "USER" | "OWNER" | "ADMIN" | "SUPER_ADMIN";
   status: "ACTIVE" | "BLOCKED" | "DELETED";
   provider?: string;
   created_at?: string;
@@ -31,6 +31,7 @@ const statusColor = (s: string) => {
 const roleColor = (r: string) => {
   if (r === "SUPER_ADMIN") return "bg-orange-100 text-orange-800";
   if (r === "ADMIN") return "bg-purple-100 text-purple-800";
+  if (r === "OWNER") return "bg-emerald-100 text-emerald-800";
   return "bg-blue-100 text-blue-800";
 };
 
@@ -58,7 +59,7 @@ export default function UserDetailPage() {
     try {
       const res = await fetch(`${API_URL}/admin/users/${userId}`, { headers: authHeaders() as HeadersInit });
       if (res.status === 401 || res.status === 403) {
-        router.replace("/login");
+        router.replace("/login/admin");
         return;
       }
       if (!res.ok) throw new Error("Không thể tải thông tin user");
@@ -72,7 +73,7 @@ export default function UserDetailPage() {
   };
 
   useEffect(() => {
-    if (!getToken()) { router.replace("/login"); return; }
+    if (!getToken()) { router.replace("/login/admin"); return; }
     load();
   }, [userId]);
 
@@ -196,6 +197,15 @@ export default function UserDetailPage() {
 
           {user.role === "USER" && (
             <button
+              onClick={() => updateRole("OWNER")}
+              disabled={actionLoading}
+              className="px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-medium hover:bg-emerald-100 disabled:opacity-50"
+            >
+              Chuyển thành Owner
+            </button>
+          )}
+          {user.role === "USER" && (
+            <button
               onClick={() => updateRole("ADMIN")}
               disabled={actionLoading}
               className="px-4 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-sm font-medium hover:bg-purple-100 disabled:opacity-50"
@@ -210,6 +220,15 @@ export default function UserDetailPage() {
               className="px-4 py-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
             >
               ⬇️ Hạ xuống User
+            </button>
+          )}
+          {user.role === "OWNER" && (
+            <button
+              onClick={() => updateRole("USER")}
+              disabled={actionLoading}
+              className="px-4 py-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
+            >
+              Hạ xuống User
             </button>
           )}
 

@@ -5,7 +5,18 @@ const STORAGE_KEY = 'mm_auth_v1';
 let authState = { user: null, session: null, initialized: false };
 const listeners = new Set();
 
-const toPublicUser = (u) => (u?.id ? { id: u.id, email: u.email || null } : null);
+const toPublicUser = (u) => (
+  u?.id
+    ? {
+        id: u.id,
+        email: u.email || null,
+        name: u.name || u.full_name || null,
+        role: u.role || 'USER',
+        status: u.status || 'ACTIVE',
+        avatar: u.avatar || null,
+      }
+    : null
+);
 const toPublicSession = (s) =>
   s?.access_token && s?.refresh_token
     ? { accessToken: s.access_token, refreshToken: s.refresh_token, expiresAt: s.expires_at || null }
@@ -92,11 +103,6 @@ configureApiClient({
 
 export const login = async (email, password) => {
   const payload = await apiClient.post('/auth/login', { email, password }, { auth: false, retryOn401: false });
-  return applyPayload(payload);
-};
-
-export const signUp = async (email, password) => {
-  const payload = await apiClient.post('/auth/signup', { email, password }, { auth: false, retryOn401: false });
   return applyPayload(payload);
 };
 

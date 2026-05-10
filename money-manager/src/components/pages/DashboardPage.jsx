@@ -11,7 +11,7 @@ function BentoCard({ children, className = '' }) {
   );
 }
 
-export default function DashboardPage() {
+export default function DashboardPage({ navigate }) {
   const [wallets, setWallets] = useState([]);
   const [todayStats, setTodayStats] = useState({ income: 0, expense: 0 });
   const [recentTxs, setRecentTxs] = useState([]);
@@ -58,6 +58,27 @@ export default function DashboardPage() {
       <RefreshCw size={24} className="text-primary animate-spin" />
     </div>
   );
+
+  if (wallets.length === 0) {
+    return (
+      <div className="mx-auto max-w-5xl p-4 lg:p-6">
+        <div className="bento-card flex flex-col items-start gap-4 py-10">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-light text-primary">
+            <Wallet size={22} />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-text-primary">Chưa có ví vận hành</h2>
+            <p className="mt-1 text-sm text-text-muted">
+              App đã đăng nhập thành công nhưng chưa có ví để tổng hợp số dư, thu chi và các luồng liên quan.
+            </p>
+          </div>
+          <button onClick={() => navigate?.('settings')} className="btn-primary text-sm">
+            Đi tới thiết lập ví
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 lg:p-6 max-w-6xl mx-auto">

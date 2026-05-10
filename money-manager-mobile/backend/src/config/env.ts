@@ -6,7 +6,7 @@ const required = (name: string): string => {
     if (process.env.NODE_ENV === "production") {
       throw new Error(`❌ FATAL: Missing required env var in production: ${name}`);
     }
-    console.warn(`⚠️  Warning: Missing or placeholder env var: ${name}. Running in MOCK/DEV mode.`);
+    console.warn(`⚠️  Warning: Missing or placeholder env var: ${name}. Running in development mode.`);
     return "";
   }
   return value;
@@ -24,10 +24,9 @@ const jwtSecret = optional("JWT_SECRET", "dev-secret-ONLY-for-local-dev-do-not-u
 
 export const env = {
   API_PORT: Number(process.env.API_PORT || 8787),
-  SUPABASE_URL: optional("SUPABASE_URL", "http://mock-supabase.local"),
-  SUPABASE_ANON_KEY: optional("SUPABASE_ANON_KEY", "mock-key"),
-  SUPABASE_SERVICE_ROLE_KEY: optional("SUPABASE_SERVICE_ROLE_KEY", "mock-role"),
-  IS_MOCK: !process.env.SUPABASE_URL || process.env.SUPABASE_URL.includes("your-"),
+  SUPABASE_URL: optional("SUPABASE_URL", ""),
+  SUPABASE_ANON_KEY: optional("SUPABASE_ANON_KEY", ""),
+  SUPABASE_SERVICE_ROLE_KEY: optional("SUPABASE_SERVICE_ROLE_KEY", ""),
   GOOGLE_CLIENT_ID: optional("GOOGLE_CLIENT_ID", ""),
   GOOGLE_CLIENT_SECRET: optional("GOOGLE_CLIENT_SECRET", ""),
   JWT_SECRET: jwtSecret,

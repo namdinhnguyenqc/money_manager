@@ -7,22 +7,37 @@
     "dev": "next dev --port 3001",
     "build": "next build",
     "start": "next start --port 3001",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest watch --passWithNoTests",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
   },
+  "postinstall": "npx playwright install --with-deps",
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.1",
+    "@tanstack/react-query": "^5.100.6",
+    "framer-motion": "^12.38.0",
+    "google-auth-library": "^7.0.2",
+    "lucide-react": "^0.300.0",
     "next": "^14.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "lucide-react": "^0.300.0",
-    "google-auth-library": "^7.0.2"
+    "recharts": "^3.8.1",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@testing-library/jest-dom": "^5.16.4",
+    "@testing-library/react": "^13.4.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.0",
+    "jsdom": "^21.0.0",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^0.34.0"
   }
 }

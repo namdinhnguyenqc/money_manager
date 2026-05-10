@@ -1,11 +1,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { supabaseAdmin } from "../lib/supabase.js";
+import crypto from "crypto";
 import { requireAuth } from "../middleware/auth.js";
-import { parseJson, toNumberId } from "../utils/validation.js";
+import { parseJson, toId } from "../utils/validation.js";
 import type { AppEnv } from "../types.js";
-import { env } from "../config/env.js";
-import { mockDb } from "../mockDb.js";
 
 const walletsRoutes = new Hono<AppEnv>();
 
@@ -37,13 +35,11 @@ const walletStyleByType = {
 } as const;
 
 walletsRoutes.get("/", async (c) => {
-  if (env.IS_MOCK) {
-    return c.json({ data: mockDb.wallets });
-  }
   const user = c.get("user");
+  const db = c.get("supabase");
   const activeOnly = c.req.query("activeOnly") !== "0";
 
-  let query = supabaseAdmin.from("wallets").select("*").eq("user_id", user.id);
+  let query = db.from("wallets").select("*");
   if (activeOnly) query = query.eq("active", true);
 
   const { data, error } = await query;
@@ -64,23 +60,23 @@ walletsRoutes.post("/", async (c) => {
   if (!parsed.ok) return parsed.response;
 
   const style = walletStyleByType[parsed.data.type];
-  const payload = {
+  const db = c.get("supabase");
+  const { data, error } = await db.from("wallets").insert({
     user_id: user.id,
     name: parsed.data.name.trim(),
     type: parsed.data.type,
     icon: parsed.data.icon ?? style.icon,
     color: parsed.data.color ?? style.color,
     active: true,
-  };
+  }).select("*").single();
 
-  const { data, error } = await supabaseAdmin.from("wallets").insert(payload).select("*").single();
   if (error) return c.json({ error: error.message }, 400);
   return c.json({ data }, 201);
 });
 
 walletsRoutes.patch("/:id", async (c) => {
   const user = c.get("user");
-  const id = toNumberId(c.req.param("id"));
+  const id = toId(c.req.param("id"));
   if (!id) return c.json({ error: "Invalid wallet id" }, 400);
 
   const parsed = await parseJson(c, updateWalletSchema);
@@ -99,13 +95,8 @@ walletsRoutes.patch("/:id", async (c) => {
   }
   if (parsed.data.active !== undefined) updatePayload.active = parsed.data.active;
 
-  const { data, error } = await supabaseAdmin
-    .from("wallets")
-    .update(updatePayload)
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .select("*")
-    .single();
+  const db = c.get("supabase");
+  const { data, error } = await db.from("wallets").update(updatePayload).eq("id", id).select("*").single();
 
   if (error) return c.json({ error: error.message }, 400);
   return c.json({ data });
@@ -113,7 +104,7 @@ walletsRoutes.patch("/:id", async (c) => {
 
 walletsRoutes.get("/:id/stats", async (c) => {
   const user = c.get("user");
-  const id = toNumberId(c.req.param("id"));
+  const id = toId(c.req.param("id"));
   if (!id) return c.json({ error: "Invalid wallet id" }, 400);
 
   const month = c.req.query("month");
@@ -121,18 +112,10 @@ walletsRoutes.get("/:id/stats", async (c) => {
   const hasPeriod = Boolean(month && year);
   const prefix = hasPeriod ? `${year}-${String(month).padStart(2, "0")}` : null;
 
-  let incomeQuery = supabaseAdmin
-    .from("transactions")
-    .select("amount")
-    .eq("user_id", user.id)
-    .eq("wallet_id", id)
-    .eq("type", "income");
-  let expenseQuery = supabaseAdmin
-    .from("transactions")
-    .select("amount")
-    .eq("user_id", user.id)
-    .eq("wallet_id", id)
-    .eq("type", "expense");
+  const db = c.get("supabase");
+
+  let incomeQuery = db.from("transactions").select("amount").eq("wallet_id", id).eq("type", "income");
+  let expenseQuery = db.from("transactions").select("amount").eq("wallet_id", id).eq("type", "expense");
 
   if (prefix) {
     incomeQuery = incomeQuery.gte("date", `${prefix}-01`).lte("date", `${prefix}-31`);
@@ -146,13 +129,25 @@ walletsRoutes.get("/:id/stats", async (c) => {
   const income = (incomeRes.data ?? []).reduce((s, x) => s + Number(x.amount || 0), 0);
   const expense = (expenseRes.data ?? []).reduce((s, x) => s + Number(x.amount || 0), 0);
 
-  return c.json({
-    data: {
-      income,
-      expense,
-      balance: income - expense,
-    },
-  });
+  return c.json({ data: { income, expense, balance: income - expense } });
+});
+
+walletsRoutes.delete("/:id", async (c) => {
+  const user = c.get("user");
+  const id = toId(c.req.param("id"));
+  if (!id) return c.json({ error: "Invalid wallet id" }, 400);
+
+  const db = c.get("supabase");
+
+  const walletCheck = await db.from("wallets").select("id").eq("id", id).single();
+  if (walletCheck.error || !walletCheck.data) return c.json({ error: "Wallet not found" }, 404);
+
+  const txCheck = await db.from("transactions").select("id", { count: 'exact', head: true }).eq("wallet_id", id);
+  if (txCheck.count && txCheck.count > 0) return c.json({ error: "Cannot delete wallet with existing transactions" }, 400);
+
+  const { error } = await db.from("wallets").delete().eq("id", id);
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ ok: true });
 });
 
 export default walletsRoutes;

@@ -1,5 +1,6 @@
 "use client";
-import React from 'react';
+
+import { AlertTriangle } from "lucide-react";
 
 type Props = {
   open: boolean;
@@ -11,16 +12,45 @@ type Props = {
   cancelLabel?: string;
 };
 
-export default function ConfirmDialog({ open, title, message, onConfirm, onCancel, confirmLabel = 'Confirm', cancelLabel = 'Cancel' }: Props) {
+export default function ConfirmDialog({
+  open,
+  title,
+  message,
+  onConfirm,
+  onCancel,
+  confirmLabel = "Xác nhận",
+  cancelLabel = "Hủy",
+}: Props) {
   if (!open) return null;
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-      <div style={{ width: 'min(90vw, 520px)', background: '#fff', borderRadius: 8, padding: 20, boxShadow: '0 2px 14px rgba(0,0,0,0.2)' }}>
-        {title && <div style={{ fontWeight: 700, marginBottom: 8 }}>{title}</div>}
-        <div style={{ marginBottom: 16 }}>{message}</div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button onClick={onCancel} style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd', background: '#fff' }}>{cancelLabel}</button>
-          <button onClick={onConfirm} style={{ padding: '8px 12px', borderRadius: 6, border: 'none', background: '#2563eb', color: '#fff' }}>{confirmLabel}</button>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/40 p-4">
+      <div className="w-full max-w-lg rounded-[8px] border border-slate-200 bg-white shadow-[0_24px_64px_rgba(15,23,42,0.16)]">
+        <div className="flex items-start gap-3 border-b border-slate-200 px-5 py-4">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-amber-50 text-amber-700">
+            <AlertTriangle size={18} />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-slate-950">{title || "Xác nhận hành động"}</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-600">{message}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 px-5 py-4">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-[8px] border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-[8px] bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+          >
+            {confirmLabel}
+          </button>
         </div>
       </div>
     </div>

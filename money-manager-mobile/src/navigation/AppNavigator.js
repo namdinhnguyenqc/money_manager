@@ -25,6 +25,7 @@ import ModulesScreen from '../screens/ModulesScreen';
 import LoginScreen from '../screens/LoginScreen';
 import TenantLandingScreen from '../screens/TenantLandingScreen';
 import InvoiceHistoryScreen from '../screens/InvoiceHistoryScreen';
+import DepositScreen from '../screens/DepositScreen';
 import { subscribeToAuthChanges } from '../services/authService';
 import { isApiDataEnabled } from '../services/dataMode';
 import WebDesktopShell from '../components/ui/WebDesktopShell';
@@ -156,6 +157,13 @@ const WebAddTransactionScreen = withWebDesktopShell(AddTransactionScreen, {
   searchPlaceholder: 'Tìm giao dịch, danh mục, sổ...',
 });
 
+const WebDepositScreen = withWebDesktopShell(DepositScreen, {
+  routeName: 'Rental',
+  title: 'Quản lý tiền cọc',
+  subtitle: 'Theo dõi cọc giữ chỗ & hợp đồng',
+  searchPlaceholder: 'Tìm tiền cọc, khách thuê, phòng...',
+});
+
 function HomeStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -175,6 +183,7 @@ function HomeStack() {
       <Stack.Screen name="BankConfig" component={WebBankConfigScreen} />
       <Stack.Screen name="SmartBatchBilling" component={WebSmartBatchBillingScreen} />
       <Stack.Screen name="InvoiceHistory" component={InvoiceHistoryScreen} />
+      <Stack.Screen name="Deposits" component={WebDepositScreen} />
     </Stack.Navigator>
   );
 }
@@ -199,12 +208,14 @@ function MainTabs() {
           const icons = {
             Home: focused ? 'home' : 'home-outline',
             Analytics: focused ? 'bar-chart' : 'bar-chart-outline',
+            Deposits: focused ? 'wallet' : 'wallet-outline',
           };
           return <Ionicons name={icons[route.name]} size={24} color={color} />;
         },
       })}
     >
       <Tab.Screen name="Home" component={HomeStack} options={{ tabBarLabel: 'Trang chủ' }} />
+      <Tab.Screen name="Deposits" component={DepositScreen} options={{ tabBarLabel: 'Tiền cọc' }} />
       <Tab.Screen name="Analytics" component={AnalyticsScreen} options={{ tabBarLabel: 'Phân tích' }} />
     </Tab.Navigator>
   );

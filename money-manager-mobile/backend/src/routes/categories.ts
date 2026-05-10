@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { supabaseAdmin } from "../lib/supabase.js";
+import crypto from "crypto";
 import { requireAuth } from "../middleware/auth.js";
-import { parseJson, toNumberId } from "../utils/validation.js";
+import { parseJson, toId } from "../utils/validation.js";
 import type { AppEnv } from "../types.js";
 
 const categoriesRoutes = new Hono<AppEnv>();
@@ -16,8 +16,8 @@ const createCategorySchema = z.object({
   icon: z.string().optional(),
   color: z.string().optional(),
   type: categoryTypeEnum,
-  walletId: z.number().int().positive(),
-  parentId: z.number().int().positive().nullable().optional(),
+  walletId: z.string().min(1),
+  parentId: z.string().nullable().optional(),
 });
 
 const updateCategorySchema = z
@@ -25,7 +25,7 @@ const updateCategorySchema = z
     name: z.string().min(1).optional(),
     icon: z.string().optional(),
     color: z.string().optional(),
-    parentId: z.number().int().positive().nullable().optional(),
+    parentId: z.string().nullable().optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, "No fields to update");
 
@@ -34,7 +34,8 @@ categoriesRoutes.get("/", async (c) => {
   const type = c.req.query("type");
   const walletIdRaw = c.req.query("walletId");
 
-  let query = supabaseAdmin
+  const db = c.get("supabase");
+  let query = db
     .from("categories")
     .select("*")
     .eq("user_id", user.id)
@@ -47,9 +48,7 @@ categoriesRoutes.get("/", async (c) => {
   }
 
   if (walletIdRaw) {
-    const walletId = Number(walletIdRaw);
-    if (!Number.isInteger(walletId) || walletId <= 0) return c.json({ error: "Invalid walletId" }, 400);
-    query = query.eq("wallet_id", walletId);
+    query = query.eq("wallet_id", walletIdRaw);
   }
 
   const { data, error } = await query;
@@ -72,14 +71,15 @@ categoriesRoutes.post("/", async (c) => {
     parent_id: parsed.data.parentId ?? null,
   };
 
-  const { data, error } = await supabaseAdmin.from("categories").insert(payload).select("*").single();
+  const db = c.get("supabase");
+  const { data, error } = await db.from("categories").insert(payload).select("*").single();
   if (error) return c.json({ error: error.message }, 400);
   return c.json({ data }, 201);
 });
 
 categoriesRoutes.patch("/:id", async (c) => {
   const user = c.get("user");
-  const id = toNumberId(c.req.param("id"));
+  const id = toId(c.req.param("id"));
   if (!id) return c.json({ error: "Invalid category id" }, 400);
 
   const parsed = await parseJson(c, updateCategorySchema);
@@ -92,7 +92,8 @@ categoriesRoutes.patch("/:id", async (c) => {
   if (parsed.data.parentId !== undefined) payload.parent_id = parsed.data.parentId;
   payload.updated_at = new Date().toISOString();
 
-  const { data, error } = await supabaseAdmin
+  const db = c.get("supabase");
+  const { data, error } = await db
     .from("categories")
     .update(payload)
     .eq("user_id", user.id)
@@ -106,16 +107,17 @@ categoriesRoutes.patch("/:id", async (c) => {
 
 categoriesRoutes.delete("/:id", async (c) => {
   const user = c.get("user");
-  const id = toNumberId(c.req.param("id"));
+  const id = toId(c.req.param("id"));
   if (!id) return c.json({ error: "Invalid category id" }, 400);
 
-  await supabaseAdmin
+  const db = c.get("supabase");
+  await db
     .from("transactions")
     .update({ category_id: null })
     .eq("user_id", user.id)
     .eq("category_id", id);
 
-  const { error } = await supabaseAdmin
+  const { error } = await db
     .from("categories")
     .delete()
     .eq("user_id", user.id)

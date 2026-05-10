@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Quản Lý Tài Chính",
+    "name": "TrọCare",
     "slug": "money-manager-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#3b82f6"
+      "backgroundColor": "#1D8FE1"
     },
     "ios": {
       "supportsTablet": true,
@@ -25,7 +25,7 @@
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#3b82f6"
+        "backgroundColor": "#1D8FE1"
       },
       "permissions": [
         "android.permission.CAMERA",

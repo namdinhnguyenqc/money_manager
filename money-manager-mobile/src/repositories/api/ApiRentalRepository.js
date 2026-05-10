@@ -17,7 +17,7 @@ export class ApiRentalRepository {
       numPeople: Number(numPeople || 1),
       walletId: walletId ? Number(walletId) : null,
     });
-    return Number(res?.data?.id);
+    return res?.data?.id;
   }
 
   async updateRoom(id, name, price, hasAc, numPeople) {
@@ -46,7 +46,7 @@ export class ApiRentalRepository {
       idCard: idCard || '',
       address: address || '',
     });
-    return Number(res?.data?.id);
+    return res?.data?.id;
   }
 
   async updateTenant(id, data) {
@@ -66,13 +66,13 @@ export class ApiRentalRepository {
 
   async addContract(roomId, tenantId, startDate, deposit, serviceIds = []) {
     const res = await apiClient.post('/rental/contracts', {
-      roomId: Number(roomId),
-      tenantId: Number(tenantId),
+      roomId,
+      tenantId,
       startDate,
       deposit: Number(deposit || 0),
       serviceIds,
     });
-    return Number(res?.data?.id);
+    return res?.data?.id;
   }
 
   async updateContract(id, { startDate, deposit, serviceIds = [] }) {
@@ -84,13 +84,21 @@ export class ApiRentalRepository {
     return res?.data || null;
   }
 
-  async terminateContract(id, roomId, refundAmount = 0, walletId = null) {
+  async terminateContract(id, roomId, refundData) {
     const payload = {
-      roomId: Number(roomId),
-      refundAmount: Number(refundAmount || 0),
-      walletId: walletId ? Number(walletId) : null,
+      roomId,
+      refundAmount: Number(refundData.refundAmount || 0),
+      refundDate: refundData.refundDate,
+      refundMethod: refundData.refundMethod,
+      note: refundData.note,
+      walletId: refundData.walletId ? Number(refundData.walletId) : null,
     };
     await apiClient.post(`/rental/contracts/${id}/terminate`, payload);
+  }
+
+  async getDepositRefund(contractId) {
+    const res = await apiClient.get(`/rental/contracts/${contractId}/refund`);
+    return res?.data;
   }
 
   async getServices(activeOnly = true) {
@@ -108,7 +116,7 @@ export class ApiRentalRepository {
       unit,
       icon,
     });
-    return Number(res?.data?.id);
+    return res?.data?.id;
   }
 
   async updateService(id, { unitPrice, unitPriceAc, active }) {

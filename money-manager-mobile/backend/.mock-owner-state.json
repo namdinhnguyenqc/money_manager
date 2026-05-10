@@ -1,0 +1,22 @@
+{
+  "00000000-0000-0000-0000-000000000003": {
+    "boardingHouses": [],
+    "rooms": [],
+    "leads": [],
+    "bookings": [],
+    "conversations": [],
+    "messages": [],
+    "notifications": [],
+    "auditLogs": []
+  },
+  "mock-google-owner-6e616d6368656c7365613236": {
+    "boardingHouses": [],
+    "rooms": [],
+    "leads": [],
+    "bookings": [],
+    "conversations": [],
+    "messages": [],
+    "notifications": [],
+    "auditLogs": []
+  }
+}

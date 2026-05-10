@@ -5,7 +5,7 @@ import { AddTradingItemModal, SellTradingItemModal } from '../TradeModals';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0)) + ' ₫';
 
-export default function TradingPage() {
+export default function TradingPage({ navigate }) {
   const [wallets, setWallets] = useState([]);
   const [selectedWallet, setSelectedWallet] = useState(null);
   const [items, setItems] = useState([]);
@@ -83,7 +83,12 @@ export default function TradingPage() {
             </button>
           ))}
           {wallets.length === 0 && (
-            <p className="text-sm text-text-muted">Chưa có ví kinh doanh nào</p>
+            <div className="rounded-xl bg-background p-3 text-sm text-text-muted">
+              Chưa có ví kinh doanh.{' '}
+              <button type="button" onClick={() => navigate?.('settings')} className="font-bold text-primary">
+                Đi tới thiết lập
+              </button>
+            </div>
           )}
         </div>
 

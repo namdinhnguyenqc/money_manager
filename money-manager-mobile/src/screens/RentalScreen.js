@@ -237,6 +237,10 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
                     </TouchableOpacity>
                   </>
                 )}
+                <TouchableOpacity style={[styles.actionBtn, styles.actionBtnOutline]} onPress={() => navigation.navigate('Deposits')}>
+                  <Ionicons name="wallet-outline" size={16} color={COLORS.primary} />
+                  <Text style={styles.actionBtnTextOutline}>Tiền cọc</Text>
+                </TouchableOpacity>
                 <TouchableOpacity style={[styles.actionBtn, styles.actionBtnPrimary]} onPress={() => { setEditingRoom(null); setShowAddRoom(true); }}>
                   <Ionicons name="add" size={18} color="#fff" />
                   <Text style={styles.actionBtnTextPrimary}>Thêm phòng</Text>
@@ -294,6 +298,10 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
                            <View style={[styles.statusPill, { backgroundColor: COLORS.primaryLight }]}>
                              <Text style={[styles.statusPillText, { color: COLORS.primaryDark }]}>Đang thuê</Text>
                            </View>
+                        ) : room.status === 'reserved' ? (
+                           <View style={[styles.statusPill, { backgroundColor: '#FFF3E0' }]}>
+                             <Text style={[styles.statusPillText, { color: '#E65100' }]}>Đã cọc</Text>
+                           </View>
                         ) : (
                            <View style={[styles.statusPill, { backgroundColor: COLORS.surfaceHigh }]}>
                              <Text style={[styles.statusPillText, { color: COLORS.textSecondary }]}>Trống</Text>
@@ -325,6 +333,17 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
                             </View>
                           </View>
                         </>
+                      ) : room.status === 'reserved' ? (
+                        <View style={styles.vacantBody}>
+                          <View style={[styles.vacantIconWrap, { backgroundColor: '#FFF3E0' }]}>
+                             <Ionicons name="bookmark" size={32} color="#E65100" />
+                          </View>
+                          <Text style={[styles.tenantName, { textAlign: 'center' }]}>{room.res_tenant_name || 'Đã có khách cọc'}</Text>
+                          <TouchableOpacity style={[styles.rentBtn, { backgroundColor: '#E65100' }]} onPress={() => setShowAddTenant(room)}>
+                            <Ionicons name="document-text-outline" size={16} color="#fff" />
+                            <Text style={styles.rentBtnText}>Ký hợp đồng</Text>
+                          </TouchableOpacity>
+                        </View>
                       ) : (
                         <View style={styles.vacantBody}>
                           <View style={styles.vacantIconWrap}>

@@ -136,13 +136,22 @@ export const getInvoiceHistory = async (contractId) => {
 export const getPreviousDebt = async (roomId, month, year) => {
   if (shouldUseApiData()) return await apiInvoiceRepository.getPreviousDebt(roomId, month, year);
   const db = await getDb();
+  
+  // 1. Get current active contract
+  const activeContract = await db.getFirstAsync(
+    `SELECT id FROM contracts WHERE room_id=? AND status='active'`, [roomId]
+  );
+  if (!activeContract) return 0;
+
   let prevMonth = month - 1;
   let prevYear = year;
   if (prevMonth === 0) { prevMonth = 12; prevYear -= 1; }
+
   const prev = await db.getFirstAsync(`
     SELECT total_amount, paid_amount FROM invoices 
-    WHERE room_id=? AND month=? AND year=? AND status != 'paid'
-  `, [roomId, prevMonth, prevYear]);
+    WHERE room_id=? AND contract_id=? AND month=? AND year=? AND status != 'paid'
+  `, [roomId, activeContract.id, prevMonth, prevYear]);
+  
   if (!prev) return 0;
   return (prev.total_amount || 0) - (prev.paid_amount || 0);
 };
@@ -150,11 +159,27 @@ export const getPreviousDebt = async (roomId, month, year) => {
 export const getLatestMeterReadings = async (roomId) => {
   if (shouldUseApiData()) return await apiInvoiceRepository.getLatestMeterReadings(roomId);
   const db = await getDb();
-  return await db.getFirstAsync(`
+  
+  // 1. Get active contract
+  const activeContract = await db.getFirstAsync(
+    `SELECT id, electric_start, water_start FROM contracts WHERE room_id=? AND status='active'`, [roomId]
+  );
+  if (!activeContract) return { elec_old: 0, water_old: 0 };
+
+  // 2. Try to get latest invoice for THIS contract
+  const latestInvoice = await db.getFirstAsync(`
     SELECT elec_new as elec_old, water_new as water_old 
     FROM invoices 
-    WHERE room_id=? AND elec_new IS NOT NULL 
+    WHERE room_id=? AND contract_id=? AND elec_new IS NOT NULL 
     ORDER BY year DESC, month DESC 
     LIMIT 1
-  `, [roomId]);
+  `, [roomId, activeContract.id]);
+
+  if (latestInvoice) return latestInvoice;
+
+  // 3. If no invoice yet, use contract start values
+  return {
+    elec_old: activeContract.electric_start || 0,
+    water_old: activeContract.water_start || 0
+  };
 };

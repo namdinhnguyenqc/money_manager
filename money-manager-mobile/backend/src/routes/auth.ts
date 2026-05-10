@@ -13,6 +13,7 @@ import { parseJson } from "../utils/validation.js";
 import { requireAuth, getClientIp, getDeviceInfo } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
+import { buildProfileAuthMeta, getUserProfile } from "../lib/profileStore.js";
 
 const authRoutes = new Hono<AppEnv>();
 
@@ -20,8 +21,17 @@ const googleAuthSchema = z.object({
   idToken: z.string().min(10),
 });
 
+const ownerGoogleAuthSchema = z.object({
+  idToken: z.string().optional(),
+});
+
 const refreshSchema = z.object({
   refreshToken: z.string().min(10),
+});
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
 });
 
 const adminLoginSchema = z.object({
@@ -33,7 +43,10 @@ const adminLoginSchema = z.object({
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin";
 
+
 let googleOAuth2Client: OAuth2Client | null = null;
+
+
 
 function getGoogleClient(): OAuth2Client {
   if (!googleOAuth2Client && env.GOOGLE_CLIENT_ID) {
@@ -47,10 +60,7 @@ async function logLoginAttempt(
   success: boolean,
   failReason?: string
 ) {
-  if (env.IS_MOCK) {
-    console.log("Mock login attempt logged:", { userId, success, failReason });
-    return;
-  }
+
   const { error } = await supabaseAdmin.from("login_logs").insert({
     user_id: userId,
     provider: "GOOGLE",
@@ -63,21 +73,7 @@ async function logLoginAttempt(
 }
 
 async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string) {
-  const client = getGoogleClient();
-  if (!env.GOOGLE_CLIENT_ID || !client) {
-    // Mock mode: return a regular USER (not admin)
-    const mockUser = {
-      id: "mock-google-user",
-      google_id: "mock-google-id",
-      email: "user@gmail.com",
-      name: "Mock User",
-      avatar: null,
-      role: "USER",
-      status: "ACTIVE",
-      provider: "GOOGLE",
-    };
-    return createAuthResponse(mockUser, false);
-  }
+
 
   let ticket;
   try {
@@ -89,8 +85,8 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
     await logLoginAttempt(null, false, "TOKEN_INVALID");
     return { error: { code: "TOKEN_INVALID", message: "Xác thực Google thất bại." }, status: 401 };
   }
-
   const payload = ticket.getPayload();
+
   if (!payload) {
     await logLoginAttempt(null, false, "TOKEN_INVALID");
     return { error: { code: "TOKEN_INVALID", message: "Token payload not found." }, status: 401 };
@@ -104,7 +100,7 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
   let { data: existingUser, error: findError } = await supabaseAdmin
     .from("users")
     .select("*")
-    .eq("google_id", googleId)
+    .or(`google_id.eq.${googleId},email.eq.${email}`)
     .single();
 
   if (findError && findError.code !== "PGRST116") {
@@ -122,7 +118,7 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
         email,
         name,
         avatar,
-        role: "USER",
+        role: "OWNER",
         status: "ACTIVE",
         provider: "GOOGLE",
         last_login_at: new Date().toISOString(),
@@ -132,7 +128,7 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
 
     if (createError) {
       console.error("Error creating user:", createError);
-      return { error: { code: "SERVER_ERROR", message: "Không thể tạo tài khoản." }, status: 500 };
+      return { error: { code: "SERVER_ERROR", message: `[AUTH_ROUTE_001] Không thể tạo tài khoản: ${createError.message}` }, status: 500 };
     }
     existingUser = newUser;
   } else {
@@ -146,50 +142,207 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
       return { error: { code: "ACCOUNT_DELETED", message: "Tài khoản đã bị xóa." }, status: 403 };
     }
 
-    await supabaseAdmin
+    // Update existing user info if found by email but google_id was missing
+    const { data: updatedUser, error: updateError } = await supabaseAdmin
       .from("users")
       .update({
+        google_id: googleId, // Link google_id if missing or different
         name,
         avatar,
         last_login_at: new Date().toISOString(),
       })
-      .eq("id", existingUser.id);
+      .eq("id", existingUser.id)
+      .select()
+      .single();
+    
+    if (updateError) {
+      console.error("Error updating existing user during login:", updateError);
+    } else if (updatedUser) {
+      existingUser = updatedUser;
+    }
   }
 
   await logLoginAttempt(existingUser.id, true);
   return createAuthResponse(existingUser, isNewUser);
 }
 
+async function upsertOwnerGoogleUser(input: {
+  email: string;
+  googleId: string;
+  name?: string | null;
+  avatar?: string | null;
+  isProfileCompleted?: boolean;
+}) {
+  const email = input.email.toLowerCase();
+  const googleId = input.googleId;
+  const name = input.name;
+  const avatar = input.avatar;
+  const isProfileCompleted = input.isProfileCompleted ?? false;
+  let { data: existingUser, error: findError } = await supabaseAdmin
+    .from("users")
+    .select("*")
+    .or(`google_id.eq.${googleId},email.eq.${email}`)
+    .single();
+
+  if (findError && findError.code !== "PGRST116") {
+    console.error("Error finding owner google user:", findError);
+    return { error: { code: "SERVER_ERROR", message: "Không thể kiểm tra tài khoản owner." }, status: 500 };
+  }
+
+  if (!existingUser) {
+    // Automatically allow any email to be an owner when logging in via this portal
+
+    const { data: createdUser, error: createError } = await supabaseAdmin
+      .from("users")
+      .insert({
+        google_id: googleId,
+        email,
+        name,
+        avatar,
+        role: "OWNER",
+        status: "ACTIVE",
+        provider: "GOOGLE",
+        is_profile_completed: isProfileCompleted,
+        onboarding_step: isProfileCompleted ? "DONE" : "COMPLETE_PROFILE",
+        last_login_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (createError || !createdUser) {
+      console.error("Error creating owner google user:", createError);
+      return { error: { code: "SERVER_ERROR", message: "[AUTH_ROUTE_002] Không thể tạo tài khoản owner." }, status: 500 };
+    }
+
+    existingUser = createdUser;
+  } else {
+    // Auto-upgrade existing users to OWNER if they login via this portal
+    if (existingUser.role === "USER") {
+      const { data: upgradedUser } = await supabaseAdmin
+        .from("users")
+        .update({ role: "OWNER" })
+        .eq("id", existingUser.id)
+        .select()
+        .single();
+      if (upgradedUser) {
+        existingUser = upgradedUser;
+      }
+    }
+
+    if (!["OWNER", "SUPER_ADMIN"].includes(existingUser.role)) {
+      return { error: { code: "OWNER_ACCESS_REQUIRED", message: "Tài khoản này không có quyền owner." }, status: 403 };
+    }
+    if (existingUser.status === "BLOCKED") {
+      return { error: { code: "ACCOUNT_BLOCKED", message: "Tài khoản owner đã bị khóa." }, status: 403 };
+    }
+    if (existingUser.status === "DELETED") {
+      return { error: { code: "ACCOUNT_DELETED", message: "Tài khoản owner đã bị xóa." }, status: 403 };
+    }
+
+    const { data: updatedUser } = await supabaseAdmin
+      .from("users")
+      .update({
+        google_id: googleId,
+        email,
+        name,
+        avatar,
+        provider: "GOOGLE",
+        last_login_at: new Date().toISOString(),
+      })
+      .eq("id", existingUser.id)
+      .select()
+      .single();
+
+    if (updatedUser) existingUser = updatedUser;
+  }
+
+  return createAuthResponse(existingUser, false);
+}
+
+async function handleOwnerGoogleAuth(idToken: string | undefined) {
+
+
+  if (!idToken) {
+    return { error: { code: "TOKEN_INVALID", message: "Thiếu Google credential." }, status: 400 };
+  }
+
+  if (process.env.NODE_ENV !== "production" && idToken.startsWith("mock-")) {
+    const isNewMockOwner = idToken === "mock-new-owner-google-token";
+    return upsertOwnerGoogleUser({
+      googleId: idToken,
+      email: isNewMockOwner ? "new.owner.local@example.com" : "owner.local@example.com",
+      name: isNewMockOwner ? "New Local Owner" : "Local Owner",
+      avatar: null,
+      isProfileCompleted: !isNewMockOwner,
+    });
+  }
+
+  let ticket;
+  try {
+    ticket = await getGoogleClient().verifyIdToken({
+      idToken,
+      audience: env.GOOGLE_CLIENT_ID,
+    });
+  } catch {
+    return { error: { code: "TOKEN_INVALID", message: "Xác thực Google thất bại." }, status: 401 };
+  }
+
+  const payload = ticket.getPayload();
+  if (!payload?.email) {
+    return { error: { code: "TOKEN_INVALID", message: "Token payload không hợp lệ." }, status: 400 };
+  }
+
+  return upsertOwnerGoogleUser({
+    googleId: payload.sub,
+    email: payload.email,
+    name: payload.name,
+    avatar: payload.picture,
+  });
+}
+
 async function createAuthResponse(user: any, isNewUser: boolean) {
-  const accessToken = await generateAccessToken(user);
+  const profileMeta = await buildProfileAuthMeta(user);
+  const authUser = {
+    ...user,
+    isProfileCompleted: profileMeta.isProfileCompleted,
+    onboardingStep: profileMeta.onboardingStep,
+  };
+  const accessToken = await generateAccessToken(authUser);
   const refreshToken = await generateRefreshToken();
   const tokenHash = await hashToken(refreshToken);
   const expiresAt = addDays(new Date(), env.REFRESH_TOKEN_EXPIRY_DAYS);
 
-  if (!env.IS_MOCK) {
-    await supabaseAdmin.from("refresh_tokens").insert({
-      user_id: user.id,
-      token_hash: tokenHash,
-      expires_at: expiresAt.toISOString(),
-    });
-  }
+  await supabaseAdmin.from("refresh_tokens").insert({
+    user_id: user.id,
+    token_hash: tokenHash,
+    expires_at: expiresAt.toISOString(),
+  });
 
   return {
     accessToken,
     refreshToken,
+    session: {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_at: expiresAt.toISOString(),
+    },
     user: {
       id: user.id,
       email: user.email,
       name: user.name,
-      avatar: user.avatar,
+      avatarUrl: user.avatarUrl,
       role: user.role,
       status: user.status,
+      authProvider: user.provider,
       isNewUser,
+      isProfileCompleted: profileMeta.isProfileCompleted,
+      onboardingStep: profileMeta.onboardingStep,
     },
+    profile: profileMeta.profile,
+    nextStep: profileMeta.nextStep,
   };
 }
 
-// ==================== ROUTES ====================
 
 // POST /auth/admin-login — Username/Password login for Web Admin
 authRoutes.post("/admin-login", async (c) => {
@@ -207,8 +360,8 @@ authRoutes.post("/admin-login", async (c) => {
     email: "admin@moneymanager.local",
     name: "Administrator",
     avatar: null,
-    role: "SUPER_ADMIN",
-    status: "ACTIVE",
+    role: "SUPER_ADMIN" as const,
+    status: "ACTIVE" as const,
     provider: "LOCAL",
   };
 
@@ -237,8 +390,21 @@ authRoutes.post("/google", async (c) => {
 
   const result = await handleGoogleAuth(parsed.data.idToken, ip, deviceInfo);
 
-  if (result.error) {
-    return c.json(result.error, result.status);
+  if ("error" in result) {
+    return c.json(result.error, result.status as any);
+  }
+
+  return c.json(result);
+});
+
+// POST /auth/owner-google — Owner-only Google sign-in for web admin
+authRoutes.post("/owner-google", async (c) => {
+  const parsed = await parseJson(c, ownerGoogleAuthSchema);
+  if (!parsed.ok) return parsed.response;
+
+  const result = await handleOwnerGoogleAuth(parsed.data.idToken);
+  if ("error" in result) {
+    return c.json(result.error, result.status as any);
   }
 
   return c.json(result);
@@ -251,12 +417,7 @@ authRoutes.post("/refresh", async (c) => {
 
   const { refreshToken } = parsed.data;
 
-  if (env.IS_MOCK) {
-    // In mock mode, just return a new access token for the mock user
-    const mockUser = { id: "mock-google-user", email: "user@gmail.com", role: "USER", status: "ACTIVE", google_id: "", provider: "GOOGLE" };
-    const accessToken = await generateAccessToken(mockUser);
-    return c.json({ accessToken });
-  }
+
 
   const tokenHash = await hashToken(refreshToken);
   const { data: tokenRecord, error: findError } = await supabaseAdmin
@@ -277,7 +438,23 @@ authRoutes.post("/refresh", async (c) => {
   const user = tokenRecord.users;
   const accessToken = await generateAccessToken(user);
 
-  return c.json({ accessToken });
+  return c.json({
+    accessToken,
+    refreshToken,
+    session: {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_at: tokenRecord.expires_at,
+    },
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatarUrl: user.avatarUrl,
+      role: user.role,
+      status: user.status,
+    },
+  });
 });
 
 // POST /auth/logout
@@ -286,7 +463,7 @@ authRoutes.post("/logout", async (c) => {
   try {
     const body = await c.req.json().catch(() => ({}));
     const refreshToken = body?.refreshToken;
-    if (refreshToken && !env.IS_MOCK) {
+    if (refreshToken) {
       const tokenHash = await hashToken(refreshToken);
       await supabaseAdmin
         .from("refresh_tokens")
@@ -302,32 +479,42 @@ authRoutes.post("/logout", async (c) => {
 authRoutes.get("/me", requireAuth, async (c) => {
   const user = c.get("user");
 
-  // For built-in admin or mock mode, return from JWT payload directly
-  if (user.id === "admin-builtin" || (env.IS_MOCK && user.id?.startsWith("mock-"))) {
-    return c.json({
+  if (user.id === "admin-builtin") {
+    let isProfileCompleted = user.role === "OWNER" ? Boolean(user.isProfileCompleted) : true;
+    let onboardingStep = user.role === "OWNER" ? (user.onboardingStep || "COMPLETE_PROFILE") : "DONE";
+
+    const responseUser = {
       id: user.id,
       email: user.email,
-      name: user.id === "admin-builtin" ? "Administrator" : "Mock User",
-      avatar: null,
+      name: user.name || "Administrator",
+      avatarUrl: user.avatarUrl ?? null,
       role: user.role,
       status: user.status || "ACTIVE",
-    });
+      authProvider: user.authProvider || null,
+      isProfileCompleted,
+      onboardingStep,
+    };
+    return c.json({ ...responseUser, user: responseUser });
   }
 
   const { data: dbUser } = await supabaseAdmin
     .from("users")
-    .select("id, email, name, avatar, role, status")
+    .select("id, email, name, avatar_url, role, status, is_profile_completed, onboarding_step")
     .eq("id", user.id)
     .single();
 
-  return c.json({
+  const responseUser = {
     id: dbUser?.id,
     email: dbUser?.email,
     name: dbUser?.name,
-    avatar: dbUser?.avatar,
+    avatarUrl: (dbUser as any)?.avatar_url,
     role: dbUser?.role,
     status: dbUser?.status,
-  });
+    isProfileCompleted: dbUser?.is_profile_completed ?? true,
+    onboardingStep: dbUser?.onboarding_step ?? "DONE",
+  };
+
+  return c.json({ ...responseUser, user: responseUser });
 });
 
 export default authRoutes;

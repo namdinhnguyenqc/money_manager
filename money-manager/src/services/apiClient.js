@@ -52,6 +52,10 @@ const apiClient = {
     const headers = await getHeaders(opts);
     return executeRequest(`${BASE_URL}${endpoint}`, { method: 'GET', headers }, opts);
   },
+  async put(endpoint, body, opts = {}) {
+    const headers = await getHeaders(opts);
+    return executeRequest(`${BASE_URL}${endpoint}`, { method: 'PUT', headers, body: JSON.stringify(body) }, opts);
+  },
   async post(endpoint, body, opts = {}) {
     const headers = await getHeaders(opts);
     return executeRequest(`${BASE_URL}${endpoint}`, { method: 'POST', headers, body: JSON.stringify(body) }, opts);

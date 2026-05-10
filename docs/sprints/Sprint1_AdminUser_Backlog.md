@@ -109,3 +109,41 @@ US-SP1-UI-OW-002: Owner Rooms management
 - Gửi cho Senior BA/PO: Sprint 1 backlog chi tiết (US-xxx) với Acceptance Criteria đầy đủ.
 - Chuẩn bị kickoff: agenda và slide notes
 - Thiết lập staging để migrate và test flow MVP (Admin + Owner) và verify 1:N mapping
+
+10) QA Regression – Module phòng trọ
+
+Scope hiện tại: Owner vận hành cơ sở/phòng, tạo hợp đồng, tạo hóa đơn, ghi nhận thu tiền. Chưa test trong Sprint 1: yêu cầu thuê, chat, notification push/email.
+
+P0 regression cases
+- RT-001 Create room in facility context
+  - Route: `/facilities/:facility_id`
+  - Steps: vào cơ sở, bấm `Thêm phòng`, nhập số phòng và giá thuê/tháng, submit.
+  - Expected: phòng mới xuất hiện trong tab Phòng, không cần user nhập `facility_id`, API tạo đúng cơ sở hiện tại.
+- RT-002 Create contract happy case
+  - Route: `/contracts/new?room_id=:room_id&facility_id=:facility_id`
+  - Steps: chọn phòng trống, nhập tenant hợp lệ, nhập thời hạn/chỉ số đầu kỳ, tạo hợp đồng.
+  - Expected: navigate sang `/contracts/:id`, phòng chuyển sang trạng thái đang thuê.
+- RT-003 Tenant validation regression
+  - Payload bug cũ: `{ name: "Khách A", phone: "1", email: "0927368772@gmail.com", idCard: "1" }`
+  - Expected: FE hiển thị lỗi `Số điện thoại phải có 10 số` và `CCCD phải có đúng 12 số`; không gọi API tạo tenant; không hiện Next runtime overlay.
+- RT-004 Invoice creation from contract
+  - Route: `/invoices/new?contract_id=:contract_id`
+  - Steps: nhập chỉ số điện/nước cuối kỳ, tạo và gửi luôn.
+  - Expected: navigate sang `/invoices/:id`, bảng chi phí có tiền phòng, điện, nước, tổng tiền.
+- RT-005 Payment collection
+  - Route: `/payments/new?invoice_id=:invoice_id`
+  - Steps: xác nhận thu tiền đủ.
+  - Expected: invoice cập nhật đã thanh toán, có transaction/lịch sử thu tiền, navigate về `/invoices/:id`.
+- RT-006 Payment history
+  - Route: `/payments`
+  - Steps: sau khi RT-005, vào lịch sử thu tiền.
+  - Expected: thấy dòng thu tiền đúng phòng/khách/số tiền/hóa đơn liên quan.
+
+Automated coverage hiện có
+- Unit: `web-admin/__tests__/rentalOps.validation.test.tsx`
+  - Chặn phone/idCard sai trước khi gọi `/rental/tenants`.
+  - Xác nhận field error cho phone, idCard, email.
+  - Xác nhận tenant hợp lệ pass validation.
+- E2E: `web-admin/tests/e2e/owner-rental-billing-flow.spec.ts`
+  - Happy case full flow: cơ sở → thêm phòng → tạo hợp đồng → tạo hóa đơn → thu tiền → lịch sử thu tiền.
+  - Regression: form tạo hợp đồng chặn payload tenant sai và không crash runtime.

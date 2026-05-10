@@ -1,9 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { supabaseAdmin } from "../lib/supabase.js";
+import crypto from "crypto";
 import { requireAuth } from "../middleware/auth.js";
 import { parseJson } from "../utils/validation.js";
 import type { AppEnv } from "../types.js";
+import { env } from "../config/env.js";
 
 const bankConfigRoutes = new Hono<AppEnv>();
 
@@ -19,16 +20,27 @@ const upsertBankConfigSchema = z.object({
 
 bankConfigRoutes.get("/", async (c) => {
   const user = c.get("user");
-  const { data, error } = await supabaseAdmin
+  const db = c.get("supabase");
+  const { data, error } = await db
     .from("bank_config")
     .select("*")
     .eq("user_id", user.id)
-    .eq("active", true)
     .limit(1)
     .maybeSingle();
 
   if (error) return c.json({ error: error.message }, 500);
-  return c.json({ data: data ?? null });
+  
+  if (!data) return c.json({ data: null });
+  
+  return c.json({ 
+    data: {
+      id: data.id,
+      bank_id: data.bank_name,
+      account_no: data.account_number,
+      account_name: data.account_name,
+      qr_uri: data.qr_template,
+    } 
+  });
 });
 
 bankConfigRoutes.put("/", async (c) => {
@@ -36,48 +48,58 @@ bankConfigRoutes.put("/", async (c) => {
   const parsed = await parseJson(c, upsertBankConfigSchema);
   if (!parsed.ok) return parsed.response;
 
-  const existing = await supabaseAdmin
+  const db = c.get("supabase");
+  const existing = await db
     .from("bank_config")
     .select("id")
     .eq("user_id", user.id)
-    .eq("active", true)
     .limit(1)
     .maybeSingle();
 
   if (existing.error) return c.json({ error: existing.error.message }, 500);
 
   const payload = {
-    bank_id: parsed.data.bank_id,
-    account_no: parsed.data.account_no,
+    bank_name: parsed.data.bank_id,
+    account_number: parsed.data.account_no,
     account_name: parsed.data.account_name,
-    qr_uri: parsed.data.qr_uri ?? null,
-    user_avatar: parsed.data.user_avatar ?? null,
+    qr_template: parsed.data.qr_uri ?? null,
     updated_at: new Date().toISOString(),
   };
 
   if (existing.data?.id) {
-    const updateRes = await supabaseAdmin
+    const updateRes = await db
       .from("bank_config")
       .update(payload)
       .eq("user_id", user.id)
-      .eq("id", Number(existing.data.id))
+      .eq("id", existing.data.id)
       .select("*")
       .single();
     if (updateRes.error) return c.json({ error: updateRes.error.message }, 400);
-    return c.json({ data: updateRes.data });
+    return c.json({ data: {
+      id: updateRes.data.id,
+      bank_id: updateRes.data.bank_name,
+      account_no: updateRes.data.account_number,
+      account_name: updateRes.data.account_name,
+      qr_uri: updateRes.data.qr_template,
+    } });
   }
 
-  const insertRes = await supabaseAdmin
+  const insertRes = await db
     .from("bank_config")
     .insert({
       user_id: user.id,
       ...payload,
-      active: true,
     })
     .select("*")
     .single();
   if (insertRes.error) return c.json({ error: insertRes.error.message }, 400);
-  return c.json({ data: insertRes.data }, 201);
+  return c.json({ data: {
+    id: insertRes.data.id,
+    bank_id: insertRes.data.bank_name,
+    account_no: insertRes.data.account_number,
+    account_name: insertRes.data.account_name,
+    qr_uri: insertRes.data.qr_template,
+  } }, 201);
 });
 
 export default bankConfigRoutes;

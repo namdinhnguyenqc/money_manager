@@ -1,0 +1,9 @@
+{
+  "name": "money-manager-root",
+  "private": true,
+  "scripts": {
+    "local:backend": "npm --prefix money-manager-mobile/backend run dev",
+    "local:ui": "npm --prefix web-admin run dev",
+    "local": "npm run local:backend & npm run local:ui"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "_globalUsers": [
+    {
+      "id": "admin-builtin",
+      "email": "admin@moneymanager.local",
+      "name": "Administrator",
+      "avatar": null,
+      "role": "SUPER_ADMIN",
+      "status": "ACTIVE",
+      "provider": "LOCAL",
+      "created_at": "2026-05-01T11:46:01.609Z",
+      "last_login_at": "2026-05-01T11:46:01.610Z"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000003",
+      "email": "owner@example.com",
+      "name": "Demo Owner",
+      "avatar": null,
+      "role": "OWNER",
+      "status": "ACTIVE",
+      "provider": "LOCAL",
+      "created_at": "2026-05-01T11:46:01.610Z",
+      "last_login_at": "2026-05-01T11:46:01.610Z"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "email": "admin@example.com",
+      "name": "Demo Admin",
+      "avatar": null,
+      "role": "ADMIN",
+      "status": "ACTIVE",
+      "provider": "LOCAL",
+      "created_at": "2026-05-01T11:46:01.610Z",
+      "last_login_at": "2026-05-01T11:46:01.610Z"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "email": "user@example.com",
+      "name": "Demo User",
+      "avatar": null,
+      "role": "USER",
+      "status": "ACTIVE",
+      "provider": "LOCAL",
+      "created_at": "2026-05-01T11:46:01.610Z",
+      "last_login_at": "2026-05-01T11:46:01.610Z"
+    },
+    {
+      "id": "mock-google-user",
+      "email": "user@gmail.com",
+      "name": "Mock User",
+      "avatar": null,
+      "role": "USER",
+      "status": "ACTIVE",
+      "provider": "GOOGLE",
+      "created_at": "2026-05-01T11:46:01.610Z",
+      "last_login_at": "2026-05-01T11:46:01.610Z"
+    },
+    {
+      "id": "mock-google-owner-6e616d64696e686e67757965",
+      "google_id": "109755943978980298572",
+      "email": "namdinhnguyen2611@gmail.com",
+      "name": "Nam Nguyễn",
+      "avatar": "https://lh3.googleusercontent.com/a/ACg8ocI6xyVrrGXfxgxyKj5x8CdUantzwKgQ6ReY4kLY0A5Rk1bL3UMk=s96-c",
+      "role": "OWNER",
+      "status": "ACTIVE",
+      "provider": "GOOGLE",
+      "created_at": "2026-05-01T11:47:15.913Z",
+      "last_login_at": "2026-05-01T11:48:45.974Z"
+    }
+  ]
+}
