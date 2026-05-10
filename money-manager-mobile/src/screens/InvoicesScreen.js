@@ -13,12 +13,10 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   View,
+  RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Sharing from 'expo-sharing';
-import { captureRef } from 'react-native-view-shot';
-import QRCode from 'react-native-qrcode-svg';
 import { COLORS, FONTS, RADIUS, SHADOW, TYPOGRAPHY } from '../theme';
 import { formatCurrency, getCurrentMonthYear } from '../utils/format';
 import {
@@ -28,7 +26,6 @@ import {
   getBankConfig,
   getInvoiceDetails,
   getInvoices,
-  getLatestMeterReadings,
   getWallets,
   getServices,
   markInvoicePaid,
@@ -39,7 +36,11 @@ import TopAppBar from '../components/ui/TopAppBar';
 import SurfaceCard from '../components/ui/SurfaceCard';
 import BankConfigModal from '../components/BankConfigModal';
 import CreateInvoiceSheet from '../components/CreateInvoiceSheet';
+import InvoicePreviewModal from '../components/InvoicePreviewModal';
+import PaymentModal from '../components/PaymentModal';
+import { useToast } from '../components/ui/Toast';
 import { confirmDialog } from '../utils/dialogs';
+
 
 const stripToDigits = (text) => (text || '').replace(/[^0-9]/g, '');
 
@@ -140,11 +141,14 @@ export default function InvoicesScreen({ navigation, route }) {
   const [paymentAmountInput, setPaymentAmountInput] = useState('');
   const [showCreateInvoice, setShowCreateInvoice] = useState(null);
   const [editingInvoice, setEditingInvoice] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const { showToast } = useToast();
+
 
   const invoiceViewRef = useRef(null);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
+    if (!refreshing) setLoading(true);
     try {
       const [cs, svcs, invs, cfg, wallets] = await Promise.all([
         getActiveContracts(),
@@ -163,8 +167,10 @@ export default function InvoicesScreen({ navigation, route }) {
       console.error(e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [month, year]);
+  }, [month, year, refreshing]);
+
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
   useEffect(() => {
@@ -228,14 +234,9 @@ export default function InvoicesScreen({ navigation, route }) {
     setShowPaymentModal(true);
   };
 
-  const executePayment = async () => {
+  const executePayment = async (amt) => {
     if (!rentalWalletId) {
-      Alert.alert('Thiếu ví', 'Không tìm thấy ví nhà trọ đang hoạt động để ghi nhận thanh toán.');
-      return;
-    }
-    const amt = parseFloat(stripToDigits(paymentAmountInput)) || 0;
-    if (amt <= 0) {
-      Alert.alert('Lỗi', 'Số tiền thu phải lớn hơn 0');
+      showToast('Không tìm thấy ví nhà trọ', 'error');
       return;
     }
 
@@ -250,13 +251,15 @@ export default function InvoicesScreen({ navigation, route }) {
         date: new Date().toISOString().split('T')[0],
       });
       await markInvoicePaid(viewingInvoice.id, amt, txId);
+      showToast(`Đã thu ${formatCurrency(amt)} cho phòng ${viewingInvoice.room_name}`, 'success');
       await loadData();
       setShowPaymentModal(false);
       setViewingInvoice(null);
     } catch (e) {
-      Alert.alert('Lỗi', e.message || 'Không thể cập nhật trạng thái thanh toán');
+      showToast('Lỗi khi thu tiền: ' + e.message, 'error');
     }
   };
+
 
   const handleDeleteInvoice = (invoice) => {
     (async () => {
@@ -332,7 +335,15 @@ export default function InvoicesScreen({ navigation, route }) {
         style={styles.contentScroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentScrollContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); loadData(); }}
+            tintColor={COLORS.primary}
+          />
+        }
       >
+
         <View style={[styles.content, isWeb && styles.contentWeb, { maxWidth: contentMaxWidth }]}>
           {isDesktopWeb ? (
             <View style={styles.periodToolbar}>
@@ -495,155 +506,23 @@ export default function InvoicesScreen({ navigation, route }) {
         </View>
       </ScrollView>
 
-      <Modal visible={!!viewingInvoice} animationType="slide">
-        <View style={styles.previewRoot}>
-          <TopAppBar
-            title={`Hóa đơn - Phòng ${viewingInvoice?.room_name || ''}`}
-            subtitle="Xem trước hóa đơn"
-            onBack={() => setViewingInvoice(null)}
-            rightIcon="share-social-outline"
-            onRightPress={handleShare}
-            light
-          />
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <View ref={invoiceViewRef} collapsable={false} style={[styles.previewCard, isWeb && styles.previewCardWeb, { maxWidth: previewMaxWidth }]}>
-              <Text style={styles.previewTitle}>Thông báo tiền phòng T{month}/{year}</Text>
-              <Text style={styles.previewLine}>Người thuê: {viewingInvoice?.tenant_name}</Text>
-              <Text style={styles.previewLine}>Phòng: {viewingInvoice?.room_name}</Text>
-              <Text style={styles.previewLine}>Điện thoại: {viewingInvoice?.tenant_phone || ''}</Text>
+      <InvoicePreviewModal
+        visible={!!viewingInvoice}
+        invoice={viewingInvoice}
+        bankConfig={bankConfig}
+        onClose={() => setViewingInvoice(null)}
+        onEdit={handleEditInvoice}
+        onDelete={handleDeleteInvoice}
+        onPay={openPaymentModal}
+      />
 
-              <View style={[styles.previewRuleBox, isWeb && styles.previewRuleBoxWeb]}>
-                <View style={styles.previewRuleBlock}>
-                  <Text style={styles.previewRuleTitle}>Công thức hóa đơn tháng</Text>
-                  <Text style={styles.previewRuleText}>Tiền phòng + điện theo chỉ số công tơ + nước theo đầu người + dịch vụ cố định.</Text>
-                </View>
-                <View style={styles.previewRuleBlock}>
-                  <Text style={styles.previewRuleTitle}>Trạng thái kỳ hóa đơn</Text>
-                  <Text style={styles.previewRuleText}>{viewingInvoice?.status === 'paid' ? "Tiền phòng tháng này đã được thu." : 'Đang chờ thu và đối soát.'}</Text>
-                </View>
-              </View>
+      <PaymentModal
+        visible={showPaymentModal}
+        invoice={viewingInvoice}
+        onClose={() => setShowPaymentModal(false)}
+        onConfirm={executePayment}
+      />
 
-              {viewingInvoice?.invoice_note ? (
-                <View style={styles.previewNoteBox}>
-                  <Text style={styles.previewNoteTitle}>Ghi chú từ chủ nhà:</Text>
-                  <Text style={styles.previewNoteText}>{viewingInvoice.invoice_note}</Text>
-                </View>
-              ) : null}
-
-              <View style={styles.previewTable}>
-                <View style={styles.previewTableHead}>
-                  <Text style={[styles.previewCol, { flex: 2 }]}>Khoản thu</Text>
-                  <Text style={[styles.previewCol, { flex: 3 }]}>Chi tiết</Text>
-                  <Text style={[styles.previewCol, { flex: 2, textAlign: 'right' }]}>Số tiền</Text>
-                </View>
-                <View style={styles.previewTableRow}>
-                  <Text style={[styles.previewCell, { flex: 2 }]}>Tiền phòng</Text>
-                  <Text style={[styles.previewCell, { flex: 3 }]}>Cố định</Text>
-                  <Text style={[styles.previewCell, { flex: 2, textAlign: 'right' }]}>{formatCurrency(viewingInvoice?.room_fee || 0)}</Text>
-                </View>
-                {(viewingInvoice?.items || []).map((item, idx) => (
-                  <View key={`${idx}-${item.name}`} style={styles.previewTableRow}>
-                    <Text style={[styles.previewCell, { flex: 2 }]}>{item.name}</Text>
-                    <Text style={[styles.previewCell, { flex: 3 }]}>{item.detail || ''}</Text>
-                    <Text style={[styles.previewCell, { flex: 2, textAlign: 'right' }]}>{formatCurrency(item.amount || 0)}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <View style={[styles.previewSummaryRow, isWeb && styles.previewSummaryRowWeb]}>
-                <SurfaceCard tone="low" style={styles.previewSummaryCard}>
-                  <Text style={styles.previewSummaryLabel}>Tiền phòng</Text>
-                  <Text style={styles.previewSummaryValue}>{formatCurrency(viewingInvoice?.room_fee || 0)}</Text>
-                </SurfaceCard>
-                <SurfaceCard tone="low" style={styles.previewSummaryCard}>
-                  <Text style={styles.previewSummaryLabel}>Dịch vụ</Text>
-                  <Text style={styles.previewSummaryValue}>
-                    {formatCurrency(previewItemsTotal)}
-                  </Text>
-                </SurfaceCard>
-                <SurfaceCard tone="low" style={styles.previewSummaryCard}>
-                  <Text style={styles.previewSummaryLabel}>Nợ kỳ trước</Text>
-                  <Text style={styles.previewSummaryValue}>{formatCurrency(viewingInvoice?.previous_debt || 0)}</Text>
-                </SurfaceCard>
-              </View>
-
-              <View style={styles.totalBox}>
-                <Text style={styles.previewLine}>Nợ kỳ trước: {formatCurrency(viewingInvoice?.previous_debt || 0)}</Text>
-                <Text style={styles.totalText}>Tổng cần thanh toán: {formatCurrency(viewingInvoice?.total_amount || 0)}</Text>
-                {(viewingInvoice?.paid_amount || 0) > 0 && (
-                  <Text style={[styles.previewLine, { color: COLORS.success, marginTop: 4, ...FONTS.bold }]}>
-                    Đã thanh toán: {formatCurrency(viewingInvoice.paid_amount)}
-                  </Text>
-                )}
-                {(viewingInvoice?.paid_amount || 0) > 0 && (viewingInvoice?.status === 'partially_paid') && (
-                  <Text style={[styles.previewLine, { color: '#d97706', marginTop: 2, ...FONTS.bold }]}>
-                    Còn thiếu: {formatCurrency(viewingInvoice.total_amount - viewingInvoice.paid_amount)}
-                  </Text>
-                )}
-              </View>
-
-              <View style={styles.qrRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.previewLine}>Ngân hàng: {bankConfig?.bank_id || 'N/A'}</Text>
-                  <Text style={styles.previewLine}>Số tài khoản: {bankConfig?.account_no || 'N/A'}</Text>
-                  <Text style={styles.previewLine}>Chủ tài khoản: {bankConfig?.account_name || 'N/A'}</Text>
-                </View>
-                <View style={styles.qrBox}>
-                  {bankConfig?.qr_uri ? (
-                    <Image source={{ uri: bankConfig.qr_uri }} style={{ width: 96, height: 96, borderRadius: 4 }} />
-                  ) : (
-                    <QRCode value={vietQrValue} size={96} color="#000" backgroundColor="#fff" />
-                  )}
-                </View>
-              </View>
-            </View>
-
-            <View style={[styles.previewActions, isWeb && styles.previewActionsWeb, { maxWidth: previewMaxWidth }]}>
-              <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDeleteInvoice(viewingInvoice)}>
-                <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
-                <Text style={styles.deleteText}>Xóa</Text>
-              </TouchableOpacity>
-              {viewingInvoice?.status !== 'paid' ? (
-                <>
-                  <TouchableOpacity style={[styles.deleteBtn, { borderColor: COLORS.border }]} onPress={handleEditInvoice}>
-                    <Ionicons name="create-outline" size={18} color={COLORS.textSecondary} />
-                    <Text style={[styles.deleteText, { color: COLORS.textSecondary }]}>Sửa</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.paidBtn} onPress={openPaymentModal}>
-                    <Ionicons name="checkmark-done-circle" size={20} color="#fff" />
-                    <Text style={styles.paidText}>Ghi nhận thanh toán</Text>
-                  </TouchableOpacity>
-                </>
-              ) : null}
-            </View>
-            <View style={{ height: 30 }} />
-          </ScrollView>
-        </View>
-      </Modal>
-
-      <Modal visible={showPaymentModal} transparent animationType="fade">
-        <View style={styles.overlay}>
-          <View style={styles.paymentModalCard}>
-            <Text style={styles.paymentModalTitle}>Nhập số tiền đã thu</Text>
-            <Text style={styles.paymentModalSub}>Thanh toán cho phòng {viewingInvoice?.room_name}</Text>
-            <TextInput
-              style={styles.paymentInput}
-              keyboardType="number-pad"
-              value={paymentAmountInput ? Number(stripToDigits(paymentAmountInput)).toLocaleString('vi-VN') : ''}
-              onChangeText={(v) => setPaymentAmountInput(stripToDigits(v))}
-              autoFocus
-            />
-            <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowPaymentModal(false)}>
-                <Text style={styles.cancelText}>Hủy</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.createBtn} onPress={executePayment}>
-                <Text style={styles.createText}>Xác nhận</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       <CreateInvoiceSheet
         visible={!!showCreateInvoice}
