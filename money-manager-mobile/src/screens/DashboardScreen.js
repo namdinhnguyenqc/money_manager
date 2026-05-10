@@ -132,11 +132,11 @@ export default function DashboardScreen({ navigation }) {
         </View>
 
         {/* Urgent Tasks Section */}
-        {(rentalAlerts.vacantRooms.length > 0 || rentalAlerts.pendingInvoices.length > 0) && (
+        {((rentalAlerts?.vacantRooms?.length || 0) > 0 || (rentalAlerts?.pendingInvoicesCount || 0) > 0) && (
           <View style={styles.alertSection}>
             <Text style={styles.sectionTitle}>Cần xử lý ngay</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.alertScroll}>
-              {rentalAlerts.vacantRooms.map(room => (
+              {(rentalAlerts?.vacantRooms || []).map(room => (
                 <TouchableOpacity key={room.id} style={[styles.alertCard, { borderColor: COLORS.warning }]} onPress={() => navigation.navigate('Rental')}>
                   <View style={[styles.alertIcon, { backgroundColor: COLORS.warningLight }]}>
                     <Ionicons name="home" size={18} color={COLORS.warning} />
@@ -147,15 +147,17 @@ export default function DashboardScreen({ navigation }) {
                   </View>
                 </TouchableOpacity>
               ))}
-              <TouchableOpacity style={[styles.alertCard, { borderColor: COLORS.primary }]} onPress={() => navigation.navigate('Invoices')}>
-                <View style={[styles.alertIcon, { backgroundColor: COLORS.primaryLight }]}>
-                  <Ionicons name="receipt" size={18} color={COLORS.primary} />
-                </View>
-                <View>
-                  <Text style={styles.alertTitle}>Kiểm tra hóa đơn</Text>
-                  <Text style={styles.alertSub}>Đã đến kỳ chốt số điện nước</Text>
-                </View>
-              </TouchableOpacity>
+              {(rentalAlerts?.pendingInvoicesCount || 0) > 0 && (
+                <TouchableOpacity style={[styles.alertCard, { borderColor: COLORS.primary }]} onPress={() => navigation.navigate('Invoices')}>
+                  <View style={[styles.alertIcon, { backgroundColor: COLORS.primaryLight }]}>
+                    <Ionicons name="receipt" size={18} color={COLORS.primary} />
+                  </View>
+                  <View>
+                    <Text style={styles.alertTitle}>{rentalAlerts.pendingInvoicesCount} Hóa đơn chờ thu</Text>
+                    <Text style={styles.alertSub}>Chốt tiền điện nước tháng này</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
             </ScrollView>
           </View>
         )}
