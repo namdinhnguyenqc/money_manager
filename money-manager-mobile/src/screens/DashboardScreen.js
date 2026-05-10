@@ -1,5 +1,16 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Platform, useWindowDimensions } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  StatusBar,
+  Platform,
+  useWindowDimensions,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, FONTS, RADIUS, SHADOW, TYPOGRAPHY } from '../theme';
@@ -11,9 +22,11 @@ import {
   getTodayStats,
   getWallets,
 } from '../database/queries';
+import { getRoomsApi, getInvoicesByContractApi } from '../services/rentalApiService';
 import TransactionsScreen from './TransactionsScreen';
 import SurfaceCard from '../components/ui/SurfaceCard';
 import WebDesktopShell from '../components/ui/WebDesktopShell';
+
 
 export default function DashboardScreen({ navigation }) {
   const { width } = useWindowDimensions();
@@ -22,25 +35,39 @@ export default function DashboardScreen({ navigation }) {
   const [userConfig, setUserConfig] = useState(null);
   const [chartData, setChartData] = useState([]);
   const [todayStats, setTodayStats] = useState({ income: 0, expense: 0, balance: 0 });
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [rentalAlerts, setRentalAlerts] = useState({ pendingInvoicesCount: 0, vacantRooms: [] });
 
   const loadData = useCallback(async () => {
     try {
-      const [nw, ws, cfg, chart, today] = await Promise.all([
-        getGlobalNetWorth(),
-        getWallets(),
-        getBankConfig(),
-        getLast6MonthsStats(),
-        getTodayStats(),
+      if (!refreshing) setLoading(true);
+      const [nw, ws, cfg, chart, today, rooms] = await Promise.all([
+        getGlobalNetWorth().catch(() => ({ cashBalance: 0, inventoryValue: 0, totalNetWorth: 0 })),
+        getWallets().catch(() => []),
+        getBankConfig().catch(() => null),
+        getLast6MonthsStats().catch(() => []),
+        getTodayStats().catch(() => ({ income: 0, expense: 0, balance: 0 })),
+        getRoomsApi().catch(() => []),
       ]);
       setNetWorth(nw);
       setWallets(ws);
       setUserConfig(cfg);
       setChartData(chart);
       setTodayStats(today);
+
+      const vacant = rooms.filter(r => r.status === 'vacant');
+      setRentalAlerts({
+        pendingInvoicesCount: 0, 
+        vacantRooms: vacant
+      });
     } catch (e) {
       console.error(e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-  }, []);
+  }, [refreshing]);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
@@ -57,8 +84,15 @@ export default function DashboardScreen({ navigation }) {
   const dashboardContent = (
     <ScrollView 
       style={{ flex: 1, height: '100%' }}
-      showsVerticalScrollIndicator={true} 
+      showsVerticalScrollIndicator={false} 
       contentContainerStyle={{ flexGrow: 1, paddingBottom: 120 }}
+      refreshControl={
+        <RefreshControl 
+          refreshing={refreshing} 
+          onRefresh={() => { setRefreshing(true); loadData(); }}
+          tintColor={COLORS.primary}
+        />
+      }
     >
       <View style={[styles.container, isDesktopWeb && styles.containerDesktop, !isDesktopWeb && isWeb && styles.containerWeb, { maxWidth: isDesktopWeb ? undefined : contentMaxWidth }]}>
         <View style={[styles.heroLayout, isWeb && styles.heroLayoutWeb]}>
@@ -97,30 +131,59 @@ export default function DashboardScreen({ navigation }) {
           </SurfaceCard>
         </View>
 
+        {/* Urgent Tasks Section */}
+        {(rentalAlerts.vacantRooms.length > 0 || rentalAlerts.pendingInvoices.length > 0) && (
+          <View style={styles.alertSection}>
+            <Text style={styles.sectionTitle}>Cần xử lý ngay</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.alertScroll}>
+              {rentalAlerts.vacantRooms.map(room => (
+                <TouchableOpacity key={room.id} style={[styles.alertCard, { borderColor: COLORS.warning }]} onPress={() => navigation.navigate('Rental')}>
+                  <View style={[styles.alertIcon, { backgroundColor: COLORS.warningLight }]}>
+                    <Ionicons name="home" size={18} color={COLORS.warning} />
+                  </View>
+                  <View>
+                    <Text style={styles.alertTitle}>Phòng {room.name} đang trống</Text>
+                    <Text style={styles.alertSub}>Tìm khách thuê ngay</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={[styles.alertCard, { borderColor: COLORS.primary }]} onPress={() => navigation.navigate('Invoices')}>
+                <View style={[styles.alertIcon, { backgroundColor: COLORS.primaryLight }]}>
+                  <Ionicons name="receipt" size={18} color={COLORS.primary} />
+                </View>
+                <View>
+                  <Text style={styles.alertTitle}>Kiểm tra hóa đơn</Text>
+                  <Text style={styles.alertSub}>Đã đến kỳ chốt số điện nước</Text>
+                </View>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        )}
+
         <View style={[styles.quickRow, isWeb && styles.quickRowWeb]}>
           <TouchableOpacity
             style={[styles.quickAction, styles.quickActionPrimary]}
             onPress={() => navigation.navigate('Invoices', { initialFilter: 'not_created' })}
           >
             <View style={styles.quickActionIcon}>
-              <Ionicons name="document-text-outline" size={18} color="#fff" />
+              <Ionicons name="flash" size={18} color="#fff" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.quickActionTitle}>Hóa đơn tháng này</Text>
-              <Text style={styles.quickActionText}>Mở danh sách phòng chưa lập hóa đơn trong tháng hiện tại.</Text>
+              <Text style={styles.quickActionTitle}>Chốt điện nước</Text>
+              <Text style={styles.quickActionText}>Lập hóa đơn nhanh cho các phòng.</Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.quickAction}
-            onPress={() => navigation.navigate('SmartBatchBilling')}
+            onPress={() => navigation.navigate('Tenants')}
           >
             <View style={[styles.quickActionIcon, styles.quickActionIconSoft]}>
-              <Ionicons name="flash-outline" size={18} color={COLORS.primary} />
+              <Ionicons name="people-outline" size={18} color={COLORS.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.quickActionTitleDark}>Tạo hóa đơn hàng loạt</Text>
-              <Text style={styles.quickActionTextDark}>Mở luồng xử lý nhiều phòng khi chốt kỳ hóa đơn.</Text>
+              <Text style={styles.quickActionTitleDark}>Khách thuê</Text>
+              <Text style={styles.quickActionTextDark}>Quản lý thông tin & lịch sử khách.</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -340,6 +403,22 @@ const styles = StyleSheet.create({
   bar: { width: 8, backgroundColor: COLORS.secondary, borderRadius: 2 },
   barExpense: { backgroundColor: COLORS.danger },
   barLabel: { fontSize: 10, color: COLORS.textMuted, ...FONTS.medium },
+  alertSection: { marginTop: 4, gap: 12 },
+  alertScroll: { gap: 12, paddingRight: 16 },
+  alertCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    minWidth: 200,
+    ...SHADOW.sm,
+  },
+  alertIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  alertTitle: { fontSize: 13, color: COLORS.textPrimary, ...FONTS.bold },
+  alertSub: { fontSize: 11, color: COLORS.textSecondary, ...FONTS.medium, marginTop: 2 },
   fab: {
     position: 'absolute',
     right: 24,

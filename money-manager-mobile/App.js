@@ -10,6 +10,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { initDb } from './src/database/db';
 import { COLORS } from './src/theme';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { ToastProvider } from './src/components/ui/Toast';
 import { configureGoogleSignIn } from './src/services/authService';
 
 const DB_AUTO_RELOAD_KEY = '__mmDbAutoReloaded';
@@ -138,11 +139,13 @@ export default function App() {
 
   return (
     <RootErrorBoundary>
-      <AuthProvider>
-        <View style={styles.appRoot}>
-          <AppNavigator />
-        </View>
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <View style={styles.appRoot}>
+            <AppNavigator />
+          </View>
+        </AuthProvider>
+      </ToastProvider>
     </RootErrorBoundary>
   );
 }

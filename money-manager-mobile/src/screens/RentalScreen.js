@@ -36,9 +36,13 @@ import TerminateContractSheet from '../components/TerminateContractSheet';
 import SearchBar from '../components/SearchBar';
 import TopAppBar from '../components/ui/TopAppBar';
 import SurfaceCard from '../components/ui/SurfaceCard';
+import { useToast } from '../components/ui/Toast';
+
 
 export default function RentalScreen({ route, navigation, walletId: propWalletId, isEmbedded }) {
   const { width } = useWindowDimensions();
+  const { showToast } = useToast();
+
   const walletId = propWalletId || route?.params?.walletId;
   const walletName = route?.params?.walletName || 'Quản lý nhà trọ';
 
@@ -130,9 +134,10 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
     });
     setShowTerminate(false);
     setTerminateRoom(null);
-    Alert.alert('Thành công', `Đã trả phòng ${terminateRoom.name} thành công! Số dư ví đã được cập nhật.`);
+    showToast(`Đã trả phòng ${terminateRoom.name} thành công!`, 'success');
     await loadRooms();
   };
+
 
   const handleRoomAction = (action) => {
     const room = activeActionRoom;
