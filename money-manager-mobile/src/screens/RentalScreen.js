@@ -22,20 +22,20 @@ import {
   deleteRoom,
   getInvoices,
   getRooms,
-  terminateContract,
   updateContract,
   updateRoom,
   updateTenant,
 } from '../database/queries';
+import { terminateContractApi, getInvoicesByContractApi, getWalletsApi } from '../services/rentalApiService';
 import AddRoomBottomSheet from '../components/AddRoomBottomSheet';
 import AddTenantContractSheet from '../components/AddTenantContractSheet';
 import ContractPreviewModal from '../components/ContractPreviewModal';
 import CreateInvoiceSheet from '../components/CreateInvoiceSheet';
 import RoomActionSheet from '../components/RoomActionSheet';
+import TerminateContractSheet from '../components/TerminateContractSheet';
 import SearchBar from '../components/SearchBar';
 import TopAppBar from '../components/ui/TopAppBar';
 import SurfaceCard from '../components/ui/SurfaceCard';
-import { promptDialog } from '../utils/dialogs';
 
 export default function RentalScreen({ route, navigation, walletId: propWalletId, isEmbedded }) {
   const { width } = useWindowDimensions();
@@ -61,6 +61,12 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
   const [contractPreviewData, setContractPreviewData] = useState(null);
   const [contractPreviewRoom, setContractPreviewRoom] = useState(null);
   const [contractPreviewEditing, setContractPreviewEditing] = useState(null);
+
+  // Terminate sheet state
+  const [showTerminate, setShowTerminate] = useState(false);
+  const [terminateRoom, setTerminateRoom] = useState(null);
+  const [terminateInvoices, setTerminateInvoices] = useState([]);
+  const [terminateWallets, setTerminateWallets] = useState([]);
 
   const loadRooms = useCallback(async () => {
     try {
@@ -100,20 +106,32 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
   };
 
   const handleTerminate = async (room) => {
-    const refundInput = await promptDialog({
-      title: 'Terminate contract',
-      message: `Xác nhận trả phòng ${room.name}. Nhập số tiền hoàn cọc:`,
-      defaultValue: String(room.deposit || 0),
-    });
-    if (refundInput === null) return;
+    setActiveActionRoom(null);
+    // Load wallets & invoices for the terminate sheet
     try {
-      const refundAmount = parseInt(String(refundInput).replace(/[^0-9]/g, ''), 10) || 0;
-      await terminateContract(room.contract_id, room.id, refundAmount, walletId);
-      setActiveActionRoom(null);
-      await loadRooms();
+      const [wallets, invoices] = await Promise.all([
+        getWalletsApi().catch(() => []),
+        room.contract_id ? getInvoicesByContractApi(room.contract_id).catch(() => []) : Promise.resolve([]),
+      ]);
+      setTerminateWallets(wallets);
+      setTerminateInvoices(invoices);
+      setTerminateRoom(room);
+      setShowTerminate(true);
     } catch (e) {
-      Alert.alert('Lỗi', e.message || 'Không thể chấm dứt');
+      Alert.alert('Lỗi', e.message || 'Không thể tải dữ liệu thanh lý');
     }
+  };
+
+  const handleConfirmTerminate = async (data) => {
+    if (!terminateRoom?.contract_id) throw new Error('Không tìm thấy hợp đồng');
+    await terminateContractApi(terminateRoom.contract_id, {
+      roomId: terminateRoom.id,
+      ...data,
+    });
+    setShowTerminate(false);
+    setTerminateRoom(null);
+    Alert.alert('Thành công', `Đã trả phòng ${terminateRoom.name} thành công! Số dư ví đã được cập nhật.`);
+    await loadRooms();
   };
 
   const handleRoomAction = (action) => {
@@ -387,6 +405,14 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
       <ContractPreviewModal visible={showContractPreview} data={contractPreviewData} room={contractPreviewRoom} onClose={() => { setShowContractPreview(false); setContractPreviewData(null); setContractPreviewRoom(null); setContractPreviewEditing(null); }} onConfirm={async () => { try { if (!contractPreviewData) return; const { tenantName, phone, idCard, address, startDate, deposit, serviceIds } = contractPreviewData; if (contractPreviewEditing) { await updateTenant(contractPreviewEditing.tenant_id, { name: tenantName, phone, idCard, address }); await updateContract(contractPreviewEditing.contract_id, { startDate, deposit, serviceIds }); } else { const tId = await addTenant(tenantName, phone, idCard, address); await addContract(contractPreviewData.roomId, tId, startDate, deposit, serviceIds); } await loadRooms(); setShowContractPreview(false); setContractPreviewData(null); setContractPreviewRoom(null); setContractPreviewEditing(null); } catch (e) { Alert.alert('Lỗi', e.message); } }} />
       <CreateInvoiceSheet visible={Boolean(showCreateInvoice)} room={showCreateInvoice} onClose={() => setShowCreateInvoice(null)} onSaveSuccessful={() => { setShowCreateInvoice(null); loadRooms(); }} />
       <RoomActionSheet visible={Boolean(activeActionRoom)} room={activeActionRoom} hasInvoice={!!(activeActionRoom && monthlyInvoices[activeActionRoom.id])} onClose={() => setActiveActionRoom(null)} onAction={handleRoomAction} onTerminate={() => handleTerminate(activeActionRoom)} />
+      <TerminateContractSheet
+        visible={showTerminate}
+        room={terminateRoom}
+        invoices={terminateInvoices}
+        wallets={terminateWallets}
+        onClose={() => { setShowTerminate(false); setTerminateRoom(null); }}
+        onConfirm={handleConfirmTerminate}
+      />
     </View>
   );
 }

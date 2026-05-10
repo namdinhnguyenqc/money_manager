@@ -202,8 +202,8 @@ export const terminateContract = async (id, roomId, refundData) => {
   
   // 1. End contract
   // NEW RULE: We should check settlement status before ending
-  const contract = await db.getFirstAsync(`SELECT settlement_status FROM contracts WHERE id=?`, [id]);
-  if (contract?.settlement_status !== 'paid' && refundData.forceTerminate !== true) {
+  const settlementContract = await db.getFirstAsync(`SELECT settlement_status FROM contracts WHERE id=?`, [id]);
+  if (settlementContract?.settlement_status !== 'paid' && refundData.forceTerminate !== true) {
      throw new Error("Vui lòng hoàn tất thanh toán thanh lý trước khi kết thúc hợp đồng.");
   }
 
@@ -216,19 +216,19 @@ export const terminateContract = async (id, roomId, refundData) => {
   await db.runAsync(`UPDATE rooms SET status='vacant' WHERE id=?`, [roomId]);
   
   // 3. Fetch contract info for refund record
-  const contract = await db.getFirstAsync(
+  const contractInfo = await db.getFirstAsync(
     `SELECT room_id, tenant_id, deposit FROM contracts WHERE id=?`, [id]
   );
   
-  if (contract) {
+  if (contractInfo) {
     const refundAmount = Number(refundData.refundAmount || 0);
-    const deduction = Math.max(0, Number(contract.deposit || 0) - refundAmount);
+    const deduction = Math.max(0, Number(contractInfo.deposit || 0) - refundAmount);
     
     // 4. Save refund record
     await db.runAsync(
       `INSERT INTO deposit_refunds (contract_id, tenant_id, room_id, original_deposit_amount, refund_amount, deduction_amount, refund_date, refund_method, note)
        VALUES (?,?,?,?,?,?,?,?,?)`,
-      [id, contract.tenant_id, contract.room_id, contract.deposit, refundAmount, deduction, refundData.refundDate || now, refundData.refundMethod, refundData.note]
+      [id, contractInfo.tenant_id, contractInfo.room_id, contractInfo.deposit, refundAmount, deduction, refundData.refundDate || now, refundData.refundMethod, refundData.note]
     );
 
     // 5. Create transaction if refund > 0
@@ -247,7 +247,7 @@ export const terminateContract = async (id, roomId, refundData) => {
     await logAuditAction('contract_terminated', 'contract', id, { 
       roomId, 
       refundAmount, 
-      deduction: Number(contract.deposit || 0) - refundAmount 
+      deduction: Number(contractInfo.deposit || 0) - refundAmount 
     });
   }
 };

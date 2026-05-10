@@ -1,13 +1,28 @@
 import * as SecureStore from 'expo-secure-store';
-import {
-  GoogleSignin,
-  statusCodes,
-} from '@react-native-google-signin/google-signin';
 import apiClient, { configureApiClient } from './apiClient';
 
 const AUTH_STORAGE_KEY = 'mm_auth_v1';
 
 const listeners = new Set();
+let googleSignInModule = null;
+let googleSignInLoadAttempted = false;
+
+const getGoogleSignInModule = () => {
+  if (googleSignInModule) return googleSignInModule;
+  if (googleSignInLoadAttempted) return null;
+  googleSignInLoadAttempted = true;
+
+  try {
+    googleSignInModule = require('@react-native-google-signin/google-signin');
+    return googleSignInModule;
+  } catch (error) {
+    console.warn(
+      'Google Sign-In native module is unavailable. Use a development build to enable Google login.',
+      error?.message || error
+    );
+    return null;
+  }
+};
 
 const authState = {
   user: null,
@@ -88,6 +103,10 @@ const clearAuthState = async ({ emit = true } = {}) => {
 };
 
 export const configureGoogleSignIn = (webClientId) => {
+  const googleModule = getGoogleSignInModule();
+  if (!googleModule?.GoogleSignin) return;
+
+  const { GoogleSignin } = googleModule;
   GoogleSignin.configure({
     webClientId,
     offlineUseStandaloneApp: false,
@@ -101,6 +120,10 @@ export const getAccessToken = () => authState.session?.accessToken || null;
 export const isAuthenticated = () => Boolean(authState.user && authState.session?.accessToken);
 
 export const hasGooglePlayServices = async () => {
+  const googleModule = getGoogleSignInModule();
+  if (!googleModule?.GoogleSignin) return false;
+
+  const { GoogleSignin } = googleModule;
   const hasPlayServices = await GoogleSignin.hasPlayServices();
   return hasPlayServices;
 };
@@ -183,6 +206,12 @@ configureApiClient({
 });
 
 export const signInWithGoogle = async () => {
+  const googleModule = getGoogleSignInModule();
+  if (!googleModule?.GoogleSignin) {
+    throw new Error('Google login cần development build. Expo Go không hỗ trợ native module Google Sign-In.');
+  }
+
+  const { GoogleSignin, statusCodes } = googleModule;
   try {
     await GoogleSignin.hasPlayServices();
     const userInfo = await GoogleSignin.signIn();
@@ -199,13 +228,13 @@ export const signInWithGoogle = async () => {
 
     return applyAuthPayload(payload);
   } catch (error) {
-    if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+    if (error.code === statusCodes?.SIGN_IN_CANCELLED) {
       throw new Error('Đã hủy đăng nhập');
     }
-    if (error.code === statusCodes.IN_PROGRESS) {
+    if (error.code === statusCodes?.IN_PROGRESS) {
       throw new Error('Đang trong quá trình đăng nhập');
     }
-    if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+    if (error.code === statusCodes?.PLAY_SERVICES_NOT_AVAILABLE) {
       throw new Error('Google Play Services không khả dụng');
     }
     throw error;
@@ -247,7 +276,8 @@ export const logOut = async () => {
     console.warn('Logout request failed:', e?.message || e);
   } finally {
     try {
-      await GoogleSignin.signOut();
+      const googleModule = getGoogleSignInModule();
+      await googleModule?.GoogleSignin?.signOut?.();
     } catch (e) {
       console.warn('Google sign out failed:', e);
     }

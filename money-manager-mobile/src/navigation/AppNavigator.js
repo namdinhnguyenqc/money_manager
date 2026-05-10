@@ -199,24 +199,28 @@ function MainTabs() {
           backgroundColor: '#fff',
           borderTopColor: COLORS.border,
           borderTopWidth: 1,
-          height: 68,
-          paddingBottom: 12,
+          height: 72,
+          paddingBottom: 14,
           paddingTop: 8,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '700', marginTop: 2 },
         tabBarIcon: ({ focused, color }) => {
           const icons = {
-            Home: focused ? 'home' : 'home-outline',
-            Analytics: focused ? 'bar-chart' : 'bar-chart-outline',
-            Deposits: focused ? 'wallet' : 'wallet-outline',
+            Home:         focused ? 'home'              : 'home-outline',
+            Rental:       focused ? 'business'          : 'business-outline',
+            Invoices:     focused ? 'receipt'           : 'receipt-outline',
+            Transactions: focused ? 'wallet'            : 'wallet-outline',
+            Settings:     focused ? 'settings'         : 'settings-outline',
           };
-          return <Ionicons name={icons[route.name]} size={24} color={color} />;
+          return <Ionicons name={icons[route.name]} size={22} color={color} />;
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeStack} options={{ tabBarLabel: 'Trang chủ' }} />
-      <Tab.Screen name="Deposits" component={DepositScreen} options={{ tabBarLabel: 'Tiền cọc' }} />
-      <Tab.Screen name="Analytics" component={AnalyticsScreen} options={{ tabBarLabel: 'Phân tích' }} />
+      <Tab.Screen name="Home" component={HomeStack} options={{ tabBarLabel: 'Tổng quan' }} />
+      <Tab.Screen name="Rental" component={WebRentalScreen} options={{ tabBarLabel: 'Nhà trọ' }} />
+      <Tab.Screen name="Invoices" component={WebInvoicesScreen} options={{ tabBarLabel: 'Hóa đơn' }} />
+      <Tab.Screen name="Transactions" component={TransactionsScreen} options={{ tabBarLabel: 'Thu chi' }} />
+      <Tab.Screen name="Settings" component={WebSettingsScreen} options={{ tabBarLabel: 'Cài đặt' }} />
     </Tab.Navigator>
   );
 }
