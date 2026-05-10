@@ -16,6 +16,8 @@ import { signInWithGoogle, login, initAuth, logOut } from '../services/authServi
 import { useNavigation } from '@react-navigation/native';
 import { isApiDataEnabled, shouldUseApiData } from '../services/dataMode';
 import SurfaceCard from '../components/ui/SurfaceCard';
+import Logo from '../components/ui/Logo';
+
 
 export default function LoginScreen({ navigation }) {
   const nav = useNavigation();
@@ -134,15 +136,21 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <LinearGradient colors={['#eef3ff', '#dbe7ff', '#eef3ff']} style={styles.root}>
+      {/* Background Watermark */}
+      <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+        <Logo 
+          size="xl" 
+          showText={false} 
+          style={{ opacity: 0.05, transform: [{ scale: 4 }, { translateX: '10%' }, { translateY: '10%' }] }} 
+        />
+      </View>
+      
       <View style={[styles.shell, isDesktopWeb && styles.shellWeb, { maxWidth: isDesktopWeb ? Math.min(contentMaxWidth, 1160) : 420 }]}>
         {isDesktopWeb ? (
           <>
             <View style={styles.brandPanel}>
               <View style={styles.brandHero}>
-                <View style={styles.logo}>
-                  <Ionicons name="wallet-outline" size={38} color={COLORS.primary} />
-                </View>
-                <Text style={styles.title}>Money Manager Pro</Text>
+                <Logo size="xl" />
                 <Text style={styles.subtitle}>Không gian vận hành tài chính cá nhân, nhà trọ và kinh doanh trên website.</Text>
               </View>
 
@@ -172,10 +180,7 @@ export default function LoginScreen({ navigation }) {
         ) : (
           <>
             <View style={styles.brand}>
-              <View style={styles.logo}>
-                <Ionicons name="wallet-outline" size={38} color={COLORS.primary} />
-              </View>
-              <Text style={styles.title}>Money Manager Pro</Text>
+              <Logo size="xl" />
               <Text style={styles.subtitle}>
                 {isApiDataEnabled()
                   ? 'Quản lý tài chính thông minh'
@@ -187,11 +192,11 @@ export default function LoginScreen({ navigation }) {
               {formContent}
             </SurfaceCard>
 
-            <Text style={styles.footer}>Bản quyền 2026 Money Manager Pro</Text>
+            <Text style={styles.footer}>Bản quyền 2026 TrọCare</Text>
           </>
         )}
       </View>
-      {isDesktopWeb ? <Text style={styles.footerWeb}>Bản quyền 2026 Money Manager Pro</Text> : null}
+      {isDesktopWeb ? <Text style={styles.footerWeb}>Bản quyền 2026 TrọCare</Text> : null}
     </LinearGradient>
   );
 }

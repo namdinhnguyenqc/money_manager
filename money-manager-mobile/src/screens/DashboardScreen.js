@@ -26,6 +26,8 @@ import { getRoomsApi, getInvoicesByContractApi } from '../services/rentalApiServ
 import TransactionsScreen from './TransactionsScreen';
 import SurfaceCard from '../components/ui/SurfaceCard';
 import WebDesktopShell from '../components/ui/WebDesktopShell';
+import Logo from '../components/ui/Logo';
+
 
 
 export default function DashboardScreen({ navigation }) {
@@ -261,12 +263,10 @@ export default function DashboardScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
 
       <View style={[styles.topBar, isWeb && styles.topBarWeb, { maxWidth: contentMaxWidth }]}>
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={18} color={COLORS.primary} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.greet}>Money Manager Pro</Text>
-          <Text numberOfLines={1} style={styles.name}>{userConfig?.account_name || 'Tổng quan tài chính'}</Text>
+        <Logo size="md" showText={false} />
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={styles.greet}>TrọCare</Text>
+          <Text numberOfLines={1} style={styles.name}>{userConfig?.account_name || 'Vận hành nhà trọ'}</Text>
         </View>
         <View style={styles.topActions}>
           <TouchableOpacity onPress={() => navigation.navigate('Modules')} style={styles.iconBtn}>
