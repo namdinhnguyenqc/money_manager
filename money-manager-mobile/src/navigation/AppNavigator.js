@@ -173,23 +173,6 @@ function HomeStack() {
       <Stack.Screen name="Dashboard" component={DashboardScreen} />
       <Stack.Screen name="Analytics" component={WebAnalyticsScreen} />
       <Stack.Screen name="Modules" component={WebModulesScreen} />
-      <Stack.Screen name="Rental" component={WebRentalScreen} />
-      <Stack.Screen name="Trading" component={WebTradingScreen} />
-      <Stack.Screen name="Transactions" component={TransactionsScreen} />
-      <Stack.Screen name="Invoices" component={WebInvoicesScreen} />
-      <Stack.Screen name="Services" component={WebServicesScreen} />
-      <Stack.Screen name="Categories" component={WebCategoriesScreen} />
-      <Stack.Screen name="Settings" component={WebSettingsScreen} />
-      <Stack.Screen name="WalletsManager" component={WebWalletsManagerScreen} />
-      <Stack.Screen name="ContractViewer" component={WebContractViewerScreen} />
-      <Stack.Screen name="TradingCategories" component={WebTradingCategoriesScreen} />
-      <Stack.Screen name="BankConfig" component={WebBankConfigScreen} />
-      <Stack.Screen name="SmartBatchBilling" component={WebSmartBatchBillingScreen} />
-      <Stack.Screen name="ManualBatchBilling" component={ManualBatchBillingScreen} />
-      <Stack.Screen name="InvoiceHistory" component={InvoiceHistoryScreen} />
-
-      <Stack.Screen name="Deposits" component={WebDepositScreen} />
-      <Stack.Screen name="Tenants" component={TenantsScreen} />
     </Stack.Navigator>
   );
 }
@@ -267,6 +250,24 @@ export default function AppNavigator() {
             <Stack.Screen name="Main" component={mainEntry} />
             <Stack.Screen name="AddTransaction" component={Platform.OS === 'web' ? WebAddTransactionScreen : AddTransactionScreen} />
             <Stack.Screen name="TenantLanding" component={TenantLandingScreen} />
+            
+            {/* Common Screens accessible from any tab */}
+            <Stack.Screen name="Rental" component={WebRentalScreen} />
+            <Stack.Screen name="Trading" component={WebTradingScreen} />
+            <Stack.Screen name="Transactions" component={TransactionsScreen} />
+            <Stack.Screen name="Invoices" component={WebInvoicesScreen} />
+            <Stack.Screen name="Services" component={WebServicesScreen} />
+            <Stack.Screen name="Categories" component={WebCategoriesScreen} />
+            <Stack.Screen name="Settings" component={WebSettingsScreen} />
+            <Stack.Screen name="WalletsManager" component={WebWalletsManagerScreen} />
+            <Stack.Screen name="ContractViewer" component={WebContractViewerScreen} />
+            <Stack.Screen name="TradingCategories" component={WebTradingCategoriesScreen} />
+            <Stack.Screen name="BankConfig" component={WebBankConfigScreen} />
+            <Stack.Screen name="SmartBatchBilling" component={WebSmartBatchBillingScreen} />
+            <Stack.Screen name="ManualBatchBilling" component={ManualBatchBillingScreen} />
+            <Stack.Screen name="InvoiceHistory" component={InvoiceHistoryScreen} />
+            <Stack.Screen name="Deposits" component={WebDepositScreen} />
+            <Stack.Screen name="Tenants" component={TenantsScreen} />
           </>
         ) : (
           <>
