@@ -123,24 +123,24 @@ export default function OwnerDashboard() {
 
   return (
     <RBACGuard allowedRoles={["OWNER", "SUPER_ADMIN"]}>
-      <div className="mx-auto max-w-7xl space-y-10 pb-20 animate-in fade-in duration-1000">
+      <div className="mx-auto max-w-7xl space-y-10 pb-20 animate-in fade-in duration-700">
         
-        {/* Hero Section */}
+        {/* Header Section with Glassmorphism Accent */}
         <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
             <div className="mb-2 flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-100 text-blue-600">
-                <TrendingUp size={14} />
+              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100">
+                <TrendingUp size={12} className="animate-pulse" />
               </span>
-              <span className="text-xs font-bold uppercase tracking-wider text-blue-600">Phân tích hệ thống</span>
+              <span className="text-xs font-black uppercase tracking-widest text-indigo-600">Phân tích hệ thống</span>
             </div>
-            <h1 className="text-4xl font-black tracking-tight text-slate-900">Dashboard</h1>
-            <p className="mt-2 text-lg text-slate-500">Chào mừng trở lại! Đây là tình hình vận hành của bạn.</p>
+            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">Tổng quan vận hành</h1>
+            <p className="mt-2 text-sm text-slate-500 font-medium">Báo cáo hiệu quả kinh doanh và trạng thái phòng thời gian thực.</p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-white px-5 py-3 shadow-lg shadow-slate-100 border border-slate-100 flex items-center gap-3 transition-all hover:scale-[1.02]">
+            <div className="rounded-2xl bg-white px-5 py-3 shadow-lg shadow-slate-100 border border-slate-100/60 flex items-center gap-3 transition-all hover:shadow-xl">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-400">
-                <Calendar size={20} />
+                <Calendar size={18} />
               </div>
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Kỳ báo cáo</div>
@@ -174,7 +174,7 @@ export default function OwnerDashboard() {
             icon={<Wallet />} 
             color="emerald" 
             trend="+18.4%"
-            subValue="Biên lợi nhuận 72%"
+            subValue="Biên lợi nhuận ~ 72%"
           />
           <StatCard 
             title="Tỷ lệ lấp đầy" 
@@ -187,20 +187,20 @@ export default function OwnerDashboard() {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-3">
-          {/* Main Chart Card */}
+          {/* Cashflow Trend Chart (AreaChart) */}
           <div className="col-span-1 flex flex-col rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40 lg:col-span-2">
             <div className="mb-8 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-slate-900">Biến động dòng tiền</h3>
-                <p className="text-sm text-slate-500">Dữ liệu tài chính trong 6 tháng gần nhất</p>
+                <h3 className="text-xl font-extrabold text-slate-900">Biến động dòng tiền</h3>
+                <p className="text-xs text-slate-500 font-medium">Dữ liệu doanh thu và chi phí trong 6 tháng gần nhất</p>
               </div>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-indigo-500"></div>
+                  <div className="h-3 w-3 rounded-full bg-indigo-600"></div>
                   <span className="text-xs font-bold text-slate-600">Thu nhập</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-slate-200"></div>
+                  <div className="h-3 w-3 rounded-full bg-rose-500"></div>
                   <span className="text-xs font-bold text-slate-600">Chi phí</span>
                 </div>
               </div>
@@ -208,59 +208,71 @@ export default function OwnerDashboard() {
             
             <div className="h-[350px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
+                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorThu" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.25}/>
+                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorChi" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}}
+                    tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 700}}
                     dy={10}
                   />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}}
+                    tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 700}}
                     tickFormatter={(v) => `${v/1000000}M`}
                   />
                   <Tooltip 
-                    contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px'}}
+                    contentStyle={{
+                      borderRadius: '20px', 
+                      border: '1px solid rgba(226, 232, 240, 0.8)', 
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      backdropFilter: 'blur(8px)',
+                      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.05)', 
+                      padding: '16px'
+                    }}
                     itemStyle={{fontWeight: 'bold', fontSize: '13px'}}
-                    labelStyle={{fontWeight: '900', color: '#1e293b', marginBottom: '4px'}}
+                    labelStyle={{fontWeight: '900', color: '#0f172a', marginBottom: '8px'}}
                     formatter={(value) => formatMoney(Number(value || 0))} 
                   />
-                  <Area type="monotone" dataKey="thu" stroke="#6366f1" strokeWidth={4} fillOpacity={1} fill="url(#colorThu)" />
-                  <Area type="monotone" dataKey="chi" stroke="#e2e8f0" strokeWidth={3} fill="transparent" />
+                  <Area type="monotone" dataKey="thu" stroke="#4f46e5" strokeWidth={4} fillOpacity={1} fill="url(#colorThu)" name="Thu nhập" />
+                  <Area type="monotone" dataKey="chi" stroke="#f43f5e" strokeWidth={3} fillOpacity={1} fill="url(#colorChi)" name="Chi phí" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Room Status Card */}
+          {/* Room Status Donut Chart */}
           <div className="flex flex-col rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
-            <h3 className="mb-2 text-xl font-black text-slate-900">Trạng thái phòng</h3>
-            <p className="mb-8 text-sm text-slate-500">Phân bổ sử dụng tài sản</p>
+            <h3 className="text-xl font-extrabold text-slate-900">Trạng thái phòng</h3>
+            <p className="mb-6 text-xs text-slate-500 font-medium">Tình trạng phòng cho thuê hiện tại</p>
             
-            <div className="relative h-[220px] w-full">
+            <div className="relative h-[220px] w-full flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie 
                     data={[
                       { name: 'Đang ở', value: safeStats.occupied },
                       { name: 'Phòng trống', value: safeStats.vacant },
-                      { name: 'Khác', value: safeStats.reserved + safeStats.maintenance },
+                      { name: 'Đặt cọc', value: safeStats.reserved },
+                      { name: 'Bảo trì', value: safeStats.maintenance },
                     ]} 
                     cx="50%" 
                     cy="50%" 
-                    innerRadius={70} 
-                    outerRadius={90} 
-                    paddingAngle={8} 
+                    innerRadius={72} 
+                    outerRadius={92} 
+                    paddingAngle={6} 
                     dataKey="value"
                   >
                     {COLORS.map((entry, index) => <Cell key={`cell-${index}`} fill={entry} stroke="none" />)}
@@ -269,13 +281,13 @@ export default function OwnerDashboard() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <div className="text-3xl font-black text-slate-900">{safeStats.total}</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Tổng phòng</div>
+                <div className="text-3xl font-black text-slate-900 tracking-tight">{safeStats.occupancyRate}%</div>
+                <div className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Lấp đầy</div>
               </div>
             </div>
             
-            <div className="mt-8 grid grid-cols-2 gap-3">
-              <Legend color="#6366f1" label="Đang ở" value={safeStats.occupied} />
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <Legend color="#6366f1" label="Đang thuê" value={safeStats.occupied} />
               <Legend color="#10b981" label="Trống" value={safeStats.vacant} />
               <Legend color="#f59e0b" label="Đặt cọc" value={safeStats.reserved} />
               <Legend color="#ef4444" label="Bảo trì" value={safeStats.maintenance} />
@@ -288,27 +300,27 @@ export default function OwnerDashboard() {
           <div className="lg:col-span-3 flex flex-col rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40 overflow-hidden">
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-slate-900">Phòng trống cần cho thuê</h3>
-                <p className="text-sm text-slate-500">Ưu tiên đẩy tin cho các phòng này</p>
+                <h3 className="text-xl font-extrabold text-slate-900">Phòng trống cần cho thuê</h3>
+                <p className="text-xs text-slate-500 font-medium">Tạo nhanh hợp đồng cho các phòng còn trống</p>
               </div>
-              <a href="/rooms?filter=Trống" className="text-sm font-black text-indigo-600 hover:underline flex items-center gap-1">
-                Tất cả <ArrowRight size={14} />
+              <a href="/rooms" className="text-xs font-black text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors">
+                Xem tất cả <ArrowRight size={14} />
               </a>
             </div>
             
             <div className="grid gap-4 sm:grid-cols-2">
               {vacantRoomsList.length === 0 ? (
-                <div className="col-span-2 py-10 text-center text-slate-400 font-bold bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                <div className="col-span-2 py-12 text-center text-slate-400 font-bold bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                   Chúc mừng! Tất cả các phòng đều đã được lấp đầy.
                 </div>
               ) : vacantRoomsList.map(room => (
-                <div key={room.id} className="group relative flex flex-col p-5 bg-slate-50 border border-transparent rounded-[24px] transition-all hover:bg-white hover:border-indigo-100 hover:shadow-lg hover:shadow-indigo-100/50">
+                <div key={room.id} className="group relative flex flex-col p-5 bg-slate-50/50 border border-slate-100 rounded-[24px] transition-all hover:bg-white hover:border-indigo-100 hover:shadow-lg hover:shadow-indigo-100/30">
                   <div className="flex items-center justify-between mb-3">
                     <div className="text-lg font-black text-slate-900">{room.name}</div>
-                    <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-600 border border-emerald-100">Sẵn sàng</span>
                   </div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-4">Giá niêm yết</div>
-                  <div className="text-xl font-black text-indigo-600">{formatMoney(room.price)}</div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">Giá niêm yết</div>
+                  <div className="text-lg font-black text-indigo-600">{formatMoney(room.price)}</div>
                   <Link href={`/contracts/new?room_id=${room.id}`} className="mt-5 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-slate-700 transition-all hover:bg-indigo-600 hover:text-white hover:border-indigo-600">
                     <Plus size={14} /> Tạo Hợp Đồng
                   </Link>
@@ -319,7 +331,7 @@ export default function OwnerDashboard() {
 
           {/* Quick Actions */}
           <div className="lg:col-span-2 flex flex-col rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
-            <h3 className="mb-6 text-xl font-black text-slate-900">Truy cập nhanh</h3>
+            <h3 className="mb-6 text-xl font-extrabold text-slate-900">Truy cập nhanh</h3>
             <div className="grid grid-cols-2 gap-4">
               <QuickAction title="Hóa đơn" href="/invoices" icon={<FileText />} color="indigo" />
               <QuickAction title="Tiền cọc" href="/deposits" icon={<Wallet />} color="emerald" />
@@ -330,11 +342,11 @@ export default function OwnerDashboard() {
             </div>
             
             <div className="mt-auto pt-8">
-              <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-700 p-6 text-white shadow-lg shadow-indigo-200">
+              <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 text-white shadow-lg shadow-indigo-100">
                 <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-white/20">
-                  <AlertCircle size={20} />
+                  <AlertCircle size={18} />
                 </div>
-                <h4 className="font-black">Báo cáo sự cố?</h4>
+                <h4 className="font-extrabold">Báo cáo sự cố?</h4>
                 <p className="mt-1 text-xs text-indigo-100 font-medium leading-relaxed">
                   Gửi phản hồi cho chúng tôi nếu bạn gặp bất kỳ vấn đề gì trong quá trình vận hành.
                 </p>
@@ -352,28 +364,35 @@ export default function OwnerDashboard() {
 
 function StatCard({ title, value, icon, color, trend, subValue }: any) {
   const colors: any = {
-    indigo: 'from-indigo-500 to-indigo-600 shadow-indigo-100',
-    rose: 'from-rose-500 to-rose-600 shadow-rose-100',
-    emerald: 'from-emerald-500 to-emerald-600 shadow-emerald-100',
-    amber: 'from-amber-500 to-amber-600 shadow-amber-100',
+    indigo: 'from-indigo-500 to-indigo-600 shadow-indigo-100 text-indigo-600 bg-indigo-50/50 border-indigo-100/50',
+    rose: 'from-rose-500 to-rose-600 shadow-rose-100 text-rose-600 bg-rose-50/50 border-rose-100/50',
+    emerald: 'from-emerald-500 to-emerald-600 shadow-emerald-100 text-emerald-600 bg-emerald-50/50 border-emerald-100/50',
+    amber: 'from-amber-500 to-amber-600 shadow-amber-100 text-amber-600 bg-amber-50/50 border-amber-100/50',
+  };
+  
+  const iconGradients: any = {
+    indigo: 'from-indigo-500 to-indigo-600',
+    rose: 'from-rose-500 to-rose-600',
+    emerald: 'from-emerald-500 to-emerald-600',
+    amber: 'from-amber-500 to-amber-600',
   };
   
   return (
-    <div className="relative group overflow-hidden rounded-[32px] border border-slate-200 bg-white p-7 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
-      <div className={`absolute top-0 right-0 h-32 w-32 translate-x-12 -translate-y-12 rounded-full bg-slate-50 transition-colors group-hover:bg-slate-100`}></div>
+    <div className="relative group overflow-hidden rounded-[32px] border border-slate-200 bg-white p-7 shadow-xl shadow-slate-100/50 transition-all hover:-translate-y-1 hover:shadow-2xl">
+      <div className="absolute top-0 right-0 h-32 w-32 translate-x-12 -translate-y-12 rounded-full bg-slate-50 transition-colors group-hover:bg-slate-100/60"></div>
       
       <div className="relative flex items-center justify-between mb-6">
-        <div className={`flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br ${colors[color]} text-white shadow-lg`}>
+        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${iconGradients[color]} text-white shadow-lg`}>
           {icon}
         </div>
         <div className="text-right">
-          <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">{title}</div>
-          <div className="text-xs font-bold text-emerald-600">{trend}</div>
+          <div className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">{title}</div>
+          <div className="text-xs font-black text-emerald-600 mt-0.5">{trend}</div>
         </div>
       </div>
       
       <div className="relative">
-        <div className="text-2xl font-black text-slate-900 tracking-tight">{value}</div>
+        <div className="text-2xl font-black text-slate-950 tracking-tight">{value}</div>
         <div className="mt-1 text-xs font-bold text-slate-400">{subValue}</div>
       </div>
     </div>
@@ -382,30 +401,30 @@ function StatCard({ title, value, icon, color, trend, subValue }: any) {
 
 function Legend({ color, label, value }: any) {
   return (
-    <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 border border-transparent hover:border-slate-200 transition-colors">
+    <div className="flex items-center justify-between rounded-2xl bg-slate-50/50 px-4 py-3 border border-slate-100/60 hover:border-slate-200 transition-colors">
       <div className="flex items-center gap-3">
         <div className="h-2.5 w-2.5 rounded-full" style={{backgroundColor: color}} /> 
         <span className="text-xs font-bold text-slate-600">{label}</span>
       </div>
-      <span className="text-sm font-black text-slate-900">{value}</span>
+      <span className="text-xs font-black text-slate-950">{value} phòng</span>
     </div>
   );
 }
 
 function QuickAction({ title, href, icon, color }: any) {
   const colors: any = {
-    indigo: 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white',
-    emerald: 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white',
-    amber: 'bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white',
-    rose: 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white',
-    blue: 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white',
-    slate: 'bg-slate-50 text-slate-600 hover:bg-slate-600 hover:text-white',
+    indigo: 'bg-indigo-50/50 text-indigo-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 border-indigo-100/50',
+    emerald: 'bg-emerald-50/50 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 border-emerald-100/50',
+    amber: 'bg-amber-50/50 text-amber-600 hover:bg-amber-600 hover:text-white hover:border-amber-600 border-amber-100/50',
+    rose: 'bg-rose-50/50 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 border-rose-100/50',
+    blue: 'bg-blue-50/50 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 border-blue-100/50',
+    slate: 'bg-slate-50/50 text-slate-600 hover:bg-slate-600 hover:text-white hover:border-slate-600 border-slate-100/50',
   };
 
   return (
-    <a href={href} className={`flex flex-col items-center gap-3 rounded-2xl p-5 transition-all duration-300 shadow-sm border border-slate-100 ${colors[color]}`}>
+    <a href={href} className={`flex flex-col items-center gap-3 rounded-2xl p-5 transition-all duration-300 border shadow-sm group ${colors[color]}`}>
       <div className="transition-transform group-hover:scale-110">{icon}</div>
-      <span className="text-xs font-black uppercase tracking-tighter">{title}</span>
+      <span className="text-[10px] font-black uppercase tracking-widest">{title}</span>
     </a>
   );
 }

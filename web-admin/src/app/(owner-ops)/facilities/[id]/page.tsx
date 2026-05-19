@@ -54,7 +54,10 @@ export default function FacilityDetailPage() {
   const invoicesQuery = useQuery({ queryKey: ["invoices", { facilityId }], queryFn: () => loadInvoices(facilityId), staleTime: 30_000 });
 
   const rooms = roomsQuery.data || [];
-  const contracts = contractsQuery.data || [];
+  const contracts = useMemo(() => {
+    const list = contractsQuery.data || [];
+    return list.filter((c) => String(c.facility_id || "") === String(facilityId));
+  }, [contractsQuery.data, facilityId]);
   const invoices = invoicesQuery.data || [];
 
   const filteredRooms = useMemo(() => rooms.filter((room) => {
