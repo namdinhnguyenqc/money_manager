@@ -23,7 +23,7 @@ const optional = (name: string, fallback = ""): string => {
 const jwtSecret = optional("JWT_SECRET", "dev-secret-ONLY-for-local-dev-do-not-use-in-prod");
 
 export const env = {
-  API_PORT: Number(process.env.API_PORT || 8787),
+  API_PORT: Number(process.env.API_PORT || process.env.PORT || 8787),
   SUPABASE_URL: optional("SUPABASE_URL", ""),
   SUPABASE_ANON_KEY: optional("SUPABASE_ANON_KEY", ""),
   SUPABASE_SERVICE_ROLE_KEY: optional("SUPABASE_SERVICE_ROLE_KEY", ""),
