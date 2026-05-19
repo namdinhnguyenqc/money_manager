@@ -34,6 +34,7 @@ export interface JwtPayload {
   email: string;
   role: string;
   status: string;
+  sessionId?: string;
   name?: string | null;
   avatarUrl?: string | null;
   provider?: string | null;
@@ -45,6 +46,7 @@ export interface JwtPayload {
 
 export async function generateAccessToken(
   user: Pick<User, "id" | "email" | "role" | "status"> & {
+    sessionId?: string;
     name?: string | null;
     avatarUrl?: string | null;
     provider?: string | null;
@@ -58,6 +60,7 @@ export async function generateAccessToken(
     email: user.email,
     role: user.role,
     status: user.status,
+    sessionId: user.sessionId,
     name: user.name ?? null,
     avatarUrl: user.avatarUrl ?? null,
     provider: user.provider ?? null,

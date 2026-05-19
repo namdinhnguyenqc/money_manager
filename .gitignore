@@ -34,3 +34,7 @@ money-manager-mobile/.npm-cache/
 money-manager-mobile/backend/node_modules/
 money-manager-mobile/backend/dist/
 money-manager-mobile/backend/.env
+
+# Local Scratch and Artifacts
+scratch/
+*.png

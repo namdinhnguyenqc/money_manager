@@ -21,19 +21,66 @@ import type { AppEnv } from "./types.js";
 
 import { requireCompletedProfile } from "./middleware/requireCompletedProfile.js";
 
+import { randomUUID } from "crypto";
+
 const app = new Hono<AppEnv>();
+
+app.use("*", async (c, next) => {
+  const requestId = c.req.header("X-Request-ID") || randomUUID();
+  c.set("requestId", requestId);
+  c.header("X-Request-ID", requestId);
+  await next();
+});
 
 app.use("*", logger());
 
-// Performance monitoring middleware
+const privatePathPrefixes = [
+  "/auth/me",
+  "/auth/logout",
+  "/auth/refresh",
+  "/me",
+  "/admin",
+  "/owner",
+  "/wallets",
+  "/categories",
+  "/transactions",
+  "/rental",
+  "/invoices",
+  "/trading",
+  "/bank-config",
+];
+
+app.use("*", async (c, next) => {
+  await next();
+  if (privatePathPrefixes.some((prefix) => c.req.path === prefix || c.req.path.startsWith(`${prefix}/`))) {
+    c.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    c.header("Pragma", "no-cache");
+    c.header("Expires", "0");
+    c.header("Surrogate-Control", "no-store");
+  }
+});
+
+// Performance and Structured Logging middleware
+import { recordRequest } from "./utils/metrics.js";
+
 app.use("*", async (c, next) => {
   const start = Date.now();
   await next();
-  const ms = Date.now() - start;
+  const duration = Date.now() - start;
+  const requestId = c.get("requestId");
+
+  recordRequest(duration, c.res.status);
   
-  if (c.req.path.startsWith("/owner") || c.req.path.startsWith("/auth")) {
-    console.log(`[PERF] ${c.req.method} ${c.req.path} - ${ms}ms ${c.res.headers.get("X-Cache") ? '(CACHED)' : ''}`);
-  }
+  console.info(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level: "INFO",
+    requestId,
+    method: c.req.method,
+    path: c.req.path,
+    status: c.res.status,
+    durationMs: duration,
+    userAgent: c.req.header("User-Agent") || "unknown"
+  }));
 });
 
 app.use(
@@ -79,8 +126,17 @@ app.route("/bank-config", bankConfigRoutes);
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
 app.onError((err, c) => {
-  console.error("Unhandled error:", err);
-  return c.json({ error: "Internal server error" }, 500);
+  const requestId = c.get("requestId");
+  console.error(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level: "ERROR",
+    requestId,
+    message: err.message,
+    stack: err.stack,
+    method: c.req.method,
+    path: c.req.path,
+  }));
+  return c.json({ error: "Internal server error", requestId }, 500);
 });
 
 serve(

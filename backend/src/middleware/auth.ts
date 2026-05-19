@@ -4,6 +4,7 @@ import type { CurrentUser } from "../types.js";
 import { env } from "../config/env.js";
 import { supabaseAdmin, createUserClient } from "../lib/supabase.js";
 import { verifyAccessToken } from "../lib/auth.js";
+import { createHash } from "crypto";
 
 const extractBearer = (headerValue: string | undefined): string | null => {
   if (!headerValue) return null;
@@ -35,6 +36,35 @@ function checkRateLimit(ip: string, endpoint: string): boolean {
 }
 
 const tokenCache = new Map<string, { userContext: any; exp: number; isAppToken: boolean }>();
+const revokedAccessTokens = new Map<string, number>();
+
+const hashAccessToken = (token: string) => createHash("sha256").update(token).digest("hex");
+
+const cleanupRevokedTokens = (now: number) => {
+  if (revokedAccessTokens.size < 1000) return;
+  for (const [hash, exp] of revokedAccessTokens.entries()) {
+    if (exp <= now) revokedAccessTokens.delete(hash);
+  }
+};
+
+export const revokeAccessToken = (token: string) => {
+  const now = Date.now();
+  const hash = hashAccessToken(token);
+  tokenCache.delete(token);
+  revokedAccessTokens.set(hash, now + env.JWT_EXPIRY_SECONDS * 1000);
+  cleanupRevokedTokens(now);
+};
+
+const isAccessTokenRevoked = (token: string, now: number) => {
+  const hash = hashAccessToken(token);
+  const exp = revokedAccessTokens.get(hash);
+  if (!exp) return false;
+  if (exp <= now) {
+    revokedAccessTokens.delete(hash);
+    return false;
+  }
+  return true;
+};
 
 export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
   // Rate limiting for /auth/google
@@ -54,6 +84,11 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
   // Token In-Memory Cache (Performance Optimization)
   // ──────────────────────────────────────────────
   const now = Date.now();
+  if (isAccessTokenRevoked(token, now)) {
+    tokenCache.delete(token);
+    return c.json({ error: "Token has been revoked", code: "TOKEN_REVOKED" }, 401);
+  }
+
   const cachedAuth = tokenCache.get(token);
   if (cachedAuth && cachedAuth.exp > now) {
     c.set("user", cachedAuth.userContext);
@@ -69,6 +104,18 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
 
   const appJwt = await verifyAccessToken(token);
   if (appJwt) {
+    if (appJwt.sessionId) {
+      const { data: sessionData } = await supabaseAdmin
+        .from("refresh_tokens")
+        .select("revoked_at")
+        .eq("id", appJwt.sessionId)
+        .single();
+      
+      if (!sessionData || sessionData.revoked_at) {
+        return c.json({ error: "Session has been revoked", code: "SESSION_REVOKED" }, 401);
+      }
+    }
+
     const { data: dbUser, error: dbError } = await supabaseAdmin
       .from("users")
       .select("*")

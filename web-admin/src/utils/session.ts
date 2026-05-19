@@ -2,7 +2,6 @@
 
 type SessionPayload = {
   accessToken: string;
-  refreshToken?: string | null;
   role?: string | null;
   name?: string | null;
   email?: string | null;
@@ -11,6 +10,7 @@ type SessionPayload = {
 };
 
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
+const AUTH_CHANNEL = "trocare-auth";
 
 function setCookie(name: string, value: string) {
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`;
@@ -31,14 +31,15 @@ export function getLoginPath(pathname?: string, role?: string | null) {
   return "/login";
 }
 
+let memoryAccessToken: string | null = null;
+
 export function setClientSession(payload: SessionPayload) {
   if (typeof window === "undefined") return;
-  localStorage.setItem("accessToken", payload.accessToken);
-  setCookie("accessToken", payload.accessToken);
-  if (payload.refreshToken) {
-    localStorage.setItem("refreshToken", payload.refreshToken);
-    setCookie("refreshToken", payload.refreshToken);
-  }
+  
+  memoryAccessToken = payload.accessToken;
+  // Cleanup old tokens
+  localStorage.removeItem("accessToken");
+  clearCookie("accessToken");
 
   if (payload.role) {
     localStorage.setItem("userRole", payload.role);
@@ -60,8 +61,14 @@ export function setClientSession(payload: SessionPayload) {
   }
 }
 
-export function clearClientSession() {
+type ClearSessionOptions = {
+  broadcast?: boolean;
+};
+
+export function clearClientSession(options: ClearSessionOptions = {}) {
   if (typeof window === "undefined") return;
+  
+  memoryAccessToken = null;
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("userRole");
@@ -69,20 +76,27 @@ export function clearClientSession() {
   localStorage.removeItem("userEmail");
   localStorage.removeItem("isProfileCompleted");
   localStorage.removeItem("onboardingStep");
+  
   clearCookie("accessToken");
   clearCookie("refreshToken");
   clearCookie("userRole");
   clearCookie("isProfileCompleted");
   clearCookie("onboardingStep");
+  
   window.dispatchEvent(new Event("session-cleared"));
+  if (options.broadcast !== false && "BroadcastChannel" in window) {
+    const channel = new BroadcastChannel(AUTH_CHANNEL);
+    channel.postMessage({ type: "logout" });
+    channel.close();
+  }
 }
 
 export function getStoredAccessToken() {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("accessToken");
+  return memoryAccessToken;
 }
 
-export function getStoredRefreshToken() {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("refreshToken");
+export function createAuthBroadcastChannel() {
+  if (typeof window === "undefined" || !("BroadcastChannel" in window)) return null;
+  return new BroadcastChannel(AUTH_CHANNEL);
 }

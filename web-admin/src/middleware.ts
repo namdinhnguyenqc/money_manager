@@ -1,19 +1,36 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { evaluateRBACGuard } from '@/utils/rbacGuard'
 
 const CANONICAL_HOST = 'trocare-production.vercel.app'
-
-const getLoginRoute = (pathname: string) => {
-  if (pathname.startsWith('/admin') || pathname.startsWith('/super-admin')) return '/login/admin'
-  if (pathname.startsWith('/owner') || pathname.startsWith('/facilities') || pathname.startsWith('/contracts') || pathname.startsWith('/invoices') || pathname.startsWith('/payments') || pathname.startsWith('/settings')) return '/login/owner'
-  return '/login'
-}
 
 const shouldRedirectToCanonicalHost = (host: string) => {
   if (!host.endsWith('.vercel.app')) return false
   if (host === CANONICAL_HOST) return false
   return host.startsWith('trocare-production-')
+}
+
+const privateRoutes = [
+  '/admin',
+  '/super-admin',
+  '/owner',
+  '/facilities',
+  '/contracts',
+  '/invoices',
+  '/deposits',
+  '/payments',
+  '/rooms',
+  '/settings',
+  '/complete-profile',
+]
+
+const isPrivateRoute = (pathname: string) => privateRoutes.some(path => pathname === path || pathname.startsWith(`${path}/`))
+
+const withNoStore = (response: NextResponse) => {
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+  response.headers.set('Pragma', 'no-cache')
+  response.headers.set('Expires', '0')
+  response.headers.set('Surrogate-Control', 'no-store')
+  return response
 }
 
 export function middleware(req: NextRequest) {
@@ -27,12 +44,8 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url, 308)
   }
 
-  const token = req.cookies.get('accessToken')?.value
-
-  // GLOBAL BYPASS FOR OWNER TESTING: If token exists, let them into owner routes
-  const ownerRoutes = ['/owner', '/facilities', '/contracts', '/invoices', '/payments', '/settings', '/complete-profile']
-  if (token && ownerRoutes.some(path => pathname.startsWith(path))) {
-    return NextResponse.next()
+  if (isPrivateRoute(pathname)) {
+    return withNoStore(NextResponse.next())
   }
 
   return NextResponse.next()

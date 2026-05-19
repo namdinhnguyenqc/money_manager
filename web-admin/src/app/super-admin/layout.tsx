@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { API_URL } from "@/lib/api";
-import { clearClientSession } from "@/utils/session";
+import { clearClientSession, getStoredAccessToken } from "@/utils/session";
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -13,7 +13,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
   useEffect(() => {
     const check = async () => {
-      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+      const token = getStoredAccessToken();
       if (!token) {
         router.replace("/login/admin");
         return;
@@ -22,6 +22,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
       try {
         const res = await fetch(`${API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
         });
         if (!res.ok) {
           clearClientSession();

@@ -16,5 +16,6 @@ export type AppEnv = {
   Variables: {
     user: CurrentUser;
     supabase: SupabaseClient; // Per-request client với RLS
+    requestId?: string;
   };
 };
