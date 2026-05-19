@@ -87,12 +87,20 @@ app.use(
   "*",
   cors({
     origin: (origin) => {
+      if (!origin) return null;
       // In development/local mode, allow all origins to avoid port conflicts
       if (process.env.NODE_ENV !== "production") {
-        return origin || "*";
+        return origin;
       }
-      if (!origin) return null;
-      return env.CORS_ORIGINS.includes(origin) ? origin : null;
+      // In production, allow verified origins, vercel.app domains, and local/onrender domains
+      const isAllowed =
+        env.CORS_ORIGINS.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        origin.endsWith(".onrender.com") ||
+        origin.includes("localhost:") ||
+        origin.includes("127.0.0.1:");
+      
+      return isAllowed ? origin : null;
     },
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
