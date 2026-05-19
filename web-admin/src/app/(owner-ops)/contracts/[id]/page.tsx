@@ -371,6 +371,11 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function RefundModal({ contract, invoices, onClose, onConfirm }: { contract: any; invoices: any[]; onClose: () => void; onConfirm: (data: any) => Promise<void> }) {
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [isSettled, setIsSettled] = useState(false);
+  const formatDateDDMM = (date: Date) => {
+    const d = date.getDate().toString().padStart(2, '0');
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    return `${d}/${m}`;
+  };
   
   // Kiểm tra xem hóa đơn tháng này đã thanh toán chưa
   const today = new Date();
@@ -478,21 +483,21 @@ function RefundModal({ contract, invoices, onClose, onConfirm }: { contract: any
           <div className="rounded-xl border-2 border-blue-100 bg-blue-50/50 p-4">
             <h3 className="mb-3 text-sm font-bold text-blue-800 uppercase tracking-wider">Bảng tính tiền trọ tháng cuối</h3>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-slate-600">Tháng hiện tại ({today.getMonth() + 1}/{today.getFullYear()}):</span>
                 <span className="font-semibold text-slate-900">{settlementResult.daysInMonth} ngày thực tế</span>
               </div>
-              <div className="flex justify-between font-mono bg-white/60 p-2 rounded border border-blue-100">
-                <span className="text-blue-700">{formatMoney(contract.rent_amount)} / {settlementResult.daysInMonth} =</span>
-                <span className="font-bold text-blue-900">{formatMoney(settlementResult.dailyRent)}/ngày</span>
+              <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-1 font-mono bg-white/60 p-2.5 rounded border border-blue-100">
+                <span className="text-blue-700 whitespace-nowrap">{formatMoney(contract.rent_amount)} / {settlementResult.daysInMonth} =</span>
+                <span className="font-bold text-blue-900 whitespace-nowrap">{formatMoney(settlementResult.dailyRent)}/ngày</span>
               </div>
-              <div className="flex justify-between pt-1">
-                <span className="text-slate-600">Số ngày ở (01/{today.getMonth() + 1} → {today.getDate()}/{today.getMonth() + 1}):</span>
-                <span className="font-bold text-slate-900">{settlementResult.stayedDays} ngày</span>
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-slate-600">Số ngày ở ({formatDateDDMM(prorationStartDate)} → {formatDateDDMM(today)}):</span>
+                <span className="font-bold text-slate-900 whitespace-nowrap">{settlementResult.stayedDays} ngày</span>
               </div>
-              <div className="flex justify-between border-t border-blue-200 pt-2 text-base">
+              <div className="flex justify-between items-center border-t border-blue-200 pt-2 text-base">
                 <span className="font-bold text-slate-800">Tiền trọ cuối kỳ:</span>
-                <span className="font-bold text-red-600">{formatMoney(settlementResult.totalAmount)}</span>
+                <span className="font-bold text-red-600 whitespace-nowrap">{formatMoney(settlementResult.totalAmount)}</span>
               </div>
             </div>
           </div>
