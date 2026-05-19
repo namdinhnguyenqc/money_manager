@@ -245,9 +245,10 @@ export const normalizeInvoiceStatus = (invoice?: Invoice | null) => {
 export const normalizeRoomStatus = (room: RentalRoom): RoomStatus => {
   if (room.is_expired) return "expired" as any;
   if (isContractSoonEnding(room)) return "expiring_soon";
-  if (room.status === "occupied") return "occupied";
-  if (room.status === "reserved") return "reserved" as any;
-  if (room.status === "maintenance") return "maintenance";
+  const stat = String(room.status || "").toLowerCase();
+  if (stat === "occupied" || stat === "occupied_soon") return "occupied";
+  if (stat === "reserved") return "reserved" as any;
+  if (stat === "maintenance") return "maintenance";
   return "vacant";
 };
 
@@ -339,12 +340,13 @@ export const describeServiceType = (service: Pick<ServiceConfig, "type" | "name"
 };
 
 export const roomStatusMeta = (status?: string, soonEnding = false, isExpired = false) => {
-  if (isExpired || status === "expired") return { label: "Quá hạn HĐ", className: "border-red-200 bg-red-50 text-red-700" };
+  const norm = String(status || "").toLowerCase();
+  if (isExpired || norm === "expired") return { label: "Quá hạn HĐ", className: "border-red-200 bg-red-50 text-red-700" };
   if (soonEnding) return { label: "Sắp hết HĐ", className: "border-orange-200 bg-orange-50 text-orange-700" };
-  if (status === "reserved" || status === "RESERVED") return { label: "Đã cọc", className: "border-orange-200 bg-orange-50 text-orange-700" };
-  if (status === "occupied" || status === "OCCUPIED") return { label: "Đang thuê", className: "border-blue-200 bg-blue-50 text-blue-700" };
-  if (status === "maintenance" || status === "MAINTENANCE") return { label: "Bảo trì", className: "border-amber-200 bg-amber-50 text-amber-700" };
-  if (status === "disabled" || status === "DISABLED") return { label: "Ngưng SD", className: "border-gray-200 bg-gray-50 text-gray-500" };
+  if (norm === "reserved") return { label: "Đã cọc", className: "border-orange-200 bg-orange-50 text-orange-700" };
+  if (norm === "occupied" || norm === "occupied_soon") return { label: "Đang thuê", className: "border-blue-200 bg-blue-50 text-blue-700" };
+  if (norm === "maintenance") return { label: "Bảo trì", className: "border-amber-200 bg-amber-50 text-amber-700" };
+  if (norm === "disabled") return { label: "Ngưng SD", className: "border-gray-200 bg-gray-50 text-gray-500" };
   return { label: "Trống", className: "border-emerald-200 bg-emerald-50 text-emerald-700" };
 };
 
@@ -427,7 +429,7 @@ export async function loadRoom(id: string) {
 }
 
 export async function loadContracts() {
-  const res = await apiGet<any>("/rental/contracts/active");
+  const res = await apiGet<any>("/rental/contracts");
   return (res?.data ?? []).map(toContractViewFromApi) as ContractView[];
 }
 

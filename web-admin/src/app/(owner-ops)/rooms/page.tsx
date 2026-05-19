@@ -50,9 +50,9 @@ export default function AllRoomsPage() {
       const fid = (room as any).building_id || (room as any).facility_id;
       if (fid !== facilityIdFilter) return false;
     }
-    const status = room.status || "vacant";
+    const status = String(room.status || "").toLowerCase() || "vacant";
     if (roomFilter === "Trống") return status !== "occupied" && status !== "maintenance";
-    if (roomFilter === "Đang thuê") return status === "occupied";
+    if (roomFilter === "Đang thuê") return status === "occupied" || status === "occupied_soon";
     if (roomFilter === "Bảo trì") return status === "maintenance";
     if (roomFilter === "Sắp hết HĐ") return isContractSoonEnding(room);
     if (roomFilter === "Đã cọc") return status === "reserved";
@@ -168,12 +168,12 @@ export default function AllRoomsPage() {
 
                 <div className="border-t border-slate-50 bg-slate-50/30 px-5 py-3 flex items-center justify-between gap-2">
                   <div className="flex gap-2">
-                    {room.status !== "occupied" && (
+                    {String(room.status || "").toLowerCase() !== "occupied" && (
                       <Link href={`/contracts/new?room_id=${room.id}&facility_id=${facilityId}`} className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-100 hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] transition-all">
                         Tạo HĐ
                       </Link>
                     )}
-                    {room.status === "occupied" && room.contract_id && (
+                    {String(room.status || "").toLowerCase() === "occupied" && room.contract_id && (
                       <>
                         <Link href={`/contracts/${room.contract_id}`} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all">
                           Xem HĐ
