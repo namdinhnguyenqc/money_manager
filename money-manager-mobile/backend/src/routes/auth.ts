@@ -55,6 +55,13 @@ function getGoogleClient(): OAuth2Client {
   return googleOAuth2Client!;
 }
 
+const safeSupabaseError = (error: any) => ({
+  code: error?.code,
+  message: error?.message,
+  details: error?.details,
+  hint: error?.hint,
+});
+
 async function logLoginAttempt(
   userId: string | null,
   success: boolean,
@@ -187,7 +194,7 @@ async function upsertOwnerGoogleUser(input: {
     .maybeSingle();
 
   if (googleFindError && googleFindError.code !== "PGRST116") {
-    console.error("Error finding owner google user by google_id:", googleFindError);
+    console.error("Error finding owner google user by google_id:", safeSupabaseError(googleFindError));
     return { error: { code: "SERVER_ERROR", message: "Không thể kiểm tra tài khoản owner." }, status: 500 };
   }
 
@@ -202,7 +209,7 @@ async function upsertOwnerGoogleUser(input: {
       .maybeSingle();
 
     if (emailFindError && emailFindError.code !== "PGRST116") {
-      console.error("Error finding owner google user by email:", emailFindError);
+      console.error("Error finding owner google user by email:", safeSupabaseError(emailFindError));
       return { error: { code: "SERVER_ERROR", message: "Không thể kiểm tra tài khoản owner." }, status: 500 };
     }
 
@@ -230,7 +237,7 @@ async function upsertOwnerGoogleUser(input: {
       .single();
 
     if (createError || !createdUser) {
-      console.error("Error creating owner google user:", createError);
+      console.error("Error creating owner google user:", safeSupabaseError(createError));
       return { error: { code: "SERVER_ERROR", message: "[AUTH_ROUTE_002] Không thể tạo tài khoản owner." }, status: 500 };
     }
 
