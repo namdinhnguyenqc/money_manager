@@ -37,9 +37,8 @@ export function setClientSession(payload: SessionPayload) {
   if (typeof window === "undefined") return;
   
   memoryAccessToken = payload.accessToken;
-  // Cleanup old tokens
-  localStorage.removeItem("accessToken");
-  clearCookie("accessToken");
+  localStorage.setItem("accessToken", payload.accessToken);
+  setCookie("accessToken", payload.accessToken);
 
   if (payload.role) {
     localStorage.setItem("userRole", payload.role);
@@ -93,7 +92,7 @@ export function clearClientSession(options: ClearSessionOptions = {}) {
 
 export function getStoredAccessToken() {
   if (typeof window === "undefined") return null;
-  return memoryAccessToken;
+  return memoryAccessToken || localStorage.getItem("accessToken");
 }
 
 export function createAuthBroadcastChannel() {
