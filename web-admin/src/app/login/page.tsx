@@ -1,43 +1,48 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
-import { ArrowRight, Building2, ShieldCheck } from "lucide-react";
 import Logo from "@/components/ui/Logo";
+import OwnerGoogleLoginButton from "@/components/OwnerGoogleLoginButton";
 
-export default function LoginChooserPage() {
+export default function LoginPage() {
   return (
-    <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-      <div className="w-full max-w-4xl">
-        <div className="text-center mb-12">
-          <Logo className="justify-center mb-6" size="lg" />
-          <h1 className="text-4xl font-bold text-slate-900">TrọCare Portal</h1>
-          <p className="text-slate-500 mt-2">Vui lòng chọn cổng đăng nhập để tiếp tục</p>
+    <main className="relative min-h-screen overflow-hidden bg-slate-50 font-sans text-slate-950">
+      <div className="absolute -left-20 -top-20 h-96 w-96 rounded-full bg-blue-100/50 blur-3xl" />
+      
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12">
+        <div className="rounded-[32px] border border-slate-200 bg-white p-10 shadow-2xl shadow-blue-200/40">
+          <Logo className="mb-10" size="md" />
+          
+          <h1 className="text-3xl font-black tracking-tight text-slate-900">Owner Login</h1>
+          <p className="mt-3 text-base font-medium text-slate-500">
+            Sử dụng tài khoản Google đã đăng ký để quản lý hệ thống nhà trọ của bạn.
+          </p>
+
+          <div className="mt-10">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                <div className="w-full border-t border-slate-100"></div>
+              </div>
+              <div className="relative flex justify-center text-xs font-bold uppercase tracking-widest">
+                <span className="bg-white px-3 text-slate-400">Tiếp tục với</span>
+              </div>
+            </div>
+
+            <div className="mt-8">
+              <OwnerGoogleLoginButton />
+            </div>
+          </div>
+
+          <div className="mt-10 rounded-2xl bg-blue-50/50 p-4 text-center">
+            <p className="text-xs font-bold leading-relaxed text-blue-700">
+              Bằng cách đăng nhập, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của TrọCare.
+            </p>
+          </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          <Link href="/login/owner" className="group p-8 bg-white border border-slate-200 rounded-3xl shadow-sm hover:border-blue-500 transition-all">
-            <div className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center mb-6">
-              <Building2 size={24} />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Chủ trọ / Vận hành</h2>
-            <p className="text-slate-500 text-sm mb-6">Quản lý dãy trọ, hợp đồng, hóa đơn và khách thuê của bạn.</p>
-            <div className="flex items-center gap-2 text-blue-600 font-bold text-sm">
-              Đăng nhập Owner <ArrowRight size={16} />
-            </div>
-          </Link>
-
-          <Link href="/login/admin" className="group p-8 bg-white border border-slate-200 rounded-3xl shadow-sm hover:border-slate-900 transition-all">
-            <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center mb-6">
-              <ShieldCheck size={24} />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Quản trị hệ thống</h2>
-            <p className="text-slate-500 text-sm mb-6">Dành cho admin xử lý người dùng và cấu hình hệ thống.</p>
-            <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-              Đăng nhập Admin <ArrowRight size={16} />
-            </div>
-          </Link>
-        </div>
+        <footer className="mt-12 text-center text-xs font-bold uppercase tracking-widest text-slate-400">
+          Secure Identity Management
+        </footer>
       </div>
     </main>
   );
