@@ -1,6 +1,7 @@
 "use client";
 
 import { clearClientSession, getLoginPath, getStoredAccessToken, getStoredRefreshToken, setClientSession } from "@/utils/session";
+import { API_URL } from "@/lib/apiUrl";
 
 type AuthFetchOptions = RequestInit & {
   auth?: boolean;
@@ -9,7 +10,6 @@ type AuthFetchOptions = RequestInit & {
 };
 
 let refreshPromise: Promise<string | null> | null = null;
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8787";
 
 const redirectToLogin = () => {
   if (typeof window === "undefined") return;

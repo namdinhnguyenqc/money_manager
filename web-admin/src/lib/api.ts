@@ -1,7 +1,8 @@
 import { clearClientSession, getStoredRefreshToken, setClientSession } from "@/utils/session";
 import { authFetch, handleUnauthorizedLogout } from "@/utils/authFetch";
+import { API_URL } from "@/lib/apiUrl";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8787";
+export { API_URL };
 
 export async function apiClient<T>(
   endpoint: string,
