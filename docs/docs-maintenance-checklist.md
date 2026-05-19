@@ -35,7 +35,7 @@ Use this checklist whenever code changes affect business logic, APIs, data model
 ## Verification Checklist
 
 - [ ] Run frontend unit tests: `cd web-admin && npm test`.
-- [ ] Run backend tests if backend changed: `cd money-manager-mobile/backend && npm test`.
+- [ ] Run backend tests if backend changed: `cd backend && npm test`.
 - [ ] Run frontend build for route/type/component changes: `cd web-admin && npm run build`.
 - [ ] Run relevant Playwright E2E if a happy path changed.
 - [ ] If tests are skipped, document why and list exact manual steps.

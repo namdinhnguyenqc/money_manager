@@ -27,7 +27,7 @@ The repository still contains older documents such as `API_INVENTORY_CURRENT.md`
 Current primary stack:
 
 - Frontend: Next.js 14 App Router, TypeScript, Tailwind, React Query in `web-admin/`.
-- Backend: Hono on Node via `@hono/node-server`, TypeScript, Zod, JWT via `jose`, Supabase-only architecture in `money-manager-mobile/backend/`.
+- Backend: Hono on Node via `@hono/node-server`, TypeScript, Zod, JWT via `jose`, Supabase-only architecture in `backend/`.
 - Local backend URL: `http://localhost:8787`.
 - Local frontend URL: `http://localhost:3001`.
 

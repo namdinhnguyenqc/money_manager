@@ -22,9 +22,9 @@ This file documents the main user flows implemented or partially implemented in 
 - Google button: `web-admin/src/components/OwnerGoogleLoginButton.tsx`
 - Complete profile page: `web-admin/src/app/complete-profile/page.tsx`
 - Profile service: `web-admin/src/lib/profile.ts`
-- Backend auth: `money-manager-mobile/backend/src/routes/auth.ts`
-- Backend profile: `money-manager-mobile/backend/src/routes/profile.ts`
-- Guard middleware: `money-manager-mobile/backend/src/middleware/requireCompletedProfile.ts`
+- Backend auth: `backend/src/routes/auth.ts`
+- Backend profile: `backend/src/routes/profile.ts`
+- Guard middleware: `backend/src/middleware/requireCompletedProfile.ts`
 
 ### Expected Result
 
@@ -78,7 +78,7 @@ sequenceDiagram
 - Next middleware: `web-admin/middleware.ts`
 - Owner shell: `web-admin/src/components/owner/OwnerWorkspaceShell.tsx`
 - API redirect handling: `web-admin/src/utils/apiClient.ts`
-- Backend route mount: `money-manager-mobile/backend/src/index.ts`
+- Backend route mount: `backend/src/index.ts`
 
 ### Expected Result
 
@@ -106,7 +106,7 @@ Cookie state and localStorage can diverge if a developer manually edits storage.
 
 - Pages: `web-admin/src/app/(owner-ops)/facilities/page.tsx`, `web-admin/src/app/(owner-ops)/facilities/[id]/page.tsx`
 - Service: `web-admin/src/lib/rentalOps.ts`
-- Backend: `money-manager-mobile/backend/src/routes/owner.ts`, `money-manager-mobile/backend/src/routes/rental.ts`
+- Backend: `backend/src/routes/owner.ts`, `backend/src/routes/rental.ts`
 - Mock state bridge: `mockOwnerState.rooms[].rentalRoomId` links owner room to `mockDb.rooms[]`.
 
 ### Expected Result
@@ -146,7 +146,7 @@ Working in local/mock happy path. Covered by `owner-rental-billing-flow.spec.ts`
 
 - Page: `web-admin/src/app/(owner-ops)/contracts/new/page.tsx`
 - FE validation: `web-admin/src/lib/rentalOps.ts`
-- Backend tenant/contract routes: `money-manager-mobile/backend/src/routes/rental.ts`
+- Backend tenant/contract routes: `backend/src/routes/rental.ts`
 
 ### Current Status
 
@@ -170,7 +170,7 @@ Working in local/mock happy path. Regression test confirms invalid tenant phone/
 - Contract detail: `web-admin/src/app/(owner-ops)/contracts/[id]/page.tsx`
 - Invoice create page: `web-admin/src/app/(owner-ops)/invoices/new/page.tsx`
 - FE service: `createInvoiceForContract` in `web-admin/src/lib/rentalOps.ts`
-- Backend: `money-manager-mobile/backend/src/routes/invoices.ts`
+- Backend: `backend/src/routes/invoices.ts`
 
 ### Current Status
 
@@ -195,7 +195,7 @@ Working in local/mock happy path. Real DB path exists but needs production migra
 - Invoice detail: `web-admin/src/app/(owner-ops)/invoices/[id]/page.tsx`
 - Payment page: `web-admin/src/app/(owner-ops)/payments/new/page.tsx`
 - FE service: `recordPayment` in `web-admin/src/lib/rentalOps.ts`
-- Backend: `money-manager-mobile/backend/src/routes/transactions.ts`, `money-manager-mobile/backend/src/routes/invoices.ts`
+- Backend: `backend/src/routes/transactions.ts`, `backend/src/routes/invoices.ts`
 
 ### Current Status
 
@@ -221,7 +221,7 @@ Backend also has `POST /invoices/:id/collect-payment`, but the current FE path u
 
 - Public pages: `web-admin/src/app/public/boarding-houses/page.tsx`, `web-admin/src/app/public/boarding-houses/[id]/page.tsx`
 - Lead component: `web-admin/src/components/LeadForm.tsx`
-- Backend: `money-manager-mobile/backend/src/routes/public.ts`, `money-manager-mobile/backend/src/routes/owner.ts`
+- Backend: `backend/src/routes/public.ts`, `backend/src/routes/owner.ts`
 
 ### Current Status
 
@@ -240,7 +240,7 @@ Working in mock/local mode. Production public lead creation uses `leads` table f
 
 - Admin login: `web-admin/src/app/login/admin/page.tsx`
 - Admin pages: `web-admin/src/app/admin/users/page.tsx`, `web-admin/src/app/admin/users/[id]/page.tsx`
-- Backend: `money-manager-mobile/backend/src/routes/admin.ts`
+- Backend: `backend/src/routes/admin.ts`
 
 ### Current Status
 

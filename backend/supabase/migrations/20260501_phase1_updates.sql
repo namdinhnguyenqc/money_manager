@@ -1,4 +1,4 @@
--- file: money-manager-mobile/backend/supabase/migrations/20260501_phase1_updates.sql
+-- file: backend/supabase/migrations/20260501_phase1_updates.sql
 
 -- 1. FIX TRIGGER UPDATED_AT (IDEMPOTENT)
 CREATE OR REPLACE FUNCTION public.set_updated_at()

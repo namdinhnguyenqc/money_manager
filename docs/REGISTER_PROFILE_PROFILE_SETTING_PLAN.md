@@ -479,15 +479,15 @@ Không áp dụng cho:
 
 | File | Việc cần làm |
 |---|---|
-| `money-manager-mobile/backend/src/routes/auth.ts` | Sửa Google auth, trả `nextStep`, tạo user mới nếu chưa tồn tại |
-| `money-manager-mobile/backend/src/routes/profile.ts` | Tạo route mới cho `GET /me/profile`, `POST /me/profile/complete`, `PUT /me/profile` |
-| `money-manager-mobile/backend/src/routes/locations.ts` | Tạo route tỉnh/huyện nếu dùng BE location API |
-| `money-manager-mobile/backend/src/middleware/auth.ts` | Đảm bảo auth middleware attach `req.user` |
-| `money-manager-mobile/backend/src/middleware/requireCompletedProfile.ts` | Thêm middleware chặn user chưa hoàn tất profile |
-| `money-manager-mobile/backend/src/routes/rental.ts` | Gắn middleware profile completed cho các route nghiệp vụ |
-| `money-manager-mobile/backend/src/db/*` hoặc mock memory file | Thêm user_profiles, social_accounts nếu chưa có |
-| `money-manager-mobile/backend/src/types/*` | Thêm type UserProfile, OnboardingStep |
-| `money-manager-mobile/backend/src/server.ts` hoặc `app.ts` | Mount profile/location routes |
+| `backend/src/routes/auth.ts` | Sửa Google auth, trả `nextStep`, tạo user mới nếu chưa tồn tại |
+| `backend/src/routes/profile.ts` | Tạo route mới cho `GET /me/profile`, `POST /me/profile/complete`, `PUT /me/profile` |
+| `backend/src/routes/locations.ts` | Tạo route tỉnh/huyện nếu dùng BE location API |
+| `backend/src/middleware/auth.ts` | Đảm bảo auth middleware attach `req.user` |
+| `backend/src/middleware/requireCompletedProfile.ts` | Thêm middleware chặn user chưa hoàn tất profile |
+| `backend/src/routes/rental.ts` | Gắn middleware profile completed cho các route nghiệp vụ |
+| `backend/src/db/*` hoặc mock memory file | Thêm user_profiles, social_accounts nếu chưa có |
+| `backend/src/types/*` | Thêm type UserProfile, OnboardingStep |
+| `backend/src/server.ts` hoặc `app.ts` | Mount profile/location routes |
 
 ## 7. FE plan
 
@@ -1000,7 +1000,7 @@ Expected:
 Source hiện tại đang có:
 
 ```text
-Backend command: cd money-manager-mobile/backend && npm run dev
+Backend command: cd backend && npm run dev
 Backend URL: http://localhost:8787
 Frontend command: cd web-admin && npm run dev
 Frontend URL: http://localhost:3001
