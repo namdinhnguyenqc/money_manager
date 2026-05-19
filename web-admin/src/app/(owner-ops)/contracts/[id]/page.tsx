@@ -395,7 +395,9 @@ function RefundModal({ contract, invoices, onClose, onConfirm }: { contract: any
   
   // Tính toán thanh lý dự kiến
   const startOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const settlementResult = calculateProratedRent(contract.rent_amount, startOfLastMonth, today);
+  const contractStartDate = contract.start_date ? new Date(contract.start_date) : null;
+  const prorationStartDate = (contractStartDate && contractStartDate > startOfLastMonth) ? contractStartDate : startOfLastMonth;
+  const settlementResult = calculateProratedRent(contract.rent_amount, prorationStartDate, today);
   
   // Nếu đã thanh toán hóa đơn tháng này, tiền trọ khấu trừ = 0
   const actualSettlementAmount = isAlreadyPaid ? 0 : settlementResult.totalAmount;
