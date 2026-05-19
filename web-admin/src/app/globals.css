@@ -26,10 +26,10 @@ a {
 }
 
 :root {
-  --primary: #3b82f6;
-  --primary-dark: #1d4ed8;
-  --primary-light: #eff6ff;
-  --success: #10b981;
+  --primary: #1D8FE1;
+  --primary-dark: #1573b8;
+  --primary-light: #f0f9ff;
+  --success: #24C7A6;
   --success-dark: #059669;
   --success-light: #ecfdf5;
   --danger: #ef4444;
