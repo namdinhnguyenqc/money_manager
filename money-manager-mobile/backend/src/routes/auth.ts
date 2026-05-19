@@ -183,7 +183,8 @@ async function upsertOwnerGoogleUser(input: {
     .from("users")
     .select("*")
     .eq("google_id", googleId)
-    .single();
+    .limit(1)
+    .maybeSingle();
 
   if (googleFindError && googleFindError.code !== "PGRST116") {
     console.error("Error finding owner google user by google_id:", googleFindError);
@@ -197,7 +198,8 @@ async function upsertOwnerGoogleUser(input: {
       .from("users")
       .select("*")
       .eq("email", email)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (emailFindError && emailFindError.code !== "PGRST116") {
       console.error("Error finding owner google user by email:", emailFindError);
