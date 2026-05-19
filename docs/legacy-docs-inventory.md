@@ -22,8 +22,8 @@ This file maps older planning/status documents to the canonical documentation se
 | `docs/marketplace/PRD_BOARDING_HOUSE_MARKETPLACE.md` | Long-form future marketplace PRD. | `business-context.md`, `domain-model.md`; keep as future vision reference. |
 | `docs/marketplace/PRD_MVP_FLOW_V2.md` | Older MVP flow draft. | `user-flows.md` |
 | `docs/sprints/Sprint1_AdminUser*.md` | Sprint planning/backlog. | Use as backlog history; canonical behavior lives in current docs. |
-| `money-manager-mobile/*.md` | Earlier QA/runbook artifacts. | `codebase-development-guide.md`, `docs-maintenance-checklist.md` |
-| `money-manager-mobile/backend/README.md` | Backend-specific historical README. | `architecture-data-flow.md`, `api-service-map.md` |
+| `removed mobile app docs` | Earlier QA/runbook artifacts. | `codebase-development-guide.md`, `docs-maintenance-checklist.md` |
+| `backend/README.md` | Backend-specific historical README. | `architecture-data-flow.md`, `api-service-map.md` |
 
 ## Agent Rule
 

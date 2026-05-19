@@ -1,5 +1,6 @@
 {
-  "installCommand": "npm --prefix money-manager-mobile ci",
-  "buildCommand": "npm --prefix money-manager-mobile run build:web:vercel",
-  "outputDirectory": "money-manager-mobile/dist"
+  "installCommand": "npm --prefix web-admin install",
+  "buildCommand": "npm --prefix web-admin run build",
+  "outputDirectory": "web-admin/.next",
+  "framework": "nextjs"
 }

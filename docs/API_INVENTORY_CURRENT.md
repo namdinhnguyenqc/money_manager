@@ -1,6 +1,6 @@
 # API Inventory Current
 
-Tài liệu này mô tả các API hiện có trong codebase backend tại `money-manager-mobile/backend/src/routes` và đối chiếu nhanh với mục tiêu nền tảng phòng trọ.
+Tài liệu này mô tả các API hiện có trong codebase backend tại `backend/src/routes` và đối chiếu nhanh với mục tiêu nền tảng phòng trọ.
 
 ## Smoke test local mới nhất
 

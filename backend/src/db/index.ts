@@ -1,5 +1,5 @@
 // Lightweight in-memory DB layer for MVP BE (persistes during runtime)
-// Real Postgres adapter is available under money-manager-mobile/backend/src/db/real.ts
+// Real Postgres adapter is available under backend/src/db/real.ts
 // When DATABASE_URL is provided, we will route all DB operations to Postgres.
 const USE_REAL_DB = !!process.env.DATABASE_URL
 let _realDbInitialized = false

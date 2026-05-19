@@ -13,9 +13,9 @@
 | `web-admin/src/components/profile/ProfileFormCard.tsx` | Shared complete-profile/settings form. |
 | `web-admin/src/lib/rentalOps.ts` | Main FE service/domain helper for owner rental operations. |
 | `web-admin/src/utils/apiClient.ts` | Main FE API helper. |
-| `money-manager-mobile/backend/src/index.ts` | Active Hono backend entrypoint. |
-| `money-manager-mobile/backend/src/routes/` | Active Hono route modules plus some legacy Express-style route files. |
-| `money-manager-mobile/backend/src/migrations/` | SQL migrations. |
+| `backend/src/index.ts` | Active Hono backend entrypoint. |
+| `backend/src/routes/` | Active Hono route modules plus some legacy Express-style route files. |
+| `backend/src/migrations/` | SQL migrations. |
 | `money-manager/` | Legacy Vite React app. Reference only unless task targets legacy. |
 | `money-manager-backend-express/` | Legacy Express backend. Reference only unless task targets legacy. |
 
@@ -29,7 +29,7 @@ npm run local
 
 This starts:
 
-- Backend: `npm --prefix money-manager-mobile/backend run dev`
+- Backend: `npm --prefix backend run dev`
 - Frontend: `npm --prefix web-admin run dev`
 
 Run frontend tests:
@@ -43,7 +43,7 @@ npm run build
 Run backend tests:
 
 ```bash
-cd money-manager-mobile/backend
+cd backend
 npm test
 ```
 
@@ -88,7 +88,7 @@ npm test
 2. Ensure route is covered by `web-admin/middleware.ts` if protected.
 3. Add sidebar entry in `OwnerWorkspaceShell` if it is a primary module.
 4. Add service functions to `web-admin/src/lib/rentalOps.ts` or a focused new lib file.
-5. Add backend route to `money-manager-mobile/backend/src/routes/*` and mount in `src/index.ts` if needed.
+5. Add backend route to `backend/src/routes/*` and mount in `src/index.ts` if needed.
 6. Add unit test for service/validation and E2E smoke for the main happy path.
 7. Update canonical docs.
 
@@ -128,7 +128,7 @@ This is a larger cross-cutting task. Minimum steps:
 
 - `web-admin/__tests__/ProfileFormCard.test.tsx`: profile form server-field error preservation.
 - `web-admin/__tests__/rentalOps.validation.test.tsx`: tenant validation helpers.
-- `money-manager-mobile/backend/test/*`: backend auth/profile tests. Some test files target legacy Express-style routes and should be treated carefully.
+- `backend/test/*`: backend auth/profile tests. Some test files target legacy Express-style routes and should be treated carefully.
 
 ### E2E
 
@@ -143,7 +143,7 @@ Before E2E, start backend/frontend local servers and reset mock state.
 
 ## Known Code Quality Risks
 
-- There are duplicate/legacy route files under `money-manager-mobile/backend/src/routes/*Routes.ts` and active Hono route files. Check `src/index.ts` to know what is mounted.
+- There are duplicate/legacy route files under `backend/src/routes/*Routes.ts` and active Hono route files. Check `src/index.ts` to know what is mounted.
 - There are duplicate frontend app families: current `web-admin`, legacy `money-manager`, and `web-admin/src/legacy`.
 - Some generated `.next`, `playwright-report`, and `test-results` files are present in the working tree; do not use them as source of truth.
 - Some docs and migrations are historical or forward-looking; prefer current route/page/service code when in doubt.

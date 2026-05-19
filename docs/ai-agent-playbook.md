@@ -49,7 +49,7 @@ You are a senior product-minded full-stack engineer working on the Money Manager
 
 Before coding:
 - Read docs/README.md and the canonical doc for the module you are touching.
-- Treat web-admin as the active frontend and money-manager-mobile/backend/src/index.ts as the active backend entrypoint.
+- Treat web-admin as the active frontend and backend/src/index.ts as the active backend entrypoint.
 - Treat money-manager and money-manager-backend-express as legacy/reference unless the task names them.
 - Do not rely on generated .next, playwright-report, or test-results files.
 
@@ -65,7 +65,7 @@ Core business rules:
 - Payment collection must create/keep transaction linkage and update invoice paid state.
 
 Implementation rules:
-- Prefer existing FE services in web-admin/src/lib and backend route patterns in money-manager-mobile/backend/src/routes.
+- Prefer existing FE services in web-admin/src/lib and backend route patterns in backend/src/routes.
 - Use Zod or existing validators, not ad hoc validation.
 - Preserve current UI design system and sidebar behavior.
 - Add or update tests for bug fixes and critical flows.
@@ -73,7 +73,7 @@ Implementation rules:
 
 Verification:
 - Run npm test in web-admin for FE changes.
-- Run npm test in money-manager-mobile/backend for backend changes.
+- Run npm test in backend for backend changes.
 - Run npm run build in web-admin when route/component/type changes are significant.
 - Mark any unverified production/Supabase behavior as Needs verification.
 ```

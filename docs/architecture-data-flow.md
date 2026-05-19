@@ -15,13 +15,13 @@ flowchart LR
 | Path | Role |
 |---|---|
 | `web-admin/` | Current frontend for admin, owner workspace, public guest pages, profile onboarding, room-rental ops. |
-| `money-manager-mobile/backend/` | Current local backend. Hono entrypoint is `src/index.ts`. |
+| `backend/` | Current local backend. Hono entrypoint is `src/index.ts`. |
 | `money-manager/` | Legacy Vite React app. Use for behavior reference only. |
 | `money-manager-backend-express/` | Legacy Express backend. Use for reference only. |
 
 ## Backend Mounting
 
-`money-manager-mobile/backend/src/index.ts` mounts the active Hono routes:
+`backend/src/index.ts` mounts the active Hono routes:
 
 | Mount | Route Module | Notes |
 |---|---|---|

@@ -3,7 +3,7 @@
 This repository currently contains multiple app layers:
 
 - `web-admin/`: current Next.js 14 admin/owner web portal.
-- `money-manager-mobile/backend/`: current Hono backend used by `web-admin` in local development.
+- `backend/`: current Hono backend used by `web-admin` in local development.
 - `money-manager/`: legacy Vite React app kept as reference/compatibility UI.
 - `money-manager-backend-express/`: legacy Express-style backend kept as reference.
 
