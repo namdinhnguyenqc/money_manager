@@ -98,6 +98,17 @@ invoicesRoutes.get("/", async (c) => {
   if (roomIdRaw) query = query.eq("room_id", roomIdRaw);
   if (statusRaw) query = query.eq("status", String(statusRaw).toLowerCase());
 
+  if (buildingId) {
+    const roomsRes = await db.from("rooms").select("id").eq("boarding_house_id", buildingId).eq("user_id", user.id);
+    if (roomsRes.error) return c.json({ error: roomsRes.error.message }, 500);
+    const roomIds = (roomsRes.data || []).map((r) => r.id);
+    if (roomIds.length > 0) {
+      query = query.in("room_id", roomIds);
+    } else {
+      return c.json({ data: [] });
+    }
+  }
+
   const invRes = await query;
   if (invRes.error) return c.json({ error: invRes.error.message }, 500);
 
