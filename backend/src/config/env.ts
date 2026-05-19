@@ -39,11 +39,11 @@ export const env = {
   SUPABASE_SERVICE_ROLE_KEY: productionRequired("SUPABASE_SERVICE_ROLE_KEY", ""),
   GOOGLE_CLIENT_ID: productionRequired("GOOGLE_CLIENT_ID", ""),
   GOOGLE_CLIENT_SECRET: optional("GOOGLE_CLIENT_SECRET", ""),
-  ADMIN_USERNAME: productionRequired("ADMIN_USERNAME", "admin"),
-  ADMIN_PASSWORD: productionRequired("ADMIN_PASSWORD", "admin"),
+  ADMIN_USERNAME: optional("ADMIN_USERNAME", "admin"),
+  ADMIN_PASSWORD: optional("ADMIN_PASSWORD", "admin-prod-please-change"),
   JWT_SECRET: jwtSecret,
   JWT_EXPIRY_SECONDS: Number(process.env.JWT_EXPIRY_SECONDS || 900), // 15 minutes
   REFRESH_TOKEN_EXPIRY_DAYS: Number(process.env.REFRESH_TOKEN_EXPIRY_DAYS || 30),
   // CORS: comma-separated list of allowed origins, e.g. "https://admin.yourdomain.com,https://app.yourdomain.com"
-  CORS_ORIGINS: productionRequired("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:8081,http://localhost:19006").split(",").map(s => s.trim()),
+  CORS_ORIGINS: optional("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:8081,http://localhost:19006").split(",").map(s => s.trim()),
 };
