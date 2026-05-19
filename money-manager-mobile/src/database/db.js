@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { seedRooms, seedPrices, seedResidents, seedDeps, seedDataByMonth } from './seedData';
 
 const DB_NAME = 'money_manager.db';
-const SCHEMA_VERSION = 43;
+const SCHEMA_VERSION = 44;
 const DB_INSTANCE_KEY = '__mmDbMaster';
 const DB_OPEN_PROMISE_KEY = '__mmDbOpenPromise';
 const DB_INIT_PROMISE_KEY = '__mmDbInitPromise';
@@ -453,6 +453,7 @@ export const initDb = async () => {
       status TEXT DEFAULT 'vacant',
       has_ac INTEGER DEFAULT 0,
       num_people INTEGER DEFAULT 1,
+      room_type TEXT,
       created_at TEXT DEFAULT (datetime('now','localtime'))
     );
 
@@ -839,6 +840,17 @@ const runMigrations = async (db) => {
       console.warn("v43 migration warning:", e);
     }
     await db.execAsync(`PRAGMA user_version = 43`);
+  }
+
+  // v44: Add room type to rooms
+  if (currentVersion < 44) {
+    console.log("Upgrading to v44: Adding room_type to rooms...");
+    try {
+      await addColumnIfMissing(db, 'rooms', 'room_type', 'room_type TEXT');
+    } catch(e) {
+      console.warn("v44 migration warning:", e);
+    }
+    await db.execAsync(`PRAGMA user_version = 44`);
   }
 
   // legacy migrations

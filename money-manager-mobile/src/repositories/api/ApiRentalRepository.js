@@ -9,23 +9,35 @@ export class ApiRentalRepository {
     return res?.data || [];
   }
 
-  async addRoom(name, price, hasAc = false, numPeople = 1, walletId = null) {
+  async getRoomTypes() {
+    const res = await apiClient.get('/rental/room-types');
+    return res?.data || [];
+  }
+
+  async addRoomType(name, description = '') {
+    const res = await apiClient.post('/rental/room-types', { name, description });
+    return res?.data || null;
+  }
+
+  async addRoom(name, price, hasAc = false, numPeople = 1, walletId = null, roomType = null) {
     const res = await apiClient.post('/rental/rooms', {
       name,
       price: Number(price || 0),
       hasAc: Boolean(hasAc),
       numPeople: Number(numPeople || 1),
       walletId: walletId ? String(walletId) : null,
+      roomType: roomType || null,
     });
     return res?.data?.id;
   }
 
-  async updateRoom(id, name, price, hasAc, numPeople) {
+  async updateRoom(id, name, price, hasAc, numPeople, roomType = null) {
     const res = await apiClient.patch(`/rental/rooms/${id}`, {
       name,
       price: Number(price || 0),
       hasAc: Boolean(hasAc),
       numPeople: Number(numPeople || 1),
+      roomType: roomType || null,
     });
     return res?.data || null;
   }

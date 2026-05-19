@@ -111,11 +111,11 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
     }
   }, [route?.params, rooms, navigation]);
 
-  const handleAddRoom = async (id, name, price, hasAc, people) => {
+  const handleAddRoom = async (id, name, price, hasAc, people, roomType) => {
     try {
       if (!name) { await loadRooms(); return; }
-      if (id) await updateRoom(id, name, price, hasAc, people);
-      else await addRoom(name, price, hasAc, people, walletId);
+      if (id) await updateRoom(id, name, price, hasAc, people, roomType);
+      else await addRoom(name, price, hasAc, people, walletId, roomType);
       setShowAddRoom(false);
       setEditingRoom(null);
       await loadRooms();
@@ -176,7 +176,8 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
   // Filter Logic
   const filteredRooms = rooms.filter((r) => {
     const matchSearch = String(r.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-                        String(r.tenant_name || '').toLowerCase().includes(searchQuery.toLowerCase());
+                        String(r.tenant_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        String(r.room_type || r.roomType || '').toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchSearch) return false;
 
     if (filterTab === 'occupied') return r.status === 'occupied';
@@ -320,6 +321,7 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
                 const isOccupied = room.status === 'occupied';
                 const invoice = monthlyInvoices[room.id];
                 const isPaid = invoice?.status === 'paid';
+                const roomType = room.room_type || room.roomType;
                 return (
                   <TouchableOpacity
                     key={room.id}
@@ -352,6 +354,12 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
                     </View>
 
                     <View style={styles.cardBody}>
+                      {roomType ? (
+                        <View style={styles.roomTypePill}>
+                          <Ionicons name="business-outline" size={12} color={COLORS.primary} />
+                          <Text style={styles.roomTypeText} numberOfLines={1}>{roomType}</Text>
+                        </View>
+                      ) : null}
                       {isOccupied ? (
                         <>
                           <Text style={styles.tenantName} numberOfLines={1}>{room.tenant_name || 'Người thuê'}</Text>
@@ -630,6 +638,23 @@ const styles = StyleSheet.create({
   cardBody: {
     padding: 16,
     minHeight: 140, // consistent height
+  },
+  roomTypePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    gap: 5,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    marginBottom: 10,
+  },
+  roomTypeText: {
+    color: COLORS.primary,
+    fontSize: 11,
+    ...FONTS.bold,
   },
   tenantName: {
     fontSize: 16,

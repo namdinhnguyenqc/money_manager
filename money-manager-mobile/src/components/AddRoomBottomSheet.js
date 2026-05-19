@@ -6,6 +6,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, RADIUS, FONTS, SHADOW } from '../theme';
 import { confirmDialog } from '../utils/dialogs';
+import { addRoomType, getRoomTypes } from '../database/queries';
+
+const DEFAULT_ROOM_TYPES = ['Phòng đơn', 'Phòng đôi', 'Studio', 'Căn hộ mini', 'Ký túc xá'];
 
 export default function AddRoomBottomSheet({ visible, onClose, onSave, room, deleteRoom }) {
   const { width } = useWindowDimensions();
@@ -13,6 +16,9 @@ export default function AddRoomBottomSheet({ visible, onClose, onSave, room, del
   const [price, setPrice] = useState('');
   const [hasAc, setHasAc] = useState(false);
   const [numPeople, setNumPeople] = useState('1');
+  const [roomType, setRoomType] = useState('');
+  const [customRoomType, setCustomRoomType] = useState('');
+  const [roomTypes, setRoomTypes] = useState(DEFAULT_ROOM_TYPES);
 
   useEffect(() => {
     if (room && visible) {
@@ -20,6 +26,9 @@ export default function AddRoomBottomSheet({ visible, onClose, onSave, room, del
       setPrice(room.price?.toString() || '0');
       setHasAc(room.has_ac === 1);
       setNumPeople(room.num_people?.toString() || '1');
+      const existingRoomType = room.room_type || room.roomType || '';
+      setRoomType(existingRoomType);
+      setCustomRoomType('');
       return;
     }
     if (visible) {
@@ -27,10 +36,31 @@ export default function AddRoomBottomSheet({ visible, onClose, onSave, room, del
       setPrice('');
       setHasAc(false);
       setNumPeople('1');
+      setRoomType('');
+      setCustomRoomType('');
     }
   }, [room, visible]);
 
-  const handleSave = () => {
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await getRoomTypes();
+        if (cancelled) return;
+        const names = rows
+          .map((item) => (typeof item === 'string' ? item : item?.name))
+          .filter(Boolean);
+        setRoomTypes(Array.from(new Set([...DEFAULT_ROOM_TYPES, ...names])));
+      } catch (e) {
+        console.warn('Failed to load room types', e);
+        if (!cancelled) setRoomTypes(DEFAULT_ROOM_TYPES);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [visible]);
+
+  const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Lỗi', 'Vui lòng nhập tên phòng');
       return;
@@ -41,7 +71,15 @@ export default function AddRoomBottomSheet({ visible, onClose, onSave, room, del
       return;
     }
     const people = parseInt(numPeople, 10) || 1;
-    onSave(room?.id, name.trim(), parsedPrice, hasAc, people);
+    const resolvedRoomType = (customRoomType || roomType).trim();
+    try {
+      if (resolvedRoomType) {
+        await addRoomType(resolvedRoomType);
+      }
+      onSave(room?.id, name.trim(), parsedPrice, hasAc, people, resolvedRoomType || null);
+    } catch (e) {
+      Alert.alert('Lỗi', e.message || 'Không thể lưu loại trọ');
+    }
   };
 
   const handleDelete = () => {
@@ -111,6 +149,37 @@ export default function AddRoomBottomSheet({ visible, onClose, onSave, room, del
                     placeholder="2200000"
                     value={price}
                     onChangeText={setPrice}
+                    placeholderTextColor={COLORS.textMuted}
+                  />
+                </View>
+
+                <View style={styles.group}>
+                  <Text style={styles.label}>Loại trọ / loại phòng</Text>
+                  <View style={styles.typeWrap}>
+                    {roomTypes.map((type) => {
+                      const selected = roomType === type && !customRoomType;
+                      return (
+                        <TouchableOpacity
+                          key={type}
+                          style={[styles.typeChip, selected && styles.typeChipActive]}
+                          onPress={() => {
+                            setRoomType(type);
+                            setCustomRoomType('');
+                          }}
+                        >
+                          <Text style={[styles.typeChipText, selected && styles.typeChipTextActive]}>{type}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <TextInput
+                    style={[styles.input, styles.typeInput]}
+                    placeholder="Nhập loại mới"
+                    value={customRoomType}
+                    onChangeText={(text) => {
+                      setCustomRoomType(text);
+                      if (text) setRoomType('');
+                    }}
                     placeholderTextColor={COLORS.textMuted}
                   />
                 </View>
@@ -211,6 +280,19 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     ...FONTS.semibold,
   },
+  typeWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  typeChip: {
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surfaceLow,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  typeChipActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
+  typeChipText: { color: COLORS.textSecondary, fontSize: 12, ...FONTS.semibold },
+  typeChipTextActive: { color: COLORS.primaryDark },
+  typeInput: { marginTop: 0 },
   infoCard: {
     borderRadius: RADIUS.lg,
     borderWidth: 1,
