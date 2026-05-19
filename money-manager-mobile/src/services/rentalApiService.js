@@ -4,13 +4,14 @@
  * Dùng thay cho local SQLite queries khi isApiDataEnabled() = true.
  */
 import { getAuthToken } from './authService';
+import { Platform } from 'react-native';
 
 const getBaseUrl = () => {
   if (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
-  // Fallback cho local dev
-  return 'http://localhost:8787';
+  // Fallback cho local dev. Android emulator reaches the host machine via 10.0.2.2.
+  return Platform.OS === 'android' ? 'http://10.0.2.2:8787' : 'http://localhost:8787';
 };
 
 async function apiFetch(path, options = {}) {
@@ -27,7 +28,13 @@ async function apiFetch(path, options = {}) {
 
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data?.error || `API Error ${res.status}`);
+    const fieldErrors = data?.fieldErrors || data?.details?.fieldErrors || data?.details?.errors;
+    const validationSummary = fieldErrors
+      ? Object.entries(fieldErrors)
+        .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+        .join('; ')
+      : '';
+    throw new Error(validationSummary ? `${data?.error || `API Error ${res.status}`} (${validationSummary})` : data?.error || `API Error ${res.status}`);
   }
   return data;
 }
@@ -62,7 +69,7 @@ export async function getInvoicesByContractApi(contractId) {
 }
 
 export async function collectInvoiceApi(invoiceId, body) {
-  const res = await apiPost(`/invoices/${invoiceId}/collect`, body);
+  const res = await apiPost(`/invoices/${invoiceId}/collect-payment`, body);
   return res?.data ?? res;
 }
 

@@ -2,6 +2,7 @@
   "expo": {
     "name": "TrọCare",
     "slug": "money-manager-mobile",
+    "scheme": "moneymanager",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -45,7 +46,8 @@
         }
       ],
       "@react-native-google-signin/google-signin",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {

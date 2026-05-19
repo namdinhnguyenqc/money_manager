@@ -1,34 +1,36 @@
 import * as SecureStore from 'expo-secure-store';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import apiClient, { configureApiClient } from './apiClient';
 
 const AUTH_STORAGE_KEY = 'mm_auth_v1';
 
 const listeners = new Set();
-let googleSignInModule = null;
-let googleSignInLoadAttempted = false;
-
-const getGoogleSignInModule = () => {
-  if (googleSignInModule) return googleSignInModule;
-  if (googleSignInLoadAttempted) return null;
-  googleSignInLoadAttempted = true;
-
-  try {
-    googleSignInModule = require('@react-native-google-signin/google-signin');
-    return googleSignInModule;
-  } catch (error) {
-    console.warn(
-      'Google Sign-In native module is unavailable. Use a development build to enable Google login.',
-      error?.message || error
-    );
-    return null;
-  }
-};
 
 const authState = {
   user: null,
   session: null,
   initialized: false,
   initPromise: null,
+};
+
+let googleWebClientId = '';
+let googleWebScriptPromise = null;
+
+const authStorage = {
+  async getItem(key) {
+    if (Platform.OS === 'web') return AsyncStorage.getItem(key);
+    return SecureStore.getItemAsync(key);
+  },
+  async setItem(key, value) {
+    if (Platform.OS === 'web') return AsyncStorage.setItem(key, value);
+    return SecureStore.setItemAsync(key, value);
+  },
+  async deleteItem(key) {
+    if (Platform.OS === 'web') return AsyncStorage.removeItem(key);
+    return SecureStore.deleteItemAsync(key);
+  },
 };
 
 const toPublicUser = (user) => {
@@ -38,8 +40,12 @@ const toPublicUser = (user) => {
     email: user.email || null,
     name: user.name || null,
     avatar: user.avatar || null,
+    avatarUrl: user.avatarUrl || user.avatar_url || user.avatar || null,
     role: user.role || 'USER',
     status: user.status || 'ACTIVE',
+    authProvider: user.authProvider || user.auth_provider || null,
+    isProfileCompleted: user.isProfileCompleted ?? user.is_profile_completed ?? true,
+    onboardingStep: user.onboardingStep || user.onboarding_step || 'DONE',
   };
 };
 
@@ -64,11 +70,11 @@ const notifyListeners = () => {
 
 const persistState = async () => {
   if (!authState.user || !authState.session) {
-    await SecureStore.deleteItemAsync(AUTH_STORAGE_KEY);
+    await authStorage.deleteItem(AUTH_STORAGE_KEY);
     return;
   }
 
-  await SecureStore.setItemAsync(
+  await authStorage.setItem(
     AUTH_STORAGE_KEY,
     JSON.stringify({
       user: authState.user,
@@ -80,8 +86,9 @@ const persistState = async () => {
 const applyAuthPayload = async (payload, { emit = true } = {}) => {
   const user = toPublicUser(payload?.user);
   const session = toPublicSession({
-    accessToken: payload?.accessToken,
-    refreshToken: payload?.refreshToken,
+    accessToken: payload?.accessToken || payload?.session?.access_token,
+    refreshToken: payload?.refreshToken || payload?.session?.refresh_token,
+    expiresAt: payload?.expiresAt || payload?.session?.expires_at,
   });
 
   if (!user || !session) {
@@ -98,15 +105,13 @@ const applyAuthPayload = async (payload, { emit = true } = {}) => {
 const clearAuthState = async ({ emit = true } = {}) => {
   authState.user = null;
   authState.session = null;
-  await SecureStore.deleteItemAsync(AUTH_STORAGE_KEY);
+  await authStorage.deleteItem(AUTH_STORAGE_KEY);
   if (emit) notifyListeners();
 };
 
 export const configureGoogleSignIn = (webClientId) => {
-  const googleModule = getGoogleSignInModule();
-  if (!googleModule?.GoogleSignin) return;
-
-  const { GoogleSignin } = googleModule;
+  googleWebClientId = webClientId || googleWebClientId;
+  if (Platform.OS === 'web') return;
   GoogleSignin.configure({
     webClientId,
     offlineUseStandaloneApp: false,
@@ -117,13 +122,11 @@ export const configureGoogleSignIn = (webClientId) => {
 export const getCurrentUser = () => authState.user;
 export const getAuthSession = () => authState.session;
 export const getAccessToken = () => authState.session?.accessToken || null;
+export const getAuthToken = async () => getAccessToken();
 export const isAuthenticated = () => Boolean(authState.user && authState.session?.accessToken);
 
 export const hasGooglePlayServices = async () => {
-  const googleModule = getGoogleSignInModule();
-  if (!googleModule?.GoogleSignin) return false;
-
-  const { GoogleSignin } = googleModule;
+  if (Platform.OS === 'web') return false;
   const hasPlayServices = await GoogleSignin.hasPlayServices();
   return hasPlayServices;
 };
@@ -139,7 +142,7 @@ export const refreshSession = async ({ silent = false } = {}) => {
     const payload = await apiClient.post(
       '/auth/refresh',
       { refreshToken },
-      { auth: false, retryOn401: false }
+      { auth: false, retryOn401: false, suppressErrorLog: true }
     );
     await applyAuthPayload(payload, { emit: !silent });
     return true;
@@ -159,14 +162,14 @@ export const initAuth = async () => {
 
   authState.initPromise = (async () => {
     try {
-      const raw = await SecureStore.getItemAsync(AUTH_STORAGE_KEY);
+      const raw = await authStorage.getItem(AUTH_STORAGE_KEY);
       if (raw) {
         try {
           const parsed = JSON.parse(raw);
           authState.user = parsed?.user || null;
           authState.session = parsed?.session || null;
         } catch {
-          await SecureStore.deleteItemAsync(AUTH_STORAGE_KEY);
+          await authStorage.deleteItem(AUTH_STORAGE_KEY);
           authState.user = null;
           authState.session = null;
         }
@@ -174,8 +177,11 @@ export const initAuth = async () => {
 
       if (authState.session?.accessToken) {
         try {
-          const me = await apiClient.get('/auth/me', { retryOn401: true });
-          const user = toPublicUser(me);
+          const me = await apiClient.get('/auth/me', {
+            retryOn401: true,
+            suppressErrorLog: true,
+          });
+          const user = toPublicUser(me?.user || me);
           if (user) {
             authState.user = user;
             await persistState();
@@ -205,24 +211,99 @@ configureApiClient({
   onUnauthorized: async () => clearAuthState({ emit: true }),
 });
 
-export const signInWithGoogle = async () => {
-  const googleModule = getGoogleSignInModule();
-  if (!googleModule?.GoogleSignin) {
-    throw new Error('Google login cần development build. Expo Go không hỗ trợ native module Google Sign-In.');
+const loadGoogleIdentityScript = () => {
+  if (Platform.OS !== 'web') return Promise.resolve();
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return Promise.reject(new Error('Google login chỉ hỗ trợ trong trình duyệt.'));
+  }
+  if (window.google?.accounts?.id) return Promise.resolve();
+  if (googleWebScriptPromise) return googleWebScriptPromise;
+
+  googleWebScriptPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Không tải được Google Sign-In.')), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Không tải được Google Sign-In.'));
+    document.head.appendChild(script);
+  });
+
+  return googleWebScriptPromise;
+};
+
+const signInWithGoogleWeb = async () => {
+  const clientId =
+    googleWebClientId ||
+    (typeof process !== 'undefined' ? process.env?.EXPO_PUBLIC_GOOGLE_CLIENT_ID : '') ||
+    (typeof process !== 'undefined' ? process.env?.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID : '');
+
+  if (!clientId) {
+    throw new Error('Google OAuth chưa được cấu hình cho website.');
   }
 
-  const { GoogleSignin, statusCodes } = googleModule;
+  await loadGoogleIdentityScript();
+
+  const idToken = await new Promise((resolve, reject) => {
+    let settled = false;
+    const timeoutId = window.setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        reject(new Error('Không nhận được phản hồi từ Google. Vui lòng thử lại.'));
+      }
+    }, 60000);
+
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      ux_mode: 'popup',
+      callback: (response) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeoutId);
+        if (response?.credential) {
+          resolve(response.credential);
+          return;
+        }
+        reject(new Error('Google không trả về credential.'));
+      },
+    });
+
+    window.google.accounts.id.prompt((notification) => {
+      if (settled) return;
+      if (notification.isNotDisplayed?.() || notification.isSkippedMoment?.()) {
+        settled = true;
+        window.clearTimeout(timeoutId);
+        reject(new Error('Google Sign-In không hiển thị được. Kiểm tra OAuth Authorized JavaScript origins cho domain website.'));
+      }
+    });
+  });
+
+  return signInWithOwnerGoogleIdToken(idToken);
+};
+
+export const signInWithGoogle = async () => {
   try {
+    if (Platform.OS === 'web') {
+      return signInWithGoogleWeb();
+    }
     await GoogleSignin.hasPlayServices();
     const userInfo = await GoogleSignin.signIn();
+    const idToken = userInfo?.idToken || userInfo?.data?.idToken;
 
-    if (!userInfo.idToken) {
+    if (!idToken) {
       throw new Error('No ID token from Google');
     }
 
     const payload = await apiClient.post(
-      '/auth/google',
-      { idToken: userInfo.idToken },
+      '/auth/owner-google',
+      { idToken },
       { auth: false, retryOn401: false }
     );
 
@@ -239,6 +320,22 @@ export const signInWithGoogle = async () => {
     }
     throw error;
   }
+};
+
+export const signInWithOwnerGoogleIdToken = async (idToken) => {
+  const payload = await apiClient.post(
+    '/auth/owner-google',
+    { idToken },
+    { auth: false, retryOn401: false }
+  );
+  return applyAuthPayload(payload);
+};
+
+export const updateCurrentUser = async (nextUser) => {
+  authState.user = toPublicUser({ ...authState.user, ...nextUser });
+  await persistState();
+  notifyListeners();
+  return authState.user;
 };
 
 export const login = async (email, password) => {
@@ -276,8 +373,7 @@ export const logOut = async () => {
     console.warn('Logout request failed:', e?.message || e);
   } finally {
     try {
-      const googleModule = getGoogleSignInModule();
-      await googleModule?.GoogleSignin?.signOut?.();
+      await GoogleSignin.signOut();
     } catch (e) {
       console.warn('Google sign out failed:', e);
     }

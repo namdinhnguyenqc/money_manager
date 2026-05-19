@@ -12,33 +12,54 @@ const invoicesRoutes = new Hono<AppEnv>();
 
 invoicesRoutes.use("*", requireAuth);
 
+const optionalNumber = z.preprocess(
+  (value) => (value === "" || value === null || value === undefined ? undefined : value),
+  z.coerce.number().nonnegative()
+).optional();
+
+const nullableNumber = z.preprocess(
+  (value) => (value === "" || value === undefined ? null : value),
+  z.coerce.number().nonnegative().nullable()
+).optional();
+
+const optionalString = z.preprocess(
+  (value) => (value === "" || value === null || value === undefined ? undefined : String(value)),
+  z.string()
+).optional();
+
+const nullableString = z.preprocess(
+  (value) => (value === "" || value === null || value === undefined ? null : String(value)),
+  z.string().nullable()
+).optional();
+
 const invoiceItemSchema = z.object({
-  serviceId: z.string().nullable().optional(),
-  name: z.string().min(1),
-  detail: z.string().optional(),
-  amount: z.number().nonnegative(),
-  calculationType: z.string().optional(),
-  unitPrice: z.number().nonnegative().optional(),
-  quantity: z.number().nonnegative().optional(),
-  startReading: z.number().nonnegative().optional(),
-  endReading: z.number().nonnegative().optional(),
-  usageValue: z.number().nonnegative().optional(),
-  unit: z.string().optional(),
+  serviceId: nullableString,
+  name: z.coerce.string().min(1),
+  detail: optionalString,
+  amount: z.coerce.number().nonnegative(),
+  calculationType: optionalString,
+  unitPrice: optionalNumber,
+  quantity: optionalNumber,
+  startReading: optionalNumber,
+  endReading: optionalNumber,
+  usageValue: optionalNumber,
+  unit: optionalString,
   serviceSnapshot: z.any().optional(),
 });
 
 const createInvoiceSchema = z.object({
-  roomId: z.string().min(1),
-  contractId: z.string().min(1),
+  roomId: optionalString,
+  contractId: optionalString,
   month: z.coerce.number().int().min(1).max(12),
   year: z.coerce.number().int().min(2000).max(2100),
-  roomFee: z.coerce.number().nonnegative(),
+  roomFee: optionalNumber,
   previousDebt: z.coerce.number().nonnegative().optional(),
-  items: z.array(invoiceItemSchema),
-  elecOld: z.coerce.number().nonnegative().nullable().optional(),
-  elecNew: z.coerce.number().nonnegative().nullable().optional(),
-  waterOld: z.coerce.number().nonnegative().nullable().optional(),
-  waterNew: z.coerce.number().nonnegative().nullable().optional(),
+  items: z.array(invoiceItemSchema).optional(),
+  elecOld: nullableNumber,
+  elecNew: nullableNumber,
+  waterOld: nullableNumber,
+  waterNew: nullableNumber,
+  invoiceNote: nullableString,
 });
 
 const markPaidSchema = z.object({
@@ -125,23 +146,176 @@ invoicesRoutes.get("/", async (c) => {
   return c.json({ data });
 });
 
+const normalizeServiceName = (value: unknown) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase();
+
+const buildInvoiceItemsFromServices = (
+  services: any[],
+  contract: any,
+  readings: {
+    elecOld: number | null;
+    elecNew: number | null;
+    waterOld: number | null;
+    waterNew: number | null;
+  }
+) => {
+  const occupantCount = Number(contract.occupant_count ?? contract.num_people ?? 1) || 1;
+  const hasAc = Boolean(contract.has_ac);
+
+  return services.flatMap((service) => {
+    const name = String(service.name || "");
+    const type = String(service.type || "");
+    const normalizedName = normalizeServiceName(name);
+    const isElectricity = normalizedName.includes("dien") || normalizedName.includes("electric");
+    const isWater = normalizedName.includes("nuoc") || normalizedName.includes("water");
+    const unitPrice = Number(service.unit_price || 0);
+    const acUnitPrice = Number(service.unit_price_ac || 0);
+    const appliedUnitPrice = isElectricity && hasAc && acUnitPrice > 0 ? acUnitPrice : unitPrice;
+
+    if (type === "fixed") {
+      return [{
+        name,
+        detail: `${unitPrice.toLocaleString("vi-VN")}d cố định`,
+        amount: unitPrice,
+        serviceId: service.id,
+        calculationType: type,
+        unitPrice,
+        quantity: 1,
+        unit: service.unit ?? null,
+        serviceSnapshot: service,
+      }];
+    }
+
+    if (type === "per_person" || (isWater && type !== "metered" && type !== "meter")) {
+      return [{
+        name,
+        detail: `${unitPrice.toLocaleString("vi-VN")}d x ${occupantCount} người`,
+        amount: unitPrice * occupantCount,
+        serviceId: service.id,
+        calculationType: type || "per_person",
+        unitPrice,
+        quantity: occupantCount,
+        unit: service.unit ?? null,
+        serviceSnapshot: service,
+      }];
+    }
+
+    if (type === "metered" || type === "meter") {
+      const startReading = isElectricity ? readings.elecOld : isWater ? readings.waterOld : null;
+      const endReading = isElectricity ? readings.elecNew : isWater ? readings.waterNew : null;
+      if (startReading === null || endReading === null || endReading <= 0) return [];
+      if (endReading < startReading) {
+        throw new Error(`${name}: chỉ số mới (${endReading}) không được nhỏ hơn chỉ số cũ (${startReading}).`);
+      }
+
+      const usageValue = endReading - startReading;
+      return [{
+        name,
+        detail: `${startReading} -> ${endReading} = ${usageValue}${service.unit || ""} x ${appliedUnitPrice.toLocaleString("vi-VN")}d`,
+        amount: usageValue * appliedUnitPrice,
+        serviceId: service.id,
+        calculationType: type,
+        unitPrice: appliedUnitPrice,
+        quantity: usageValue,
+        startReading,
+        endReading,
+        usageValue,
+        unit: service.unit ?? null,
+        serviceSnapshot: service,
+      }];
+    }
+
+    return [];
+  });
+};
+
 invoicesRoutes.post("/", async (c) => {
   const user = c.get("user");
   const parsed = await parseJson(c, createInvoiceSchema);
   if (!parsed.ok) return parsed.response;
 
-  const previousDebt = parsed.data.previousDebt ?? 0;
-  const serviceFees = parsed.data.items.reduce((sum, item) => sum + item.amount, 0);
-  const total = parsed.data.roomFee + serviceFees + previousDebt;
-
-
-
   const db = c.get("supabase");
+  if (!parsed.data.contractId && !parsed.data.roomId) {
+    return c.json({ error: "Missing contractId or roomId" }, 400);
+  }
+
+  let contractQuery = db.from("contracts").select("*").eq("user_id", user.id);
+  contractQuery = parsed.data.contractId
+    ? contractQuery.eq("id", parsed.data.contractId)
+    : contractQuery.eq("room_id", parsed.data.roomId).eq("status", "active");
+
+  const contractRes = await contractQuery.maybeSingle();
+  if (contractRes.error) return c.json({ error: contractRes.error.message }, 400);
+  if (!contractRes.data) return c.json({ error: "Contract not found" }, 404);
+
+  const contract = contractRes.data;
+  const contractId = String(contract.id);
+  const roomId = parsed.data.roomId ?? contract.room_id;
+  if (!roomId) return c.json({ error: "Missing roomId" }, 400);
+
+  const roomRes = await db.from("rooms").select("*").eq("id", roomId).eq("user_id", user.id).maybeSingle();
+  if (roomRes.error) return c.json({ error: roomRes.error.message }, 400);
+
+  let elecOld = parsed.data.elecOld ?? null;
+  let waterOld = parsed.data.waterOld ?? null;
+  if (elecOld === null || waterOld === null) {
+    const lastInvoiceRes = await db
+      .from("invoices")
+      .select("elec_new,water_new")
+      .eq("room_id", roomId)
+      .eq("contract_id", contractId)
+      .eq("user_id", user.id)
+      .or("elec_new.not.is.null,water_new.not.is.null")
+      .order("year", { ascending: false })
+      .order("month", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lastInvoiceRes.error) return c.json({ error: lastInvoiceRes.error.message }, 400);
+    elecOld = elecOld ?? Number(lastInvoiceRes.data?.elec_new ?? contract.electric_start ?? 0);
+    waterOld = waterOld ?? Number(lastInvoiceRes.data?.water_new ?? contract.water_start ?? 0);
+  }
+
+  let items = parsed.data.items;
+  if (items === undefined) {
+    const csRes = await db.from("contract_services").select("service_id").eq("contract_id", contractId);
+    if (csRes.error) return c.json({ error: csRes.error.message }, 400);
+
+    const serviceIds = (csRes.data ?? []).map((x) => x.service_id).filter(Boolean);
+    if (serviceIds.length > 0) {
+      const servicesRes = await db.from("services").select("*").eq("user_id", user.id).in("id", serviceIds);
+      if (servicesRes.error) return c.json({ error: servicesRes.error.message }, 400);
+      const serviceMap = new Map((servicesRes.data ?? []).map((service) => [String(service.id), service]));
+      const services = serviceIds.map((id) => serviceMap.get(String(id))).filter(Boolean);
+      try {
+        items = buildInvoiceItemsFromServices(services, { ...contract, ...roomRes.data }, {
+          elecOld,
+          elecNew: parsed.data.elecNew ?? null,
+          waterOld,
+          waterNew: parsed.data.waterNew ?? null,
+        });
+      } catch (error) {
+        return c.json({ error: error instanceof Error ? error.message : "Invalid meter readings" }, 400);
+      }
+    } else {
+      items = [];
+    }
+  }
+
+  const roomFee = parsed.data.roomFee ?? Number(contract.rent_amount ?? roomRes.data?.price ?? 0);
+  const previousDebt = parsed.data.previousDebt ?? 0;
+  const serviceFees = items.reduce((sum, item) => sum + item.amount, 0);
+  const total = roomFee + serviceFees + previousDebt;
+
   const existingInvoiceRes = await db
     .from("invoices")
     .select("*")
-    .eq("room_id", parsed.data.roomId)
-    .eq("contract_id", parsed.data.contractId)
+    .eq("room_id", roomId)
+    .eq("contract_id", contractId)
     .eq("month", parsed.data.month)
     .eq("year", parsed.data.year)
     .eq("user_id", user.id)
@@ -155,17 +329,18 @@ invoicesRoutes.post("/", async (c) => {
     .from("invoices")
     .insert({
       user_id: user.id,
-      room_id: parsed.data.roomId,
-      contract_id: parsed.data.contractId,
+      room_id: roomId,
+      contract_id: contractId,
       month: parsed.data.month,
       year: parsed.data.year,
-      room_fee: parsed.data.roomFee,
+      room_fee: roomFee,
       total_amount: total,
       previous_debt: previousDebt,
-      elec_old: parsed.data.elecOld ?? null,
+      elec_old: elecOld,
       elec_new: parsed.data.elecNew ?? null,
-      water_old: parsed.data.waterOld ?? null,
+      water_old: waterOld,
       water_new: parsed.data.waterNew ?? null,
+      note: parsed.data.invoiceNote ?? null,
     })
     .select("*")
     .single();
@@ -173,8 +348,8 @@ invoicesRoutes.post("/", async (c) => {
   if (invRes.error) return c.json({ error: invRes.error.message }, 400);
 
   const invoiceId = invRes.data.id;
-  if (parsed.data.items.length > 0) {
-    const rows = parsed.data.items.map((item) => ({
+  if (items.length > 0) {
+    const rows = items.map((item) => ({
       user_id: user.id,
       invoice_id: invoiceId,
       service_id: item.serviceId ?? null,

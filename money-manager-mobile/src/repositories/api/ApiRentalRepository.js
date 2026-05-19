@@ -15,7 +15,7 @@ export class ApiRentalRepository {
       price: Number(price || 0),
       hasAc: Boolean(hasAc),
       numPeople: Number(numPeople || 1),
-      walletId: walletId ? Number(walletId) : null,
+      walletId: walletId ? String(walletId) : null,
     });
     return res?.data?.id;
   }
@@ -39,12 +39,13 @@ export class ApiRentalRepository {
     return res?.data || [];
   }
 
-  async addTenant(name, phone, idCard, address) {
+  async addTenant(name, phone, idCard, address, email = '') {
     const res = await apiClient.post('/rental/tenants', {
       name,
       phone: phone || '',
       idCard: idCard || '',
       address: address || '',
+      email: email || '',
     });
     return res?.data?.id;
   }
@@ -64,13 +65,21 @@ export class ApiRentalRepository {
     return res?.data || [];
   }
 
-  async addContract(roomId, tenantId, startDate, deposit, serviceIds = []) {
+  async addContract(roomId, tenantId, startDate, deposit, serviceIds = [], walletId = null, opts = {}) {
     const res = await apiClient.post('/rental/contracts', {
       roomId,
       tenantId,
       startDate,
+      endDate: opts.endDate || undefined,
       deposit: Number(deposit || 0),
+      rentAmount: opts.rentAmount ? Number(opts.rentAmount) : undefined,
+      billingDay: opts.billingDay ? Number(opts.billingDay) : undefined,
+      electricStart: opts.electricStart !== undefined ? Number(opts.electricStart) : undefined,
+      waterStart: opts.waterStart !== undefined ? Number(opts.waterStart) : undefined,
+      occupantCount: opts.occupantCount ? Number(opts.occupantCount) : undefined,
+      note: opts.note || undefined,
       serviceIds,
+      walletId,
     });
     return res?.data?.id;
   }
@@ -91,7 +100,7 @@ export class ApiRentalRepository {
       refundDate: refundData.refundDate,
       refundMethod: refundData.refundMethod,
       note: refundData.note,
-      walletId: refundData.walletId ? Number(refundData.walletId) : null,
+      walletId: refundData.walletId ? String(refundData.walletId) : null,
     };
     await apiClient.post(`/rental/contracts/${id}/terminate`, payload);
   }

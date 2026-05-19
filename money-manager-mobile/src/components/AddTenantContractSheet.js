@@ -13,10 +13,17 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
   const { width } = useWindowDimensions();
   const [tenantName, setTenantName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [idCard, setIdCard] = useState('');
   const [address, setAddress] = useState('');
   const [startDate, setStartDate] = useState(toISODate(new Date()));
+  const [endDate, setEndDate] = useState('');
+  const [billingDay, setBillingDay] = useState('5');
+  const [electricStart, setElectricStart] = useState('0');
+  const [waterStart, setWaterStart] = useState('0');
+  const [occupantCount, setOccupantCount] = useState('1');
   const [deposit, setDeposit] = useState('');
+  const [note, setNote] = useState('');
   const [allServices, setAllServices] = useState([]);
   const [selectedServices, setSelectedServices] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -36,10 +43,17 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
       if (editingContract) {
         setTenantName(editingContract.tenant_name || '');
         setPhone(editingContract.tenant_phone || '');
+        setEmail(editingContract.tenant_email || '');
         setIdCard(editingContract.tenant_id_card || '');
         setAddress(editingContract.tenant_address || '');
         setStartDate(editingContract.start_date);
+        setEndDate(editingContract.end_date || '');
         setDeposit(String(editingContract.deposit || '0'));
+        setBillingDay(String(editingContract.billing_day || '5'));
+        setElectricStart(String(editingContract.electric_start || '0'));
+        setWaterStart(String(editingContract.water_start || '0'));
+        setOccupantCount(String(editingContract.occupant_count || '1'));
+        setNote(editingContract.note || '');
 
         const mySvcs = await getContractServices(editingContract.contract_id);
         setSelectedServices(mySvcs.map((service) => service.id));
@@ -58,12 +72,19 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
           setReservation(null);
           setTenantName('');
           setPhone('');
+          setEmail('');
           setDeposit('');
         }
         
         setIdCard('');
         setAddress('');
         setStartDate(toISODate(new Date()));
+        setEndDate('');
+        setBillingDay('5');
+        setElectricStart('0');
+        setWaterStart('0');
+        setOccupantCount(String(room?.num_people || '1'));
+        setNote('');
         setSelectedServices(svcs.map((service) => service.id));
       }
     } catch (e) {
@@ -88,10 +109,17 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
       roomId: room?.id,
       tenantName: tenantName.trim(),
       phone,
+      email,
       idCard,
       address,
       startDate,
+      endDate: endDate || undefined,
+      billingDay: Number(billingDay || 5),
+      electricStart: Number(electricStart || 0),
+      waterStart: Number(waterStart || 0),
+      occupantCount: Number(occupantCount || 1),
       deposit: dep,
+      note,
       serviceIds: selectedServices,
     });
   };
@@ -164,15 +192,29 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
                     </View>
                   </View>
 
-                  <View style={styles.group}>
-                    <Text style={styles.label}>Địa chỉ thường trú</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Phường/xã, quận/huyện, tỉnh/thành"
-                      value={address}
-                      onChangeText={setAddress}
-                      placeholderTextColor={COLORS.textMuted}
-                    />
+                  <View style={styles.row}>
+                    <View style={[styles.group, { flex: 1 }]}>
+                      <Text style={styles.label}>Email</Text>
+                      <TextInput
+                        style={styles.input}
+                        keyboardType="email-address"
+                        placeholder="khach@email.com"
+                        value={email}
+                        onChangeText={setEmail}
+                        placeholderTextColor={COLORS.textMuted}
+                        autoCapitalize="none"
+                      />
+                    </View>
+                    <View style={[styles.group, { flex: 1 }]}>
+                      <Text style={styles.label}>Địa chỉ</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Quận/huyện, tỉnh/thành"
+                        value={address}
+                        onChangeText={setAddress}
+                        placeholderTextColor={COLORS.textMuted}
+                      />
+                    </View>
                   </View>
 
                   <View style={[styles.sectionHeader, { marginTop: 8 }]}>
@@ -192,6 +234,19 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
                       />
                     </View>
                     <View style={[styles.group, { flex: 1 }]}>
+                      <Text style={styles.label}>Ngày kết thúc</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="YYYY-MM-DD (để trống)"
+                        value={endDate}
+                        onChangeText={setEndDate}
+                        placeholderTextColor={COLORS.textMuted}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.row}>
+                    <View style={[styles.group, { flex: 1 }]}>
                       <Text style={styles.label}>{reservation ? 'Cọc bổ sung' : 'Tiền cọc'}</Text>
                       <TextInput
                         style={[styles.input, reservation && { borderColor: COLORS.warning, backgroundColor: '#FFF9C4' }]}
@@ -207,6 +262,54 @@ export default function AddTenantContractSheet({ visible, room, onClose, onSave,
                         </Text>
                       )}
                     </View>
+                    <View style={[styles.group, { flex: 1 }]}>
+                      <Text style={styles.label}>Ngày thu tiền (1-28)</Text>
+                      <TextInput
+                        style={styles.input}
+                        keyboardType="numeric"
+                        placeholder="5"
+                        value={billingDay}
+                        onChangeText={setBillingDay}
+                        placeholderTextColor={COLORS.textMuted}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.row}>
+                    <View style={[styles.group, { flex: 1 }]}>
+                      <Text style={styles.label}>Điện đầu kỳ (số)</Text>
+                      <TextInput
+                        style={styles.input}
+                        keyboardType="numeric"
+                        placeholder="0"
+                        value={electricStart}
+                        onChangeText={setElectricStart}
+                        placeholderTextColor={COLORS.textMuted}
+                      />
+                    </View>
+                    <View style={[styles.group, { flex: 1 }]}>
+                      <Text style={styles.label}>Nước đầu kỳ (số)</Text>
+                      <TextInput
+                        style={styles.input}
+                        keyboardType="numeric"
+                        placeholder="0"
+                        value={waterStart}
+                        onChangeText={setWaterStart}
+                        placeholderTextColor={COLORS.textMuted}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.group}>
+                    <Text style={styles.label}>Ghi chú hợp đồng</Text>
+                    <TextInput
+                      style={[styles.input, { height: 80, textAlignVertical: 'top', paddingTop: 10 }]}
+                      placeholder="Ghi chú thêm..."
+                      multiline
+                      value={note}
+                      onChangeText={setNote}
+                      placeholderTextColor={COLORS.textMuted}
+                    />
                   </View>
                 </View>
 

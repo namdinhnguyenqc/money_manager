@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -95,6 +95,21 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
   }, [walletId]);
 
   useFocusEffect(useCallback(() => { loadRooms(); }, [loadRooms]));
+
+  useEffect(() => {
+    if (route?.params?.filterTab) {
+      setFilterTab(route.params.filterTab);
+      // Clear param after applying
+      navigation.setParams({ filterTab: undefined });
+    }
+    if (route?.params?.openContractFor && rooms.length > 0) {
+      const targetRoom = rooms.find(r => r.id === route.params.openContractFor);
+      if (targetRoom) {
+        setShowAddTenant(targetRoom);
+      }
+      navigation.setParams({ openContractFor: undefined });
+    }
+  }, [route?.params, rooms, navigation]);
 
   const handleAddRoom = async (id, name, price, hasAc, people) => {
     try {
@@ -407,7 +422,7 @@ export default function RentalScreen({ route, navigation, walletId: propWalletId
         deleteRoom={deleteRoom} 
       />
       <AddTenantContractSheet visible={Boolean(showAddTenant)} room={showAddTenant} editingContract={editingContract} onClose={() => { setShowAddTenant(null); setEditingContract(null); }} onSave={(d) => { setContractPreviewData(d); setContractPreviewRoom(showAddTenant); setContractPreviewEditing(editingContract); setShowAddTenant(null); setEditingContract(null); setShowContractPreview(true); }} />
-      <ContractPreviewModal visible={showContractPreview} data={contractPreviewData} room={contractPreviewRoom} onClose={() => { setShowContractPreview(false); setContractPreviewData(null); setContractPreviewRoom(null); setContractPreviewEditing(null); }} onConfirm={async () => { try { if (!contractPreviewData) return; const { tenantName, phone, idCard, address, startDate, deposit, serviceIds } = contractPreviewData; if (contractPreviewEditing) { await updateTenant(contractPreviewEditing.tenant_id, { name: tenantName, phone, idCard, address }); await updateContract(contractPreviewEditing.contract_id, { startDate, deposit, serviceIds }); } else { const tId = await addTenant(tenantName, phone, idCard, address); await addContract(contractPreviewData.roomId, tId, startDate, deposit, serviceIds); } await loadRooms(); setShowContractPreview(false); setContractPreviewData(null); setContractPreviewRoom(null); setContractPreviewEditing(null); } catch (e) { Alert.alert('Lỗi', e.message); } }} />
+      <ContractPreviewModal visible={showContractPreview} data={contractPreviewData} room={contractPreviewRoom} onClose={() => { setShowContractPreview(false); setContractPreviewData(null); setContractPreviewRoom(null); setContractPreviewEditing(null); }} onConfirm={async () => { try { if (!contractPreviewData) return; const { tenantName, phone, email, idCard, address, startDate, endDate, billingDay, electricStart, waterStart, occupantCount, note, deposit, serviceIds } = contractPreviewData; if (contractPreviewEditing) { await updateTenant(contractPreviewEditing.tenant_id, { name: tenantName, phone, email, idCard, address }); await updateContract(contractPreviewEditing.contract_id, { startDate, endDate, billingDay, electricStart, waterStart, occupantCount, note, deposit, serviceIds }); } else { const tId = await addTenant(tenantName, phone, idCard, address, email); await addContract(contractPreviewData.roomId, tId, startDate, deposit, serviceIds, walletId, { endDate, billingDay, electricStart, waterStart, occupantCount, note, rentAmount: contractPreviewRoom?.price }); } await loadRooms(); setShowContractPreview(false); setContractPreviewData(null); setContractPreviewRoom(null); setContractPreviewEditing(null); } catch (e) { Alert.alert('Lỗi', e.message); } }} />
       <CreateInvoiceSheet visible={Boolean(showCreateInvoice)} room={showCreateInvoice} onClose={() => setShowCreateInvoice(null)} onSaveSuccessful={() => { setShowCreateInvoice(null); loadRooms(); }} />
       <RoomActionSheet visible={Boolean(activeActionRoom)} room={activeActionRoom} hasInvoice={!!(activeActionRoom && monthlyInvoices[activeActionRoom.id])} onClose={() => setActiveActionRoom(null)} onAction={handleRoomAction} onTerminate={() => handleTerminate(activeActionRoom)} />
       <TerminateContractSheet

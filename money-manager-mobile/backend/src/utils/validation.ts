@@ -18,6 +18,11 @@ export const parseJson = async <T extends z.ZodTypeAny>(
 
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
+    console.warn("Validation failed", {
+      path: c.req.path,
+      method: c.req.method,
+      details: parsed.error.flatten(),
+    });
     return {
       ok: false,
       response: c.json(

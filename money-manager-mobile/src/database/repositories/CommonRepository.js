@@ -120,8 +120,8 @@ export const getCategoryBreakdown = async (type, month, year) => {
   if (shouldUseApiData()) {
     const prefix = `${year}-${String(month).padStart(2,'0')}`;
     const [activeWallets, rows] = await Promise.all([apiWalletRepository.getWallets(), fetchAllApiTransactions()]);
-    const activeWalletIds = new Set(activeWallets.map((w) => Number(w.id)));
-    const filtered = rows.filter((x) => x.type === type && String(x.date || '').startsWith(prefix) && activeWalletIds.has(Number(x.wallet_id)));
+    const activeWalletIds = new Set(activeWallets.map((w) => String(w.id)));
+    const filtered = rows.filter((x) => x.type === type && String(x.date || '').startsWith(prefix) && activeWalletIds.has(String(x.wallet_id)));
     const grouped = new Map();
     filtered.forEach((tx) => {
       const key = tx.category_id == null ? 'null' : String(tx.category_id);
@@ -147,9 +147,9 @@ export const getCategoryBreakdown = async (type, month, year) => {
 export const getGlobalNetWorth = async () => {
   if (shouldUseApiData()) {
     const [activeWallets, txRows, tradingRows] = await Promise.all([apiWalletRepository.getWallets(), fetchAllApiTransactions(), fetchAllApiTradingItems()]);
-    const activeWalletIds = new Set(activeWallets.map((w) => Number(w.id)));
-    const cashBalance = txRows.filter((x) => activeWalletIds.has(Number(x.wallet_id))).reduce((sum, x) => sum + (x.type === 'income' ? Number(x.amount || 0) : -Number(x.amount || 0)), 0);
-    const inventoryValue = tradingRows.filter((x) => x.status === 'available' && activeWalletIds.has(Number(x.wallet_id))).reduce((sum, x) => sum + Number(x.import_price || 0), 0);
+    const activeWalletIds = new Set(activeWallets.map((w) => String(w.id)));
+    const cashBalance = txRows.filter((x) => activeWalletIds.has(String(x.wallet_id))).reduce((sum, x) => sum + (x.type === 'income' ? Number(x.amount || 0) : -Number(x.amount || 0)), 0);
+    const inventoryValue = tradingRows.filter((x) => x.status === 'available' && activeWalletIds.has(String(x.wallet_id))).reduce((sum, x) => sum + Number(x.import_price || 0), 0);
     return { cashBalance, inventoryValue, totalNetWorth: cashBalance + inventoryValue };
   }
   const db = await getDb();
@@ -162,8 +162,8 @@ export const getTodayStats = async () => {
   if (shouldUseApiData()) {
     const today = new Date().toISOString().split('T')[0];
     const [activeWallets, rows] = await Promise.all([apiWalletRepository.getWallets(), fetchAllApiTransactions()]);
-    const activeWalletIds = new Set(activeWallets.map((w) => Number(w.id)));
-    const todayRows = rows.filter((x) => String(x.date || '') === today && activeWalletIds.has(Number(x.wallet_id)));
+    const activeWalletIds = new Set(activeWallets.map((w) => String(w.id)));
+    const todayRows = rows.filter((x) => String(x.date || '') === today && activeWalletIds.has(String(x.wallet_id)));
     const income = todayRows.filter((x) => x.type === 'income').reduce((sum, x) => sum + Number(x.amount || 0), 0);
     const expense = todayRows.filter((x) => x.type === 'expense').reduce((sum, x) => sum + Number(x.amount || 0), 0);
     return { income, expense, balance: income - expense };
@@ -177,9 +177,9 @@ export const getTodayStats = async () => {
 export const getNetWorthTrend = async (limit = 6) => {
   if (shouldUseApiData()) {
     const [activeWallets, txRows, tradingRows] = await Promise.all([apiWalletRepository.getWallets(), fetchAllApiTransactions(), fetchAllApiTradingItems()]);
-    const activeWalletIds = new Set(activeWallets.map((w) => Number(w.id)));
-    const filteredTx = txRows.filter((x) => activeWalletIds.has(Number(x.wallet_id)));
-    const filteredTrading = tradingRows.filter((x) => activeWalletIds.has(Number(x.wallet_id)));
+    const activeWalletIds = new Set(activeWallets.map((w) => String(w.id)));
+    const filteredTx = txRows.filter((x) => activeWalletIds.has(String(x.wallet_id)));
+    const filteredTrading = tradingRows.filter((x) => activeWalletIds.has(String(x.wallet_id)));
     const results = [];
     const now = new Date();
     for (let i = limit - 1; i >= 0; i--) {

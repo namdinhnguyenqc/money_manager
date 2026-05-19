@@ -88,6 +88,10 @@ export default function CreateInvoiceSheet({ visible, room, editingInvoice = nul
   };
 
   const handleCreate = async () => {
+    if (!room?.contract_id) {
+      Alert.alert('Lỗi', 'Phòng này chưa có hợp đồng đang hoạt động, không thể tạo hóa đơn.');
+      return;
+    }
     setLoading(true);
     try {
       const items = [];

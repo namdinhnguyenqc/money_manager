@@ -59,7 +59,7 @@ export default function App() {
     setError(null);
     setDbReady(false);
     try {
-      configureGoogleSignIn('231632049960-g6ji40vdfprdl8dq6otnatl8llt6utuk.apps.googleusercontent.com');
+      configureGoogleSignIn('1003393001588-t88qmf22623pvughsqqq0gt7b0cgmfc3.apps.googleusercontent.com');
       await initDb();
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         window.sessionStorage?.removeItem(DB_AUTO_RELOAD_KEY);

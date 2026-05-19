@@ -699,6 +699,16 @@ const initServices = async (db) => {
   }
 };
 
+const columnExists = async (db, tableName, columnName) => {
+  const columns = await db.getAllAsync(`PRAGMA table_info(${tableName})`);
+  return columns.some((column) => column.name === columnName);
+};
+
+const addColumnIfMissing = async (db, tableName, columnName, definition) => {
+  if (await columnExists(db, tableName, columnName)) return;
+  await db.execAsync(`ALTER TABLE ${tableName} ADD COLUMN ${definition}`);
+};
+
 const runMigrations = async (db) => {
   const result = await db.getFirstAsync('PRAGMA user_version');
   let currentVersion = result.user_version;
@@ -742,13 +752,11 @@ const runMigrations = async (db) => {
   if (currentVersion < 40) {
     console.log("Upgrading to v40: Adding user_id/wallet_id for isolation...");
     try {
-      await db.execAsync(`
-        ALTER TABLE wallets ADD COLUMN user_id TEXT;
-        ALTER TABLE tenants ADD COLUMN wallet_id INTEGER;
-        ALTER TABLE services ADD COLUMN wallet_id INTEGER;
-        ALTER TABLE bank_config ADD COLUMN wallet_id INTEGER;
-        ALTER TABLE trading_categories ADD COLUMN wallet_id INTEGER;
-      `);
+      await addColumnIfMissing(db, 'wallets', 'user_id', 'user_id TEXT');
+      await addColumnIfMissing(db, 'tenants', 'wallet_id', 'wallet_id INTEGER');
+      await addColumnIfMissing(db, 'services', 'wallet_id', 'wallet_id INTEGER');
+      await addColumnIfMissing(db, 'bank_config', 'wallet_id', 'wallet_id INTEGER');
+      await addColumnIfMissing(db, 'trading_categories', 'wallet_id', 'wallet_id INTEGER');
       
       // Migration logic: Link existing orphans to a default wallet if possible
       // For a single-user app transitioning to multi-user, we assume local-user owns existing wallets
@@ -869,4 +877,3 @@ export const resetDatabase = async () => {
     window.location.reload();
   }
 };
-

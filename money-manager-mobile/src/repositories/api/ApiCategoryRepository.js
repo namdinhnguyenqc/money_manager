@@ -16,10 +16,10 @@ export class ApiCategoryRepository {
       icon,
       color,
       type,
-      walletId: Number(walletId),
+      walletId: String(walletId),
       parentId,
     });
-    return Number(res?.data?.id);
+    return res?.data?.id;
   }
 
   async updateCategory(id, name, icon, color, parentId = null) {

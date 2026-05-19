@@ -178,15 +178,33 @@ async function upsertOwnerGoogleUser(input: {
   const name = input.name;
   const avatar = input.avatar;
   const isProfileCompleted = input.isProfileCompleted ?? false;
-  let { data: existingUser, error: findError } = await supabaseAdmin
+  let existingUser: any = null;
+  const { data: userByGoogleId, error: googleFindError } = await supabaseAdmin
     .from("users")
     .select("*")
-    .or(`google_id.eq.${googleId},email.eq.${email}`)
+    .eq("google_id", googleId)
     .single();
 
-  if (findError && findError.code !== "PGRST116") {
-    console.error("Error finding owner google user:", findError);
+  if (googleFindError && googleFindError.code !== "PGRST116") {
+    console.error("Error finding owner google user by google_id:", googleFindError);
     return { error: { code: "SERVER_ERROR", message: "Không thể kiểm tra tài khoản owner." }, status: 500 };
+  }
+
+  existingUser = userByGoogleId;
+
+  if (!existingUser) {
+    const { data: userByEmail, error: emailFindError } = await supabaseAdmin
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single();
+
+    if (emailFindError && emailFindError.code !== "PGRST116") {
+      console.error("Error finding owner google user by email:", emailFindError);
+      return { error: { code: "SERVER_ERROR", message: "Không thể kiểm tra tài khoản owner." }, status: 500 };
+    }
+
+    existingUser = userByEmail;
   }
 
   if (!existingUser) {
@@ -266,15 +284,8 @@ async function handleOwnerGoogleAuth(idToken: string | undefined) {
     return { error: { code: "TOKEN_INVALID", message: "Thiếu Google credential." }, status: 400 };
   }
 
-  if (process.env.NODE_ENV !== "production" && idToken.startsWith("mock-")) {
-    const isNewMockOwner = idToken === "mock-new-owner-google-token";
-    return upsertOwnerGoogleUser({
-      googleId: idToken,
-      email: isNewMockOwner ? "new.owner.local@example.com" : "owner.local@example.com",
-      name: isNewMockOwner ? "New Local Owner" : "Local Owner",
-      avatar: null,
-      isProfileCompleted: !isNewMockOwner,
-    });
+  if (!env.GOOGLE_CLIENT_ID) {
+    return { error: { code: "GOOGLE_OAUTH_NOT_CONFIGURED", message: "Backend chưa cấu hình Google OAuth client." }, status: 500 };
   }
 
   let ticket;
