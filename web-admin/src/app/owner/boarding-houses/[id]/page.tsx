@@ -11,6 +11,8 @@ import {
   BoardingHouse,
   Invoice,
   RentalRoom,
+  Transaction,
+  loadTransactions,
   createContract,
   createInvoice,
   createTenant,
@@ -66,6 +68,7 @@ export default function BoardingHouseOverviewPage() {
   const [house, setHouse] = useState<BoardingHouse | null>(null);
   const [rooms, setRooms] = useState<RentalRoom[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [roomFilter, setRoomFilter] = useState("Tất cả");
@@ -80,19 +83,21 @@ export default function BoardingHouseOverviewPage() {
   const [meterForm, setMeterForm] = useState<Record<string, { elec: string; water: string; oldElec: number; oldWater: number }>>({});
   const [systemSettings, setSystemSettings] = useState<Record<string, any>>({});
   const [toast, setToast] = useState("");
-
+ 
   const load = async () => {
     setLoading(true);
     setError("");
     try {
-      const [nextHouse, nextRooms, nextInvoices] = await Promise.all([
+      const [nextHouse, nextRooms, nextInvoices, nextTransactions] = await Promise.all([
         loadBoardingHouse(buildingId),
         loadRentalRooms(buildingId),
         loadInvoices(buildingId),
+        loadTransactions(),
       ]);
       setHouse(nextHouse);
       setRooms(nextRooms);
       setInvoices(nextInvoices);
+      setTransactions(nextTransactions);
       
       const w = await loadWallets();
       setWallets(w);
@@ -257,6 +262,20 @@ export default function BoardingHouseOverviewPage() {
     const { month, year } = currentPeriod();
     return invoices.filter(i => i.month === month && i.year === year);
   }, [invoices]);
+
+  const houseTransactions = useMemo(() => {
+    const houseRoomNames = new Set(rooms.map(r => r.name));
+    const houseInvoiceIds = new Set(invoices.map(i => i.id));
+    
+    return transactions.filter(tx => {
+      if (tx.type !== "income" || !String(tx.description || "").includes("Thu tiền phòng")) return false;
+      if (tx.invoice_id && houseInvoiceIds.has(tx.invoice_id)) return true;
+      
+      const roomMatch = String(tx.description || "").match(/Thu tiền phòng (.*?) \d{1,2}\/\d{4}/)?.[1];
+      if (roomMatch && houseRoomNames.has(roomMatch)) return true;
+      return false;
+    });
+  }, [transactions, rooms, invoices]);
 
 
   const removeRoom = async (roomId: string) => {
@@ -494,14 +513,28 @@ export default function BoardingHouseOverviewPage() {
 
 
       {!loading && activeTab === "payments" && (
-        <section className="rounded-[8px] border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <section>
+          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-950">Thu tiền của cơ sở</h2>
-              <p className="mt-1 text-sm text-slate-500">Theo dõi lịch sử thu tiền tại trang Thu tiền tổng, có thể lọc theo cơ sở và ngày.</p>
+              <h2 className="text-lg font-semibold text-slate-950">Lịch sử thu tiền của cơ sở</h2>
+              <p className="text-sm text-slate-500">Danh sách các khoản tiền phòng đã ghi nhận thành công tại cơ sở này.</p>
             </div>
-            <Link href="/payments" className="rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">Mở lịch sử thu tiền</Link>
+            <Link href="/payments" className="rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">Mở lịch sử thu tiền tổng</Link>
           </div>
+          <DataTable
+            headers={["Ngày thu", "Phòng", "Số tiền", "Phương thức", "Người thu", "Mã giao dịch"]}
+            rows={houseTransactions.map((tx) => {
+              const room = String(tx.description || "").match(/Thu tiền phòng (.*?) \d{1,2}\/\d{4}/)?.[1] || "-";
+              return [
+                tx.date,
+                <span key="room" className="font-medium text-slate-900">{room}</span>,
+                <span key="amount" className="font-semibold text-emerald-700">{formatMoney(tx.amount)}</span>,
+                String(tx.description || "").includes("Chuyển khoản") ? "Chuyển khoản" : String(tx.description || "").includes("Ví điện tử") ? "Ví điện tử" : "Tiền mặt",
+                "Owner",
+                `#${tx.id}`,
+              ];
+            })}
+          />
         </section>
       )}
 
