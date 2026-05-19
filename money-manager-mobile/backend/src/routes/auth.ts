@@ -284,6 +284,16 @@ async function handleOwnerGoogleAuth(idToken: string | undefined) {
     return { error: { code: "TOKEN_INVALID", message: "Thiếu Google credential." }, status: 400 };
   }
 
+  if (process.env.NODE_ENV !== "production" && idToken === "mock-owner-google-token") {
+    return upsertOwnerGoogleUser({
+      googleId: "mock-owner-google-id",
+      email: "owner.local@example.com",
+      name: "Owner Local",
+      avatar: null,
+      isProfileCompleted: true,
+    });
+  }
+
   if (!env.GOOGLE_CLIENT_ID) {
     return { error: { code: "GOOGLE_OAUTH_NOT_CONFIGURED", message: "Backend chưa cấu hình Google OAuth client." }, status: 500 };
   }
