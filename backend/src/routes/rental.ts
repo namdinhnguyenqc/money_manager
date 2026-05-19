@@ -1251,7 +1251,9 @@ rentalRoutes.get("/contracts/:id/settlement-preview", async (c) => {
 
   const { calculateProratedRent } = await import("../utils/rentCalc.js");
   const startOfLastMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
-  const result = calculateProratedRent(contract.rooms.price, startOfLastMonth, endDate);
+  const contractStartDate = contract.start_date ? new Date(contract.start_date) : null;
+  const prorationStartDate = (contractStartDate && contractStartDate > startOfLastMonth) ? contractStartDate : startOfLastMonth;
+  const result = calculateProratedRent(contract.rooms.price, prorationStartDate, endDate);
 
   const actualTotalAmount = isAlreadyPaid ? 0 : result.totalAmount;
 
