@@ -59,24 +59,42 @@ export const getRooms = async (walletId = null) => {
   return await db.getAllAsync(query, params);
 };
 
-export const addRoom = async (name, price, hasAc = false, numPeople = 1, walletId = null) => {
-  if (shouldUseApiData()) return await apiRentalRepository.addRoom(name, price, hasAc, numPeople, walletId);
+export const getRoomTypes = async () => {
+  if (shouldUseApiData()) return await apiRentalRepository.getRoomTypes();
+  const db = await getDb();
+  const rows = await db.getAllAsync(`
+    SELECT DISTINCT room_type as name
+    FROM rooms
+    WHERE room_type IS NOT NULL AND TRIM(room_type) != ''
+    ORDER BY room_type ASC
+  `);
+  return rows.map((row) => ({ name: row.name }));
+};
+
+export const addRoomType = async (name, description = '') => {
+  if (shouldUseApiData()) return await apiRentalRepository.addRoomType(name, description);
+  if (!name?.trim()) throw new Error('Tên loại trọ không được để trống');
+  return { name: name.trim(), description };
+};
+
+export const addRoom = async (name, price, hasAc = false, numPeople = 1, walletId = null, roomType = null) => {
+  if (shouldUseApiData()) return await apiRentalRepository.addRoom(name, price, hasAc, numPeople, walletId, roomType);
   if (!name) throw new Error('Tên phòng không được để trống');
   const db = await getDb();
   const r = await db.runAsync(
-    `INSERT INTO rooms (wallet_id, name, price, has_ac, num_people, status) VALUES (?,?,?,?,?, 'vacant')`,
-    [walletId, name.trim(), price || 0, hasAc ? 1 : 0, numPeople || 1]
+    `INSERT INTO rooms (wallet_id, name, price, has_ac, num_people, room_type, status) VALUES (?,?,?,?,?,?, 'vacant')`,
+    [walletId, name.trim(), price || 0, hasAc ? 1 : 0, numPeople || 1, roomType?.trim() || null]
   );
   return r.lastInsertRowId;
 };
 
-export const updateRoom = async (id, name, price, hasAc, numPeople) => {
-  if (shouldUseApiData()) return await apiRentalRepository.updateRoom(id, name, price, hasAc, numPeople);
+export const updateRoom = async (id, name, price, hasAc, numPeople, roomType = null) => {
+  if (shouldUseApiData()) return await apiRentalRepository.updateRoom(id, name, price, hasAc, numPeople, roomType);
   if (!name) throw new Error('Tên phòng không được để trống');
   const db = await getDb();
   await db.runAsync(
-    `UPDATE rooms SET name=?, price=?, has_ac=?, num_people=? WHERE id=?`,
-    [name.trim(), price || 0, hasAc ? 1 : 0, numPeople || 1, id]
+    `UPDATE rooms SET name=?, price=?, has_ac=?, num_people=?, room_type=? WHERE id=?`,
+    [name.trim(), price || 0, hasAc ? 1 : 0, numPeople || 1, roomType?.trim() || null, id]
   );
 };
 

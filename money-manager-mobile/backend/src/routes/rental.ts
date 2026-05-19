@@ -21,6 +21,8 @@ const addRoomSchema = z.object({
   price: z.number().nonnegative(),
   hasAc: z.boolean().optional(),
   numPeople: z.number().int().positive().optional(),
+  roomType: z.string().trim().optional().nullable(),
+  room_type: z.string().trim().optional().nullable(),
 });
 
 const updateRoomSchema = z
@@ -29,8 +31,17 @@ const updateRoomSchema = z
     price: z.number().nonnegative().optional(),
     hasAc: z.boolean().optional(),
     numPeople: z.number().int().positive().optional(),
+    roomType: z.string().trim().optional().nullable(),
+    room_type: z.string().trim().optional().nullable(),
   })
   .refine((obj) => Object.keys(obj).length > 0, "No fields to update");
+
+const roomTypeSchema = z.object({
+  name: z.string().trim().min(1),
+  description: z.string().trim().optional().nullable(),
+});
+
+const updateRoomTypeSchema = roomTypeSchema.partial().refine((obj) => Object.keys(obj).length > 0, "No fields to update");
 
 const addTenantSchema = z.object({
   name: z.string().min(1),
@@ -112,6 +123,88 @@ const roomSort = (a: { name: string }, b: { name: string }) => String(a.name).lo
 // ROOMS
 // ═══════════════════════════════════════════════
 
+rentalRoutes.get("/room-types", async (c) => {
+  const user = c.get("user");
+  const db = c.get("supabase");
+  const { data, error } = await db
+    .from("room_types")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("name", { ascending: true });
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ data: data ?? [] });
+});
+
+rentalRoutes.post("/room-types", async (c) => {
+  const user = c.get("user");
+  const parsed = await parseJson(c, roomTypeSchema);
+  if (!parsed.ok) return parsed.response;
+
+  const db = c.get("supabase");
+  const { data, error } = await db
+    .from("room_types")
+    .upsert(
+      {
+        user_id: user.id,
+        name: parsed.data.name,
+        description: parsed.data.description ?? null,
+      },
+      { onConflict: "user_id,name" }
+    )
+    .select("*")
+    .single();
+
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ data }, 201);
+});
+
+rentalRoutes.patch("/room-types/:id", async (c) => {
+  const user = c.get("user");
+  const id = toId(c.req.param("id"));
+  if (!id) return c.json({ error: "Invalid room type id" }, 400);
+
+  const parsed = await parseJson(c, updateRoomTypeSchema);
+  if (!parsed.ok) return parsed.response;
+
+  const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (parsed.data.name !== undefined) payload.name = parsed.data.name;
+  if (parsed.data.description !== undefined) payload.description = parsed.data.description ?? null;
+
+  const db = c.get("supabase");
+  const { data, error } = await db
+    .from("room_types")
+    .update(payload)
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("*")
+    .single();
+
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ data });
+});
+
+rentalRoutes.delete("/room-types/:id", async (c) => {
+  const user = c.get("user");
+  const id = toId(c.req.param("id"));
+  if (!id) return c.json({ error: "Invalid room type id" }, 400);
+
+  const db = c.get("supabase");
+  const { data: roomType, error: findError } = await db
+    .from("room_types")
+    .select("name")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (findError) return c.json({ error: findError.message }, 500);
+  if (!roomType) return c.json({ error: "Room type not found" }, 404);
+
+  await db.from("rooms").update({ room_type: null }).eq("user_id", user.id).eq("room_type", roomType.name);
+  const { error } = await db.from("room_types").delete().eq("id", id).eq("user_id", user.id);
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ ok: true });
+});
+
 rentalRoutes.get("/rooms", async (c) => {
   const user = c.get("user");
 
@@ -138,6 +231,8 @@ rentalRoutes.get("/rooms", async (c) => {
         ...room, 
         hasAc: room.has_ac, 
         numPeople: room.num_people,
+        roomType: room.room_type ?? null,
+        room_type: room.room_type ?? null,
         building_id: room.boarding_house_id,
         facility_id: room.boarding_house_id,
       };
@@ -329,17 +424,26 @@ rentalRoutes.post("/rooms", async (c) => {
 
 
   const db = c.get("supabase");
+  const roomType = parsed.data.roomType ?? parsed.data.room_type ?? null;
   const { data, error } = await db.from("rooms").insert({
     user_id: user.id,
     name: parsed.data.name.trim(),
     price: parsed.data.price,
     has_ac: parsed.data.hasAc ?? false,
     num_people: parsed.data.numPeople ?? 1,
+    room_type: roomType || null,
     status: "vacant",
   }).select("*").single();
 
+  if (!error && roomType) {
+    await db.from("room_types").upsert(
+      { user_id: user.id, name: roomType },
+      { onConflict: "user_id,name" }
+    );
+  }
+
   if (error) return c.json({ error: error.message }, 400);
-  return c.json({ data: { ...data, hasAc: data.has_ac, numPeople: data.num_people } }, 201);
+  return c.json({ data: { ...data, hasAc: data.has_ac, numPeople: data.num_people, roomType: data.room_type ?? null } }, 201);
 });
 
 rentalRoutes.patch("/rooms/:id", async (c) => {
@@ -355,15 +459,23 @@ rentalRoutes.patch("/rooms/:id", async (c) => {
   if (parsed.data.price !== undefined) payload.price = parsed.data.price;
   if (parsed.data.hasAc !== undefined) payload.has_ac = parsed.data.hasAc;
   if (parsed.data.numPeople !== undefined) payload.num_people = parsed.data.numPeople;
+  const roomType = parsed.data.roomType ?? parsed.data.room_type;
+  if (roomType !== undefined) payload.room_type = roomType || null;
   payload.updated_at = new Date().toISOString();
 
 
 
   const db = c.get("supabase");
+  if (roomType) {
+    await db.from("room_types").upsert(
+      { user_id: user.id, name: roomType },
+      { onConflict: "user_id,name" }
+    );
+  }
   const { data, error } = await db.from("rooms").update(payload).eq("id", id).eq("user_id", user.id).select("*").single();
 
   if (error) return c.json({ error: error.message }, 400);
-  return c.json({ data });
+  return c.json({ data: { ...data, hasAc: data.has_ac, numPeople: data.num_people, roomType: data.room_type ?? null } });
 });
 
 rentalRoutes.delete("/rooms/:id", async (c) => {
