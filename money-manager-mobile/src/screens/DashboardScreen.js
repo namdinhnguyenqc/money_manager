@@ -21,14 +21,14 @@ import {
   getLast6MonthsStats,
   getTodayStats,
   getWallets,
+  ensureApiBootstrapData,
+  ensureApiRentalServices,
 } from '../database/queries';
-import { getRoomsApi, getInvoicesByContractApi } from '../services/rentalApiService';
+import { getRoomsApi } from '../services/rentalApiService';
 import TransactionsScreen from './TransactionsScreen';
 import SurfaceCard from '../components/ui/SurfaceCard';
 import WebDesktopShell from '../components/ui/WebDesktopShell';
 import Logo from '../components/ui/Logo';
-
-
 
 export default function DashboardScreen({ navigation }) {
   const { width } = useWindowDimensions();
@@ -44,6 +44,8 @@ export default function DashboardScreen({ navigation }) {
   const loadData = useCallback(async () => {
     try {
       if (!refreshing) setLoading(true);
+      await ensureApiBootstrapData();
+      await ensureApiRentalServices();
       const [nw, ws, cfg, chart, today, rooms] = await Promise.all([
         getGlobalNetWorth().catch(() => ({ cashBalance: 0, inventoryValue: 0, totalNetWorth: 0 })),
         getWallets().catch(() => []),
@@ -57,12 +59,8 @@ export default function DashboardScreen({ navigation }) {
       setUserConfig(cfg);
       setChartData(chart);
       setTodayStats(today);
-
       const vacant = rooms.filter(r => r.status === 'vacant');
-      setRentalAlerts({
-        pendingInvoicesCount: 0, 
-        vacantRooms: vacant
-      });
+      setRentalAlerts({ pendingInvoicesCount: 0, vacantRooms: vacant });
     } catch (e) {
       console.error(e);
     } finally {
@@ -81,162 +79,242 @@ export default function DashboardScreen({ navigation }) {
   const personalWallet = wallets.find((w) => w.type === 'personal');
   const isWeb = Platform.OS === 'web';
   const isDesktopWeb = isWeb;
-  const contentMaxWidth = width >= 1440 ? 1240 : width >= 1024 ? 1120 : 960;
+
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.loadingScreen}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
 
   const dashboardContent = (
-    <ScrollView 
-      style={{ flex: 1, height: '100%' }}
-      showsVerticalScrollIndicator={false} 
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: 120 }}
+    <ScrollView
+      style={{ flex: 1 }}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.scrollContent}
       refreshControl={
-        <RefreshControl 
-          refreshing={refreshing} 
+        <RefreshControl
+          refreshing={refreshing}
           onRefresh={() => { setRefreshing(true); loadData(); }}
           tintColor={COLORS.primary}
         />
       }
     >
-      <View style={[styles.container, isDesktopWeb && styles.containerDesktop, !isDesktopWeb && isWeb && styles.containerWeb, { maxWidth: isDesktopWeb ? undefined : contentMaxWidth }]}>
-        <View style={[styles.heroLayout, isWeb && styles.heroLayoutWeb]}>
-          <SurfaceCard tone="lowest" style={styles.hero}>
-            <Text style={styles.heroLabel}>Tổng tài sản</Text>
-            <Text style={styles.heroValue}>{formatCurrency(netWorth.totalNetWorth || 0)}</Text>
-            <View style={styles.heroRow}>
-              <View style={[styles.kpiDot, { backgroundColor: COLORS.secondary }]} />
-              <Text style={styles.heroSub}>Tiền mặt {formatCurrency(netWorth.cashBalance || 0)}</Text>
-            </View>
-            <View style={styles.heroRow}>
-              <View style={[styles.kpiDot, { backgroundColor: COLORS.warning }]} />
-              <Text style={styles.heroSub}>Hàng tồn {formatCurrency(netWorth.inventoryValue || 0)}</Text>
-            </View>
-          </SurfaceCard>
-
-          {isWeb ? (
-            <SurfaceCard tone="low" style={styles.heroNote}>
-              <Text style={styles.heroNoteEyebrow}>BẢNG ĐIỀU KHIỂN WEB</Text>
-              <Text style={styles.heroNoteTitle}>Bảng tổng quan vận hành</Text>
-              <Text style={styles.heroNoteText}>Trang tổng hợp dữ liệu được thiết kế lại cho máy tính: tổng quan, lối tắt thao tác và giao dịch gần đây để xử lý nhanh.</Text>
-            </SurfaceCard>
-          ) : null}
-        </View>
-
-        <View style={styles.todayRow}>
-          <SurfaceCard tone="high" style={styles.todayCard}>
-            <Ionicons name="arrow-down-circle" size={18} color={COLORS.secondary} />
-            <Text style={styles.todayLabel}>Thu hôm nay</Text>
-            <Text style={[styles.todayValue, { color: COLORS.secondary }]}>+{formatCurrency(todayStats.income || 0)}</Text>
-          </SurfaceCard>
-          <SurfaceCard tone="high" style={styles.todayCard}>
-            <Ionicons name="arrow-up-circle" size={18} color={COLORS.danger} />
-            <Text style={styles.todayLabel}>Chi hôm nay</Text>
-            <Text style={[styles.todayValue, { color: COLORS.danger }]}>-{formatCurrency(todayStats.expense || 0)}</Text>
-          </SurfaceCard>
-        </View>
-
-        {/* Urgent Tasks Section */}
-        {((rentalAlerts?.vacantRooms?.length || 0) > 0 || (rentalAlerts?.pendingInvoicesCount || 0) > 0) && (
-          <View style={styles.alertSection}>
-            <Text style={styles.sectionTitle}>Cần xử lý ngay</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.alertScroll}>
-              {(rentalAlerts?.vacantRooms || []).map(room => (
-                <TouchableOpacity key={room.id} style={[styles.alertCard, { borderColor: COLORS.warning }]} onPress={() => navigation.navigate('Rental')}>
-                  <View style={[styles.alertIcon, { backgroundColor: COLORS.warningLight }]}>
-                    <Ionicons name="home" size={18} color={COLORS.warning} />
-                  </View>
-                  <View>
-                    <Text style={styles.alertTitle}>Phòng {room.name} đang trống</Text>
-                    <Text style={styles.alertSub}>Tìm khách thuê ngay</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-              {(rentalAlerts?.pendingInvoicesCount || 0) > 0 && (
-                <TouchableOpacity style={[styles.alertCard, { borderColor: COLORS.primary }]} onPress={() => navigation.navigate('Invoices')}>
-                  <View style={[styles.alertIcon, { backgroundColor: COLORS.primaryLight }]}>
-                    <Ionicons name="receipt" size={18} color={COLORS.primary} />
-                  </View>
-                  <View>
-                    <Text style={styles.alertTitle}>{rentalAlerts.pendingInvoicesCount} Hóa đơn chờ thu</Text>
-                    <Text style={styles.alertSub}>Chốt tiền điện nước tháng này</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </ScrollView>
+      {/* Hero Net Worth Card */}
+      <View style={styles.heroCard}>
+        <Text style={styles.heroLabel}>Tổng tài sản ròng</Text>
+        <Text style={styles.heroValue}>{formatCurrency(netWorth.totalNetWorth || 0)}</Text>
+        <View style={styles.heroStats}>
+          <View style={styles.heroStatItem}>
+            <View style={[styles.statDot, { backgroundColor: COLORS.secondary }]} />
+            <Text style={styles.heroStatLabel}>Tiền mặt</Text>
+            <Text style={[styles.heroStatValue, { color: COLORS.secondary }]}>
+              {formatCurrency(netWorth.cashBalance || 0)}
+            </Text>
           </View>
-        )}
+          <View style={styles.heroDivider} />
+          <View style={styles.heroStatItem}>
+            <View style={[styles.statDot, { backgroundColor: COLORS.warning }]} />
+            <Text style={styles.heroStatLabel}>Hàng tồn</Text>
+            <Text style={[styles.heroStatValue, { color: COLORS.warning }]}>
+              {formatCurrency(netWorth.inventoryValue || 0)}
+            </Text>
+          </View>
+        </View>
+      </View>
 
-        <View style={[styles.quickRow, isWeb && styles.quickRowWeb]}>
-          <TouchableOpacity
-            style={[styles.quickAction, styles.quickActionPrimary]}
-            onPress={() => navigation.navigate('Invoices', { initialFilter: 'not_created' })}
-          >
-            <View style={styles.quickActionIcon}>
-              <Ionicons name="flash" size={18} color="#fff" />
+      {/* Today KPIs */}
+      <View style={styles.kpiRow}>
+        <View style={[styles.kpiCard, styles.kpiIncome]}>
+          <View style={[styles.kpiIconWrap, { backgroundColor: 'rgba(36,199,166,0.12)' }]}>
+            <Ionicons name="trending-up" size={18} color={COLORS.secondary} />
+          </View>
+          <Text style={styles.kpiLabel}>Thu hôm nay</Text>
+          <Text style={[styles.kpiValue, { color: COLORS.secondary }]}>
+            +{formatCurrency(todayStats.income || 0)}
+          </Text>
+        </View>
+        <View style={[styles.kpiCard, styles.kpiExpense]}>
+          <View style={[styles.kpiIconWrap, { backgroundColor: 'rgba(186,26,26,0.10)' }]}>
+            <Ionicons name="trending-down" size={18} color={COLORS.danger} />
+          </View>
+          <Text style={styles.kpiLabel}>Chi hôm nay</Text>
+          <Text style={[styles.kpiValue, { color: COLORS.danger }]}>
+            -{formatCurrency(todayStats.expense || 0)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Urgent Alerts */}
+      {((rentalAlerts?.vacantRooms?.length || 0) > 0 || (rentalAlerts?.pendingInvoicesCount || 0) > 0) && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Cần xử lý</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 4 }}>
+            {(rentalAlerts?.vacantRooms || []).map(room => (
+              <TouchableOpacity key={room.id} style={styles.alertChip} onPress={() => navigation.navigate('Rental')}>
+                <Ionicons name="home-outline" size={15} color={COLORS.warning} />
+                <Text style={[styles.alertChipText, { color: COLORS.warning }]}>P.{room.name} trống</Text>
+              </TouchableOpacity>
+            ))}
+            {(rentalAlerts?.pendingInvoicesCount || 0) > 0 && (
+              <TouchableOpacity style={[styles.alertChip, { borderColor: COLORS.primary }]} onPress={() => navigation.navigate('Invoices')}>
+                <Ionicons name="receipt-outline" size={15} color={COLORS.primary} />
+                <Text style={[styles.alertChipText, { color: COLORS.primary }]}>{rentalAlerts.pendingInvoicesCount} hóa đơn chờ</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Vacant Rooms */}
+      {(rentalAlerts?.vacantRooms?.length || 0) > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Phòng trống ({rentalAlerts.vacantRooms.length})</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Rental', { filterTab: 'vacant' })}>
+              <Text style={styles.sectionLink}>Xem tất cả</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 4 }}>
+            {rentalAlerts.vacantRooms.slice(0, 5).map((room) => (
+              <View key={room.id} style={styles.vacantCard}>
+                <View style={styles.vacantCardTop}>
+                  <Text style={styles.vacantRoomName}>P.{room.name}</Text>
+                  <Text style={styles.vacantPrice}>{formatCurrency(room.price)}</Text>
+                </View>
+                <TouchableOpacity 
+                  style={styles.vacantActionBtn} 
+                  onPress={() => navigation.navigate('Rental', { openContractFor: room.id })}
+                >
+                  <Text style={styles.vacantActionText}>Tạo HĐ</Text>
+                  <Ionicons name="arrow-forward" size={14} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Quick Actions (6 Nút) */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Thao tác nhanh</Text>
+        <View style={styles.quickGrid}>
+          <TouchableOpacity style={styles.quickGridItem} onPress={() => navigation.navigate('Invoices', { initialFilter: 'not_created' })}>
+            <View style={[styles.quickGridIcon, { backgroundColor: COLORS.primaryLight }]}>
+              <Ionicons name="receipt-outline" size={22} color={COLORS.primary} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.quickActionTitle}>Chốt điện nước</Text>
-              <Text style={styles.quickActionText}>Lập hóa đơn nhanh cho các phòng.</Text>
-            </View>
+            <Text style={styles.quickGridLabel}>Hóa đơn</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => navigation.navigate('Tenants')}
-          >
-            <View style={[styles.quickActionIcon, styles.quickActionIconSoft]}>
-              <Ionicons name="people-outline" size={18} color={COLORS.primary} />
+          <TouchableOpacity style={styles.quickGridItem} onPress={() => navigation.navigate('Deposits')}>
+            <View style={[styles.quickGridIcon, { backgroundColor: '#EEF2FF' }]}>
+              <Ionicons name="shield-checkmark-outline" size={22} color="#6366F1" />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.quickActionTitleDark}>Khách thuê</Text>
-              <Text style={styles.quickActionTextDark}>Quản lý thông tin & lịch sử khách.</Text>
+            <Text style={styles.quickGridLabel}>Tiền cọc</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.quickGridItem} onPress={() => navigation.navigate('Rental')}>
+            <View style={[styles.quickGridIcon, { backgroundColor: '#E8F5E9' }]}>
+              <Ionicons name="home-outline" size={22} color={COLORS.success} />
             </View>
+            <Text style={styles.quickGridLabel}>Nhà trọ</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.quickGridItem} onPress={() => navigation.navigate('WalletsManager')}>
+            <View style={[styles.quickGridIcon, { backgroundColor: '#FEF3C7' }]}>
+              <Ionicons name="wallet-outline" size={22} color="#D97706" />
+            </View>
+            <Text style={styles.quickGridLabel}>Ví tiền</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.quickGridItem} onPress={() => navigation.navigate('Transactions')}>
+            <View style={[styles.quickGridIcon, { backgroundColor: '#FCE7F3' }]}>
+              <Ionicons name="swap-horizontal" size={22} color="#DB2777" />
+            </View>
+            <Text style={styles.quickGridLabel}>Giao dịch</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.quickGridItem} onPress={() => navigation.navigate('Tenants')}>
+            <View style={[styles.quickGridIcon, { backgroundColor: '#E0F2FE' }]}>
+              <Ionicons name="people-outline" size={22} color="#0284C7" />
+            </View>
+            <Text style={styles.quickGridLabel}>Khách thuê</Text>
           </TouchableOpacity>
         </View>
+      </View>
 
-        <View style={[styles.moduleRow, isWeb && styles.moduleRowWeb]}>
+      {/* Modules */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Phân hệ</Text>
+        <View style={styles.moduleRow}>
           <TouchableOpacity style={styles.moduleCard} onPress={() => openModule('personal', 'Transactions')}>
-            <Ionicons name="wallet-outline" size={24} color={COLORS.primary} />
-            <Text style={styles.moduleTitle}>Tài chính cá nhân</Text>
-            <Text style={styles.moduleSub}>Thu/Chi</Text>
+            <View style={[styles.moduleIcon, { backgroundColor: '#EFF6FF' }]}>
+              <Ionicons name="wallet-outline" size={22} color={COLORS.primary} />
+            </View>
+            <Text style={styles.moduleTitle}>Tài chính</Text>
+            <Text style={styles.moduleSub}>Thu / Chi cá nhân</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.moduleCard} onPress={() => openModule('rental', 'Rental')}>
-            <Ionicons name="home-outline" size={24} color={COLORS.primary} />
-            <Text style={styles.moduleTitle}>Quản lý nhà trọ</Text>
-            <Text style={styles.moduleSub}>Hóa đơn và hợp đồng</Text>
+            <View style={[styles.moduleIcon, { backgroundColor: '#F0FDF4' }]}>
+              <Ionicons name="business-outline" size={22} color={COLORS.success} />
+            </View>
+            <Text style={styles.moduleTitle}>Nhà trọ</Text>
+            <Text style={styles.moduleSub}>Hóa đơn & hợp đồng</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.moduleCard} onPress={() => openModule('trading', 'Trading')}>
-            <Ionicons name="cube-outline" size={24} color={COLORS.primary} />
+            <View style={[styles.moduleIcon, { backgroundColor: '#FFFBEB' }]}>
+              <Ionicons name="cube-outline" size={22} color={COLORS.warning} />
+            </View>
             <Text style={styles.moduleTitle}>Kinh doanh</Text>
-            <Text style={styles.moduleSub}>Nhập/xuất kho và lợi nhuận</Text>
+            <Text style={styles.moduleSub}>Kho & lợi nhuận</Text>
           </TouchableOpacity>
         </View>
+      </View>
 
-        <SurfaceCard tone="low" style={styles.chartWrap}>
-          <View style={styles.sectionRow}>
+      {/* Cash Flow Chart */}
+      {chartData.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Dòng tiền 6 tháng</Text>
-            <Text style={styles.sectionSub}>T1-T6</Text>
           </View>
-          <View style={styles.chartBars}>
-            {chartData.slice(-6).map((d, idx) => {
-              const max = Math.max(...chartData.map((x) => Math.max(x.income || 0, x.expense || 0)), 1);
-              const hIncome = Math.max(2, ((d.income || 0) / max) * 84);
-              const hExpense = Math.max(2, ((d.expense || 0) / max) * 84);
-              return (
-                <View key={`${idx}-${d.label}`} style={styles.barCol}>
-                  <View style={styles.barGroup}>
-                    <View style={[styles.bar, { height: hIncome }]} />
-                    <View style={[styles.bar, styles.barExpense, { height: hExpense }]} />
+          <View style={styles.chartCard}>
+            <View style={styles.chartLegend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: COLORS.secondary }]} />
+                <Text style={styles.legendText}>Thu</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: COLORS.danger }]} />
+                <Text style={styles.legendText}>Chi</Text>
+              </View>
+            </View>
+            <View style={styles.chartBars}>
+              {chartData.slice(-6).map((d, idx) => {
+                const max = Math.max(...chartData.map((x) => Math.max(x.income || 0, x.expense || 0)), 1);
+                const hIncome = Math.max(4, ((d.income || 0) / max) * 72);
+                const hExpense = Math.max(4, ((d.expense || 0) / max) * 72);
+                return (
+                  <View key={`bar-${idx}`} style={styles.barCol}>
+                    <View style={styles.barGroup}>
+                      <View style={[styles.bar, { height: hIncome, backgroundColor: COLORS.secondary }]} />
+                      <View style={[styles.bar, { height: hExpense, backgroundColor: COLORS.danger }]} />
+                    </View>
+                    <Text style={styles.barLabel}>{d.label}</Text>
                   </View>
-                  <Text style={styles.barLabel}>{d.label}</Text>
-                </View>
-              );
-            })}
+                );
+              })}
+            </View>
           </View>
-        </SurfaceCard>
+        </View>
+      )}
 
-        <View style={styles.sectionRow}>
+      {/* Recent Transactions */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Giao dịch gần đây</Text>
           <TouchableOpacity onPress={() => navigation.navigate('WalletsManager')}>
-            <Text style={styles.sectionLink}>Quản lý sổ</Text>
+            <Text style={styles.sectionLink}>Quản lý sổ →</Text>
           </TouchableOpacity>
         </View>
         <TransactionsScreen navigation={navigation} isEmbedded />
@@ -262,29 +340,40 @@ export default function DashboardScreen({ navigation }) {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
 
-      <View style={[styles.topBar, isWeb && styles.topBarWeb, { maxWidth: contentMaxWidth }]}>
-        <Logo size="md" showText={false} />
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={styles.greet}>TrọCare</Text>
-          <Text numberOfLines={1} style={styles.name}>{userConfig?.account_name || 'Vận hành nhà trọ'}</Text>
+      {/* Mobile Header */}
+      <View style={styles.header}>
+        <Logo size="sm" showText={false} />
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerApp}>TrọCare</Text>
+          <Text numberOfLines={1} style={styles.headerSub}>
+            {userConfig?.account_name || 'Vận hành nhà trọ'}
+          </Text>
         </View>
-        <View style={styles.topActions}>
-          <TouchableOpacity onPress={() => navigation.navigate('Modules')} style={styles.iconBtn}>
-            <Ionicons name="grid-outline" size={19} color={COLORS.textPrimary} />
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Modules')}
+            style={styles.headerBtn}
+          >
+            <Ionicons name="grid-outline" size={20} color={COLORS.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.iconBtn}>
-            <Ionicons name="options-outline" size={20} color={COLORS.textPrimary} />
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Settings')}
+            style={styles.headerBtn}
+          >
+            <Ionicons name="person-circle-outline" size={20} color={COLORS.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>
 
       {dashboardContent}
 
+      {/* FAB */}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => navigation.navigate('AddTransaction', personalWallet ? { walletId: personalWallet.id } : {})}
+        activeOpacity={0.85}
       >
-        <Ionicons name="add" size={30} color="#fff" />
+        <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
     </View>
   );
@@ -292,97 +381,139 @@ export default function DashboardScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.surface },
-  topBar: {
+  loadingScreen: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.surface },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 110, gap: 0 },
+
+  // Header
+  header: {
     paddingTop: 52,
-    paddingHorizontal: 20,
     paddingBottom: 12,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    backgroundColor: COLORS.surface,
   },
-  topBarWeb: {
-    width: '100%',
-    alignSelf: 'center',
-    paddingTop: 22,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  headerCenter: { flex: 1 },
+  headerApp: { fontSize: 11, color: COLORS.textMuted, ...FONTS.medium, letterSpacing: 0.3 },
+  headerSub: { fontSize: 16, color: COLORS.textPrimary, ...FONTS.bold, marginTop: 1 },
+  headerActions: { flexDirection: 'row', gap: 6 },
+  headerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: COLORS.surfaceLow,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.surfaceLow,
-    alignItems: 'center',
-    justifyContent: 'center',
+
+  // Hero
+  heroCard: {
+    marginTop: 8,
+    marginBottom: 14,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.xl,
+    padding: 24,
+    ...SHADOW.md,
   },
-  topActions: { flexDirection: 'row', gap: 8 },
-  greet: { fontSize: 12, color: COLORS.textMuted, ...FONTS.medium },
-  name: { fontSize: 18, color: COLORS.textPrimary, ...FONTS.bold },
-  container: { paddingHorizontal: 16, gap: 14 },
-  containerDesktop: { gap: 16 },
-  containerWeb: { width: '100%', alignSelf: 'center' },
-  heroLayout: { gap: 12 },
-  heroLayoutWeb: { flexDirection: 'row', alignItems: 'stretch' },
-  hero: {
-    minHeight: 176,
-    justifyContent: 'center',
-    flex: 1.2,
-  },
-  heroLabel: { ...TYPOGRAPHY.label, color: COLORS.textMuted, marginBottom: 8 },
-  heroValue: { fontSize: 34, color: COLORS.textPrimary, ...FONTS.black, marginBottom: 12 },
-  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  kpiDot: { width: 8, height: 8, borderRadius: 4 },
-  heroSub: { fontSize: 12, color: COLORS.textSecondary, ...FONTS.medium },
-  heroNote: { flex: 0.95, justifyContent: 'center' },
-  heroNoteEyebrow: { color: COLORS.textMuted, fontSize: 11, ...FONTS.bold, letterSpacing: 0.4 },
-  heroNoteTitle: { marginTop: 8, fontSize: 18, color: COLORS.textPrimary, ...FONTS.bold },
-  heroNoteText: { marginTop: 8, fontSize: 13, lineHeight: 20, color: COLORS.textSecondary, ...FONTS.medium },
-  todayRow: { flexDirection: 'row', gap: 10 },
-  todayCard: { flex: 1, minHeight: 96, justifyContent: 'center', gap: 6 },
-  todayLabel: { fontSize: 11, color: COLORS.textMuted, ...FONTS.medium },
-  todayValue: { fontSize: 15, ...FONTS.bold },
-  quickRow: { gap: 10 },
-  quickRowWeb: { flexDirection: 'row', alignItems: 'stretch' },
-  quickAction: {
+  heroLabel: { fontSize: 12, color: 'rgba(255,255,255,0.7)', ...FONTS.medium, letterSpacing: 0.4 },
+  heroValue: { fontSize: 36, color: '#fff', ...FONTS.black, marginTop: 6, marginBottom: 18 },
+  heroStats: { flexDirection: 'row', alignItems: 'center' },
+  heroStatItem: { flex: 1 },
+  heroStatLabel: { fontSize: 11, color: 'rgba(255,255,255,0.65)', ...FONTS.medium, marginBottom: 3 },
+  heroStatValue: { fontSize: 14, ...FONTS.bold },
+  heroDivider: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.2)', marginHorizontal: 16 },
+  statDot: { width: 6, height: 6, borderRadius: 3, marginBottom: 4 },
+
+  // KPI
+  kpiRow: { flexDirection: 'row', gap: 12, marginBottom: 22 },
+  kpiCard: {
     flex: 1,
-    minHeight: 84,
+    backgroundColor: COLORS.surfaceLowest,
+    borderRadius: RADIUS.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    gap: 6,
+    ...SHADOW.sm,
+  },
+  kpiIncome: {},
+  kpiExpense: {},
+  kpiIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  kpiLabel: { fontSize: 11, color: COLORS.textMuted, ...FONTS.medium },
+  kpiValue: { fontSize: 15, ...FONTS.bold, color: COLORS.textPrimary },
+
+  // Alerts
+  alertChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.warning,
+    backgroundColor: COLORS.warningLight,
+  },
+  alertChipText: { fontSize: 12, ...FONTS.bold },
+
+  // Sections
+  section: { marginBottom: 22 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  sectionTitle: { fontSize: 15, color: COLORS.textPrimary, ...FONTS.bold, marginBottom: 12 },
+  sectionLink: { fontSize: 12, color: COLORS.primary, ...FONTS.bold },
+
+  // Quick Actions Grid
+  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  quickGridItem: {
+    width: '31%',
+    backgroundColor: COLORS.surfaceLowest,
+    borderRadius: RADIUS.lg,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    ...SHADOW.sm,
+  },
+  quickGridIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  quickGridLabel: { fontSize: 12, color: COLORS.textPrimary, ...FONTS.bold },
+
+  // Vacant Rooms
+  vacantCard: {
+    width: 140,
+    backgroundColor: COLORS.surfaceLowest,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.borderSoft,
-    backgroundColor: COLORS.surfaceLowest,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
+    padding: 12,
     gap: 12,
     ...SHADOW.sm,
   },
-  quickActionPrimary: {
+  vacantCardTop: { gap: 4 },
+  vacantRoomName: { fontSize: 15, color: COLORS.textPrimary, ...FONTS.bold },
+  vacantPrice: { fontSize: 13, color: COLORS.primary, ...FONTS.bold },
+  vacantActionBtn: {
     backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  quickActionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: RADIUS.md,
+    gap: 4,
   },
-  quickActionIconSoft: {
-    backgroundColor: COLORS.primaryLight,
-  },
-  quickActionTitle: { color: '#fff', fontSize: 14, ...FONTS.bold },
-  quickActionText: { marginTop: 4, color: 'rgba(255,255,255,0.82)', fontSize: 12, lineHeight: 18, ...FONTS.medium },
-  quickActionTitleDark: { color: COLORS.textPrimary, fontSize: 14, ...FONTS.bold },
-  quickActionTextDark: { marginTop: 4, color: COLORS.textSecondary, fontSize: 12, lineHeight: 18, ...FONTS.medium },
+  vacantActionText: { color: '#fff', fontSize: 12, ...FONTS.bold },
+
+  // Modules
   moduleRow: { flexDirection: 'row', gap: 10 },
-  moduleRowWeb: { alignItems: 'stretch' },
   moduleCard: {
     flex: 1,
     backgroundColor: COLORS.surfaceLowest,
@@ -392,42 +523,44 @@ const styles = StyleSheet.create({
     borderColor: COLORS.borderSoft,
     ...SHADOW.sm,
   },
-  moduleTitle: { fontSize: 12, color: COLORS.textPrimary, ...FONTS.bold, marginTop: 8 },
-  moduleSub: { fontSize: 10, color: COLORS.textMuted, marginTop: 2 },
-  chartWrap: { minHeight: 164 },
-  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionTitle: { fontSize: 16, color: COLORS.textPrimary, ...FONTS.semibold },
-  sectionSub: { fontSize: 11, color: COLORS.textMuted, ...FONTS.medium },
-  sectionLink: { fontSize: 12, color: COLORS.primary, ...FONTS.bold },
-  chartBars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 106, marginTop: 16, paddingHorizontal: 4 },
-  barCol: { alignItems: 'center', gap: 6, flex: 1 },
-  barGroup: { flexDirection: 'row', alignItems: 'flex-end', gap: 2 },
-  bar: { width: 8, backgroundColor: COLORS.secondary, borderRadius: 2 },
-  barExpense: { backgroundColor: COLORS.danger },
-  barLabel: { fontSize: 10, color: COLORS.textMuted, ...FONTS.medium },
-  alertSection: { marginTop: 4, gap: 12 },
-  alertScroll: { gap: 12, paddingRight: 16 },
-  alertCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#fff',
-    padding: 12,
+  moduleIcon: {
+    width: 40,
+    height: 40,
     borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  moduleTitle: { fontSize: 12, color: COLORS.textPrimary, ...FONTS.bold },
+  moduleSub: { fontSize: 10, color: COLORS.textMuted, ...FONTS.medium, marginTop: 2 },
+
+  // Chart
+  chartCard: {
+    backgroundColor: COLORS.surfaceLowest,
+    borderRadius: RADIUS.lg,
+    padding: 16,
     borderWidth: 1,
-    minWidth: 200,
+    borderColor: COLORS.borderSoft,
     ...SHADOW.sm,
   },
-  alertIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  alertTitle: { fontSize: 13, color: COLORS.textPrimary, ...FONTS.bold },
-  alertSub: { fontSize: 11, color: COLORS.textSecondary, ...FONTS.medium, marginTop: 2 },
+  chartLegend: { flexDirection: 'row', gap: 16, marginBottom: 12 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { fontSize: 11, color: COLORS.textMuted, ...FONTS.medium },
+  chartBars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 88 },
+  barCol: { alignItems: 'center', gap: 6, flex: 1 },
+  barGroup: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
+  bar: { width: 9, borderRadius: 4, opacity: 0.85 },
+  barLabel: { fontSize: 10, color: COLORS.textMuted, ...FONTS.medium },
+
+  // FAB
   fab: {
     position: 'absolute',
-    right: 24,
-    bottom: 28,
-    width: 62,
-    height: 62,
-    borderRadius: 31,
+    right: 20,
+    bottom: 24,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',

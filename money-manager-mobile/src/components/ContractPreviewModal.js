@@ -65,24 +65,26 @@ export default function ContractPreviewModal({ visible, data, room, onClose, onC
               <Text style={styles.infoLine}>Điện thoại: 0927368772</Text>
             </View>
 
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>2. Bên thuê (Bên B)</Text>
-              <Text style={styles.infoLine}>Họ tên: <Text style={styles.boldText}>{(data.tenantName || '................').toUpperCase()}</Text></Text>
-              <Text style={styles.infoLine}>Địa chỉ thường trú: {data.address || '................'}</Text>
-              <Text style={styles.infoLine}>Số CCCD/CMND: {data.idCard || '................'}</Text>
-              <Text style={styles.infoLine}>Điện thoại: {data.phone || '................'}</Text>
-            </View>
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>2. Bên thuê (Bên B)</Text>
+                <Text style={styles.infoLine}>Họ tên: <Text style={styles.boldText}>{(data.tenantName || '................').toUpperCase()}</Text></Text>
+                <Text style={styles.infoLine}>Địa chỉ thường trú: {data.address || '................'}</Text>
+                <Text style={styles.infoLine}>Số CCCD/CMND: {data.idCard || '................'}</Text>
+                <Text style={styles.infoLine}>Điện thoại: {data.phone || '................'} — Email: {data.email || '................'}</Text>
+              </View>
 
             <View style={[styles.financeGrid, isWeb && styles.financeGridWeb]}>
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>3. Điều khoản tài chính</Text>
                 <Text style={styles.textBody}>Tiền phòng: <Text style={styles.boldText}>{formatCurrency(room?.price)}/tháng</Text></Text>
                 <Text style={styles.textBody}>Phương thức thanh toán: Chuyển khoản hoặc tiền mặt</Text>
-                <Text style={styles.textBody}>Điện: 3400 VND/kWh (phòng thường) hoặc 4000 VND/kWh (phòng có máy lạnh)</Text>
-                <Text style={styles.textBody}>Nước: 13,100 VND/người/tháng</Text>
+                <Text style={styles.textBody}>Số người ở tối đa: {data.occupantCount || 1} người.</Text>
+                <Text style={styles.textBody}>Điện: 3400 VND/kWh (phòng thường) hoặc 4000 VND/kWh (phòng có máy lạnh) (Chỉ số đầu kỳ: {data.electricStart || 0})</Text>
+                <Text style={styles.textBody}>Nước: 13,100 VND/người/tháng (Chỉ số đầu kỳ: {data.waterStart || 0})</Text>
                 <Text style={styles.textBody}>Phí rác: 36.500 VNĐ/tháng</Text>
                 <Text style={styles.textBody}>Tiền cọc: <Text style={styles.boldText}>{formatCurrency(data.deposit)}</Text></Text>
-                <Text style={styles.textBody}>Hợp đồng có hiệu lực từ {data.startDate} đến {data.endDate || '........'}</Text>
+                <Text style={styles.textBody}>Hợp đồng có hiệu lực từ {data.startDate} đến {data.endDate || '........'}. Thu tiền vào ngày {data.billingDay || 5} hàng tháng.</Text>
+                {data.note ? <Text style={styles.textBody}>Ghi chú thêm: {data.note}</Text> : null}
               </View>
 
               <View style={styles.summaryPanel}>

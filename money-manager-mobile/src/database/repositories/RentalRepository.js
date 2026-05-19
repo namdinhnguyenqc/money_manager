@@ -107,12 +107,12 @@ export const getTenants = async () => {
   return await db.getAllAsync(`SELECT * FROM tenants ORDER BY name ASC`);
 };
 
-export const addTenant = async (name, phone, idCard, address) => {
-  if (shouldUseApiData()) return await apiRentalRepository.addTenant(name, phone, idCard, address);
+export const addTenant = async (name, phone, idCard, address, email = '') => {
+  if (shouldUseApiData()) return await apiRentalRepository.addTenant(name, phone, idCard, address, email);
   const db = await getDb();
   const r = await db.runAsync(
-    `INSERT INTO tenants (name, phone, id_card, address) VALUES (?,?,?,?)`,
-    [name, phone || '', idCard || '', address || '']
+    `INSERT INTO tenants (name, phone, email, id_card, address) VALUES (?,?,?,?,?)`,
+    [name, phone || '', email || '', idCard || '', address || '']
   );
   return r.lastInsertRowId;
 };
@@ -121,8 +121,8 @@ export const updateTenant = async (id, data) => {
   if (shouldUseApiData()) return await apiRentalRepository.updateTenant(id, data);
   const db = await getDb();
   await db.runAsync(
-    `UPDATE tenants SET name=?, phone=?, id_card=?, address=? WHERE id=?`,
-    [data.name, data.phone || '', data.idCard || '', data.address || '', id]
+    `UPDATE tenants SET name=?, phone=?, email=?, id_card=?, address=? WHERE id=?`,
+    [data.name, data.phone || '', data.email || '', data.idCard || '', data.address || '', id]
   );
 };
 
@@ -142,8 +142,8 @@ export const getActiveContracts = async () => {
   `);
 };
 
-export const addContract = async (roomId, tenantId, startDate, deposit, serviceIds = []) => {
-  if (shouldUseApiData()) return await apiRentalRepository.addContract(roomId, tenantId, startDate, deposit, serviceIds);
+export const addContract = async (roomId, tenantId, startDate, deposit, serviceIds = [], walletId = null, opts = {}) => {
+  if (shouldUseApiData()) return await apiRentalRepository.addContract(roomId, tenantId, startDate, deposit, serviceIds, walletId, opts);
   const db = await getDb();
 
   // 1. Check for existing active contract
@@ -168,8 +168,9 @@ export const addContract = async (roomId, tenantId, startDate, deposit, serviceI
   return contractId;
 };
 
-export const updateContract = async (id, { startDate, deposit, serviceIds = [] }) => {
-  if (shouldUseApiData()) return await apiRentalRepository.updateContract(id, { startDate, deposit, serviceIds });
+export const updateContract = async (id, data) => {
+  if (shouldUseApiData()) return await apiRentalRepository.updateContract(id, data);
+  const { startDate, deposit, serviceIds = [] } = data;
   const db = await getDb();
   await db.runAsync(
     `UPDATE contracts SET start_date=?, deposit=? WHERE id=?`,

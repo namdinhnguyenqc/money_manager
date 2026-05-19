@@ -55,6 +55,7 @@ const addServiceSchema = z.object({
   unit_price: z.number().nonnegative().optional(),
   unitPriceAc: z.number().nonnegative().optional(),
   unit_price_ac: z.number().nonnegative().optional(),
+  unit: z.string().optional(),
   icon: z.string().optional(),
 });
 
@@ -65,6 +66,7 @@ const updateServiceSchema = z
     unit_price: z.number().nonnegative().optional(),
     unitPriceAc: z.number().nonnegative().optional(),
     unit_price_ac: z.number().nonnegative().optional(),
+    unit: z.string().optional(),
     active: z.boolean().optional(),
     type: z.enum(["fixed", "per_person", "per_room", "metered", "meter"]).optional(),
   })
@@ -176,11 +178,26 @@ const depositSchema = z.object({
   walletId: z.string().nullable().optional(),
 });
 
+const insertDeposit = async (db: any, payload: Record<string, any>) => {
+  const insertWithUser = await db.from("deposits").insert(payload).select("*").single();
+  if (!insertWithUser.error || insertWithUser.error.code !== "23503" || !("user_id" in payload)) {
+    return insertWithUser;
+  }
+
+  const { user_id, ...fallbackPayload } = payload;
+  console.warn("Retrying deposit insert without user_id after FK failure", insertWithUser.error.message);
+  return db.from("deposits").insert(fallbackPayload).select("*").single();
+};
+
 rentalRoutes.get("/deposits", async (c) => {
   const user = c.get("user");
   const db = c.get("supabase");
 
-  const { data, error } = await db
+  const ownedRoomsRes = await db.from("rooms").select("id").eq("user_id", user.id);
+  if (ownedRoomsRes.error) return c.json({ error: ownedRoomsRes.error.message }, 500);
+
+  const ownedRoomIds = (ownedRoomsRes.data ?? []).map((room: any) => room.id).filter(Boolean);
+  let depositQuery = db
     .from("deposits")
     .select(`
       *,
@@ -191,8 +208,15 @@ rentalRoutes.get("/deposits", async (c) => {
         )
       )
     `)
-    .eq("user_id", user.id)
     .order("created_at", { ascending: false });
+
+  if (ownedRoomIds.length > 0) {
+    depositQuery = depositQuery.or(`user_id.eq.${user.id},room_id.in.(${ownedRoomIds.join(",")})`);
+  } else {
+    depositQuery = depositQuery.eq("user_id", user.id);
+  }
+
+  const { data, error } = await depositQuery;
 
   if (error) return c.json({ error: error.message }, 500);
 
@@ -222,7 +246,7 @@ rentalRoutes.post("/deposits", async (c) => {
   const db = c.get("supabase");
 
   // 1. Create deposit record
-  const { data: deposit, error: depError } = await db.from("deposits").insert({
+  const { data: deposit, error: depError } = await insertDeposit(db, {
     user_id: user.id,
     room_id: parsed.data.roomId,
     tenant_name: parsed.data.tenantName,
@@ -233,7 +257,7 @@ rentalRoutes.post("/deposits", async (c) => {
     payment_method: parsed.data.paymentMethod || "cash",
     recorded_at: parsed.data.depositDate,
     note: parsed.data.note || "Đặt cọc giữ chỗ",
-  }).select("*").single();
+  });
 
   if (depError) return c.json({ error: depError.message }, 400);
 
@@ -491,6 +515,7 @@ rentalRoutes.post("/services", async (c) => {
     type: parsed.data.type,
     unit_price: unitPrice,
     unit_price_ac: unitPriceAc,
+    unit: parsed.data.unit ?? "",
     icon: parsed.data.icon ?? "⚙️",
     active: true,
   }).select("*").single();
@@ -513,6 +538,7 @@ rentalRoutes.patch("/services/:id", async (c) => {
   if (up !== undefined) payload.unit_price = up;
   const upAc = parsed.data.unit_price_ac ?? parsed.data.unitPriceAc;
   if (upAc !== undefined) payload.unit_price_ac = upAc;
+  if (parsed.data.unit !== undefined) payload.unit = parsed.data.unit;
   if (parsed.data.type !== undefined) payload.type = parsed.data.type;
   if (parsed.data.active !== undefined) payload.active = parsed.data.active;
   payload.updated_at = new Date().toISOString();
@@ -542,6 +568,70 @@ rentalRoutes.delete("/services/:id", async (c) => {
 // ═══════════════════════════════════════════════
 // CONTRACTS
 // ═══════════════════════════════════════════════
+
+rentalRoutes.get("/contracts", async (c) => {
+  const user = c.get("user");
+  const roomId = c.req.query("roomId");
+  const status = c.req.query("status");
+
+  const db = c.get("supabase");
+  let query = db.from("contracts").select("*").eq("user_id", user.id);
+  if (roomId) query = query.eq("room_id", roomId);
+  if (status) query = query.eq("status", status);
+
+  const contractsRes = await query.order("start_date", { ascending: false });
+  if (contractsRes.error) return c.json({ error: contractsRes.error.message }, 500);
+
+  const contracts = contractsRes.data ?? [];
+  if (contracts.length === 0) return c.json({ data: [] });
+
+  const roomIds = [...new Set(contracts.map((contract) => contract.room_id).filter(Boolean))];
+  const tenantIds = [...new Set(contracts.map((contract) => contract.tenant_id).filter(Boolean))];
+
+  const [roomsRes, tenantsRes] = await Promise.all([
+    roomIds.length > 0
+      ? db.from("rooms").select("*").eq("user_id", user.id).in("id", roomIds)
+      : Promise.resolve({ data: [], error: null }),
+    tenantIds.length > 0
+      ? db.from("tenants").select("*").eq("user_id", user.id).in("id", tenantIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (roomsRes.error) return c.json({ error: roomsRes.error.message }, 500);
+  if (tenantsRes.error) return c.json({ error: tenantsRes.error.message }, 500);
+
+  const rooms = roomsRes.data ?? [];
+  const tenants = tenantsRes.data ?? [];
+
+  const data = contracts.map((contract) => {
+    const room = rooms.find((x) => String(x.id) === String(contract.room_id));
+    const tenant = tenants.find((x) => String(x.id) === String(contract.tenant_id));
+    return {
+      ...contract,
+      deposit_amount: contract.deposit,
+      startDate: contract.start_date,
+      endDate: contract.end_date,
+      billingDay: contract.billing_day,
+      electricStart: contract.electric_start,
+      waterStart: contract.water_start,
+      occupantCount: contract.occupant_count,
+      roomName: room?.name ?? "",
+      room_name: room?.name ?? "",
+      roomPrice: room?.price ?? 0,
+      room_price: room?.price ?? 0,
+      hasAc: room?.has_ac ?? false,
+      has_ac: room?.has_ac ?? false,
+      numPeople: room?.num_people ?? 1,
+      num_people: room?.num_people ?? 1,
+      tenantName: tenant?.name ?? "",
+      tenant_name: tenant?.name ?? "",
+      tenantPhone: tenant?.phone ?? "",
+      tenant_phone: tenant?.phone ?? "",
+    };
+  });
+
+  return c.json({ data });
+});
 
 rentalRoutes.get("/contracts/active", async (c) => {
   const user = c.get("user");
@@ -739,7 +829,7 @@ rentalRoutes.post("/contracts", async (c) => {
   if (parsed.data.deposit > 0) {
     const { data: tenant } = await db.from("tenants").select("name, phone").eq("id", parsed.data.tenantId).single();
     
-    const { error: depErr } = await db.from("deposits").insert({
+    const { error: depErr } = await insertDeposit(db, {
       user_id: user.id,
       room_id: parsed.data.roomId,
       contract_id: contract.id,

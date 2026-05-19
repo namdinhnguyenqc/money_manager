@@ -28,13 +28,13 @@ export class ApiTransactionRepository {
       type,
       amount,
       description: description || '',
-      categoryId: categoryId || null,
-      walletId,
+      categoryId: categoryId ? String(categoryId) : null,
+      walletId: String(walletId),
       imageUri: imageUri || null,
       date,
     };
     const res = await apiClient.post('/transactions', payload);
-    return Number(res?.data?.id);
+    return res?.data?.id;
   }
 
   async updateTransaction(id, { type, amount, description, categoryId, walletId, imageUri, date }) {

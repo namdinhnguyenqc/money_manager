@@ -16,7 +16,7 @@ export class ApiTradingRepository {
     const res = await apiClient.post('/trading/items', payload);
     const rows = res?.data || [];
     if (Array.isArray(rows) && rows.length > 0) {
-      return Number(rows[rows.length - 1].id);
+      return rows[rows.length - 1].id;
     }
     return null;
   }

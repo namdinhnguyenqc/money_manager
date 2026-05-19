@@ -1,6 +1,9 @@
+import { Platform } from 'react-native';
+
 // No direct AsyncStorage import needed — token access is handled via configureApiClient(getAccessToken)
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8787';
+const DEFAULT_BASE_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8787' : 'http://localhost:8787';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEFAULT_BASE_URL;
 
 const clientConfig = {
   getAccessToken: async () => null,
@@ -67,6 +70,7 @@ const apiClient = {
     const {
       auth = true,
       retryOn401 = true,
+      suppressErrorLog = false,
       method = 'GET',
       headers: customHeaders = {},
       ...fetchOptions
@@ -115,15 +119,29 @@ const apiClient = {
         if (response.status === 401) {
           await clientConfig.onUnauthorized();
         }
-        const error = new Error(result?.error || result?.message || 'Something went wrong');
+        const fieldErrors = result?.fieldErrors || result?.details?.fieldErrors || result?.details?.errors;
+        const validationSummary = fieldErrors
+          ? Object.entries(fieldErrors)
+            .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+            .join('; ')
+          : '';
+        const error = new Error(
+          validationSummary
+            ? `${result?.error || result?.message || 'Validation failed'} (${validationSummary})`
+            : result?.error || result?.message || 'Something went wrong'
+        );
         error.status = response.status;
+        error.code = result?.code;
         error.data = result;
+        error.fieldErrors = fieldErrors;
         throw error;
       }
 
       return result ?? {};
     } catch (error) {
-      console.error(`API Error [${method}] ${endpoint}:`, error);
+      if (!suppressErrorLog) {
+        console.error(`API Error [${method}] ${endpoint}:`, error);
+      }
       throw error;
     }
   },

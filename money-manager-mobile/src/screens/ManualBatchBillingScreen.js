@@ -76,6 +76,7 @@ export default function ManualBatchBillingScreen({ navigation }) {
                 const r = readings[room.id];
                 try {
                   await createInvoiceApi({
+                    roomId: room.id,
                     contractId: room.contract_id,
                     month,
                     year,

@@ -15,6 +15,7 @@ import InvoicesScreen from '../screens/InvoicesScreen';
 import ServicesScreen from '../screens/ServicesScreen';
 import CategoriesScreen from '../screens/CategoriesScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 import TradingScreen from '../screens/TradingScreen';
 import WalletsManagerScreen from '../screens/WalletsManagerScreen';
 import ContractViewerScreen from '../screens/ContractViewerScreen';
@@ -23,6 +24,7 @@ import BankConfigScreen from '../screens/BankConfigScreen';
 import SmartBatchBillingScreen from '../screens/SmartBatchBillingScreen';
 import ModulesScreen from '../screens/ModulesScreen';
 import LoginScreen from '../screens/LoginScreen';
+import CompleteProfileScreen from '../screens/CompleteProfileScreen';
 import TenantLandingScreen from '../screens/TenantLandingScreen';
 import InvoiceHistoryScreen from '../screens/InvoiceHistoryScreen';
 import DepositScreen from '../screens/DepositScreen';
@@ -111,6 +113,13 @@ const WebSettingsScreen = withWebDesktopShell(SettingsScreen, {
   searchPlaceholder: 'Tìm cài đặt, ngân hàng, đồng bộ...',
 });
 
+const WebProfileScreen = withWebDesktopShell(ProfileScreen, {
+  routeName: 'Settings',
+  title: 'Hồ sơ cá nhân',
+  subtitle: 'Thông tin tài khoản và liên hệ',
+  searchPlaceholder: 'Tìm thông tin hồ sơ...',
+});
+
 const WebContractViewerScreen = withWebDesktopShell(ContractViewerScreen, {
   routeName: 'Rental',
   title: 'Hợp đồng thuê phòng',
@@ -186,13 +195,19 @@ function MainTabs() {
         tabBarInactiveTintColor: COLORS.textMuted,
         tabBarStyle: {
           backgroundColor: '#fff',
-          borderTopColor: COLORS.border,
+          borderTopColor: COLORS.borderSoft,
           borderTopWidth: 1,
-          height: 72,
-          paddingBottom: 14,
-          paddingTop: 8,
+          height: 76,
+          paddingBottom: 16,
+          paddingTop: 10,
+          shadowColor: '#131b2e',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 12,
+          elevation: 12,
         },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '700', marginTop: 2 },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '700', marginTop: 3 },
+        tabBarIconStyle: { marginTop: 2 },
         tabBarIcon: ({ focused, color }) => {
           const icons = {
             Home:         focused ? 'home'              : 'home-outline',
@@ -245,7 +260,11 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!requiresAuth || user ? (
+        {requiresAuth && user && user.isProfileCompleted === false ? (
+          <>
+            <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
+          </>
+        ) : !requiresAuth || user ? (
           <>
             <Stack.Screen name="Main" component={mainEntry} />
             <Stack.Screen name="AddTransaction" component={Platform.OS === 'web' ? WebAddTransactionScreen : AddTransactionScreen} />
@@ -268,10 +287,13 @@ export default function AppNavigator() {
             <Stack.Screen name="InvoiceHistory" component={InvoiceHistoryScreen} />
             <Stack.Screen name="Deposits" component={WebDepositScreen} />
             <Stack.Screen name="Tenants" component={TenantsScreen} />
+            <Stack.Screen name="Profile" component={Platform.OS === 'web' ? WebProfileScreen : ProfileScreen} />
+            <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
           </>
         ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
             <Stack.Screen name="TenantLanding" component={TenantLandingScreen} />
           </>
         )}

@@ -6,25 +6,22 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Platform,
-  Alert,
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, RADIUS, SHADOW, WEB } from '../theme';
-import { signInWithGoogle, login, initAuth, logOut } from '../services/authService';
+import { signInWithGoogle } from '../services/authService';
 import { useNavigation } from '@react-navigation/native';
 import { isApiDataEnabled, shouldUseApiData } from '../services/dataMode';
 import SurfaceCard from '../components/ui/SurfaceCard';
 import Logo from '../components/ui/Logo';
-
 
 export default function LoginScreen({ navigation }) {
   const nav = useNavigation();
   const { width } = useWindowDimensions();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [authMode, setAuthMode] = useState('google');
   const isDesktopWeb = Platform.OS === 'web';
   const contentMaxWidth = width >= 1440 ? WEB.contentMax.xl : width >= 1024 ? WEB.contentMax.lg : WEB.contentMax.md;
 
@@ -34,7 +31,7 @@ export default function LoginScreen({ navigation }) {
 
   const checkExistingSession = async () => {
     if (shouldUseApiData()) {
-      navigation.replace('HomeTabs');
+      navigation.replace('Main');
     }
   };
 
@@ -43,8 +40,6 @@ export default function LoginScreen({ navigation }) {
     setError('');
     try {
       await signInWithGoogle();
-      // navigate to home screen (best effort, adapt route name if needed)
-      try { nav.reset({ index: 0, routes: [{ name: 'Home' }] }); } catch {}
     } catch (err) {
       const message = err?.message || err?.code || 'Đã xảy ra lỗi';
       
@@ -57,8 +52,14 @@ export default function LoginScreen({ navigation }) {
         setError('Không có kết nối mạng. Vui lòng thử lại.');
       } else if (message.includes('blocked') || message.includes('BLOCKED')) {
         setError('Tài khoản của bạn đã bị khóa. Liên hệ: admin@moneymanager.app');
+      } else if (message.includes('development build') || message.includes('Expo Go')) {
+        setError('Google login cần development build. Hãy mở app TrọCare debug, không mở Expo Go.');
+      } else if (Platform.OS === 'web' && (message.includes('OAuth') || message.includes('Authorized JavaScript origins') || message.includes('không hiển thị'))) {
+        setError('Google OAuth chưa được cấu hình đúng cho website. Cần thêm domain hiện tại vào Authorized JavaScript origins.');
+      } else if (message.includes('DEVELOPER_ERROR') || message.includes('10') || message.includes('OAuth') || message.includes('not registered')) {
+        setError('Google OAuth chưa được cấu hình đúng cho app mobile. Cần đăng ký Android/iOS client đúng package, bundle id và SHA.');
       } else if (message.includes('invalid') || message.includes('TOKEN')) {
-        setError('Xác thực thất bại. Vui lòng thử lại.');
+        setError('Xác thực Google thất bại. Vui lòng kiểm tra OAuth client.');
       } else if (message.includes('400') || message.includes('401')) {
         setError('Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.');
       } else if (message.includes('500') || message.includes('backend') || message.includes('server')) {
@@ -73,7 +74,7 @@ export default function LoginScreen({ navigation }) {
 
   const handleLocalMode = () => {
     // Skip auth, go directly to Home
-    try { nav.reset({ index: 0, routes: [{ name: 'Home' }] }); } catch {}
+    try { nav.reset({ index: 0, routes: [{ name: 'Main' }] }); } catch {}
   };
 
   const formContent = (
@@ -95,42 +96,32 @@ export default function LoginScreen({ navigation }) {
       {isApiDataEnabled() && (
         <>
           <TouchableOpacity
-            style={styles.googleBtn}
+            style={styles.mainBtn}
             onPress={handleGoogleSignIn}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={COLORS.primary} />
+              <ActivityIndicator color="#fff" />
             ) : (
-              <View style={styles.googleBtnContent}>
-                <Text style={styles.googleBtnText}>Tiếp tục với Gmail</Text>
-              </View>
+              <>
+                <Ionicons name="logo-google" size={18} color="#fff" />
+                <Text style={styles.mainBtnText}>Đăng nhập Google</Text>
+              </>
             )}
           </TouchableOpacity>
 
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>hoặc</Text>
-            <View style={styles.dividerLine} />
-          </View>
         </>
       )}
 
-      <TouchableOpacity
-        style={styles.mainBtn}
-        onPress={handleLocalMode}
-        disabled={loading}
-      >
-        <Text style={styles.mainBtnText}>
-          {isApiDataEnabled() ? 'Dùng không đăng nhập' : 'Vào trang chủ'}
-        </Text>
-      </TouchableOpacity>
-
-      {isApiDataEnabled() && (
-        <TouchableOpacity onPress={() => navigation.push('HomeTabs')} style={styles.skipBtn}>
-          <Text style={styles.skipText}>Bỏ qua lần này</Text>
+      {!isApiDataEnabled() ? (
+        <TouchableOpacity
+          style={styles.mainBtn}
+          onPress={handleLocalMode}
+          disabled={loading}
+        >
+          <Text style={styles.mainBtnText}>Vào trang chủ</Text>
         </TouchableOpacity>
-      )}
+      ) : null}
     </>
   );
 
@@ -184,7 +175,7 @@ export default function LoginScreen({ navigation }) {
               <Text style={styles.subtitle}>
                 {isApiDataEnabled()
                   ? 'Quản lý tài chính thông minh'
-                  : 'Đăng nhập để đồng bộ dữ liệu'}
+                  : 'Vận hành tài chính, nhà trọ và kinh doanh'}
               </Text>
             </View>
 
@@ -203,9 +194,9 @@ export default function LoginScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  shell: { width: '100%', alignSelf: 'center', justifyContent: 'center', paddingHorizontal: 20 },
+  shell: { flex: 1, width: '100%', alignSelf: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 28 },
   shellWeb: { flexDirection: 'row', alignItems: 'stretch', gap: 24, paddingHorizontal: 28, paddingVertical: 28 },
-  brand: { alignItems: 'center', marginBottom: 20 },
+  brand: { alignItems: 'center', marginBottom: 22 },
   brandPanel: {
     flex: 1.08,
     borderRadius: 32,
@@ -245,7 +236,7 @@ const styles = StyleSheet.create({
   },
   brandFooterLabel: { ...FONTS.label, color: COLORS.textMuted },
   brandFooterValue: { marginTop: 6, color: COLORS.textPrimary, fontSize: 15, ...FONTS.bold },
-  form: { borderRadius: 28, padding: 22 },
+  form: { borderRadius: 28, padding: 22, width: '100%' },
   formWeb: {
     width: 430,
     alignSelf: 'stretch',
@@ -283,15 +274,15 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   googleBtnText: { color: COLORS.textPrimary, ...FONTS.bold, fontSize: 15 },
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.borderSoft },
-  dividerText: { paddingHorizontal: 12, color: COLORS.textMuted, ...FONTS.medium, fontSize: 12 },
+  googleHint: { marginTop: 8, color: COLORS.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', ...FONTS.medium },
   mainBtn: {
     height: 52,
     borderRadius: RADIUS.lg,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
     ...SHADOW.sm,
   },
   mainBtnText: { color: '#fff', ...FONTS.bold, fontSize: 15 },

@@ -62,6 +62,18 @@ const enrichBatchFields = <T extends { batch_id: string | null; status: string }
   });
 };
 
+const normalizeTradingItem = (item: any) => ({
+  ...item,
+  import_price: item.import_price ?? item.buy_price ?? 0,
+  import_date: item.import_date ?? item.buy_date ?? item.created_at?.slice?.(0, 10) ?? null,
+  target_price: item.target_price ?? null,
+  category: item.category ?? "",
+  status: item.status === "holding" ? "available" : item.status,
+  batch_id: item.batch_id ?? null,
+  transaction_id: item.transaction_id ?? null,
+  sell_transaction_id: item.sell_transaction_id ?? null,
+});
+
 tradingRoutes.get("/items", async (c) => {
   const user = c.get("user");
   const walletIdRaw = c.req.query("walletId");
@@ -77,8 +89,19 @@ tradingRoutes.get("/items", async (c) => {
     .eq("wallet_id", walletIdRaw)
     .order("import_date", { ascending: false });
 
+  if (error && error.message?.includes("import_date")) {
+    const fallback = await db
+      .from("trading_items")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("wallet_id", walletIdRaw)
+      .order("created_at", { ascending: false });
+    if (fallback.error) return c.json({ error: fallback.error.message }, 500);
+    return c.json({ data: enrichBatchFields((fallback.data ?? []).map(normalizeTradingItem)) });
+  }
+
   if (error) return c.json({ error: error.message }, 500);
-  return c.json({ data: enrichBatchFields(data ?? []) });
+  return c.json({ data: enrichBatchFields((data ?? []).map(normalizeTradingItem)) });
 });
 
 tradingRoutes.get("/items/batch/:batchId", async (c) => {
@@ -95,7 +118,7 @@ tradingRoutes.get("/items/batch/:batchId", async (c) => {
     .order("created_at", { ascending: true });
 
   if (error) return c.json({ error: error.message }, 500);
-  return c.json({ data: data ?? [] });
+  return c.json({ data: (data ?? []).map(normalizeTradingItem) });
 });
 
 tradingRoutes.post("/items", async (c) => {
@@ -147,10 +170,25 @@ tradingRoutes.post("/items", async (c) => {
     sell_transaction_id: null,
   }));
 
-  const insertRes = await db.from("trading_items").insert(rows).select("*");
+  let insertRes = await db.from("trading_items").insert(rows).select("*");
+  if (insertRes.error && insertRes.error.message?.includes("import_date")) {
+    const legacyRows = rows.map((row) => ({
+      user_id: row.user_id,
+      wallet_id: row.wallet_id,
+      name: row.name,
+      buy_price: row.import_price,
+      sell_price: null,
+      quantity: 1,
+      status: "holding",
+      buy_date: row.import_date,
+      sell_date: null,
+      note: row.note,
+    }));
+    insertRes = await db.from("trading_items").insert(legacyRows).select("*");
+  }
   if (insertRes.error) return c.json({ error: insertRes.error.message }, 400);
 
-  return c.json({ data: insertRes.data ?? [] }, 201);
+  return c.json({ data: (insertRes.data ?? []).map(normalizeTradingItem) }, 201);
 });
 
 tradingRoutes.patch("/items/:id", async (c) => {
@@ -174,7 +212,7 @@ tradingRoutes.patch("/items/:id", async (c) => {
   payload.updated_at = new Date().toISOString();
 
   const db = c.get("supabase");
-  const { data, error } = await db
+  let { data, error } = await db
     .from("trading_items")
     .update(payload)
     .eq("user_id", user.id)
@@ -182,8 +220,29 @@ tradingRoutes.patch("/items/:id", async (c) => {
     .select("*")
     .single();
 
+  if (error && (error.message?.includes("import_") || error.message?.includes("target_price"))) {
+    const legacyPayload: Record<string, unknown> = {};
+    if (parsed.data.name !== undefined) legacyPayload.name = parsed.data.name;
+    if (parsed.data.importPrice !== undefined) legacyPayload.buy_price = parsed.data.importPrice;
+    if (parsed.data.sellPrice !== undefined) legacyPayload.sell_price = parsed.data.sellPrice;
+    if (parsed.data.importDate !== undefined) legacyPayload.buy_date = parsed.data.importDate;
+    if (parsed.data.sellDate !== undefined) legacyPayload.sell_date = parsed.data.sellDate;
+    if (parsed.data.status !== undefined) legacyPayload.status = parsed.data.status === "available" ? "holding" : parsed.data.status;
+    if (parsed.data.note !== undefined) legacyPayload.note = parsed.data.note;
+    legacyPayload.updated_at = new Date().toISOString();
+    const fallback = await db
+      .from("trading_items")
+      .update(legacyPayload)
+      .eq("user_id", user.id)
+      .eq("id", id)
+      .select("*")
+      .single();
+    data = fallback.data;
+    error = fallback.error;
+  }
+
   if (error) return c.json({ error: error.message }, 400);
-  return c.json({ data });
+  return c.json({ data: normalizeTradingItem(data) });
 });
 
 tradingRoutes.delete("/items/:id", async (c) => {
@@ -217,9 +276,29 @@ tradingRoutes.get("/stats", async (c) => {
     .eq("user_id", user.id)
     .eq("wallet_id", walletIdRaw);
 
+  if (error && error.message?.includes("import_price")) {
+    const fallback = await db
+      .from("trading_items")
+      .select("buy_price,sell_price,status")
+      .eq("user_id", user.id)
+      .eq("wallet_id", walletIdRaw);
+    if (fallback.error) return c.json({ error: fallback.error.message }, 500);
+    const legacyRows = (fallback.data ?? []).map(normalizeTradingItem);
+    const unsoldRows = legacyRows.filter((x) => x.status === "available");
+    const soldRows = legacyRows.filter((x) => x.status === "sold");
+    return c.json({
+      data: {
+        unsoldCapital: unsoldRows.reduce((sum, x) => sum + Number(x.import_price || 0), 0),
+        unsoldCount: unsoldRows.length,
+        realizedProfit: soldRows.reduce((sum, x) => sum + (Number(x.sell_price || 0) - Number(x.import_price || 0)), 0),
+        soldCount: soldRows.length,
+      },
+    });
+  }
+
   if (error) return c.json({ error: error.message }, 500);
 
-  const rows = data ?? [];
+  const rows = (data ?? []).map(normalizeTradingItem);
   const unsoldRows = rows.filter((x) => x.status === "available");
   const soldRows = rows.filter((x) => x.status === "sold");
 
