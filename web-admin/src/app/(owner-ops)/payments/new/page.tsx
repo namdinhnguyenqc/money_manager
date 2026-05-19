@@ -72,6 +72,7 @@ export default function NewPaymentPage() {
         queryClient.invalidateQueries({ queryKey: ["invoices"] }),
         queryClient.invalidateQueries({ queryKey: ["payments"] }),
         queryClient.invalidateQueries({ queryKey: ["invoices", invoiceId] }),
+        queryClient.invalidateQueries({ queryKey: ["transactions"] }),
       ]);
       setSuccess("Thu tiền thành công.");
       window.setTimeout(() => router.push(`/invoices/${invoiceId}`), 700);

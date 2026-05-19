@@ -75,6 +75,11 @@ const collectPaymentSchema = z.object({
   note: z.string().optional(),
 });
 
+const bulkCollectPaymentSchema = z.object({
+  invoiceIds: z.array(z.string().min(1)),
+  walletId: z.string().min(1),
+});
+
 invoicesRoutes.get("/", async (c) => {
   const user = c.get("user");
   const monthRaw = c.req.query("month");
@@ -685,6 +690,108 @@ invoicesRoutes.post("/:id/collect-payment", async (c) => {
   if (!updateRes.data) return c.json({ error: "Failed to update invoice" }, 400);
 
   return c.json({ data: { invoice: updateRes.data, transaction: txRes.data } });
+});
+
+invoicesRoutes.post("/bulk-collect-payment", async (c) => {
+  const user = c.get("user");
+  const parsed = await parseJson(c, bulkCollectPaymentSchema);
+  if (!parsed.ok) return parsed.response;
+
+  const { invoiceIds, walletId } = parsed.data;
+  const db = c.get("supabase");
+
+  if (invoiceIds.length === 0) {
+    return c.json({ data: [] });
+  }
+
+  // Fetch all invoices
+  const { data: invoices, error: fetchError } = await db
+    .from("invoices")
+    .select("*")
+    .eq("user_id", user.id)
+    .in("id", invoiceIds);
+
+  if (fetchError) return c.json({ error: fetchError.message }, 500);
+  if (!invoices || invoices.length === 0) {
+    return c.json({ error: "Không tìm thấy hóa đơn nào." }, 404);
+  }
+
+  const roomIds = [...new Set(invoices.map((inv) => inv.room_id))];
+  const { data: rooms } = await db
+    .from("rooms")
+    .select("id, name")
+    .eq("user_id", user.id)
+    .in("id", roomIds);
+  const roomMap = new Map(rooms?.map((r) => [r.id, r.name]) ?? []);
+
+  const results: any[] = [];
+  let totalCollected = 0;
+
+  for (const invoice of invoices) {
+    const total = Number(invoice.total_amount || 0);
+    const currentPaid = Number(invoice.paid_amount || 0);
+    const dueAmount = Math.max(0, total - currentPaid);
+
+    if (dueAmount <= 0) {
+      results.push({ invoiceId: invoice.id, status: "already_paid", amount: 0 });
+      continue;
+    }
+
+    const roomName = roomMap.get(invoice.room_id) ?? invoice.room_id;
+
+    // Create transaction
+    const txRes = await db
+      .from("transactions")
+      .insert({
+        user_id: user.id,
+        type: "income",
+        amount: dueAmount,
+        description: `Thu tiền phòng ${roomName} ${invoice.month}/${invoice.year} · Thanh toán hàng loạt`,
+        category_id: null,
+        wallet_id: walletId,
+        image_uri: null,
+        date: new Date().toISOString().split("T")[0],
+        invoice_id: invoice.id,
+        contract_id: invoice.contract_id || null,
+      })
+      .select("*")
+      .single();
+
+    if (txRes.error || !txRes.data) {
+      results.push({ invoiceId: invoice.id, status: "error", error: txRes.error?.message || "Failed to create transaction" });
+      continue;
+    }
+
+    // Update wallet balance
+    await updateWalletBalance(db, walletId, dueAmount, "income");
+    totalCollected += dueAmount;
+
+    // Update invoice
+    const newPaid = currentPaid + dueAmount;
+    const updateRes = await db
+      .from("invoices")
+      .update({
+        paid_amount: newPaid,
+        status: "paid",
+        transaction_id: txRes.data.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", invoice.id)
+      .eq("user_id", user.id)
+      .select("*")
+      .single();
+
+    if (updateRes.error) {
+      // Rollback
+      await db.from("transactions").delete().eq("id", txRes.data.id).eq("user_id", user.id);
+      await updateWalletBalance(db, walletId, dueAmount, "expense");
+      results.push({ invoiceId: invoice.id, status: "error", error: "Failed to update invoice status" });
+    } else {
+      results.push({ invoiceId: invoice.id, status: "success", amount: dueAmount, transactionId: txRes.data.id });
+    }
+  }
+
+  return c.json({ data: results, totalCollected });
 });
 
 invoicesRoutes.delete("/:id", async (c) => {

@@ -1,47 +1,56 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BoardingHouse, Transaction, formatMoney, loadBoardingHouses, loadTransactions } from "@/lib/rentalOps";
 
 const methods = ["Tất cả", "Tiền mặt", "Chuyển khoản", "Ví điện tử"];
 
 export default function PaymentsPage() {
-  const [houses, setHouses] = useState<BoardingHouse[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const queryClient = useQueryClient();
   const [method, setMethod] = useState("Tất cả");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  const load = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const [nextHouses, nextTransactions] = await Promise.all([loadBoardingHouses(), loadTransactions()]);
-      setHouses(nextHouses);
-      setTransactions(nextTransactions.filter((tx) => tx.type === "income" && String(tx.description || "").includes("Thu tiền phòng")));
-    } catch (err: any) {
-      setError(err?.message || "Không tải được lịch sử thu tiền.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const housesQuery = useQuery({
+    queryKey: ["boardinghouses"],
+    queryFn: loadBoardingHouses,
+    staleTime: 60_000,
+  });
 
-  useEffect(() => {
-    load();
-  }, []);
+  const transactionsQuery = useQuery({
+    queryKey: ["transactions"],
+    queryFn: loadTransactions,
+    staleTime: 30_000,
+  });
+
+  const houses = housesQuery.data || [];
+  const allTransactions = transactionsQuery.data || [];
+
+  const payments = useMemo(() => {
+    return allTransactions.filter(
+      (tx) => tx.type === "income" && String(tx.description || "").includes("Thu tiền phòng")
+    );
+  }, [allTransactions]);
 
   const filtered = useMemo(() => {
-    return transactions.filter((tx) => {
+    return payments.filter((tx) => {
       if (from && tx.date < from) return false;
       if (to && tx.date > to) return false;
       if (method !== "Tất cả" && !String(tx.description || "").includes(method)) return false;
       return true;
     });
-  }, [transactions, from, to, method]);
+  }, [payments, from, to, method]);
+
+  const loading = housesQuery.isLoading || transactionsQuery.isLoading;
+  const error = (housesQuery.error || transactionsQuery.error) ? "Không tải được lịch sử thu tiền." : "";
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["boardinghouses"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+  };
 
   const total = filtered.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
   const totalCash = filtered.filter((tx) => !String(tx.description || "").includes("Chuyển khoản") && !String(tx.description || "").includes("Ví điện tử")).reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
@@ -56,7 +65,7 @@ export default function PaymentsPage() {
           <h1 className="text-2xl font-semibold text-slate-950">Thu tiền</h1>
           <p className="mt-1 text-sm text-slate-500">Theo dõi các khoản tiền phòng đã ghi nhận, tách khỏi bước lập hóa đơn.</p>
         </div>
-        <button onClick={load} className="inline-flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700">
+        <button onClick={handleRefresh} className="inline-flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700">
           <RefreshCw size={16} />
           Làm mới
         </button>

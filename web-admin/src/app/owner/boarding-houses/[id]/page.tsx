@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Building2, CalendarDays, Edit3, FileText, Home, Plus, Receipt, Settings, Trash2, Wallet, X, Zap, CheckSquare, Square } from "lucide-react";
 import { apiGet } from "@/utils/apiClient";
 
@@ -56,6 +57,7 @@ const roomFilters = ["Tất cả", "Trống", "Đang thuê", "Bảo trì", "Sắ
 const contractFilters = ["Tất cả", "Hiệu lực", "Sắp hết", "Đã kết thúc"];
 
 export default function BoardingHouseOverviewPage() {
+  const queryClient = useQueryClient();
   const { id } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -194,6 +196,7 @@ export default function BoardingHouseOverviewPage() {
     try {
       await bulkCollectPayments(selectedInvoices, walletId);
       setSelectedInvoices([]);
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       await refreshWithToast(`Đã thanh toán hàng loạt ${selectedInvoices.length} hóa đơn.`);
     } catch (err: any) {
       setError(err?.message || "Lỗi khi thanh toán hàng loạt.");
