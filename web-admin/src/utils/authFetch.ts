@@ -1,6 +1,6 @@
 "use client";
 
-import { clearClientSession, getLoginPath, getStoredAccessToken, getStoredRefreshToken, setClientSession } from "@/utils/session";
+import { clearClientSession, getLoginPath, getStoredAccessToken, setClientSession } from "@/utils/session";
 import { API_URL } from "@/lib/apiUrl";
 
 type AuthFetchOptions = RequestInit & {
@@ -14,20 +14,19 @@ let refreshPromise: Promise<string | null> | null = null;
 const redirectToLogin = () => {
   if (typeof window === "undefined") return;
   clearClientSession();
-  window.location.href = getLoginPath(window.location.pathname);
+  window.location.replace(getLoginPath(window.location.pathname));
 };
 
 export async function refreshAccessToken() {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
-    const refreshToken = getStoredRefreshToken();
-    if (!refreshToken) return null;
-
     const res = await fetch(`${API_URL}/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
+      body: JSON.stringify({}),
+      credentials: "include",
+      cache: "no-store",
     });
     const data = await res.json().catch(() => ({}));
 
@@ -36,11 +35,9 @@ export async function refreshAccessToken() {
     }
 
     const accessToken = data.session.access_token;
-    const nextRefreshToken = data.session.refresh_token;
 
     setClientSession({
       accessToken,
-      refreshToken: nextRefreshToken,
       role: localStorage.getItem("userRole") || undefined,
       name: localStorage.getItem("userName") || undefined,
       email: localStorage.getItem("userEmail") || undefined,
@@ -81,7 +78,7 @@ export async function authFetch(input: string, init: AuthFetchOptions = {}) {
       if (token) headers.set("Authorization", `Bearer ${token}`);
     }
 
-    const res = await fetch(input, { ...init, headers });
+    const res = await fetch(input, { ...init, headers, credentials: init.credentials ?? "include", cache: "no-store" });
     if (res.status !== 401 || init.auth === false || init.skipRefresh || init._retried) {
       return res;
     }
@@ -97,7 +94,7 @@ export async function authFetch(input: string, init: AuthFetchOptions = {}) {
       retryHeaders.set("Content-Type", "application/json");
     }
     retryHeaders.set("Authorization", `Bearer ${nextToken}`);
-    return fetch(input, { ...init, headers: retryHeaders, _retried: true } as RequestInit);
+    return fetch(input, { ...init, headers: retryHeaders, credentials: init.credentials ?? "include", cache: "no-store", _retried: true } as RequestInit);
   };
 
   if (dedupeKey) {

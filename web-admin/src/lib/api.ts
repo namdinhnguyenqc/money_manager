@@ -1,4 +1,4 @@
-import { clearClientSession, getStoredRefreshToken, setClientSession } from "@/utils/session";
+import { clearClientSession, getStoredAccessToken, setClientSession } from "@/utils/session";
 import { authFetch, handleUnauthorizedLogout } from "@/utils/authFetch";
 import { API_URL } from "@/lib/apiUrl";
 
@@ -39,6 +39,8 @@ export async function login(email: string, password: string) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
+    credentials: "include",
+    cache: "no-store",
   });
 
   if (!res.ok) {
@@ -50,7 +52,6 @@ export async function login(email: string, password: string) {
   if (data.session?.access_token) {
     setClientSession({
       accessToken: data.session.access_token,
-      refreshToken: data.session.refresh_token,
       role: data?.user?.role,
       name: data?.user?.name,
       email: data?.user?.email,
@@ -62,7 +63,7 @@ export async function login(email: string, password: string) {
 }
 
 export async function logout() {
-  const token = localStorage.getItem("accessToken");
+  const token = getStoredAccessToken();
   if (token) {
     try {
       await fetch(`${API_URL}/auth/logout`, {
@@ -71,7 +72,9 @@ export async function logout() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ refreshToken: getStoredRefreshToken() }),
+        body: JSON.stringify({}),
+        cache: "no-store",
+        credentials: "include",
       });
     } catch {}
   }

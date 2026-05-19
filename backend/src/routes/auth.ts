@@ -10,12 +10,35 @@ import {
   User,
 } from "../lib/auth.js";
 import { parseJson } from "../utils/validation.js";
-import { requireAuth, getClientIp, getDeviceInfo } from "../middleware/auth.js";
+import { requireAuth, getClientIp, getDeviceInfo, revokeAccessToken } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
 import { buildProfileAuthMeta, getUserProfile } from "../lib/profileStore.js";
 
 const authRoutes = new Hono<AppEnv>();
+
+const cookieOptions = `Path=/auth; HttpOnly; SameSite=Lax; Max-Age=${env.REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+
+const setRefreshCookie = (c: any, refreshToken: string) => {
+  c.header("Set-Cookie", `refreshToken=${encodeURIComponent(refreshToken)}; ${cookieOptions}`, { append: true });
+};
+
+const clearAuthCookies = (c: any) => {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  c.header("Set-Cookie", `accessToken=; Path=/; Max-Age=0; SameSite=Lax${secure}`);
+  c.header("Set-Cookie", `refreshToken=; Path=/auth; Max-Age=0; HttpOnly; SameSite=Lax${secure}`, { append: true });
+  c.header("Set-Cookie", `refreshToken=; Path=/; Max-Age=0; SameSite=Lax${secure}`, { append: true });
+};
+
+const getCookieValue = (cookieHeader: string | undefined, name: string): string | null => {
+  if (!cookieHeader) return null;
+  const cookie = cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${name}=`));
+  if (!cookie) return null;
+  return decodeURIComponent(cookie.slice(name.length + 1));
+};
 
 const googleAuthSchema = z.object({
   idToken: z.string().min(10),
@@ -38,11 +61,6 @@ const adminLoginSchema = z.object({
   username: z.string().min(1),
   password: z.string().min(1),
 });
-
-// ----- Admin credentials (hardcoded for dev, use env vars in production) -----
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin";
-
 
 let googleOAuth2Client: OAuth2Client | null = null;
 
@@ -67,6 +85,13 @@ async function logLoginAttempt(
   success: boolean,
   failReason?: string
 ) {
+  // Structured audit log
+  console.info(JSON.stringify({
+    audit_event: success ? "LOGIN_SUCCESS" : "LOGIN_FAILED",
+    user_id: userId,
+    fail_reason: failReason,
+    timestamp: new Date().toISOString(),
+  }));
 
   const { error } = await supabaseAdmin.from("login_logs").insert({
     user_id: userId,
@@ -78,6 +103,15 @@ async function logLoginAttempt(
   });
   if (error) console.error("Failed to log login attempt:", error);
 }
+
+const auditLog = (event: string, userId: string | null, details: Record<string, any> = {}) => {
+  console.info(JSON.stringify({
+    audit_event: event,
+    user_id: userId,
+    timestamp: new Date().toISOString(),
+    ...details
+  }));
+};
 
 async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string) {
 
@@ -332,28 +366,35 @@ async function handleOwnerGoogleAuth(idToken: string | undefined) {
 
 async function createAuthResponse(user: any, isNewUser: boolean) {
   const profileMeta = await buildProfileAuthMeta(user);
+  const sessionId = crypto.randomUUID();
   const authUser = {
     ...user,
     isProfileCompleted: profileMeta.isProfileCompleted,
     onboardingStep: profileMeta.onboardingStep,
+    sessionId,
   };
   const accessToken = await generateAccessToken(authUser);
   const refreshToken = await generateRefreshToken();
   const tokenHash = await hashToken(refreshToken);
   const expiresAt = addDays(new Date(), env.REFRESH_TOKEN_EXPIRY_DAYS);
 
-  await supabaseAdmin.from("refresh_tokens").insert({
+  const { error: refreshInsertError } = await supabaseAdmin.from("refresh_tokens").insert({
+    id: sessionId,
     user_id: user.id,
     token_hash: tokenHash,
     expires_at: expiresAt.toISOString(),
   });
+
+  if (refreshInsertError) {
+    console.error("Error creating refresh token:", safeSupabaseError(refreshInsertError));
+    throw new Error("Unable to create auth session");
+  }
 
   return {
     accessToken,
     refreshToken,
     session: {
       access_token: accessToken,
-      refresh_token: refreshToken,
       expires_at: expiresAt.toISOString(),
     },
     user: {
@@ -381,7 +422,7 @@ authRoutes.post("/admin-login", async (c) => {
 
   const { username, password } = parsed.data;
 
-  if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+  if (username !== env.ADMIN_USERNAME || password !== env.ADMIN_PASSWORD) {
     return c.json({ code: "INVALID_CREDENTIALS", message: "Sai tên đăng nhập hoặc mật khẩu." }, 401);
   }
 
@@ -396,6 +437,7 @@ authRoutes.post("/admin-login", async (c) => {
   };
 
   const accessToken = await generateAccessToken(adminUser);
+  auditLog("ADMIN_LOGIN_SUCCESS", adminUser.id, { role: adminUser.role });
 
   return c.json({
     accessToken,
@@ -424,6 +466,10 @@ authRoutes.post("/google", async (c) => {
     return c.json(result.error, result.status as any);
   }
 
+  if ((result as any).refreshToken) {
+    setRefreshCookie(c, (result as any).refreshToken);
+    delete (result as any).refreshToken;
+  }
   return c.json(result);
 });
 
@@ -437,44 +483,95 @@ authRoutes.post("/owner-google", async (c) => {
     return c.json(result.error, result.status as any);
   }
 
+  if ((result as any).refreshToken) {
+    setRefreshCookie(c, (result as any).refreshToken);
+    delete (result as any).refreshToken;
+  }
   return c.json(result);
 });
 
 // POST /auth/refresh
 authRoutes.post("/refresh", async (c) => {
-  const parsed = await parseJson(c, refreshSchema);
-  if (!parsed.ok) return parsed.response;
+  const body = await c.req.json().catch(() => ({}));
+  const refreshToken = body?.refreshToken || getCookieValue(c.req.header("Cookie"), "refreshToken");
+  const parsed = refreshSchema.safeParse({ refreshToken });
+  if (!parsed.success) {
+    return c.json({ code: "REFRESH_TOKEN_REQUIRED", message: "Thiếu refresh token." }, 401);
+  }
 
-  const { refreshToken } = parsed.data;
-
-
-
-  const tokenHash = await hashToken(refreshToken);
+  const tokenHash = await hashToken(parsed.data.refreshToken);
   const { data: tokenRecord, error: findError } = await supabaseAdmin
     .from("refresh_tokens")
     .select("*, users!inner(*)")
     .eq("token_hash", tokenHash)
-    .eq("revoked_at", null)
     .single();
 
   if (findError || !tokenRecord) {
     return c.json({ code: "REFRESH_TOKEN_EXPIRED", message: "Phiên đăng nhập đã hết hạn." }, 401);
   }
 
+  if (tokenRecord.revoked_at) {
+    await supabaseAdmin
+      .from("refresh_tokens")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("user_id", tokenRecord.user_id)
+      .is("revoked_at", null);
+    auditLog("REFRESH_FAILED_REUSED", tokenRecord.user_id, { tokenHash });
+    return c.json({ code: "REFRESH_TOKEN_REUSED", message: "Phiên đăng nhập không còn hợp lệ." }, 401);
+  }
+
   if (new Date(tokenRecord.expires_at) < new Date()) {
+    await supabaseAdmin
+      .from("refresh_tokens")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("token_hash", tokenHash);
+    auditLog("REFRESH_FAILED_EXPIRED", tokenRecord.user_id, { tokenHash });
     return c.json({ code: "REFRESH_TOKEN_EXPIRED", message: "Phiên đăng nhập đã hết hạn." }, 401);
   }
 
   const user = tokenRecord.users;
-  const accessToken = await generateAccessToken(user);
+  const nextSessionId = crypto.randomUUID();
+  const authUser = {
+    ...user,
+    sessionId: nextSessionId,
+  };
+  const accessToken = await generateAccessToken(authUser);
+  const nextRefreshToken = await generateRefreshToken();
+  const nextTokenHash = await hashToken(nextRefreshToken);
+  const expiresAt = addDays(new Date(), env.REFRESH_TOKEN_EXPIRY_DAYS);
+  const revokedAt = new Date().toISOString();
+
+  const { error: revokeError } = await supabaseAdmin
+    .from("refresh_tokens")
+    .update({ revoked_at: revokedAt })
+    .eq("token_hash", tokenHash)
+    .is("revoked_at", null);
+
+  if (revokeError) {
+    console.error("Error rotating refresh token:", safeSupabaseError(revokeError));
+    return c.json({ code: "SESSION_ROTATION_FAILED", message: "Không thể gia hạn phiên đăng nhập." }, 500);
+  }
+
+  const { error: insertError } = await supabaseAdmin.from("refresh_tokens").insert({
+    id: nextSessionId,
+    user_id: tokenRecord.user_id,
+    token_hash: nextTokenHash,
+    expires_at: expiresAt.toISOString(),
+  });
+
+  if (insertError) {
+    console.error("Error inserting rotated refresh token:", safeSupabaseError(insertError));
+    return c.json({ code: "SESSION_ROTATION_FAILED", message: "Không thể gia hạn phiên đăng nhập." }, 500);
+  }
+
+  setRefreshCookie(c, nextRefreshToken);
+  auditLog("REFRESH_SUCCESS", user.id, { sessionId: nextSessionId });
 
   return c.json({
     accessToken,
-    refreshToken,
     session: {
       access_token: accessToken,
-      refresh_token: refreshToken,
-      expires_at: tokenRecord.expires_at,
+      expires_at: expiresAt.toISOString(),
     },
     user: {
       id: user.id,
@@ -489,10 +586,16 @@ authRoutes.post("/refresh", async (c) => {
 
 // POST /auth/logout
 authRoutes.post("/logout", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  const bearerToken = authHeader?.toLowerCase().startsWith("bearer ") ? authHeader.slice(7).trim() : "";
+  if (bearerToken) {
+    revokeAccessToken(bearerToken);
+  }
+
   // Try to parse body for refreshToken, but don't fail if missing (admin logout has no refresh token)
   try {
     const body = await c.req.json().catch(() => ({}));
-    const refreshToken = body?.refreshToken;
+    const refreshToken = body?.refreshToken || getCookieValue(c.req.header("Cookie"), "refreshToken");
     if (refreshToken) {
       const tokenHash = await hashToken(refreshToken);
       await supabaseAdmin
@@ -502,7 +605,35 @@ authRoutes.post("/logout", async (c) => {
     }
   } catch {}
 
+  clearAuthCookies(c);
+  c.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  c.header("Pragma", "no-cache");
+  c.header("Expires", "0");
+  
+  auditLog("LOGOUT_SUCCESS", null, { notes: "Client logged out" });
   return c.json({ success: true });
+});
+
+// POST /auth/logout-all
+authRoutes.post("/logout-all", requireAuth, async (c) => {
+  const user = c.get("user");
+  const authHeader = c.req.header("Authorization");
+  const bearerToken = authHeader?.toLowerCase().startsWith("bearer ") ? authHeader.slice(7).trim() : "";
+  if (bearerToken) {
+    revokeAccessToken(bearerToken);
+  }
+
+  await supabaseAdmin
+    .from("refresh_tokens")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("user_id", user.id)
+    .is("revoked_at", null);
+
+  clearAuthCookies(c);
+  c.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  
+  auditLog("LOGOUT_ALL_SUCCESS", user.id, { notes: "User revoked all active sessions" });
+  return c.json({ success: true, message: "Logged out from all devices" });
 });
 
 // GET /auth/me — Get current user info from JWT
@@ -527,17 +658,21 @@ authRoutes.get("/me", requireAuth, async (c) => {
     return c.json({ ...responseUser, user: responseUser });
   }
 
-  const { data: dbUser } = await supabaseAdmin
+  const { data: dbUser, error: dbUserErr } = await supabaseAdmin
     .from("users")
-    .select("id, email, name, avatar_url, role, status, is_profile_completed, onboarding_step")
+    .select("id, email, name, avatar, role, status, is_profile_completed, onboarding_step")
     .eq("id", user.id)
     .single();
+
+  if (dbUserErr) {
+    console.error("Error fetching dbUser in /auth/me:", dbUserErr.message);
+  }
 
   const responseUser = {
     id: dbUser?.id,
     email: dbUser?.email,
     name: dbUser?.name,
-    avatarUrl: (dbUser as any)?.avatar_url,
+    avatarUrl: dbUser?.avatar,
     role: dbUser?.role,
     status: dbUser?.status,
     isProfileCompleted: dbUser?.is_profile_completed ?? true,

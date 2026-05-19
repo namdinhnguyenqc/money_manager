@@ -20,18 +20,30 @@ const optional = (name: string, fallback = ""): string => {
   return value;
 };
 
-const jwtSecret = optional("JWT_SECRET", "dev-secret-ONLY-for-local-dev-do-not-use-in-prod");
+const isProduction = process.env.NODE_ENV === "production";
+
+const productionRequired = (name: string, fallback = ""): string => {
+  return isProduction ? required(name) : optional(name, fallback);
+};
+
+if (isProduction && process.env.ADMIN_PASSWORD === "admin") {
+  throw new Error(`❌ FATAL: Default ADMIN_PASSWORD is not allowed in production!`);
+}
+
+const jwtSecret = productionRequired("JWT_SECRET", "dev-secret-ONLY-for-local-dev-do-not-use-in-prod");
 
 export const env = {
   API_PORT: Number(process.env.API_PORT || process.env.PORT || 8787),
-  SUPABASE_URL: optional("SUPABASE_URL", ""),
-  SUPABASE_ANON_KEY: optional("SUPABASE_ANON_KEY", ""),
-  SUPABASE_SERVICE_ROLE_KEY: optional("SUPABASE_SERVICE_ROLE_KEY", ""),
-  GOOGLE_CLIENT_ID: optional("GOOGLE_CLIENT_ID", ""),
+  SUPABASE_URL: productionRequired("SUPABASE_URL", ""),
+  SUPABASE_ANON_KEY: productionRequired("SUPABASE_ANON_KEY", ""),
+  SUPABASE_SERVICE_ROLE_KEY: productionRequired("SUPABASE_SERVICE_ROLE_KEY", ""),
+  GOOGLE_CLIENT_ID: productionRequired("GOOGLE_CLIENT_ID", ""),
   GOOGLE_CLIENT_SECRET: optional("GOOGLE_CLIENT_SECRET", ""),
+  ADMIN_USERNAME: productionRequired("ADMIN_USERNAME", "admin"),
+  ADMIN_PASSWORD: productionRequired("ADMIN_PASSWORD", "admin"),
   JWT_SECRET: jwtSecret,
   JWT_EXPIRY_SECONDS: Number(process.env.JWT_EXPIRY_SECONDS || 900), // 15 minutes
   REFRESH_TOKEN_EXPIRY_DAYS: Number(process.env.REFRESH_TOKEN_EXPIRY_DAYS || 30),
   // CORS: comma-separated list of allowed origins, e.g. "https://admin.yourdomain.com,https://app.yourdomain.com"
-  CORS_ORIGINS: (process.env.CORS_ORIGINS || "http://localhost:3000,http://localhost:8081,http://localhost:19006").split(",").map(s => s.trim()),
+  CORS_ORIGINS: productionRequired("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:8081,http://localhost:19006").split(",").map(s => s.trim()),
 };

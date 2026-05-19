@@ -1107,9 +1107,16 @@ rentalRoutes.post("/contracts/:id/terminate", async (c) => {
   if (updateContractRes.error) return c.json({ error: updateContractRes.error.message }, 400);
 
   // 2.5. Update associated deposits status
+  // Cập nhật cả deposit liên kết với hợp đồng này và bất kỳ cọc đang giữ nào của phòng
   await db.from("deposits")
     .update({ status: "refunded", updated_at: new Date().toISOString() })
     .eq("contract_id", id)
+    .eq("user_id", user.id);
+
+  await db.from("deposits")
+    .update({ status: "refunded", updated_at: new Date().toISOString() })
+    .eq("room_id", contract.room_id)
+    .eq("status", "active")
     .eq("user_id", user.id);
 
   // 3. Save deposit refund info
@@ -1164,7 +1171,14 @@ rentalRoutes.post("/contracts/:id/terminate", async (c) => {
   }
 
   // Transaction for deposit refund (Expense)
-  if (refundAmount > 0) {
+  // ĐỂ PHẢN ÁNH ĐÚNG BẢN CHẤT KẾ TOÁN:
+  // Nếu có khấu trừ cọc để thanh toán tiền nhà (settlementAmount > 0),
+  // hệ thống phải ghi nhận Chi đủ số tiền cọc gốc (originalDeposit),
+  // và Thu số tiền phòng thanh lý (settlementAmount).
+  // Số tiền thực chi hoàn trả sẽ là: originalDeposit - settlementAmount.
+  const expenseAmount = settlementAmount > 0 ? originalDeposit : refundAmount;
+
+  if (expenseAmount > 0) {
     if (!refundWalletId) {
       console.warn("Refund amount present but no wallet provided. Skipping transaction.");
     } else {
@@ -1172,14 +1186,14 @@ rentalRoutes.post("/contracts/:id/terminate", async (c) => {
         user_id: user.id,
         wallet_id: refundWalletId,
         type: "expense",
-        amount: refundAmount,
+        amount: expenseAmount,
         description: `Trả tiền cọc - ${roomName} (Hoàn tiền cọc HĐ #${String(id).slice(-6)})`,
         date: refundDate,
         category_id: null,
         image_uri: null,
       });
       if (tx2Err) console.error("Error creating refund transaction:", tx2Err.message);
-      else await updateWalletBalance(db, refundWalletId, refundAmount, 'expense');
+      else await updateWalletBalance(db, refundWalletId, expenseAmount, 'expense');
     }
   }
 
@@ -1219,15 +1233,35 @@ rentalRoutes.get("/contracts/:id/settlement-preview", async (c) => {
   const { data: contract, error } = await db.from("contracts").select("*, rooms(*)").eq("id", id).single();
   if (error || !contract) return c.json({ error: "Contract not found" }, 404);
 
+  // Kiểm tra xem hóa đơn tháng hiện tại đã được thanh toán chưa
+  const today = new Date();
+  const currentMonth = today.getMonth() + 1;
+  const currentYear = today.getFullYear();
+
+  const { data: paidInvoice } = await db
+    .from("invoices")
+    .select("id")
+    .eq("contract_id", id)
+    .eq("year", currentYear)
+    .eq("month", currentMonth)
+    .eq("status", "paid")
+    .maybeSingle();
+
+  const isAlreadyPaid = Boolean(paidInvoice);
+
   const { calculateProratedRent } = await import("../utils/rentCalc.js");
   const startOfLastMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
   const result = calculateProratedRent(contract.rooms.price, startOfLastMonth, endDate);
 
+  const actualTotalAmount = isAlreadyPaid ? 0 : result.totalAmount;
+
   return c.json({ 
     data: {
       ...result,
+      totalAmount: actualTotalAmount,
+      isAlreadyPaid,
       deposit: contract.deposit,
-      suggestedRefund: Math.max(0, contract.deposit - result.totalAmount)
+      suggestedRefund: Math.max(0, contract.deposit - actualTotalAmount)
     } 
   });
 });

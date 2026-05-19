@@ -26,6 +26,8 @@ export default function OwnerGoogleLoginButton() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken: googleIdToken }),
+        credentials: "include",
+        cache: "no-store",
       });
       const authData = await res.json().catch(() => ({}));
 
@@ -34,7 +36,6 @@ export default function OwnerGoogleLoginButton() {
       }
 
       const accessToken = authData?.accessToken || authData?.session?.access_token;
-      const refreshToken = authData?.refreshToken || authData?.session?.refresh_token;
       if (!accessToken) {
         throw new Error("Không nhận được phiên đăng nhập từ server.");
       }
@@ -45,7 +46,6 @@ export default function OwnerGoogleLoginButton() {
 
       setClientSession({
         accessToken,
-        refreshToken,
         role,
         name: authData?.user?.name,
         email: authData?.user?.email,

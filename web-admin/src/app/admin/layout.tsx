@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Users, LayoutDashboard, LogOut, Menu, X, RefreshCw, ShieldCheck } from "lucide-react";
 import { apiClient, API_URL } from "@/lib/api";
-import { clearClientSession } from "@/utils/session";
+import { clearClientSession, getStoredAccessToken } from "@/utils/session";
 import Logo from "@/components/ui/Logo";
 
 interface Stats {
@@ -31,7 +31,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+    const token = getStoredAccessToken();
     if (!token) {
       router.replace("/login/admin");
       return;
@@ -43,10 +43,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // FIX #11: Fetch and validate current admin user
   const loadAdminUser = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
+      const token = getStoredAccessToken();
       if (!token) return;
       const res = await fetch(`${API_URL}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
       });
       if (!res.ok) {
         clearClientSession();
@@ -82,16 +83,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
+      const token = getStoredAccessToken();
       if (token) {
         await fetch(`${API_URL}/auth/logout`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+          cache: "no-store",
+          credentials: "include",
         });
       }
     } catch {}
     clearClientSession();
-    router.push("/login/admin");
+    router.replace("/login/admin");
   };
 
   const navClass = (href: string, exact = false) =>
@@ -100,6 +104,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         ? "bg-primary/10 text-primary"
         : "text-slate-600 hover:bg-slate-100"
     }`;
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-sm text-slate-500">
+        Đang xác thực quyền truy cập admin...
+      </div>
+    );
+  }
+
+  if (!adminUser) return null;
 
   return (
     <div className="min-h-screen bg-slate-50 flex">

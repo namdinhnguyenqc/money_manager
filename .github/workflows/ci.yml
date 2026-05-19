@@ -1,0 +1,39 @@
+name: TrọCare Continuous Integration
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/workflows/node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Monorepo Dependencies
+        run: |
+          npm install
+          npm --prefix backend install
+          npm --prefix web-admin install
+
+      - name: Build Backend (Hono)
+        run: |
+          npm --prefix backend run build
+
+      - name: Run Backend Unit Tests
+        run: |
+          npm --prefix backend test
+
+      - name: Build Frontend (Next.js)
+        run: |
+          npm --prefix web-admin run build

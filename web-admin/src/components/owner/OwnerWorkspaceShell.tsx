@@ -22,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { API_URL } from "@/lib/api";
-import { clearClientSession } from "@/utils/session";
+import { clearClientSession, getStoredAccessToken } from "@/utils/session";
 import Logo from "@/components/ui/Logo";
 
 const navSections = [
@@ -91,8 +91,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
 
   useEffect(() => {
     const check = async () => {
-      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-      const storedRole = typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
+      const token = getStoredAccessToken();
       if (!token) {
         router.replace("/login/owner");
         return;
@@ -103,6 +102,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
         const res = await fetch(`${API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
           signal: controller.signal,
+          cache: "no-store",
         });
         window.clearTimeout(timeout);
         if (!res.ok) {
@@ -111,22 +111,18 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
           return;
         }
         const data = await res.json();
-        console.log("DEBUG: Auth me response data:", data);
-        if (data) {
-          // Force set role to OWNER in localStorage if we're in owner portal
+        if (data?.role === "OWNER" || data?.role === "SUPER_ADMIN") {
           localStorage.setItem("userRole", "OWNER");
+          if (data?.name) localStorage.setItem("userName", data.name);
+          if (data?.email) localStorage.setItem("userEmail", data.email);
+          setOwnerName(data?.name || localStorage.getItem("userName") || "Owner");
+          setOwnerEmail(data?.email || localStorage.getItem("userEmail") || "");
           setAuthorized(true);
         } else {
+          clearClientSession();
           router.replace("/not-authorized");
         }
       } catch {
-        if (storedRole === "OWNER" || storedRole === "SUPER_ADMIN") {
-          setOwnerName(localStorage.getItem("userName") || "Owner");
-          setOwnerEmail(localStorage.getItem("userEmail") || "");
-          setAuthorized(true);
-          setLoading(false);
-          return;
-        }
         clearClientSession();
         router.replace("/login/owner");
       } finally {
@@ -138,12 +134,14 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
 
   const handleLogout = async () => {
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+      const token = getStoredAccessToken();
       if (token) {
         await fetch(`${API_URL}/auth/logout`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
           body: JSON.stringify({}),
+          cache: "no-store",
+          credentials: "include",
         });
       }
     } catch {}
