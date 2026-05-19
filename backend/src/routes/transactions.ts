@@ -60,6 +60,11 @@ transactionsRoutes.get("/", async (c) => {
     query = query.eq("invoice_id", invoiceIdRaw);
   }
 
+  const contractIdRaw = c.req.query("contractId");
+  if (contractIdRaw) {
+    query = query.eq("contract_id", contractIdRaw);
+  }
+
   const { data, error, count } = await query;
   if (error) return c.json({ error: error.message }, 500);
 
