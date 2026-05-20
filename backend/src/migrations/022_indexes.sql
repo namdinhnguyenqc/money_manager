@@ -25,6 +25,18 @@ CREATE INDEX IF NOT EXISTS idx_invoices_user_id ON public.invoices(user_id);
 -- [invoices].[contract_id] — Lookups by contract
 CREATE INDEX IF NOT EXISTS idx_invoices_contract_id ON public.invoices(contract_id);
 
+-- [invoices].[user_id, contract_id, year, month] - Contract invoice history.
+CREATE INDEX IF NOT EXISTS idx_invoices_user_contract_period
+  ON public.invoices(user_id, contract_id, year DESC, month DESC);
+
+-- [invoices].[user_id, room_id] - Building/room filtered invoice lists.
+CREATE INDEX IF NOT EXISTS idx_invoices_user_room
+  ON public.invoices(user_id, room_id);
+
+-- [contract_services].[user_id, contract_id] - Contract detail service fallback.
+CREATE INDEX IF NOT EXISTS idx_contract_services_user_contract
+  ON public.contract_services(user_id, contract_id);
+
 -- [users].[status] — Filtering active users
 CREATE INDEX IF NOT EXISTS idx_users_status ON public.users(status);
 

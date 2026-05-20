@@ -819,12 +819,43 @@ rentalRoutes.get("/contracts/:id", async (c) => {
 
   const room = roomRes.data;
   const tenant = tenantRes.data;
+  let appliedServicesSnapshot = contract.applied_services_snapshot;
+
+  if (!Array.isArray(appliedServicesSnapshot) || appliedServicesSnapshot.length === 0) {
+    const servicesRes = await db
+      .from("contract_services")
+      .select("service_snapshot, service_id, service_name, service_type, calculation_type, unit_price, unit_price_ac, unit")
+      .eq("contract_id", id)
+      .eq("user_id", user.id);
+
+    if (servicesRes.error) return c.json({ error: servicesRes.error.message }, 500);
+
+    appliedServicesSnapshot = (servicesRes.data ?? []).map((service) => ({
+      service_id: service.service_id,
+      name: service.service_snapshot?.name ?? service.service_name ?? "",
+      category: service.service_snapshot?.category ?? "other",
+      type: service.service_snapshot?.type ?? service.calculation_type ?? service.service_type ?? "fixed",
+      unit: service.service_snapshot?.unit ?? service.unit ?? null,
+      display_unit: service.service_snapshot?.display_unit ?? null,
+      unit_price: Number(service.service_snapshot?.unit_price ?? service.unit_price ?? 0),
+      unit_price_ac: Number(service.service_snapshot?.unit_price_ac ?? service.unit_price_ac ?? 0),
+      applied_unit_price: Number(service.service_snapshot?.applied_unit_price ?? service.unit_price ?? 0),
+      amount: service.service_snapshot?.amount ?? null,
+      is_metered: service.service_snapshot?.is_metered ?? false,
+    }));
+  }
 
   return c.json({
     data: {
       ...contract,
+      applied_services_snapshot: appliedServicesSnapshot ?? [],
       deposit_amount: contract.deposit,
       startDate: contract.start_date,
+      endDate: contract.end_date,
+      billingDay: contract.billing_day,
+      electricStart: contract.electric_start,
+      waterStart: contract.water_start,
+      occupantCount: contract.occupant_count,
       roomName: room?.name ?? "", room_name: room?.name ?? "",
       roomPrice: room?.price ?? 0, room_price: room?.price ?? 0,
       hasAc: room?.has_ac ?? false, has_ac: room?.has_ac ?? false,

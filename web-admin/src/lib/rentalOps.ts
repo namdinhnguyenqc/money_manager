@@ -440,8 +440,8 @@ export async function loadContract(id: string) {
 }
 
 export async function loadInvoicesByContract(contractId: string) {
-  const invoices = await loadInvoices();
-  return invoices.filter((invoice) => String(invoice.contract_id) === String(contractId));
+  const res = await apiGet<any>(`/invoices/history/${contractId}`);
+  return (res?.data ?? []) as Invoice[];
 }
 
 export async function terminateContract(contract: ContractView, input: { refundAmount: number; refundDate: string; refundMethod: string; note: string; walletId?: string; settlementWalletId?: string; settlementAmount?: number; settlementStatus?: string }) {
