@@ -1,9 +1,1 @@
-{
-  "/login/owner/page": "app/login/owner/page.js",
-  "/login/page": "app/login/page.js",
-  "/owner/boarding-houses/page": "app/owner/boarding-houses/page.js",
-  "/owner/profile/page": "app/owner/profile/page.js",
-  "/owner/dashboard/page": "app/owner/dashboard/page.js",
-  "/owner/settings/profile/page": "app/owner/settings/profile/page.js",
-  "/owner/settings/page": "app/owner/settings/page.js"
-}
+{}
