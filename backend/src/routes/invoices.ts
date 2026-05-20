@@ -993,4 +993,67 @@ invoicesRoutes.post("/auto-generate", async (c) => {
   return c.json({ created: createdCount, skipped: rooms.length - createdCount });
 });
 
+invoicesRoutes.post("/bulk-create", async (c) => {
+  const user = c.get("user");
+  const invoices = await c.req.json();
+  if (!Array.isArray(invoices)) return c.json({ error: "Invalid data format" }, 400);
+
+  const db = c.get("supabase");
+  const results = [];
+
+  for (const invData of invoices) {
+    try {
+      // Logic tương tự như route POST / nhưng dành cho bulk
+      const payload = {
+        user_id: user.id,
+        room_id: invData.roomId,
+        contract_id: invData.contractId,
+        month: invData.month,
+        year: invData.year,
+        room_fee: invData.roomFee,
+        total_amount: invData.totalAmount,
+        previous_debt: invData.previousDebt || 0,
+        elec_old: invData.elecOld,
+        elec_new: invData.elecNew,
+        water_old: invData.waterOld,
+        water_new: invData.waterNew,
+        note: invData.note || "Lập hàng loạt",
+        status: "unpaid"
+      };
+
+      const res = await db.from("invoices").insert(payload).select("id").single();
+      if (res.error) {
+        results.push({ roomId: invData.roomId, error: res.error.message });
+        continue;
+      }
+
+      const invoiceId = res.data.id;
+      if (invData.items && invData.items.length > 0) {
+        const rows = invData.items.map((item: any) => ({
+          user_id: user.id,
+          invoice_id: invoiceId,
+          service_id: item.serviceId || null,
+          name: item.name,
+          detail: item.detail || "",
+          amount: item.amount,
+          calculation_type: item.calculationType || null,
+          unit_price: item.unitPrice || null,
+          quantity: item.quantity || null,
+          start_reading: item.startReading || null,
+          end_reading: item.endReading || null,
+          usage_value: item.usageValue || null,
+          unit: item.unit || null,
+          service_snapshot: item.serviceSnapshot || null,
+        }));
+        await db.from("invoice_items").insert(rows);
+      }
+      results.push({ roomId: invData.roomId, id: invoiceId, success: true });
+    } catch (err: any) {
+      results.push({ roomId: invData.roomId, error: err.message });
+    }
+  }
+
+  return c.json({ data: results });
+});
+
 export default invoicesRoutes;
