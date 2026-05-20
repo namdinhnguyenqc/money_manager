@@ -22,7 +22,7 @@ export default function SuperAdminUsersPage() {
 
   const loadUsers = async () => {
     if (!token) {
-      window.location.href = '/login/admin'
+      window.location.href = '/login'
       return
     }
     setLoading(true)

@@ -33,7 +33,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     const token = getStoredAccessToken();
     if (!token) {
-      router.replace("/login/admin");
+      router.replace("/login");
       return;
     }
     loadAdminUser();
@@ -51,14 +51,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       });
       if (!res.ok) {
         clearClientSession();
-        router.replace("/login/admin");
+        router.replace("/login");
         return;
       }
       const data = await res.json();
       // Enforce RBAC: only ADMIN and SUPER_ADMIN can access
       if (!["ADMIN", "SUPER_ADMIN"].includes(data.role)) {
         clearClientSession();
-        router.replace("/login/admin");
+        router.replace("/login");
         return;
       }
       localStorage.setItem("userRole", data.role);
@@ -66,7 +66,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     } catch (err) {
       console.error("Failed to load admin user:", err);
       clearClientSession();
-      router.replace("/login/admin");
+      router.replace("/login");
     }
   };
 
@@ -95,7 +95,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       }
     } catch {}
     clearClientSession();
-    router.replace("/login/admin");
+    router.replace("/login");
   };
 
   const navClass = (href: string, exact = false) =>

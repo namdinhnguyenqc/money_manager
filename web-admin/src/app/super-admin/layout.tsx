@@ -15,7 +15,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     const check = async () => {
       const token = getStoredAccessToken();
       if (!token) {
-        router.replace("/login/admin");
+        router.replace("/login");
         return;
       }
 
@@ -26,7 +26,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         });
         if (!res.ok) {
           clearClientSession();
-          router.replace("/login/admin");
+          router.replace("/login");
           return;
         }
 
@@ -39,7 +39,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         }
       } catch {
         clearClientSession();
-        router.replace("/login/admin");
+        router.replace("/login");
       } finally {
         setLoading(false);
       }

@@ -23,7 +23,7 @@ function clearCookie(name: string) {
 export function getLoginPath(pathname?: string, role?: string | null) {
   const path = pathname ?? (typeof window !== "undefined" ? window.location.pathname : "");
   if (path.startsWith("/admin") || path.startsWith("/super-admin") || role === "ADMIN" || role === "SUPER_ADMIN") {
-    return "/login/admin";
+    return "/login";
   }
   if (path.startsWith("/owner") || role === "OWNER") {
     return "/login";
