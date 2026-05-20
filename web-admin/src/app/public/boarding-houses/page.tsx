@@ -65,7 +65,7 @@ export default function PublicBoardingHousesPage() {
               <Link href="/login" className="rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
                 Đăng nhập chủ trọ
               </Link>
-              <Link href="/login/admin" className="rounded-[8px] border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-400">
+              <Link href="/login" className="rounded-[8px] border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-400">
                 Admin
               </Link>
             </div>

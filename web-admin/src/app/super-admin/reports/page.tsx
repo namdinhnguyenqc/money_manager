@@ -26,7 +26,7 @@ export default function SuperAdminReportsPage() {
 
   const loadData = async () => {
     if (!token) {
-      window.location.href = '/login/admin'
+      window.location.href = '/login'
       return
     }
     setLoading(true)
