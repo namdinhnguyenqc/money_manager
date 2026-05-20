@@ -26,7 +26,7 @@ export function getLoginPath(pathname?: string, role?: string | null) {
     return "/login/admin";
   }
   if (path.startsWith("/owner") || role === "OWNER") {
-    return "/login/owner";
+    return "/login";
   }
   return "/login";
 }

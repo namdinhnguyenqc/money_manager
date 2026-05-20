@@ -13,7 +13,7 @@ export type RBACGuardDecision = {
 // Basic decision logic: require token; require OWNER role for access to /owner/* pages
 export function evaluateRBACGuard({ token, role }: RBACGuardQuery): RBACGuardDecision {
   if (!token) {
-    return { ok: false, redirectTo: '/login/owner' }
+    return { ok: false, redirectTo: '/login' }
   }
   if (role === 'OWNER' || role === 'SUPER_ADMIN') {
     return { ok: true }

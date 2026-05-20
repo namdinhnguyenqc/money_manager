@@ -78,7 +78,7 @@ export default function BoardingHouseRoomsPage() {
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
     if (!bhId || !token) {
-      window.location.href = "/login/owner";
+      window.location.href = "/login";
       return;
     }
     loadRooms();

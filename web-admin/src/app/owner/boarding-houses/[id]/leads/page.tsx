@@ -25,7 +25,7 @@ export default function LeadsPage() {
 
   useEffect(() => {
     if (!token) {
-      window.location.href = '/login/owner';
+      window.location.href = '/login';
       return;
     }
     (async () => {

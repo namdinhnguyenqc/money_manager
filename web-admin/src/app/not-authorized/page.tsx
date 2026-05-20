@@ -10,7 +10,7 @@ export default function NotAuthorizedPage() {
         <h1 className="text-2xl font-semibold text-slate-950">Không đủ quyền truy cập</h1>
         <p className="mt-3 text-sm leading-6 text-slate-500">Tài khoản hiện tại không có quyền vào trang này. Hãy quay lại đúng cổng đăng nhập theo vai trò.</p>
         <div className="mt-6 flex flex-col gap-3">
-          <Link href="/login/owner" className="rounded-[8px] bg-blue-600 px-4 py-3 text-sm font-semibold text-white">Vào owner login</Link>
+          <Link href="/login" className="rounded-[8px] bg-blue-600 px-4 py-3 text-sm font-semibold text-white">Vào owner login</Link>
           <Link href="/login/admin" className="rounded-[8px] border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">Vào admin login</Link>
         </div>
       </div>

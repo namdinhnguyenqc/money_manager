@@ -8,15 +8,18 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
       colors: {
-        primary: "#1D8FE1",
-        secondary: "#24C7A6",
+        primary: "#2563EB",
+        navy: "#0F172A",
         success: "#10b981",
         danger: "#ef4444",
         warning: "#f59e0b",
       },
       backgroundImage: {
-        'brand-gradient': 'linear-gradient(90deg, #1D8FE1 0%, #24C7A6 100%)',
+        'brand-gradient': 'linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)',
       },
     },
   },
