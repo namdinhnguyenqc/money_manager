@@ -175,19 +175,19 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
           </div>
           <div className="flex items-center gap-3 px-5 pb-5">
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold text-slate-950">{ownerName}</div>
+              <div className="truncate text-sm font-semibold text-slate-900">{ownerName}</div>
               <div className="truncate text-xs text-slate-500">{ownerEmail || "owner workspace"}</div>
             </div>
-            <button className="text-slate-500 lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Đóng menu">
+            <button className="shrink-0 text-slate-500 lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Đóng menu">
               <X size={20} />
             </button>
           </div>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-6">
+        <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-5">
           {navSections.map((section) => (
-            <div key={section.title} className="flex flex-col gap-1">
-              <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <div key={section.title} className="flex flex-col gap-0.5">
+              <div className="px-3 mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
                 {section.title}
               </div>
               {section.items.map((item) => {
@@ -197,14 +197,14 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-3 rounded-[8px] px-3 py-2 text-sm font-medium transition ${
-                      active ? "bg-primary/10 text-primary" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                      active ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                     }`}
                   >
-                    <Icon size={17} className={active ? "text-primary" : "text-slate-400"} />
-                    <span className="min-w-0 flex-1">{item.label}</span>
+                    <Icon size={17} className={`shrink-0 ${active ? "text-blue-600" : "text-slate-400"}`} />
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
                     {item.badge && (
-                      <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                      <span className="shrink-0 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
                         {item.badge}
                       </span>
                     )}
@@ -216,9 +216,9 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
         </nav>
 
         <div className="border-t border-slate-200 px-3 py-3">
-          <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50">
-            <LogOut size={18} />
-            Đăng xuất
+          <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50">
+            <LogOut size={18} className="shrink-0" />
+            <span className="truncate">Đăng xuất</span>
           </button>
         </div>
       </aside>

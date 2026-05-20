@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
+import Button from "@/components/ui/Button";
 
 type Props = {
   open: boolean;
@@ -25,9 +26,9 @@ export default function ConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/40 p-4">
-      <div className="w-full max-w-lg rounded-[8px] border border-slate-200 bg-white shadow-[0_24px_64px_rgba(15,23,42,0.16)]">
+      <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white shadow-[0_24px_64px_rgba(15,23,42,0.16)]">
         <div className="flex items-start gap-3 border-b border-slate-200 px-5 py-4">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-amber-50 text-amber-700">
+          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-700">
             <AlertTriangle size={18} />
           </div>
           <div>
@@ -37,20 +38,22 @@ export default function ConfirmDialog({
         </div>
 
         <div className="flex items-center justify-end gap-3 px-5 py-4">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="md"
             onClick={onCancel}
-            className="rounded-[8px] border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
           >
             {cancelLabel}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="primary"
+            size="md"
             onClick={onConfirm}
-            className="rounded-[8px] bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
           >
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

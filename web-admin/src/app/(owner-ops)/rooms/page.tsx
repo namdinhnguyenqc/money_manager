@@ -18,6 +18,12 @@ import {
   createOwnerRoom,
 } from "@/lib/rentalOps";
 import { useQuery } from "@tanstack/react-query";
+import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/Badge";
+import Card from "@/components/ui/Card";
+import Input, { Label, Select } from "@/components/ui/Input";
+import PageHeader from "@/components/ui/PageHeader";
+import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 
 const roomFilters = ["Tất cả", "Trống", "Đang thuê", "Bảo trì", "Sắp hết HĐ", "Đã cọc"];
 
@@ -77,42 +83,43 @@ export default function AllRoomsPage() {
 
   return (
     <div className="mx-auto max-w-7xl animate-in fade-in duration-500">
-      <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="mb-1 flex items-center gap-2 text-sm text-slate-500">
+      <PageHeader
+        subtitle="Quản lý vận hành"
+        title={currentFacility ? `${currentFacility.name} — Phòng` : `Tất cả phòng`}
+        description={`${filteredRooms.length} phòng`}
+        breadcrumb={
+          <div className="flex items-center gap-2 text-sm text-slate-500">
             <Link href="/owner/boarding-houses" className="hover:text-blue-700 font-medium">Cơ sở</Link>
             {facilityIdFilter && currentFacility && (
               <><span className="px-1 text-slate-300">/</span><span className="font-semibold text-slate-900">{currentFacility.name}</span></>
             )}
           </div>
-          <p className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-1">Quản lý vận hành</p>
-          <h1 className="text-3xl font-black tracking-tight text-slate-950">
-            {currentFacility ? `${currentFacility.name} — Phòng` : `Tất cả phòng`} <span className="text-slate-400 font-medium text-xl ml-1">({filteredRooms.length})</span>
-          </h1>
-        </div>
-        <div className="flex items-center gap-3">
-          {facilityIdFilter && (
-            <Link href="/rooms" className="text-sm font-bold text-slate-500 hover:text-blue-600 mr-2 transition-colors">← Tất cả phòng</Link>
-          )}
-          <button 
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-slate-200 transition-all hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <Plus size={18} />
-            Thêm phòng mới
-          </button>
-        </div>
-      </div>
+        }
+        actions={
+          <>
+            {facilityIdFilter && (
+              <Link href="/rooms" className="text-sm font-semibold text-slate-500 hover:text-blue-600 transition-colors">← Tất cả phòng</Link>
+            )}
+            <Button
+              variant="primary"
+              icon={<Plus size={16} />}
+              onClick={() => setIsAddModalOpen(true)}
+            >
+              Thêm phòng mới
+            </Button>
+          </>
+        }
+      />
 
-      {toast && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 animate-in slide-in-from-top-2">{toast}</div>}
-      {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 animate-in slide-in-from-top-2">{error}</div>}
+      {toast && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 animate-in slide-in-from-top-2">{toast}</div>}
+      {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 animate-in slide-in-from-top-2">{error}</div>}
 
       <div className="mb-6 flex flex-wrap gap-2">
         {roomFilters.map((filter) => (
           <button
             key={filter}
             onClick={() => setRoomFilter(filter)}
-            className={`rounded-full border px-4 py-2 text-sm font-bold transition-all ${roomFilter === filter ? "border-blue-600 bg-blue-600 text-white shadow-md shadow-blue-100" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"}`}
+            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${roomFilter === filter ? filterPillActive : filterPillInactive}`}
           >
             {filter}
           </button>
@@ -122,7 +129,7 @@ export default function AllRoomsPage() {
       {roomsQuery.isLoading && (
         <div className="grid gap-4 lg:grid-cols-2">
            {[1,2,3,4].map(i => (
-             <div key={i} className="h-40 animate-pulse rounded-2xl bg-white border border-slate-100"></div>
+             <div key={i} className="h-40 animate-pulse rounded-xl bg-white border border-slate-100"></div>
            ))}
         </div>
       )}
@@ -135,65 +142,67 @@ export default function AllRoomsPage() {
             const facilityName = getFacilityName(room);
 
             return (
-              <div key={room.id} className="group rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:border-blue-300 hover:shadow-xl hover:shadow-slate-100 overflow-hidden">
+              <Card key={room.id} hover className="group overflow-hidden">
                 {!facilityIdFilter && facilityName && (
-                  <div className="border-b border-slate-50 bg-slate-50/50 px-5 py-2 text-[10px] font-black uppercase tracking-widest text-blue-600">
+                  <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-blue-600">
                     {facilityName}
                   </div>
                 )}
 
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-xl font-black text-slate-900 group-hover:text-blue-700 transition-colors">{room.name}</div>
-                      <div className="mt-1 flex items-center gap-2 text-sm font-medium text-slate-400">
+                    <div className="min-w-0">
+                      <div className="text-lg font-bold text-slate-900 group-hover:text-blue-700 transition-colors truncate">{room.name}</div>
+                      <div className="mt-1 flex items-center gap-2 text-sm text-slate-400">
                         <span>{getFloorFromRoomName(room.name)}</span>
                         <span className="h-1 w-1 rounded-full bg-slate-200"></span>
                         <span>{getRoomArea(room)} m²</span>
                       </div>
                     </div>
-                    <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-tighter ${meta.className}`}>{meta.label}</span>
+                    <Badge variant={meta.className.includes("green") ? "success" : meta.className.includes("blue") ? "primary" : meta.className.includes("orange") || meta.className.includes("amber") ? "warning" : meta.className.includes("red") ? "danger" : "neutral"}>
+                      {meta.label}
+                    </Badge>
                   </div>
-                  <div className="mt-5 grid grid-cols-2 gap-4">
-                    <div className="rounded-xl bg-slate-50 p-3 transition-colors group-hover:bg-blue-50/30">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Giá thuê</div>
-                      <div className="mt-0.5 font-black text-slate-900">{formatMoney(room.price)}</div>
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    <div className="rounded-lg bg-slate-50 p-3 transition-colors group-hover:bg-blue-50/30">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Giá thuê</div>
+                      <div className="mt-0.5 font-bold text-slate-900 whitespace-nowrap">{formatMoney(room.price)}</div>
                     </div>
-                    <div className="rounded-xl bg-slate-50 p-3 transition-colors group-hover:bg-indigo-50/30">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Khách thuê</div>
-                      <div className="mt-0.5 font-black text-slate-900 truncate">{room.tenant_name || "Trống"}</div>
+                    <div className="rounded-lg bg-slate-50 p-3 transition-colors group-hover:bg-indigo-50/30">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Khách thuê</div>
+                      <div className="mt-0.5 font-bold text-slate-900 truncate">{room.tenant_name || "Trống"}</div>
                     </div>
                   </div>
                 </div>
 
-                <div className="border-t border-slate-50 bg-slate-50/30 px-5 py-3 flex items-center justify-between gap-2">
+                <div className="border-t border-slate-100 bg-slate-50/30 px-5 py-3 flex items-center justify-between gap-2">
                   <div className="flex gap-2">
                     {String(room.status || "").toLowerCase() !== "occupied" && (
-                      <Link href={`/contracts/new?room_id=${room.id}&facility_id=${facilityId}`} className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-100 hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] transition-all">
-                        Tạo HĐ
+                      <Link href={`/contracts/new?room_id=${room.id}&facility_id=${facilityId}`}>
+                        <Button variant="primary" size="sm">Tạo HĐ</Button>
                       </Link>
                     )}
                     {String(room.status || "").toLowerCase() === "occupied" && room.contract_id && (
                       <>
-                        <Link href={`/contracts/${room.contract_id}`} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all">
-                          Xem HĐ
+                        <Link href={`/contracts/${room.contract_id}`}>
+                          <Button variant="outline" size="sm">Xem HĐ</Button>
                         </Link>
-                        <Link href={`/contracts/${room.contract_id}?action=terminate`} className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-2 text-xs font-bold text-orange-700 hover:bg-orange-100 transition-all">
-                          Trả phòng
+                        <Link href={`/contracts/${room.contract_id}?action=terminate`}>
+                          <Button variant="warning" size="sm">Trả phòng</Button>
                         </Link>
                       </>
                     )}
                   </div>
                   <div className="flex items-center gap-1">
-                    <Link href={`/rooms/${room.id}/edit?facility_id=${facilityId}`} className="rounded-xl p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-all" title="Sửa phòng">
-                      <Edit3 size={18} />
+                    <Link href={`/rooms/${room.id}/edit?facility_id=${facilityId}`} className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-all" title="Sửa phòng">
+                      <Edit3 size={16} />
                     </Link>
-                    <button onClick={() => handleDelete(room)} className="rounded-xl p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all" title="Xóa phòng">
-                      <Trash2 size={18} />
+                    <button onClick={() => handleDelete(room)} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all" title="Xóa phòng">
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
@@ -247,29 +256,27 @@ function AddRoomModal({ houses, defaultFacilityId, onClose, onSaved }: { houses:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="w-full max-w-md rounded-[32px] bg-white p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-300">
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-black text-slate-900">Thêm phòng mới</h2>
-          <button onClick={onClose} className="rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 transition-colors">
-            <X size={20} />
+          <h2 className="text-xl font-bold text-slate-900">Thêm phòng mới</h2>
+          <button onClick={onClose} className="rounded-lg bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 transition-colors">
+            <X size={18} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Chọn cơ sở (Tòa nhà)</label>
-            <select 
-              className="w-full rounded-2xl border-none bg-slate-100 px-4 py-3.5 text-sm font-bold text-slate-900 outline-none ring-2 ring-transparent transition-all focus:ring-blue-500"
+            <Label>Chọn cơ sở (Tòa nhà)</Label>
+            <Select 
               value={form.facilityId}
               onChange={(e) => setForm(p => ({ ...p, facilityId: e.target.value }))}
               required
             >
               {houses.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
-            </select>
+            </Select>
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Tên / Số phòng</label>
-            <input 
-              className="w-full rounded-2xl border-none bg-slate-100 px-4 py-3.5 text-sm font-bold text-slate-900 outline-none ring-2 ring-transparent transition-all focus:ring-blue-500"
+            <Label>Tên / Số phòng</Label>
+            <Input 
               placeholder="Ví dụ: 101, P.202..."
               value={form.name}
               onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))}
@@ -278,10 +285,9 @@ function AddRoomModal({ houses, defaultFacilityId, onClose, onSaved }: { houses:
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Giá thuê (đ)</label>
-              <input 
+              <Label>Giá thuê (đ)</Label>
+              <Input 
                 type="number"
-                className="w-full rounded-2xl border-none bg-slate-100 px-4 py-3.5 text-sm font-bold text-slate-900 outline-none ring-2 ring-transparent transition-all focus:ring-blue-500"
                 placeholder="2500000"
                 value={form.price}
                 onChange={(e) => setForm(p => ({ ...p, price: e.target.value }))}
@@ -289,23 +295,25 @@ function AddRoomModal({ houses, defaultFacilityId, onClose, onSaved }: { houses:
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Diện tích (m²)</label>
-              <input 
+              <Label>Diện tích (m²)</Label>
+              <Input 
                 type="number"
-                className="w-full rounded-2xl border-none bg-slate-100 px-4 py-3.5 text-sm font-bold text-slate-900 outline-none ring-2 ring-transparent transition-all focus:ring-blue-500"
                 value={form.area}
                 onChange={(e) => setForm(p => ({ ...p, area: e.target.value }))}
                 required
               />
             </div>
           </div>
-          <button 
+          <Button 
             type="submit" 
+            variant="primary"
+            size="lg"
             disabled={saving}
-            className="w-full rounded-2xl bg-blue-600 py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+            loading={saving}
+            className="w-full"
           >
             {saving ? "Đang lưu..." : "Xác nhận thêm phòng"}
-          </button>
+          </Button>
         </form>
       </div>
     </div>
@@ -320,4 +328,3 @@ function Info({ label, value }: { label: string; value: React.ReactNode }) {
     </div>
   );
 }
-
