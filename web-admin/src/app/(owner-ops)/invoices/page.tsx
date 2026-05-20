@@ -19,6 +19,7 @@ import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
 import DataTable from "@/components/ui/DataTable";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
+import BulkInvoiceModal from "@/components/ops/BulkInvoiceModal";
 
 const statusTabs = ["Tất cả", "Chưa lập HĐ", "Chưa gửi", "Đã gửi", "Quá hạn", "Đã thanh toán"];
 
@@ -41,6 +42,7 @@ export default function InvoicesPage() {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [error, setError] = useState("");
   
   const [period, setPeriod] = useState(() => {
@@ -72,24 +74,8 @@ export default function InvoicesPage() {
     load();
   }, [selectedHouse, period]);
 
-  const handleAutoGenerate = async () => {
-    if (!window.confirm(`Hệ thống sẽ tự động tạo hóa đơn nháp cho tất cả phòng chưa có hóa đơn trong tháng ${period.month}/${period.year}. Tiếp tục?`)) return;
-
-    setGenerating(true);
-    setError("");
-    try {
-      const res = await apiPost<any>("/invoices/auto-generate", { 
-        month: period.month, 
-        year: period.year, 
-        facilityId: selectedHouse === "all" ? undefined : selectedHouse 
-      });
-      alert(`Đã tạo thành công ${res.created} hóa đơn nháp.`);
-      await load();
-    } catch (err: any) {
-      setError(err?.message || "Lỗi khi tự động tạo hóa đơn.");
-    } finally {
-      setGenerating(false);
-    }
+  const handleAutoGenerate = () => {
+    setIsBulkModalOpen(true);
   };
 
   const changePeriod = (delta: number) => {
@@ -213,6 +199,17 @@ export default function InvoicesPage() {
           );
         })}
       </DataTable>
+
+      <BulkInvoiceModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        onSuccess={() => {
+          alert("Đã lập hóa đơn thành công cho các phòng đã chọn.");
+          load();
+        }}
+        pendingRooms={pendingRooms}
+        period={period}
+      />
     </div>
   );
 }
