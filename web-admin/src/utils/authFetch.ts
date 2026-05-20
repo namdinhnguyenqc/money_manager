@@ -10,6 +10,74 @@ type AuthFetchOptions = RequestInit & {
 };
 
 let refreshPromise: Promise<string | null> | null = null;
+const REFRESH_LOCK_KEY = "trocare.refresh.lock";
+const REFRESH_LOCK_TTL_MS = 8000;
+const REFRESH_WAIT_TIMEOUT_MS = 10000;
+const REFRESH_WAIT_INTERVAL_MS = 120;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getTabId() {
+  if (typeof window === "undefined") return "server";
+  const key = "trocare.tab.id";
+  let tabId = sessionStorage.getItem(key);
+  if (!tabId) {
+    tabId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    sessionStorage.setItem(key, tabId);
+  }
+  return tabId;
+}
+
+function readRefreshLock(): { owner: string; expiresAt: number } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const value = localStorage.getItem(REFRESH_LOCK_KEY);
+    return value ? JSON.parse(value) : null;
+  } catch {
+    localStorage.removeItem(REFRESH_LOCK_KEY);
+    return null;
+  }
+}
+
+function tryAcquireRefreshLock(owner: string) {
+  if (typeof window === "undefined") return true;
+  const now = Date.now();
+  const current = readRefreshLock();
+  if (current && current.expiresAt > now && current.owner !== owner) {
+    return false;
+  }
+
+  localStorage.setItem(REFRESH_LOCK_KEY, JSON.stringify({ owner, expiresAt: now + REFRESH_LOCK_TTL_MS }));
+  return readRefreshLock()?.owner === owner;
+}
+
+function releaseRefreshLock(owner: string) {
+  if (typeof window === "undefined") return;
+  const current = readRefreshLock();
+  if (!current || current.owner === owner || current.expiresAt <= Date.now()) {
+    localStorage.removeItem(REFRESH_LOCK_KEY);
+  }
+}
+
+async function waitForPeerRefresh(previousToken: string | null) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < REFRESH_WAIT_TIMEOUT_MS) {
+    const currentToken = getStoredAccessToken();
+    if (currentToken && currentToken !== previousToken) {
+      return currentToken;
+    }
+
+    const currentLock = readRefreshLock();
+    if (!currentLock || currentLock.expiresAt <= Date.now()) {
+      return null;
+    }
+
+    await sleep(REFRESH_WAIT_INTERVAL_MS);
+  }
+  return null;
+}
 
 const redirectToLogin = () => {
   if (typeof window === "undefined") return;
@@ -21,13 +89,28 @@ export async function refreshAccessToken() {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
-    const res = await fetch(`${API_URL}/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-      credentials: "include",
-      cache: "no-store",
-    });
+    const previousToken = getStoredAccessToken();
+    const owner = getTabId();
+
+    if (!tryAcquireRefreshLock(owner)) {
+      const peerToken = await waitForPeerRefresh(previousToken);
+      if (peerToken) return peerToken;
+      if (!tryAcquireRefreshLock(owner)) return null;
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(`${API_URL}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+        credentials: "include",
+        cache: "no-store",
+      });
+    } finally {
+      releaseRefreshLock(owner);
+    }
+
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok || !data.session?.access_token) {

@@ -132,12 +132,15 @@ invoicesRoutes.get("/", async (c) => {
   const tenantsRes = await db.from("tenants").select("*").in("id", tenantIds);
   if (tenantsRes.error) return c.json({ error: tenantsRes.error.message }, 500);
   const tenants = tenantsRes.data ?? [];
+  const roomsById = new Map(rooms.map((room) => [String(room.id), room]));
+  const contractsById = new Map(contracts.map((contract) => [String(contract.id), contract]));
+  const tenantsById = new Map(tenants.map((tenant) => [String(tenant.id), tenant]));
 
   const data = invoices
     .map((inv) => {
-      const room = rooms.find((x) => String(x.id) === String(inv.room_id));
-      const contract = contracts.find((x) => String(x.id) === String(inv.contract_id));
-      const tenant = tenants.find((x) => String(x.id) === String(contract?.tenant_id));
+      const room = roomsById.get(String(inv.room_id));
+      const contract = contractsById.get(String(inv.contract_id));
+      const tenant = contract?.tenant_id ? tenantsById.get(String(contract.tenant_id)) : null;
       return {
         ...inv,
         roomId: inv.room_id,
@@ -398,7 +401,7 @@ invoicesRoutes.get("/history/:contractId", async (c) => {
   const db = c.get("supabase");
   const { data, error } = await db
     .from("invoices")
-    .select("*")
+    .select("id, room_id, contract_id, month, year, room_fee, total_amount, paid_amount, previous_debt, status, elec_old, elec_new, water_old, water_new, transaction_id, created_at, updated_at")
     .eq("contract_id", contractId)
     .eq("user_id", user.id)
     .order("year", { ascending: false })

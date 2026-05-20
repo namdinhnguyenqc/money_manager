@@ -18,6 +18,19 @@ import { buildProfileAuthMeta, getUserProfile } from "../lib/profileStore.js";
 const authRoutes = new Hono<AppEnv>();
 
 const cookieOptions = `Path=/auth; HttpOnly; SameSite=Lax; Max-Age=${env.REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+const REFRESH_REPLAY_GRACE_MS = 10_000;
+const recentRefreshRotations = new Map<
+  string,
+  {
+    userId: string;
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: string;
+    user: any;
+    nextSessionId: string;
+    expiresAtMs: number;
+  }
+>();
 
 const setRefreshCookie = (c: any, refreshToken: string) => {
   c.header("Set-Cookie", `refreshToken=${encodeURIComponent(refreshToken)}; ${cookieOptions}`, { append: true });
@@ -80,6 +93,34 @@ const safeSupabaseError = (error: any) => ({
   hint: error?.hint,
 });
 
+const redactAuditDetails = (details: Record<string, any>) => {
+  const redacted: Record<string, any> = {};
+  for (const [key, value] of Object.entries(details)) {
+    if (/token|secret|credential|authorization|cookie/i.test(key)) {
+      redacted[key] = "[REDACTED]";
+    } else if (typeof value === "string" && /^https?:\/\//i.test(value)) {
+      try {
+        const url = new URL(value);
+        redacted[key] = `${url.origin}${url.pathname ? "/[path]" : ""}`;
+      } catch {
+        redacted[key] = "[REDACTED_URL]";
+      }
+    } else {
+      redacted[key] = value;
+    }
+  }
+  return redacted;
+};
+
+const cleanupRecentRefreshRotations = () => {
+  const now = Date.now();
+  for (const [tokenHash, entry] of recentRefreshRotations.entries()) {
+    if (entry.expiresAtMs <= now) {
+      recentRefreshRotations.delete(tokenHash);
+    }
+  }
+};
+
 async function logLoginAttempt(
   userId: string | null,
   success: boolean,
@@ -109,7 +150,7 @@ const auditLog = (event: string, userId: string | null, details: Record<string, 
     audit_event: event,
     user_id: userId,
     timestamp: new Date().toISOString(),
-    ...details
+    ...redactAuditDetails(details)
   }));
 };
 
@@ -500,6 +541,7 @@ authRoutes.post("/refresh", async (c) => {
   }
 
   const tokenHash = await hashToken(parsed.data.refreshToken);
+  cleanupRecentRefreshRotations();
   const { data: tokenRecord, error: findError } = await supabaseAdmin
     .from("refresh_tokens")
     .select("*, users!inner(*)")
@@ -511,6 +553,27 @@ authRoutes.post("/refresh", async (c) => {
   }
 
   if (tokenRecord.revoked_at) {
+    const recentRotation = recentRefreshRotations.get(tokenHash);
+    if (recentRotation && recentRotation.expiresAtMs > Date.now() && recentRotation.userId === tokenRecord.user_id) {
+      setRefreshCookie(c, recentRotation.refreshToken);
+      auditLog("REFRESH_REPLAY_GRACE", tokenRecord.user_id, { sessionId: recentRotation.nextSessionId });
+      return c.json({
+        accessToken: recentRotation.accessToken,
+        session: {
+          access_token: recentRotation.accessToken,
+          expires_at: recentRotation.expiresAt,
+        },
+        user: {
+          id: recentRotation.user.id,
+          email: recentRotation.user.email,
+          name: recentRotation.user.name,
+          avatarUrl: recentRotation.user.avatarUrl,
+          role: recentRotation.user.role,
+          status: recentRotation.user.status,
+        },
+      });
+    }
+
     await supabaseAdmin
       .from("refresh_tokens")
       .update({ revoked_at: new Date().toISOString() })
@@ -565,6 +628,15 @@ authRoutes.post("/refresh", async (c) => {
   }
 
   setRefreshCookie(c, nextRefreshToken);
+  recentRefreshRotations.set(tokenHash, {
+    userId: tokenRecord.user_id,
+    accessToken,
+    refreshToken: nextRefreshToken,
+    expiresAt: expiresAt.toISOString(),
+    user,
+    nextSessionId,
+    expiresAtMs: Date.now() + REFRESH_REPLAY_GRACE_MS,
+  });
   auditLog("REFRESH_SUCCESS", user.id, { sessionId: nextSessionId });
 
   return c.json({

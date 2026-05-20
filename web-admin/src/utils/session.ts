@@ -38,7 +38,6 @@ export function setClientSession(payload: SessionPayload) {
   
   memoryAccessToken = payload.accessToken;
   localStorage.setItem("accessToken", payload.accessToken);
-  setCookie("accessToken", payload.accessToken);
 
   if (payload.role) {
     localStorage.setItem("userRole", payload.role);
