@@ -93,7 +93,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
     const check = async () => {
       const token = getStoredAccessToken();
       if (!token) {
-        router.replace("/login/owner");
+        router.replace("/login");
         return;
       }
       try {
@@ -107,7 +107,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
         window.clearTimeout(timeout);
         if (!res.ok) {
           clearClientSession();
-          router.replace("/login/owner");
+          router.replace("/login");
           return;
         }
         const data = await res.json();
@@ -124,7 +124,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
         }
       } catch {
         clearClientSession();
-        router.replace("/login/owner");
+        router.replace("/login");
       } finally {
         setLoading(false);
       }
@@ -147,7 +147,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
     } catch {}
     queryClient.clear();
     clearClientSession();
-    router.replace("/login/owner");
+    router.replace("/login");
   };
 
   if (loading) {
@@ -171,7 +171,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
       >
         <div className="flex flex-col border-b border-slate-200">
           <div className="px-5 py-4">
-            <Logo />
+            <Logo textClassName="text-lg" />
           </div>
           <div className="flex items-center gap-3 px-5 pb-5">
             <div className="min-w-0 flex-1">
@@ -187,7 +187,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
         <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-5">
           {navSections.map((section) => (
             <div key={section.title} className="flex flex-col gap-0.5">
-              <div className="px-3 mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <div className="px-3 mb-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
                 {section.title}
               </div>
               {section.items.map((item) => {
@@ -197,7 +197,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
                       active ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                     }`}
                   >
@@ -216,7 +216,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
         </nav>
 
         <div className="border-t border-slate-200 px-3 py-3">
-          <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50">
+          <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-50">
             <LogOut size={18} className="shrink-0" />
             <span className="truncate">Đăng xuất</span>
           </button>

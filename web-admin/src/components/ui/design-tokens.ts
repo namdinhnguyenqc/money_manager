@@ -3,14 +3,24 @@
  * Only className strings & maps. No runtime logic.
  */
 
-/* ── Color palette (Tailwind class fragments) ───────────────────── */
+/* ── Color palette ──────────────────────────────────────────────── */
 export const colors = {
-  primary: "#1D8FE1",
-  primaryDark: "#1573b8",
-  secondary: "#24C7A6",
-  success: "#10b981",
-  warning: "#f59e0b",
-  danger: "#ef4444",
+  primary: "#2563EB",
+  primaryDark: "#1D4ED8",
+  primaryLight: "#EFF6FF",
+  navy: "#0F172A",
+  success: "#10B981",
+  warning: "#F59E0B",
+  danger: "#EF4444",
+  slate: {
+    50: "#F8FAFC",
+    100: "#F1F5F9",
+    200: "#E2E8F0",
+    400: "#94A3B8",
+    500: "#64748B",
+    600: "#475569",
+    900: "#0F172A",
+  }
 } as const;
 
 /* ── Button variant class maps ──────────────────────────────────── */
@@ -32,9 +42,9 @@ export const buttonVariants = {
 } as const;
 
 export const buttonSizes = {
-  sm: "h-8 px-3 text-xs gap-1.5 rounded-lg",
-  md: "h-10 px-4 text-sm gap-2 rounded-lg",
-  lg: "h-12 px-6 text-sm gap-2 rounded-xl",
+  sm: "h-8 px-3 text-xs font-semibold gap-1.5 rounded-lg",
+  md: "h-10 px-4 text-sm font-semibold gap-2 rounded-lg",
+  lg: "h-12 px-6 text-sm font-semibold gap-2 rounded-xl",
 } as const;
 
 /* ── Badge variant class maps ───────────────────────────────────── */
@@ -55,7 +65,7 @@ export const selectBase =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400";
 
 export const labelBase =
-  "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500";
+  "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
 
 /* ── Card classes ───────────────────────────────────────────────── */
 export const cardBase =
@@ -64,23 +74,23 @@ export const cardBase =
 export const cardHover =
   "rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md hover:border-slate-300";
 
-/* ── Typography scale (reference) ───────────────────────────────── */
+/* ── Typography scale ───────────────────────────────────────────── */
 export const typography = {
-  pageTitle: "text-2xl font-bold tracking-tight text-slate-900",
-  pageSubtitle: "text-sm font-medium text-blue-600",
-  pageDescription: "mt-1 text-sm text-slate-500",
-  sectionTitle: "text-lg font-semibold text-slate-900",
-  label: "text-xs font-semibold uppercase tracking-wide text-slate-500",
-  body: "text-sm text-slate-600",
-  caption: "text-xs text-slate-400",
-  money: "font-semibold text-slate-900 whitespace-nowrap",
-  date: "text-sm text-slate-600 whitespace-nowrap",
-  phone: "text-sm whitespace-nowrap",
-  idCode: "font-mono text-xs text-slate-500 truncate",
+  pageTitle: "text-2xl font-black tracking-tight text-slate-900",
+  pageSubtitle: "text-xs font-bold uppercase tracking-widest text-blue-600",
+  pageDescription: "mt-1 text-sm font-medium text-slate-500",
+  sectionTitle: "text-lg font-bold text-slate-900",
+  label: "text-xs font-bold uppercase tracking-widest text-slate-500",
+  body: "text-sm font-medium text-slate-600",
+  caption: "text-xs font-medium text-slate-400",
+  money: "font-bold text-slate-900 whitespace-nowrap",
+  date: "text-sm font-medium text-slate-600 whitespace-nowrap",
+  phone: "text-sm font-medium whitespace-nowrap",
+  idCode: "font-mono text-xs font-medium text-slate-500 truncate",
 } as const;
 
 /* ── Filter pill classes ────────────────────────────────────────── */
 export const filterPillActive =
-  "border-blue-600 bg-blue-600 text-white shadow-sm";
+  "border-blue-600 bg-blue-600 text-white shadow-sm font-bold";
 export const filterPillInactive =
-  "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300";
+  "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 font-semibold";

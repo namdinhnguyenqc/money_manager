@@ -62,7 +62,7 @@ export default function PublicBoardingHousesPage() {
               <p className="mt-2 max-w-2xl text-sm text-slate-500">Dùng bộ lọc nhanh để xem dãy trọ đang public, rồi đi tiếp sang chi tiết phòng, gửi lead hoặc yêu cầu giữ chỗ.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link href="/login/owner" className="rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+              <Link href="/login" className="rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
                 Đăng nhập chủ trọ
               </Link>
               <Link href="/login/admin" className="rounded-[8px] border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-400">

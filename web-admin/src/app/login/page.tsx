@@ -1,118 +1,180 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import Logo from "@/components/ui/Logo";
 import OwnerGoogleLoginButton from "@/components/OwnerGoogleLoginButton";
-import { CheckCircle2, ShieldCheck, Zap, BarChart3 } from "lucide-react";
 
 export default function LoginPage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  if (!mounted) return null;
+
   return (
-    <main className="relative min-h-screen w-full overflow-hidden bg-white font-sans text-slate-950 flex flex-col md:flex-row">
+    <main className="relative h-screen w-full overflow-hidden bg-[#F8FAFC] font-sans text-[#0F172A] p-4 lg:p-10 flex items-center justify-center">
       
-      {/* Left Panel - Visual & Brand Story (Hidden on Mobile) */}
-      <div className="relative hidden md:flex md:w-[55%] lg:w-[60%] flex-col justify-between bg-[#0a0a0b] overflow-hidden px-12 py-16 text-white">
-        
-        {/* Dynamic Abstract Glowing Orbs Background */}
-        <div className="absolute top-[-20%] left-[-10%] h-[800px] w-[800px] rounded-full bg-blue-600/30 blur-[120px] mix-blend-screen animate-pulse" style={{ animationDuration: '8s' }} />
-        <div className="absolute bottom-[-10%] right-[-20%] h-[600px] w-[600px] rounded-full bg-indigo-500/20 blur-[100px] mix-blend-screen" />
-        
-        {/* Elegant CSS Grid Pattern Overlay */}
-        <div 
-          className="absolute inset-0 opacity-[0.04]" 
-          style={{
-            backgroundImage: `linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)`,
-            backgroundSize: '48px 48px'
-          }}
-        />
+      {/* Background Decor */}
+      <div 
+        className="fixed inset-0 pointer-events-none opacity-[0.35]" 
+        style={{
+          backgroundImage: `radial-gradient(rgba(15, 23, 42, .08) 1px, transparent 1px)`,
+          backgroundSize: '28px 28px',
+          maskImage: 'linear-gradient(to bottom, black, transparent 78%)'
+        }}
+      />
+      <div className="fixed inset-0 pointer-events-none" style={{
+        background: `
+          radial-gradient(circle at 8% 0%, rgba(37, 99, 235, .12), transparent 30%),
+          radial-gradient(circle at 100% 20%, rgba(6, 182, 212, .16), transparent 34%),
+          linear-gradient(135deg, #F8FAFC 0%, #F3F8FF 48%, #F8FAFC 100%)
+        `
+      }} />
 
-        {/* Top Brand Logo */}
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur-md border border-white/20 shadow-xl">
-            <ShieldCheck className="text-blue-400" size={24} />
-          </div>
-          <span className="text-xl font-bold tracking-tight">TrọCare</span>
-        </div>
+      <section className="relative w-full max-w-[1360px] h-full max-h-[820px] grid grid-cols-1 lg:grid-cols-[1.12fr_.78fr] gap-8 items-stretch z-10">
+        
+        {/* Left Hero Card */}
+        <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden rounded-[32px] p-10 text-white shadow-[0_32px_100px_rgba(15,23,42,0.24)]" style={{
+          background: `
+            radial-gradient(circle at 85% 10%, rgba(6, 182, 212, .88), transparent 34%),
+            radial-gradient(circle at 65% 35%, rgba(37, 99, 235, .8), transparent 36%),
+            linear-gradient(135deg, #06152B 0%, #0B1E3B 46%, #0F172A 100%)
+          `
+        }}>
+          {/* Hero Decor */}
+          <div className="absolute inset-0 opacity-15" style={{
+            backgroundImage: `linear-gradient(to right, rgba(255,255,255,.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.08) 1px, transparent 1px)`,
+            backgroundSize: '56px 56px'
+          }} />
+          <div className="absolute w-[560px] h-[560px] -right-[260px] -bottom-[260px] rounded-full bg-[#10B981]/15 blur-[20px]" />
 
-        {/* Center Story Content */}
-        <div className="relative z-10 max-w-2xl mt-20">
-          <div className={`transition-all duration-1000 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-            <h1 className="text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-500 mb-6">
-              Kỷ nguyên mới<br />của quản lý lưu trú.
+          <div className="relative z-10 max-w-[650px]">
+            <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full border border-white/16 bg-white/12 backdrop-blur-xl text-white/92 text-[10px] font-bold font-['Plus_Jakarta_Sans'] uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] shadow-[0_0_0_6px_rgba(34,197,94,0.16)]" />
+              Nền tảng quản lý phòng trọ cho chủ nhà hiện đại
+            </div>
+            <h1 className="mt-4 text-[clamp(28px,4vh,48px)] leading-[1.1] font-[800] tracking-[-0.055em] font-['Plus_Jakarta_Sans']">
+              Quản lý trọ thông minh<br />Vận hành an tâm
             </h1>
-            <p className="text-lg lg:text-xl text-slate-400 font-medium leading-relaxed mb-12 max-w-xl">
-              Nền tảng vận hành nhà trọ thông minh, tối ưu dòng tiền và tự động hóa toàn bộ quy trình chăm sóc khách hàng.
+            <p className="mt-3 max-w-[500px] text-slate-200/86 text-sm leading-relaxed font-medium">
+              TroCare giúp chủ trọ quản lý phòng, khách thuê, thu chi và hợp đồng dễ dàng — mọi lúc, mọi nơi.
             </p>
+          </div>
 
-            <div className="flex flex-col gap-6">
-              <div className="flex items-center gap-4 text-slate-200">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <CheckCircle2 size={20} />
+          {/* Mock Dashboard */}
+          <div className="relative z-10 mt-6 rounded-2xl overflow-hidden border border-white/14 bg-white/8 shadow-[0_30px_80px_rgba(0,0,0,0.22)] backdrop-blur-[22px] flex-1 min-h-0">
+            <div className="grid grid-cols-[170px_1fr] h-full bg-white text-[#0F172A]">
+              <nav className="bg-gradient-to-b from-[#071C39] to-[#0B1E3B] p-4 text-white">
+                <div className="flex items-center gap-2 mb-6 font-extrabold tracking-tight">
+                  <Image src="/brand/transparent/trocare-symbol-tc-transparent-64.png" width={24} height={24} alt="" />
+                  <div className="text-sm">Tro<span className="text-[#38BDF8]">Care</span></div>
                 </div>
-                <span className="text-[17px] font-semibold">Chốt điện nước và xuất hóa đơn tự động</span>
-              </div>
-              <div className="flex items-center gap-4 text-slate-200">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                  <Zap size={20} />
+                <div className="flex items-center gap-2 h-8 px-3 rounded-lg text-[10px] font-bold bg-[#2563EB] mb-1.5">⌂ Tổng quan</div>
+                <div className="flex items-center gap-2 h-8 px-3 rounded-lg text-[10px] font-bold text-white/60 mb-1.5">▣ Phòng trọ</div>
+                <div className="flex items-center gap-2 h-8 px-3 rounded-lg text-[10px] font-bold text-white/60 mb-1.5">♙ Khách thuê</div>
+                <div className="flex items-center gap-2 h-8 px-3 rounded-lg text-[10px] font-bold text-white/60 mb-1.5">▤ Hợp đồng</div>
+              </nav>
+              <div className="p-4 bg-slate-50 flex flex-col">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-[10px] text-slate-500 font-bold">Xin chào, <strong className="text-slate-900 ml-1">Chủ trọ</strong></div>
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#FDBA74] to-[#0F172A] border border-white" />
                 </div>
-                <span className="text-[17px] font-semibold">Phân tích dòng tiền trực quan chuẩn Real-time</span>
-              </div>
-              <div className="flex items-center gap-4 text-slate-200">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  <BarChart3 size={20} />
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  {[
+                    { l: 'Phòng', v: '128' }, { l: 'Thuê', v: '96' }, { l: 'Trống', v: '32' }, { l: 'Doanh thu', v: '128M' }
+                  ].map((s, i) => (
+                    <div key={i} className="bg-white p-2.5 rounded-xl border border-slate-100 shadow-sm">
+                      <small className="block text-slate-400 text-[8px] font-bold mb-0.5 uppercase">{s.l}</small>
+                      <strong className="block text-sm font-black text-[#0F172A]">{s.v}</strong>
+                    </div>
+                  ))}
                 </div>
-                <span className="text-[17px] font-semibold">Báo cáo tài chính chuẩn mực doanh nghiệp</span>
+                <div className="grid grid-cols-1 gap-2 flex-1">
+                  <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                    <div className="text-[10px] font-black mb-2">Chưa thanh toán</div>
+                    <div className="space-y-1">
+                      {[1,2,3].map(r => (
+                        <div key={r} className="flex justify-between py-1.5 border-b border-slate-50 text-[9px] font-bold last:border-0">
+                          <span className="text-slate-600">Nguyễn Văn A</span>
+                          <span className="text-red-500 font-black">2.8TR</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Footer */}
-        <div className="relative z-10 text-sm font-medium text-slate-500">
-          © {new Date().getFullYear()} TrọCare Platform. All rights reserved.
-        </div>
-      </div>
+          <div className="relative z-10 grid grid-cols-4 gap-4 mt-6">
+            {[
+              { t: 'Quản lý phòng', d: 'Theo dõi dễ dàng' },
+              { t: 'Công nợ', d: 'Tự động nhắc hạn' },
+              { t: 'Báo cáo', d: 'Trực quan hơn' },
+              { t: 'Nhắc việc', d: 'Tiện ích thông minh' }
+            ].map((f, i) => (
+              <div key={i} className="text-white/80">
+                <h3 className="text-white text-[11px] font-bold leading-tight mb-1">{f.t}</h3>
+                <p className="text-[10px] leading-snug opacity-70">{f.d}</p>
+              </div>
+            ))}
+          </div>
+        </aside>
 
-      {/* Right Panel - Login Form */}
-      <div className="relative flex w-full md:w-[45%] lg:w-[40%] flex-col items-center justify-center bg-white px-6 sm:px-12 py-16 shadow-[-30px_0_50px_-20px_rgba(0,0,0,0.07)] z-20">
-        
-        {/* Mobile Logo */}
-        <div className="md:hidden mb-12 flex justify-center w-full">
-          <Logo size="lg" />
-        </div>
+        {/* Right Login Card */}
+        <section className="relative overflow-hidden rounded-[32px] p-10 md:p-12 border border-white/90 bg-white/92 shadow-[0_30px_90px_rgba(15,23,42,0.12)] backdrop-blur-3xl flex flex-col justify-center h-full">
+          <div className="absolute w-[260px] h-[260px] -right-20 -top-20 bg-gradient-to-br from-blue-600/15 to-cyan-500/16 rounded-full blur-[4px]" />
+          
+          <header className="relative flex flex-col items-center gap-3 mb-10">
+            <Image src="/brand/transparent/trocare-symbol-tc-transparent-256.png" width={72} height={72} alt="Logo" className="drop-shadow-[0_18px_26px_rgba(37,99,235,0.16)]" />
+            <div className="text-3xl font-bold tracking-[-0.06em] font-['Plus_Jakarta_Sans']">
+              <span>Tro</span><span className="text-[#2563EB] font-black">Care</span>
+            </div>
+          </header>
 
-        <div className={`w-full max-w-[420px] transition-all duration-700 delay-300 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="mb-10 text-center md:text-left">
-            <h2 className="text-3xl lg:text-4xl font-black tracking-tight text-slate-900 mb-3">Đăng nhập</h2>
-            <p className="text-slate-500 text-[15px] font-medium leading-relaxed">
-              Chào mừng trở lại! Vui lòng tiếp tục với tài khoản Google để truy cập không gian quản lý.
+          <div className="relative text-center mb-8">
+            <h2 className="text-[28px] leading-tight font-extrabold tracking-[-0.055em] font-['Plus_Jakarta_Sans'] text-[#0F172A]">
+              Đăng nhập vào TroCare
+            </h2>
+            <p className="mt-3 text-slate-500 text-sm font-semibold">
+              Quản lý trọ thông minh, vận hành an tâm
             </p>
           </div>
 
-          <div className="space-y-6">
+          <div className="relative z-20">
             <OwnerGoogleLoginButton />
           </div>
 
-          <div className="mt-12 relative">
-            <div className="absolute inset-0 flex items-center" aria-hidden="true">
-              <div className="w-full border-t border-slate-100"></div>
-            </div>
-            <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-widest">
-              <span className="bg-white px-3 text-slate-300">Secure Identity</span>
+          <div className="mt-8 mb-6 relative flex justify-center items-center h-20">
+            <div className="absolute left-1/2 -translate-x-1/2 w-[64px] h-[64px] grid place-items-center rounded-2xl bg-gradient-to-br from-blue-600/8 to-cyan-500/8 shadow-sm">
+              <svg className="w-10 h-10 text-[#2563EB]/20" viewBox="0 0 64 64" fill="none">
+                <path d="M32 7l21 8v15c0 13.5-8.7 23.2-21 28-12.3-4.8-21-14.5-21-28V15l21-8z" fill="currentColor" />
+                <path d="M22 32l7 7 14-16" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
           </div>
 
-          <div className="mt-10 rounded-2xl bg-slate-50 p-5 text-center border border-slate-100">
-            <p className="text-[13px] font-medium leading-relaxed text-slate-500">
-              Việc đăng nhập đồng nghĩa với việc bạn đồng ý với <br className="hidden lg:block"/>
-              <a href="#" className="text-blue-600 font-bold hover:underline">Điều khoản dịch vụ</a> và <a href="#" className="text-blue-600 font-bold hover:underline">Chính sách bảo mật</a>.
-            </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {[
+              { t: 'Bảo mật', d: 'Tiêu chuẩn', i: 'M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6v-9z' },
+              { t: 'Đồng bộ', d: 'Tức thì', i: 'M13 2L4 14h7l-1 8 10-13h-7l0-7z' },
+              { t: 'Dành cho', d: 'Chủ trọ', i: 'M16 11a4 4 0 1 0-8 0M4 20c1.5-4 14.5-4 16 0' }
+            ].map((b, i) => (
+              <div key={i} className="rounded-xl border border-slate-100 bg-white/70 p-3 text-center flex flex-col items-center justify-center gap-1.5">
+                <svg className="text-[#2563EB]" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d={b.i} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span className="text-slate-700 text-[10px] font-extrabold uppercase leading-tight tracking-wider">{b.t}</span>
+              </div>
+            ))}
           </div>
-        </div>
-        
-      </div>
+
+          <footer className="mt-8 text-center text-slate-500 text-[11px] font-medium">
+            © {new Date().getFullYear()} TroCare Platform. <br/>
+            <a href="#" className="text-[#2563EB] font-extrabold hover:underline">Điều khoản</a> & <a href="#" className="text-[#2563EB] font-extrabold hover:underline">Bảo mật</a>
+          </footer>
+        </section>
+      </section>
     </main>
   );
 }

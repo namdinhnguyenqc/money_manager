@@ -1,61 +1,80 @@
 import React from 'react';
+import Image from 'next/image';
+
+type LogoVariant = 'monogram' | 'full' | 'symbol' | 'wordmark';
 
 export default function Logo({ 
   className = "", 
   showText = true, 
   textClassName = "text-xl",
-  size = "md"
+  size = "md",
+  variant = "monogram"
 }: { 
   className?: string, 
   showText?: boolean, 
   textClassName?: string,
-  size?: "sm" | "md" | "lg" 
+  size?: "sm" | "md" | "lg" | "xl",
+  variant?: LogoVariant
 }) {
-  const sizeClasses = {
-    sm: "w-6 h-6",
-    md: "w-8 h-8",
-    lg: "w-16 h-16",
+  const sizeMap = {
+    sm: 24,
+    md: 32,
+    lg: 48,
+    xl: 64,
   };
+
+  const pixelSize = sizeMap[size === "xl" ? "xl" : size];
+
+  if (variant === 'full') {
+    return (
+      <div className={`flex items-center ${className}`}>
+        <Image 
+          src="/brand/transparent/trocare-logo-full-transparent-2000.png" 
+          alt="TroCare Logo"
+          width={pixelSize * 4}
+          height={pixelSize}
+          className="h-auto w-auto object-contain"
+          priority
+        />
+      </div>
+    );
+  }
+
+  if (variant === 'symbol' || (variant === 'monogram' && !showText)) {
+    return (
+      <div className={`flex items-center ${className}`}>
+        <Image 
+          src="/brand/transparent/trocare-symbol-tc-transparent-256.png" 
+          alt="TroCare Symbol"
+          width={pixelSize}
+          height={pixelSize}
+          className="object-contain"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <div className={sizeClasses[size]}>
-        <svg
-          viewBox="0 0 100 100"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full"
-        >
-        <defs>
-          <linearGradient id="trocareGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#1D8FE1" />
-            <stop offset="100%" stopColor="#24C7A6" />
-          </linearGradient>
-        </defs>
-        
-        {/* Heart/Leaf Symbol */}
-        <path
-          d="M50 85 C50 85, 20 60, 20 40 A15 15 0 0 1 50 30 A15 15 0 0 1 80 40 C80 60, 50 85, 50 85 Z"
-          fill="url(#trocareGradient)"
-          opacity="0.9"
+      <div className="shrink-0">
+        <Image 
+          src="/brand/transparent/trocare-symbol-tc-transparent-128.png" 
+          alt="TroCare"
+          width={pixelSize}
+          height={pixelSize}
+          className="object-contain"
         />
-        {/* Hand/Support Curve Left */}
-        <path
-          d="M15 55 C10 70, 30 85, 45 90 C35 80, 25 70, 25 50 Z"
-          fill="#1D8FE1"
-        />
-        {/* Hand/Support Curve Right */}
-        <path
-          d="M85 55 C90 70, 70 85, 55 90 C65 80, 75 70, 75 50 Z"
-          fill="#24C7A6"
-        />
-      </svg>
       </div>
       {showText && (
-        <span className={`font-black tracking-tight ${textClassName}`}>
-          <span className="text-[#1D8FE1]">Trọ</span>
-          <span className="text-[#24C7A6]">Care</span>
-        </span>
+        <div className="flex flex-col">
+          <span className={`tracking-tight ${textClassName} font-medium`}>
+            <span className="text-[#0F172A]">Tro</span>
+            <span className="text-[#2563EB] font-black">Care</span>
+          </span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 -mt-0.5">
+            Quản lý trọ thông minh
+          </span>
+        </div>
       )}
     </div>
   );

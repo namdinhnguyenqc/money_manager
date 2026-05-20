@@ -4,6 +4,10 @@ import React, { useEffect, useState } from "react";
 import { Save, RefreshCw, Settings, CreditCard, DollarSign, Home, Zap, Layers, Trash2, Plus, Edit2, Upload, Image as ImageIcon, Wallet, Landmark, ChevronDown } from "lucide-react";
 import { apiGet, apiPost, apiPatch, apiDelete, apiPut } from "@/utils/apiClient";
 import { ServiceConfig, formatMoney } from "@/lib/rentalOps";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Input, { Label, Select as UISelect } from "@/components/ui/Input";
+import PageHeader from "@/components/ui/PageHeader";
 
 type SettingItem = { key: string; value: any; type: string; category: string };
 
@@ -269,21 +273,21 @@ export default function OwnerSettingsPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-5xl p-4 lg:p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-black text-slate-900">Cài đặt hệ thống</h2>
-          <p className="mt-1 text-sm text-slate-500">Quản lý cấu hình, bảng giá và vận hành nhà trọ.</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={load} className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <RefreshCw size={16} /> Làm mới
-          </button>
-          <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
-            <Save size={16} /> {saving ? "Đang lưu..." : "Lưu thay đổi"}
-          </button>
-        </div>
-      </div>
+    <div className="mx-auto max-w-5xl animate-in fade-in duration-500">
+      <PageHeader
+        subtitle="Quản lý cấu hình, bảng giá và vận hành nhà trọ."
+        title="Cài đặt hệ thống"
+        actions={
+          <>
+            <Button variant="outline" icon={<RefreshCw size={16} />} onClick={load}>
+              Làm mới
+            </Button>
+            <Button variant="primary" icon={<Save size={16} />} onClick={handleSave} disabled={saving} loading={saving}>
+              Lưu thay đổi
+            </Button>
+          </>
+        }
+      />
 
       {(error || success) && (
         <div className={`mb-6 rounded-xl p-4 text-sm font-medium ${error ? "border border-red-200 bg-red-50 text-red-700" : "border border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
@@ -297,46 +301,40 @@ export default function OwnerSettingsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Dropdown Category Selector */}
-          <div className="relative group max-w-sm">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 block">Danh mục cài đặt</label>
-            <div className="relative">
-              <select
-                value={activeTab}
-                onChange={(e) => setActiveTab(e.target.value)}
-                className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/5 transition-all cursor-pointer"
-              >
-                {tabs.map((tab) => (
-                  <option key={tab.id} value={tab.id}>
-                    {tab.label}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
-                <ChevronDown size={18} />
-              </div>
-            </div>
+          {/* Category Selector */}
+          <div className="max-w-sm">
+            <Label className="uppercase tracking-wider text-slate-400 mb-1.5 flex text-[10px]">Danh mục cài đặt</Label>
+            <UISelect
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value)}
+              className="font-bold text-slate-900"
+            >
+              {tabs.map((tab) => (
+                <option key={tab.id} value={tab.id}>
+                  {tab.label}
+                </option>
+              ))}
+            </UISelect>
           </div>
 
-          <div className="flex-1 rounded-2xl border border-slate-200 bg-white p-6 lg:p-8 shadow-sm">
+          <Card className="flex-1 p-6 lg:p-8">
             {activeTab === "general" && (
               <div className="space-y-5">
                 <h3 className="text-lg font-bold text-slate-900">Thông tin chung</h3>
                 <div className="grid gap-4">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">Tên hệ thống</label>
-                    <input
+                    <Label>Tên hệ thống</Label>
+                    <Input
                       type="text"
-                      className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       value={getValue("system_name", "TrọCare")}
                       onChange={(e) => handleChange("system_name", e.target.value, "string", "general")}
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">Thông tin chủ trọ</label>
+                    <Label>Thông tin chủ trọ</Label>
                     <textarea
                       rows={3}
-                      className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
                       value={getValue("owner_info", "")}
                       onChange={(e) => handleChange("owner_info", e.target.value, "string", "general")}
                       placeholder="Tên, Số điện thoại, Địa chỉ liên hệ..."
@@ -352,21 +350,19 @@ export default function OwnerSettingsPage() {
                   <h3 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-2">Kỳ thanh toán & Chốt điện nước</h3>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-slate-700">Ngày chốt điện nước hàng tháng</label>
-                      <input
+                      <Label>Ngày chốt điện nước hàng tháng</Label>
+                      <Input
                         type="number"
                         min="1" max="31"
-                        className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         value={getValue("meter_reading_day", 25)}
                         onChange={(e) => handleChange("meter_reading_day", Number(e.target.value), "number", "payment")}
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-slate-700">Hạn thanh toán hàng tháng</label>
-                      <input
+                      <Label>Hạn thanh toán hàng tháng</Label>
+                      <Input
                         type="number"
                         min="1" max="31"
-                        className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         value={getValue("payment_due_day", 5)}
                         onChange={(e) => handleChange("payment_due_day", Number(e.target.value), "number", "payment")}
                       />
@@ -393,33 +389,30 @@ export default function OwnerSettingsPage() {
                   </div>
                   <p className="text-xs text-slate-500 italic">Cung cấp thông tin tài khoản để khách thuê thanh toán và đối soát giao dịch.</p>
                   
-                  <div className="grid gap-6 rounded-2xl border border-slate-200 p-6 bg-white shadow-sm">
+                  <Card className="grid gap-6 p-6">
                     {/* Bank Account Info */}
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="sm:col-span-2">
-                        <label className="mb-1.5 block text-xs font-bold text-slate-700">Chọn Ngân hàng</label>
-                        <select
-                          className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-500/20"
+                        <Label>Chọn Ngân hàng</Label>
+                        <UISelect
                           value={bankConfig.bank_id}
                           onChange={(e) => setBankConfig({...bankConfig, bank_id: e.target.value})}
                         >
                           {BANK_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
-                        </select>
+                        </UISelect>
                       </div>
                       <div>
-                        <label className="mb-1.5 block text-xs font-bold text-slate-700">Số tài khoản</label>
-                        <input
+                        <Label>Số tài khoản</Label>
+                        <Input
                           type="text"
-                          className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm"
                           value={bankConfig.account_no}
                           onChange={(e) => setBankConfig({...bankConfig, account_no: e.target.value})}
                         />
                       </div>
                       <div>
-                        <label className="mb-1.5 block text-xs font-bold text-slate-700">Tên chủ tài khoản</label>
-                        <input
+                        <Label>Tên chủ tài khoản</Label>
+                        <Input
                           type="text"
-                          className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm"
                           value={bankConfig.account_name}
                           onChange={(e) => setBankConfig({...bankConfig, account_name: e.target.value})}
                         />
@@ -428,7 +421,7 @@ export default function OwnerSettingsPage() {
 
                     {/* QR Code Upload */}
                     <div className="pt-4 border-t border-slate-100">
-                      <label className="mb-3 block text-sm font-bold text-slate-800">QR Code Tĩnh (Tải lên hình ảnh)</label>
+                      <Label className="mb-3 block text-sm font-bold text-slate-800">QR Code Tĩnh (Tải lên hình ảnh)</Label>
                       <div className="flex flex-col sm:flex-row items-start gap-6">
                         <div className="shrink-0">
                           {getValue("bank_qr_static_url", "") ? (
@@ -463,7 +456,7 @@ export default function OwnerSettingsPage() {
 
                     {/* Payment Note */}
                     <div className="pt-4 border-t border-slate-100">
-                      <label className="mb-2 block text-sm font-bold text-slate-800">Nội dung thêm (Lưu ý chuyển khoản)</label>
+                      <Label className="mb-2 block text-sm font-bold text-slate-800">Nội dung thêm (Lưu ý chuyển khoản)</Label>
                       <textarea
                         rows={2}
                         className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
@@ -475,15 +468,17 @@ export default function OwnerSettingsPage() {
 
                     {/* Action Buttons */}
                     <div className="flex justify-end gap-3 pt-2">
-                      <button 
+                      <Button 
                         onClick={handleSaveBankConfig} 
-                        disabled={savingExtension} 
-                        className="flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-lg shadow-emerald-600/20"
+                        disabled={savingExtension}
+                        loading={savingExtension}
+                        className="!bg-emerald-600 hover:!bg-emerald-700 shadow-emerald-600/20"
+                        icon={<Save size={16} />}
                       >
-                        <Save size={16} /> {savingExtension ? "Đang lưu..." : "Lưu tất cả cấu hình"}
-                      </button>
+                        Lưu tất cả cấu hình
+                      </Button>
                     </div>
-                  </div>
+                  </Card>
                 </section>
               </div>
             )}
@@ -712,7 +707,7 @@ export default function OwnerSettingsPage() {
                 </section>
               </div>
             )}
-          </div>
+          </Card>
         </div>
       )}
     </div>
