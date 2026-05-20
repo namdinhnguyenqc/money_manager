@@ -10,7 +10,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 async function runMigration() {
-  const sqlPath = path.resolve(__dirname, 'src/migrations/016_full_uuid_reset.sql');
+  const sqlPath = path.resolve(__dirname, 'src/migrations/023_add_contract_id_to_transactions.sql');
   const sql = fs.readFileSync(sqlPath, 'utf-8');
   
   console.log("=== Running migration 016_full_uuid_reset.sql ===");

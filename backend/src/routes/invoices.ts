@@ -837,4 +837,160 @@ invoicesRoutes.delete("/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+invoicesRoutes.post("/auto-generate", async (c) => {
+  const user = c.get("user");
+  const body = await c.req.json();
+  const month = Number(body.month);
+  const year = Number(body.year);
+  const facilityId = body.facilityId;
+
+  if (!month || !year) return c.json({ error: "Missing month or year" }, 400);
+
+  const db = c.get("supabase");
+
+  // 1. Lấy tất cả các phòng đang có khách thuê (occupied) của user này
+  let roomsQuery = db
+    .from("rooms")
+    .select("id, name, boarding_house_id, price, has_ac, status")
+    .eq("user_id", user.id)
+    .eq("status", "occupied");
+
+  if (facilityId) {
+    roomsQuery = roomsQuery.eq("boarding_house_id", facilityId);
+  }
+
+  const roomsRes = await roomsQuery;
+  if (roomsRes.error) return c.json({ error: roomsRes.error.message }, 500);
+
+  const rooms = roomsRes.data || [];
+  if (rooms.length === 0) return c.json({ created: 0, skipped: 0, message: "Không có phòng nào đang được thuê." });
+
+  // 2. Lấy các hóa đơn đã tồn tại trong kỳ này
+  const existingInvoicesRes = await db
+    .from("invoices")
+    .select("room_id")
+    .eq("user_id", user.id)
+    .eq("month", month)
+    .eq("year", year);
+  
+  if (existingInvoicesRes.error) return c.json({ error: existingInvoicesRes.error.message }, 500);
+  const existingRoomIds = new Set((existingInvoicesRes.data || []).map(inv => inv.room_id));
+
+  // 3. Lọc ra các phòng chưa có hóa đơn
+  const pendingRooms = rooms.filter(r => !existingRoomIds.has(r.id));
+  if (pendingRooms.length === 0) return c.json({ created: 0, skipped: rooms.length, message: "Tất cả các phòng đã có hóa đơn." });
+
+  // 4. Lấy hợp đồng active cho các phòng này
+  const pendingRoomIds = pendingRooms.map(r => r.id);
+  const contractsRes = await db
+    .from("contracts")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .in("room_id", pendingRoomIds);
+
+  if (contractsRes.error) return c.json({ error: contractsRes.error.message }, 500);
+  const contracts = contractsRes.data || [];
+  const roomToContract = new Map(contracts.map(c => [c.room_id, c]));
+
+  let createdCount = 0;
+
+  for (const room of pendingRooms) {
+    const contract = roomToContract.get(room.id);
+    if (!contract) continue;
+
+    try {
+      const contractId = String(contract.id);
+      
+      const lastInvoiceRes = await db
+        .from("invoices")
+        .select("elec_new,water_new")
+        .eq("room_id", room.id)
+        .eq("contract_id", contractId)
+        .eq("user_id", user.id)
+        .or("elec_new.not.is.null,water_new.not.is.null")
+        .order("year", { ascending: false })
+        .order("month", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const elecOld = Number(lastInvoiceRes.data?.elec_new ?? contract.electric_start ?? 0);
+      const waterOld = Number(lastInvoiceRes.data?.water_new ?? contract.water_start ?? 0);
+
+      const csRes = await db.from("contract_services").select("service_id").eq("contract_id", contractId);
+      let items: any[] = [];
+      
+      if (!csRes.error && csRes.data && csRes.data.length > 0) {
+        const serviceIds = csRes.data.map((x: any) => x.service_id).filter(Boolean);
+        const servicesRes = await db.from("services").select("*").eq("user_id", user.id).in("id", serviceIds);
+        
+        if (!servicesRes.error && servicesRes.data) {
+          const serviceMap = new Map(servicesRes.data.map(s => [String(s.id), s]));
+          const services = serviceIds.map(id => serviceMap.get(String(id))).filter(Boolean);
+          
+          items = buildInvoiceItemsFromServices(services, { ...contract, ...room }, {
+            elecOld,
+            elecNew: null,
+            waterOld,
+            waterNew: null,
+          });
+        }
+      }
+
+      const roomFee = Number(contract.rent_amount ?? room.price ?? 0);
+      const serviceFees = items.reduce((sum, item) => sum + item.amount, 0);
+      const total = roomFee + serviceFees;
+
+      const invRes = await db
+        .from("invoices")
+        .insert({
+          user_id: user.id,
+          room_id: room.id,
+          contract_id: contractId,
+          month,
+          year,
+          room_fee: roomFee,
+          total_amount: total,
+          previous_debt: 0,
+          elec_old: elecOld,
+          elec_new: null,
+          water_old: waterOld,
+          water_new: null,
+          status: "unpaid",
+          note: "Tự động tạo nháp",
+        })
+        .select("id")
+        .single();
+
+      if (!invRes.error && invRes.data) {
+        const invoiceId = invRes.data.id;
+        if (items.length > 0) {
+          const rows = items.map((item) => ({
+            user_id: user.id,
+            invoice_id: invoiceId,
+            service_id: item.serviceId ?? null,
+            name: item.name,
+            detail: item.detail ?? "",
+            amount: item.amount,
+            calculation_type: item.calculationType ?? null,
+            unit_price: item.unitPrice ?? null,
+            quantity: item.quantity ?? null,
+            start_reading: item.startReading ?? null,
+            end_reading: item.endReading ?? null,
+            usage_value: item.usageValue ?? null,
+            unit: item.unit ?? null,
+            service_snapshot: item.serviceSnapshot ?? null,
+          }));
+          await db.from("invoice_items").insert(rows);
+        }
+        createdCount++;
+      }
+    } catch (e) {
+      console.error(`Failed to auto-generate for room ${room.name}:`, e);
+    }
+  }
+
+  return c.json({ created: createdCount, skipped: rooms.length - createdCount });
+});
+
 export default invoicesRoutes;
