@@ -1,10 +1,33 @@
 "use client";
 
+import Badge, { type BadgeVariant } from "@/components/ui/Badge";
+
 export type RoomStatus = "vacant" | "reserved" | "occupied" | "maintenance" | "expiring_soon" | "disabled";
 export type ContractStatus = "active" | "expiring_soon" | "ended";
 export type InvoiceStatus = "draft" | "sent" | "overdue" | "paid" | "partial";
 export type PaymentMethod = "cash" | "bank_transfer" | "e_wallet";
 
+const STATUS_VARIANT: Record<string, BadgeVariant> = {
+  vacant: "success",
+  paid: "success",
+  refunded: "success",
+  active: "primary",
+  occupied: "primary",
+  sent: "primary",
+  partial: "primary",
+  transferred: "primary",
+  reserved: "orange",
+  holding: "orange",
+  expiring_soon: "warning",
+  draft: "warning",
+  overdue: "danger",
+  maintenance: "danger",
+  cancelled: "danger",
+  ended: "neutral",
+  disabled: "neutral",
+};
+
+// Keep original map exported for backwards compat
 export const STATUS_COLOR: Record<string, string> = {
   vacant: "bg-green-50 text-green-700 border-green-200",
   paid: "bg-green-50 text-green-700 border-green-200",
@@ -19,7 +42,6 @@ export const STATUS_COLOR: Record<string, string> = {
   maintenance: "bg-red-50 text-red-700 border-red-200",
   ended: "bg-gray-100 text-gray-500 border-gray-200",
   disabled: "bg-gray-100 text-gray-500 border-gray-200",
-  // Deposit statuses
   holding: "bg-orange-50 text-orange-700 border-orange-200",
   transferred: "bg-blue-50 text-blue-700 border-blue-200",
   refunded: "bg-green-50 text-green-700 border-green-200",
@@ -48,9 +70,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function StatusBadge({ status }: { status: RoomStatus | ContractStatus | InvoiceStatus | string }) {
-  return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_COLOR[status] || STATUS_COLOR.ended}`}>
-      {STATUS_LABEL[status] || status}
-    </span>
-  );
+  const variant = STATUS_VARIANT[status] || "neutral";
+  const label = STATUS_LABEL[status] || status;
+  return <Badge variant={variant}>{label}</Badge>;
 }
