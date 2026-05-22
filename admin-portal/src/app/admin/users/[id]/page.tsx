@@ -64,11 +64,11 @@ export default function UserDetailPage() {
         router.replace("/login");
         return;
       }
-      if (!res.ok) throw new Error("KhÃ´ng thá»ƒ táº£i thÃ´ng tin ngÆ°á»i dÃ¹ng.");
+      if (!res.ok) throw new Error("Không thể tải thông tin người dùng.");
       const data = await res.json();
       setUser(data);
     } catch (e: any) {
-      setError(e?.message || "Lá»—i táº£i dá»¯ liá»‡u.");
+      setError(e?.message || "Lỗi tải dữ liệu.");
     } finally {
       setLoading(false);
     }
@@ -83,7 +83,7 @@ export default function UserDetailPage() {
   }, [userId]);
 
   const updateStatus = async (status: string) => {
-    if (!confirm(`XÃ¡c nháº­n Ä‘á»•i tráº¡ng thÃ¡i thÃ nh "${status}"?`)) return;
+    if (!confirm(`Xác nhận đổi trạng thái thành "${status}"?`)) return;
     setActionLoading(true);
     try {
       const res = await fetch(`${API_URL}/admin/users/${userId}/status`, {
@@ -93,7 +93,7 @@ export default function UserDetailPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.message || "Thao tÃ¡c tháº¥t báº¡i.");
+        throw new Error(data.message || "Thao tác thất bại.");
       }
       await load();
     } catch (e: any) {
@@ -104,7 +104,7 @@ export default function UserDetailPage() {
   };
 
   const updateRole = async (role: string) => {
-    if (!confirm(`XÃ¡c nháº­n Ä‘á»•i vai trÃ² thÃ nh "${role}"?`)) return;
+    if (!confirm(`Xác nhận đổi vai trò thành "${role}"?`)) return;
     setActionLoading(true);
     try {
       const res = await fetch(`${API_URL}/admin/users/${userId}/role`, {
@@ -114,7 +114,7 @@ export default function UserDetailPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.message || "Thao tÃ¡c tháº¥t báº¡i.");
+        throw new Error(data.message || "Thao tác thất bại.");
       }
       await load();
     } catch (e: any) {
@@ -125,7 +125,7 @@ export default function UserDetailPage() {
   };
 
   const softDelete = async () => {
-    if (!confirm("XÃ³a má»m ngÆ°á»i dÃ¹ng nÃ y? Há» sáº½ khÃ´ng thá»ƒ Ä‘Äƒng nháº­p.")) return;
+    if (!confirm("Xóa mềm người dùng này? Họ sẽ không thể đăng nhập.")) return;
     setActionLoading(true);
     try {
       const res = await fetch(`${API_URL}/admin/users/${userId}`, {
@@ -134,7 +134,7 @@ export default function UserDetailPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.message || "XÃ³a tháº¥t báº¡i.");
+        throw new Error(data.message || "Xóa thất bại.");
       }
       router.push("/admin/users");
     } catch (e: any) {
@@ -144,18 +144,18 @@ export default function UserDetailPage() {
     }
   };
 
-  if (loading) return <div className="flex h-48 items-center justify-center text-slate-500">Äang táº£i...</div>;
+  if (loading) return <div className="flex h-48 items-center justify-center text-slate-500">Đang tải...</div>;
   if (error) return <div className="p-4 text-red-600">{error}</div>;
-  if (!user) return <div className="p-4 text-slate-500">KhÃ´ng tÃ¬m tháº¥y ngÆ°á»i dÃ¹ng.</div>;
+  if (!user) return <div className="p-4 text-slate-500">Không tìm thấy người dùng.</div>;
 
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-6 flex items-center gap-3">
         <Link href="/admin/users" className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline">
           <ArrowLeft size={15} />
-          Quay láº¡i
+          Quay lại
         </Link>
-        <h1 className="text-xl font-bold text-slate-800">Chi tiáº¿t ngÆ°á»i dÃ¹ng</h1>
+        <h1 className="text-xl font-bold text-slate-800">Chi tiết người dùng</h1>
       </div>
 
       <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6">
@@ -175,16 +175,16 @@ export default function UserDetailPage() {
 
         <div className="grid grid-cols-2 gap-3 text-sm text-slate-600">
           <div><span className="text-slate-400">Provider:</span> {user.provider || "GOOGLE"}</div>
-          <div><span className="text-slate-400">Táº¡o lÃºc:</span> {user.created_at ? new Date(user.created_at).toLocaleDateString("vi-VN") : "-"}</div>
+          <div><span className="text-slate-400">Tạo lúc:</span> {user.created_at ? new Date(user.created_at).toLocaleDateString("vi-VN") : "-"}</div>
           <div className="col-span-2">
-            <span className="text-slate-400">ÄÄƒng nháº­p gáº§n nháº¥t:</span>{" "}
-            {user.last_login_at ? new Date(user.last_login_at).toLocaleString("vi-VN") : "ChÆ°a tá»«ng"}
+            <span className="text-slate-400">Đăng nhập gần nhất:</span>{" "}
+            {user.last_login_at ? new Date(user.last_login_at).toLocaleString("vi-VN") : "Chưa từng"}
           </div>
         </div>
       </div>
 
       <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 font-semibold text-slate-700">HÃ nh Ä‘á»™ng quáº£n trá»‹</h2>
+        <h2 className="mb-4 font-semibold text-slate-700">Hành động quản trị</h2>
         <div className="flex flex-wrap gap-3">
           {user.status === "ACTIVE" ? (
             <button
@@ -193,7 +193,7 @@ export default function UserDetailPage() {
               className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
             >
               <Lock size={15} />
-              KhÃ³a tÃ i khoáº£n
+              Khóa tài khoản
             </button>
           ) : user.status === "BLOCKED" ? (
             <button
@@ -202,7 +202,7 @@ export default function UserDetailPage() {
               className="inline-flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100 disabled:opacity-50"
             >
               <Unlock size={15} />
-              Má»Ÿ khÃ³a
+              Mở khóa
             </button>
           ) : null}
 
@@ -212,7 +212,7 @@ export default function UserDetailPage() {
               disabled={actionLoading}
               className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
             >
-              Chuyá»ƒn thÃ nh Owner
+              Chuyển thành Owner
             </button>
           )}
           {user.role === "USER" && (
@@ -222,7 +222,7 @@ export default function UserDetailPage() {
               className="inline-flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50"
             >
               <ArrowUp size={15} />
-              NÃ¢ng lÃªn Admin
+              Nâng lên Admin
             </button>
           )}
           {user.role === "ADMIN" && (
@@ -232,7 +232,7 @@ export default function UserDetailPage() {
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
             >
               <ArrowDown size={15} />
-              Háº¡ xuá»‘ng User
+              Hạ xuống User
             </button>
           )}
           {user.role === "OWNER" && (
@@ -241,7 +241,7 @@ export default function UserDetailPage() {
               disabled={actionLoading}
               className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
             >
-              Háº¡ xuá»‘ng User
+              Hạ xuống User
             </button>
           )}
 
@@ -252,26 +252,26 @@ export default function UserDetailPage() {
               className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50"
             >
               <Trash2 size={15} />
-              XÃ³a má»m
+              Xóa mềm
             </button>
           )}
         </div>
-        {actionLoading && <p className="mt-3 text-sm text-slate-500">Äang xá»­ lÃ½...</p>}
+        {actionLoading && <p className="mt-3 text-sm text-slate-500">Đang xử lý...</p>}
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 font-semibold text-slate-700">Lá»‹ch sá»­ Ä‘Äƒng nháº­p gáº§n Ä‘Ã¢y</h2>
+        <h2 className="mb-4 font-semibold text-slate-700">Lịch sử đăng nhập gần đây</h2>
         {(!user.loginLogs || user.loginLogs.length === 0) ? (
-          <p className="text-sm text-slate-500">ChÆ°a cÃ³ lá»‹ch sá»­ Ä‘Äƒng nháº­p.</p>
+          <p className="text-sm text-slate-500">Chưa có lịch sử đăng nhập.</p>
         ) : (
           <div className="space-y-2">
             {user.loginLogs.map((log, index) => (
               <div key={index} className="flex items-center justify-between border-b border-slate-100 py-2 text-sm last:border-0">
                 <div>
                   <span className={`mr-2 font-semibold ${log.success ? "text-green-600" : "text-red-600"}`}>
-                    {log.success ? "ThÃ nh cÃ´ng" : "Tháº¥t báº¡i"}
+                    {log.success ? "Thành công" : "Thất bại"}
                   </span>
-                  <span className="text-slate-500">{log.ip_address || "IP áº©n"}</span>
+                  <span className="text-slate-500">{log.ip_address || "IP ẩn"}</span>
                 </div>
                 <div className="text-slate-400">{new Date(log.login_at).toLocaleString("vi-VN")}</div>
               </div>

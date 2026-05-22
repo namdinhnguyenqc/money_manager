@@ -49,7 +49,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   }, [router]);
 
   if (loading) {
-    return <div className="p-6">Äang xÃ¡c thá»±c quyá»n SUPER_ADMIN...</div>;
+    return <div className="p-6">Đang xác thực quyền SUPER_ADMIN...</div>;
   }
 
   if (!authorized) return null;
@@ -60,11 +60,11 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
           <div>
             <div className="text-sm font-semibold text-slate-950">Super Admin</div>
-            <div className="text-xs text-slate-500">Quáº£n trá»‹ há»‡ thá»‘ng cáº¥p cao</div>
+            <div className="text-xs text-slate-500">Quản trị hệ thống cấp cao</div>
           </div>
           <nav className="flex items-center gap-3 text-sm">
-            <Link href="/super-admin/users" className="font-medium text-slate-700 hover:text-blue-700">NgÆ°á»i dÃ¹ng</Link>
-            <Link href="/super-admin/reports" className="font-medium text-slate-700 hover:text-blue-700">BÃ¡o cÃ¡o</Link>
+            <Link href="/super-admin/users" className="font-medium text-slate-700 hover:text-blue-700">Người dùng</Link>
+            <Link href="/super-admin/reports" className="font-medium text-slate-700 hover:text-blue-700">Báo cáo</Link>
             <Link href="/admin" className="font-medium text-blue-700 hover:text-blue-800">Admin</Link>
           </nav>
         </div>

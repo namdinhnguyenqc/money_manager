@@ -210,6 +210,16 @@ describe("admin phase API", () => {
     });
   });
 
+  it("includes blocked users in the default admin user list", async () => {
+    const app = await buildApp();
+    const list = await app.request("/admin/users", { headers: authHeaders() });
+
+    expect(list.status).toBe(200);
+    const body = await list.json();
+    expect(body.data.map((user: Row) => user.id)).toContain("owner-2");
+    expect(body.data.find((user: Row) => user.id === "owner-2")?.status).toBe("BLOCKED");
+  });
+
   it("returns account list, search results and summary", async () => {
     const app = await buildApp();
     const list = await app.request("/admin/accounts", { headers: authHeaders() });

@@ -16,7 +16,7 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 
 /**
  * Unified Button component.
- * Dropâ€‘in replacement â€” keeps all native button props (onClick, disabled, typeâ€¦).
+ * Drop‑in replacement — keeps all native button props (onClick, disabled, type…).
  */
 export default function Button({
   variant = "primary",

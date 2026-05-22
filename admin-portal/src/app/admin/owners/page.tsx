@@ -39,7 +39,7 @@ export default function AdminOwnersPage() {
       const data = await apiClient<OwnerListResponse>(`/admin/owners?keyword=${encodeURIComponent(nextKeyword)}&limit=50`);
       setOwners(data.data || []);
     } catch (err: any) {
-      setError(err?.message || "KhÃ´ng thá»ƒ táº£i danh sÃ¡ch chá»§ trá».");
+      setError(err?.message || "Không thể tải danh sách chủ trọ.");
     } finally {
       setLoading(false);
     }
@@ -57,9 +57,9 @@ export default function AdminOwnersPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        subtitle="Quáº£n lÃ½ chá»§ trá»"
-        title="Chá»§ trá»"
-        description="Má»Ÿ há»“ sÆ¡ chá»§ trá» Ä‘á»ƒ xem cÆ¡ sá»Ÿ, phÃ²ng, khÃ¡ch thuÃª, há»£p Ä‘á»“ng vÃ  hÃ³a Ä‘Æ¡n liÃªn quan."
+        subtitle="Quản lý chủ trọ"
+        title="Chủ trọ"
+        description="Mở hồ sơ chủ trọ để xem cơ sở, phòng, khách thuê, hợp đồng và hóa đơn liên quan."
         actions={
           <div className="flex w-full gap-2 sm:w-auto">
             <div className="relative min-w-0 flex-1 sm:w-72">
@@ -68,12 +68,12 @@ export default function AdminOwnersPage() {
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
                 onKeyDown={(event) => event.key === "Enter" && search()}
-                placeholder="TÃ¬m tÃªn, email, sá»‘ Ä‘iá»‡n thoáº¡i"
+                placeholder="Tìm tên, email, số điện thoại"
                 className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm outline-none focus:border-blue-500"
               />
             </div>
             <button onClick={search} className="h-10 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white">
-              TÃ¬m
+              Tìm
             </button>
           </div>
         }
@@ -87,18 +87,18 @@ export default function AdminOwnersPage() {
             <Users size={18} />
           </span>
           <div>
-            <p className="text-xs font-bold uppercase text-slate-500">Chá»§ trá» Ä‘ang hiá»ƒn thá»‹</p>
+            <p className="text-xs font-bold uppercase text-slate-500">Chủ trọ đang hiển thị</p>
             <p className="text-xl font-black text-slate-950">{owners.length}</p>
           </div>
         </div>
-        {loading && <span className="text-sm text-slate-500">Äang táº£i...</span>}
+        {loading && <span className="text-sm text-slate-500">Đang tải...</span>}
       </Card>
 
-      <DataTable headers={["Chá»§ trá»", "LiÃªn há»‡", "Tráº¡ng thÃ¡i", "Táº¡o lÃºc", "Chi tiáº¿t"]}>
+      <DataTable headers={["Chủ trọ", "Liên hệ", "Trạng thái", "Tạo lúc", "Chi tiết"]}>
         {owners.map((owner) => (
           <tr key={owner.id}>
             <td className="px-4 py-3">
-              <p className="font-semibold text-slate-950">{owner.name || owner.full_name || "ChÆ°a cÃ³ tÃªn"}</p>
+              <p className="font-semibold text-slate-950">{owner.name || owner.full_name || "Chưa có tên"}</p>
               <p className="mt-0.5 max-w-52 truncate font-mono text-xs text-slate-400">{owner.id}</p>
             </td>
             <td className="px-4 py-3">
@@ -111,14 +111,14 @@ export default function AdminOwnersPage() {
             <td className="px-4 py-3 text-slate-600">{owner.created_at ? owner.created_at.slice(0, 10) : "-"}</td>
             <td className="px-4 py-3">
               <Link href={`/admin/owners/${owner.id}`} className="inline-flex items-center gap-1 font-semibold text-blue-700 hover:text-blue-800">
-                Má»Ÿ <ArrowRight size={15} />
+                Mở <ArrowRight size={15} />
               </Link>
             </td>
           </tr>
         ))}
         {!loading && owners.length === 0 && (
           <tr>
-            <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">KhÃ´ng tÃ¬m tháº¥y chá»§ trá».</td>
+            <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">Không tìm thấy chủ trọ.</td>
           </tr>
         )}
       </DataTable>

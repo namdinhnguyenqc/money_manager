@@ -33,12 +33,12 @@ export default function SuperAdminUsersPage() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data?.message || data?.error || 'KhÃ´ng thá»ƒ táº£i ngÆ°á»i dÃ¹ng.')
+        throw new Error(data?.message || data?.error || 'Không thể tải người dùng.')
       }
       const data = await res.json()
       setUsers(data?.data || [])
     } catch (err: any) {
-      setError(err?.message ?? 'KhÃ´ng táº£i Ä‘Æ°á»£c ngÆ°á»i dÃ¹ng.')
+      setError(err?.message ?? 'Không tải được người dùng.')
     } finally {
       setLoading(false)
     }
@@ -57,11 +57,11 @@ export default function SuperAdminUsersPage() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data?.message || data?.error || 'KhÃ´ng thá»ƒ cáº­p nháº­t vai trÃ².')
+        throw new Error(data?.message || data?.error || 'Không thể cập nhật vai trò.')
       }
       await loadUsers()
     } catch (err: any) {
-      setError(err?.message ?? 'KhÃ´ng Ä‘á»•i Ä‘Æ°á»£c vai trÃ².')
+      setError(err?.message ?? 'Không đổi được vai trò.')
     }
   }
 
@@ -74,31 +74,31 @@ export default function SuperAdminUsersPage() {
       <div className="mx-auto max-w-6xl rounded border border-slate-200 bg-white p-4">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-slate-950">NgÆ°á»i dÃ¹ng Super Admin</h1>
-            <p className="text-sm text-slate-500">Quáº£n lÃ½ vai trÃ² vÃ  theo dÃµi tÃ i khoáº£n há»‡ thá»‘ng.</p>
+            <h1 className="text-xl font-semibold text-slate-950">Người dùng Super Admin</h1>
+            <p className="text-sm text-slate-500">Quản lý vai trò và theo dõi tài khoản hệ thống.</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={loadUsers} className="rounded border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-blue-400 hover:text-blue-700">
-              Táº£i láº¡i
+              Tải lại
             </button>
-            <Link href="/admin/users" className="text-sm font-semibold text-blue-700 hover:text-blue-800">Má»Ÿ giao diá»‡n Admin</Link>
+            <Link href="/admin/users" className="text-sm font-semibold text-blue-700 hover:text-blue-800">Mở giao diện Admin</Link>
           </div>
         </div>
 
-        {loading && <div className="rounded border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Äang táº£i ngÆ°á»i dÃ¹ng...</div>}
+        {loading && <div className="rounded border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Đang tải người dùng...</div>}
         {error && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-        {!loading && users.length === 0 && <div className="rounded border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">ChÆ°a cÃ³ ngÆ°á»i dÃ¹ng.</div>}
+        {!loading && users.length === 0 && <div className="rounded border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Chưa có người dùng.</div>}
 
         {users.length > 0 && (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-slate-50 text-left text-slate-600">
-                  <th className="border border-slate-200 px-4 py-2">NgÆ°á»i dÃ¹ng</th>
-                  <th className="border border-slate-200 px-4 py-2">Vai trÃ²</th>
-                  <th className="border border-slate-200 px-4 py-2">Tráº¡ng thÃ¡i</th>
+                  <th className="border border-slate-200 px-4 py-2">Người dùng</th>
+                  <th className="border border-slate-200 px-4 py-2">Vai trò</th>
+                  <th className="border border-slate-200 px-4 py-2">Trạng thái</th>
                   <th className="border border-slate-200 px-4 py-2">Provider</th>
-                  <th className="border border-slate-200 px-4 py-2">Táº¡o lÃºc</th>
+                  <th className="border border-slate-200 px-4 py-2">Tạo lúc</th>
                 </tr>
               </thead>
               <tbody>

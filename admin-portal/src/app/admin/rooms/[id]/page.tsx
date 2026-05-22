@@ -30,14 +30,14 @@ export default function AdminRoomDetailPage({ params }: { params: { id: string }
       try {
         setDetail(await apiClient<RoomDetail>(`/admin/rooms/${params.id}`));
       } catch (err: any) {
-        setError(err?.message || "KhÃ´ng thá»ƒ táº£i phÃ²ng.");
+        setError(err?.message || "Không thể tải phòng.");
       }
     };
     void load();
   }, [params.id]);
 
   if (error) return <Card className="border-red-200 bg-red-50 p-6 text-sm text-red-700">{error}</Card>;
-  if (!detail) return <Card className="p-6 text-sm text-slate-500">Äang táº£i phÃ²ng...</Card>;
+  if (!detail) return <Card className="p-6 text-sm text-slate-500">Đang tải phòng...</Card>;
   const room: Row = detail.data || {
     id: detail.id,
     name: detail.name,
@@ -49,29 +49,29 @@ export default function AdminRoomDetailPage({ params }: { params: { id: string }
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={<Link href="/admin/owners" className="inline-flex items-center gap-1 text-sm font-semibold text-blue-700"><ArrowLeft size={15} /> Vá» danh sÃ¡ch chá»§ trá»</Link>}
-        subtitle="Chi tiáº¿t phÃ²ng"
+        breadcrumb={<Link href="/admin/owners" className="inline-flex items-center gap-1 text-sm font-semibold text-blue-700"><ArrowLeft size={15} /> Về danh sách chủ trọ</Link>}
+        subtitle="Chi tiết phòng"
         title={room.name || room.room_number || room.id}
-        description={`MÃ£ phÃ²ng ${room.id} - CÆ¡ sá»Ÿ ${room.boarding_house_id || detail.boardingHouseId || "-"}`}
+        description={`Mã phòng ${room.id} - Cơ sở ${room.boarding_house_id || detail.boardingHouseId || "-"}`}
         actions={<Badge>{room.status || detail.status || "UNKNOWN"}</Badge>}
       />
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="p-5"><p className="text-sm text-slate-500">GiÃ¡ phÃ²ng</p><p className="mt-2 text-2xl font-black text-slate-950">{Number(room.price || detail.price || 0).toLocaleString("vi-VN")} VND</p></Card>
-        <Card className="p-5"><p className="text-sm text-slate-500">Há»£p Ä‘á»“ng liÃªn quan</p><p className="mt-2 text-2xl font-black text-slate-950">{detail.contracts.length}</p></Card>
-        <Card className="p-5"><p className="text-sm text-slate-500">HÃ³a Ä‘Æ¡n liÃªn quan</p><p className="mt-2 text-2xl font-black text-slate-950">{detail.invoices.length}</p></Card>
+        <Card className="p-5"><p className="text-sm text-slate-500">Giá phòng</p><p className="mt-2 text-2xl font-black text-slate-950">{Number(room.price || detail.price || 0).toLocaleString("vi-VN")} VND</p></Card>
+        <Card className="p-5"><p className="text-sm text-slate-500">Hợp đồng liên quan</p><p className="mt-2 text-2xl font-black text-slate-950">{detail.contracts.length}</p></Card>
+        <Card className="p-5"><p className="text-sm text-slate-500">Hóa đơn liên quan</p><p className="mt-2 text-2xl font-black text-slate-950">{detail.invoices.length}</p></Card>
       </div>
       <section className="space-y-3">
-        <h2 className="flex items-center gap-2 text-lg font-black text-slate-950"><FileText size={18} /> Há»£p Ä‘á»“ng</h2>
-        <DataTable headers={["MÃ£", "KhÃ¡ch thuÃª", "Tráº¡ng thÃ¡i", "Báº¯t Ä‘áº§u", "Káº¿t thÃºc"]}>
+        <h2 className="flex items-center gap-2 text-lg font-black text-slate-950"><FileText size={18} /> Hợp đồng</h2>
+        <DataTable headers={["Mã", "Khách thuê", "Trạng thái", "Bắt đầu", "Kết thúc"]}>
           {detail.contracts.map((contract) => <tr key={contract.id}><td className="px-4 py-3 font-mono text-xs">{contract.id}</td><td className="px-4 py-3">{contract.tenant_id || "-"}</td><td className="px-4 py-3"><Badge>{contract.status || "UNKNOWN"}</Badge></td><td className="px-4 py-3">{contract.start_date || "-"}</td><td className="px-4 py-3">{contract.end_date || "-"}</td></tr>)}
-          {detail.contracts.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500">PhÃ²ng chÆ°a cÃ³ há»£p Ä‘á»“ng.</td></tr>}
+          {detail.contracts.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500">Phòng chưa có hợp đồng.</td></tr>}
         </DataTable>
       </section>
       <section className="space-y-3">
-        <h2 className="flex items-center gap-2 text-lg font-black text-slate-950"><Receipt size={18} /> HÃ³a Ä‘Æ¡n</h2>
-        <DataTable headers={["MÃ£", "ThÃ¡ng", "Tá»•ng tiá»n", "ÄÃ£ tráº£", "Tráº¡ng thÃ¡i"]}>
+        <h2 className="flex items-center gap-2 text-lg font-black text-slate-950"><Receipt size={18} /> Hóa đơn</h2>
+        <DataTable headers={["Mã", "Tháng", "Tổng tiền", "Đã trả", "Trạng thái"]}>
           {detail.invoices.map((invoice) => <tr key={invoice.id}><td className="px-4 py-3 font-mono text-xs">{invoice.id}</td><td className="px-4 py-3">{invoice.month || "-"}/{invoice.year || "-"}</td><td className="px-4 py-3">{Number(invoice.total_amount || 0).toLocaleString("vi-VN")}</td><td className="px-4 py-3">{Number(invoice.paid_amount || 0).toLocaleString("vi-VN")}</td><td className="px-4 py-3"><Badge>{invoice.status || "UNKNOWN"}</Badge></td></tr>)}
-          {detail.invoices.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500">PhÃ²ng chÆ°a cÃ³ hÃ³a Ä‘Æ¡n.</td></tr>}
+          {detail.invoices.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500">Phòng chưa có hóa đơn.</td></tr>}
         </DataTable>
       </section>
     </div>

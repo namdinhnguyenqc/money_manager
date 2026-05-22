@@ -184,7 +184,7 @@ export async function authFetch(input: string, init: AuthFetchOptions = {}) {
     const fetchPromise = doFetch();
     pendingRequests.set(dedupeKey, fetchPromise);
 
-    // Giá»¯ káº¿t quáº£ trong 200ms Ä‘á»ƒ gá»™p cÃ¡c request tá»›i cÃ¹ng lÃºc
+    // Giữ kết quả trong 200ms để gộp các request tới cùng lúc
     setTimeout(() => {
       if (pendingRequests.get(dedupeKey) === fetchPromise) {
         pendingRequests.delete(dedupeKey);

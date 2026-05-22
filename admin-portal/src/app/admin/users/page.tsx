@@ -60,7 +60,7 @@ export default function UsersPage() {
       const res = await fetch(`${API_URL}/admin/users?page=${page}&limit=${limit}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (!res.ok) throw new Error("KhÃ´ng thá»ƒ táº£i danh sÃ¡ch ngÆ°á»i dÃ¹ng.");
+      if (!res.ok) throw new Error("Không thể tải danh sách người dùng.");
       const data = await res.json();
       const rows = data.data || [];
       setUsers(rows);
@@ -71,7 +71,7 @@ export default function UsersPage() {
         }, {}),
       );
     } catch (e: any) {
-      setError(e?.message ?? "Lá»—i táº£i danh sÃ¡ch ngÆ°á»i dÃ¹ng.");
+      setError(e?.message ?? "Lỗi tải danh sách người dùng.");
     } finally {
       setLoading(false);
     }
@@ -133,7 +133,7 @@ export default function UsersPage() {
 
       if (res && !res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data?.message || data?.error || "KhÃ´ng thá»ƒ cáº­p nháº­t ngÆ°á»i dÃ¹ng.");
+        throw new Error(data?.message || data?.error || "Không thể cập nhật người dùng.");
       }
 
       await load();
@@ -144,7 +144,7 @@ export default function UsersPage() {
           setRoleDrafts((current) => ({ ...current, [currentUser.id]: currentUser.role }));
         }
       }
-      setError(e?.message ?? "KhÃ´ng thá»ƒ cáº­p nháº­t ngÆ°á»i dÃ¹ng.");
+      setError(e?.message ?? "Không thể cập nhật người dùng.");
     } finally {
       setConfirmOpen(false);
       setPendingAction(null);
@@ -160,10 +160,10 @@ export default function UsersPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-medium text-blue-700">Váº­n hÃ nh ngÆ°á»i dÃ¹ng</p>
-          <h1 className="mt-1 text-2xl font-semibold text-slate-950">NgÆ°á»i dÃ¹ng</h1>
+          <p className="text-sm font-medium text-blue-700">Vận hành người dùng</p>
+          <h1 className="mt-1 text-2xl font-semibold text-slate-950">Người dùng</h1>
           <p className="mt-2 text-sm text-slate-500">
-            Kiá»ƒm tra vai trÃ², khÃ³a tÃ i khoáº£n, xÃ³a má»m vÃ  má»Ÿ trang chi tiáº¿t tá»«ng ngÆ°á»i dÃ¹ng.
+            Kiểm tra vai trò, khóa tài khoản, xóa mềm và mở trang chi tiết từng người dùng.
           </p>
         </div>
         <div className="relative w-full max-w-sm">
@@ -171,7 +171,7 @@ export default function UsersPage() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="TÃ¬m theo tÃªn, email, vai trÃ²..."
+            placeholder="Tìm theo tên, email, vai trò..."
             className="w-full rounded-[8px] border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-blue-500"
           />
         </div>
@@ -179,19 +179,19 @@ export default function UsersPage() {
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <div className="rounded-[8px] border border-slate-200 bg-white p-4">
-          <div className="text-sm text-slate-500">Tá»•ng ngÆ°á»i dÃ¹ng</div>
+          <div className="text-sm text-slate-500">Tổng người dùng</div>
           <div className="mt-2 text-2xl font-semibold text-slate-950">{totalUsers}</div>
         </div>
         <div className="rounded-[8px] border border-slate-200 bg-white p-4">
-          <div className="text-sm text-slate-500">Äang hoáº¡t Ä‘á»™ng</div>
+          <div className="text-sm text-slate-500">Đang hoạt động</div>
           <div className="mt-2 text-2xl font-semibold text-emerald-700">{activeUsers}</div>
         </div>
         <div className="rounded-[8px] border border-slate-200 bg-white p-4">
-          <div className="text-sm text-slate-500">Chá»§ trá»</div>
+          <div className="text-sm text-slate-500">Chủ trọ</div>
           <div className="mt-2 text-2xl font-semibold text-blue-700">{ownerUsers}</div>
         </div>
         <div className="rounded-[8px] border border-slate-200 bg-white p-4">
-          <div className="text-sm text-slate-500">Äang bá»‹ khÃ³a</div>
+          <div className="text-sm text-slate-500">Đang bị khóa</div>
           <div className="mt-2 text-2xl font-semibold text-rose-700">{blockedUsers}</div>
         </div>
       </div>
@@ -205,34 +205,34 @@ export default function UsersPage() {
       <section className="overflow-hidden rounded-[8px] border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
-            <h2 className="text-base font-semibold text-slate-950">Danh sÃ¡ch ngÆ°á»i dÃ¹ng</h2>
-            <p className="mt-1 text-sm text-slate-500">{filteredUsers.length} báº£n ghi hiá»ƒn thá»‹</p>
+            <h2 className="text-base font-semibold text-slate-950">Danh sách người dùng</h2>
+            <p className="mt-1 text-sm text-slate-500">{filteredUsers.length} bản ghi hiển thị</p>
           </div>
           <button
             onClick={load}
             className="rounded-[8px] border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
           >
-            Táº£i láº¡i
+            Tải lại
           </button>
         </div>
 
         {loading ? (
-          <div className="px-5 py-8 text-sm text-slate-500">Äang táº£i ngÆ°á»i dÃ¹ng...</div>
+          <div className="px-5 py-8 text-sm text-slate-500">Đang tải người dùng...</div>
         ) : filteredUsers.length === 0 ? (
-          <div className="px-5 py-8 text-sm text-slate-500">KhÃ´ng cÃ³ ngÆ°á»i dÃ¹ng phÃ¹ há»£p.</div>
+          <div className="px-5 py-8 text-sm text-slate-500">Không có người dùng phù hợp.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50 text-left text-slate-600">
                 <tr>
-                  <th className="px-5 py-3 font-medium">NgÆ°á»i dÃ¹ng</th>
-                  <th className="px-5 py-3 font-medium">Vai trÃ²</th>
-                  <th className="px-5 py-3 font-medium">Tráº¡ng thÃ¡i</th>
+                  <th className="px-5 py-3 font-medium">Người dùng</th>
+                  <th className="px-5 py-3 font-medium">Vai trò</th>
+                  <th className="px-5 py-3 font-medium">Trạng thái</th>
                   <th className="px-5 py-3 font-medium">Provider</th>
-                  <th className="px-5 py-3 font-medium">Táº¡o lÃºc</th>
-                  <th className="px-5 py-3 font-medium text-center">DÃ£y trá»</th>
-                  <th className="px-5 py-3 font-medium text-center">PhÃ²ng</th>
-                  <th className="px-5 py-3 font-medium">Thao tÃ¡c</th>
+                  <th className="px-5 py-3 font-medium">Tạo lúc</th>
+                  <th className="px-5 py-3 font-medium text-center">Dãy trọ</th>
+                  <th className="px-5 py-3 font-medium text-center">Phòng</th>
+                  <th className="px-5 py-3 font-medium">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -300,7 +300,7 @@ export default function UsersPage() {
                             className="inline-flex items-center gap-1 rounded-[8px] border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
                           >
                             <ShieldCheck size={14} />
-                            Chi tiáº¿t
+                            Chi tiết
                           </Link>
                           <button
                             type="button"
@@ -316,7 +316,7 @@ export default function UsersPage() {
                             className="inline-flex items-center gap-1 rounded-[8px] border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <Lock size={14} />
-                            {user.status === "BLOCKED" ? "Má»Ÿ khÃ³a" : "KhÃ³a"}
+                            {user.status === "BLOCKED" ? "Mở khóa" : "Khóa"}
                           </button>
                           <button
                             type="button"
@@ -331,7 +331,7 @@ export default function UsersPage() {
                             className="inline-flex items-center gap-1 rounded-[8px] border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <Trash2 size={14} />
-                            XÃ³a má»m
+                            Xóa mềm
                           </button>
                         </div>
                       </td>
@@ -350,7 +350,7 @@ export default function UsersPage() {
           onClick={() => setPage((current) => Math.max(1, current - 1))}
           disabled={page === 1}
         >
-          TrÆ°á»›c
+          Trước
         </button>
         <span className="text-sm text-slate-500">Trang {page}</span>
         <button
@@ -363,13 +363,13 @@ export default function UsersPage() {
 
       <ConfirmDialog
         open={confirmOpen}
-        title="XÃ¡c nháº­n cáº­p nháº­t ngÆ°á»i dÃ¹ng"
+        title="Xác nhận cập nhật người dùng"
         message={
           pendingAction?.action === "status"
-            ? `Äá»•i tráº¡ng thÃ¡i cá»§a ${pendingAction.userName} sang ${pendingAction.value}?`
+            ? `Đổi trạng thái của ${pendingAction.userName} sang ${pendingAction.value}?`
             : pendingAction?.action === "role"
-              ? `Äá»•i vai trÃ² cá»§a ${pendingAction.userName} sang ${pendingAction.value}?`
-              : `XÃ³a má»m tÃ i khoáº£n ${pendingAction?.userName}?`
+              ? `Đổi vai trò của ${pendingAction.userName} sang ${pendingAction.value}?`
+              : `Xóa mềm tài khoản ${pendingAction?.userName}?`
         }
         onConfirm={handleConfirm}
         onCancel={() => {

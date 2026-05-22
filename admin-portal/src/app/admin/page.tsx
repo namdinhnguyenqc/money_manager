@@ -54,7 +54,7 @@ const formatMoney = (value: number) =>
   }).format(value || 0);
 
 const formatDate = (value?: string | null) => {
-  if (!value) return "ChÆ°a cÃ³ ngÃ y";
+  if (!value) return "Chưa có ngày";
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString("vi-VN");
 };
@@ -105,7 +105,7 @@ function Distribution({ title, rows }: { title: string; rows: [string, number][]
     <Card className="p-5">
       <h2 className="text-base font-bold text-slate-950">{title}</h2>
       <div className="mt-4 space-y-3">
-        {rows.length === 0 && <p className="text-sm text-slate-500">ChÆ°a cÃ³ dá»¯ liá»‡u.</p>}
+        {rows.length === 0 && <p className="text-sm text-slate-500">Chưa có dữ liệu.</p>}
         {rows.map(([key, value]) => (
           <div key={key}>
             <div className="mb-1 flex items-center justify-between gap-3 text-sm">
@@ -151,7 +151,7 @@ export default function AdminDashboardPage() {
       setCharts(chartData);
       setAlerts(alertData);
     } catch (err: any) {
-      setError(err?.message || "KhÃ´ng thá»ƒ táº£i dashboard Admin.");
+      setError(err?.message || "Không thể tải dashboard Admin.");
     } finally {
       setLoading(false);
     }
@@ -174,16 +174,16 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        subtitle="Báº£ng Ä‘iá»u hÃ nh"
-        title="Tá»•ng quan váº­n hÃ nh"
-        description="Theo dÃµi sá»©c khá»e há»‡ thá»‘ng, cÃ´ng ná»£, há»£p Ä‘á»“ng vÃ  cÃ¡c tÃ i khoáº£n cáº§n xá»­ lÃ½ trÃªn toÃ n bá»™ ná»n táº£ng."
+        subtitle="Bảng điều hành"
+        title="Tổng quan vận hành"
+        description="Theo dõi sức khỏe hệ thống, công nợ, hợp đồng và các tài khoản cần xử lý trên toàn bộ nền tảng."
         actions={
           <button
             onClick={() => void load()}
             className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            LÃ m má»›i
+            Làm mới
           </button>
         }
       />
@@ -196,35 +196,35 @@ export default function AdminDashboardPage() {
 
       {loading && !summary ? (
         <Card className="flex min-h-40 items-center justify-center p-6 text-sm text-slate-500">
-          Äang táº£i dashboard...
+          Đang tải dashboard...
         </Card>
       ) : summary ? (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Metric
-              label="Chá»§ trá»"
+              label="Chủ trọ"
               value={summary.totalOwners}
-              hint={`${summary.activeOwners} Ä‘ang hoáº¡t Ä‘á»™ng, ${summary.lockedOwners} bá»‹ khÃ³a`}
+              hint={`${summary.activeOwners} đang hoạt động, ${summary.lockedOwners} bị khóa`}
               icon={<Users size={18} />}
             />
             <Metric
-              label="TÃ i sáº£n"
+              label="Tài sản"
               value={summary.totalProperties}
-              hint={`${summary.totalRooms} phÃ²ng, tá»· lá»‡ láº¥p Ä‘áº§y ${occupancyRate}%`}
+              hint={`${summary.totalRooms} phòng, tỷ lệ lấp đầy ${occupancyRate}%`}
               icon={<Building2 size={18} />}
               tone="green"
             />
             <Metric
-              label="Há»£p Ä‘á»“ng sáº¯p háº¿t háº¡n"
+              label="Hợp đồng sắp hết hạn"
               value={summary.nearExpiryContracts}
-              hint={`${summary.totalTenants} khÃ¡ch thuÃª Ä‘ang Ä‘Æ°á»£c theo dÃµi`}
+              hint={`${summary.totalTenants} khách thuê đang được theo dõi`}
               icon={<FileText size={18} />}
               tone={summary.nearExpiryContracts > 0 ? "amber" : "green"}
             />
             <Metric
-              label="CÃ´ng ná»£ hÃ³a Ä‘Æ¡n"
+              label="Công nợ hóa đơn"
               value={formatMoney(summary.totalDebtAmount)}
-              hint={`${summary.unpaidInvoices} chÆ°a thanh toÃ¡n, ${summary.overdueInvoices} quÃ¡ háº¡n`}
+              hint={`${summary.unpaidInvoices} chưa thanh toán, ${summary.overdueInvoices} quá hạn`}
               icon={<Receipt size={18} />}
               tone={summary.overdueInvoices > 0 ? "red" : "green"}
             />
@@ -233,24 +233,24 @@ export default function AdminDashboardPage() {
           <Card className="p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-base font-bold text-slate-950">TÃ¬nh tráº¡ng váº­n hÃ nh hÃ´m nay</h2>
+                <h2 className="text-base font-bold text-slate-950">Tình trạng vận hành hôm nay</h2>
                 <p className="mt-1 text-sm text-slate-500">
                   {alertCount > 0
-                    ? `${alertCount} má»¥c cáº§n kiá»ƒm tra trong hÃ ng chá» váº­n hÃ nh.`
-                    : "ChÆ°a cÃ³ cáº£nh bÃ¡o Æ°u tiÃªn cao cáº§n xá»­ lÃ½."}
+                    ? `${alertCount} mục cần kiểm tra trong hàng chờ vận hành.`
+                    : "Chưa có cảnh báo ưu tiên cao cần xử lý."}
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-3 lg:w-[520px]">
                 <div className="rounded-lg bg-slate-50 p-3">
-                  <p className="text-xs font-semibold uppercase text-slate-500">PhÃ²ng trá»‘ng</p>
+                  <p className="text-xs font-semibold uppercase text-slate-500">Phòng trống</p>
                   <p className="mt-1 text-xl font-black text-slate-950">{summary.vacantRooms}</p>
                 </div>
                 <div className="rounded-lg bg-slate-50 p-3">
-                  <p className="text-xs font-semibold uppercase text-slate-500">Äang á»Ÿ</p>
+                  <p className="text-xs font-semibold uppercase text-slate-500">Đang ở</p>
                   <p className="mt-1 text-xl font-black text-slate-950">{summary.occupiedRooms}</p>
                 </div>
                 <div className="rounded-lg bg-slate-50 p-3">
-                  <p className="text-xs font-semibold uppercase text-slate-500">Cáº£nh bÃ¡o</p>
+                  <p className="text-xs font-semibold uppercase text-slate-500">Cảnh báo</p>
                   <p className="mt-1 text-xl font-black text-slate-950">{alertCount}</p>
                 </div>
               </div>
@@ -258,15 +258,15 @@ export default function AdminDashboardPage() {
           </Card>
 
           <div className="grid gap-4 xl:grid-cols-3">
-            <Distribution title="Tráº¡ng thÃ¡i phÃ²ng" rows={roomRows} />
-            <Distribution title="Tráº¡ng thÃ¡i hÃ³a Ä‘Æ¡n" rows={invoiceRows} />
-            <Distribution title="Chá»§ trá» má»›i theo thÃ¡ng" rows={ownerRows} />
+            <Distribution title="Trạng thái phòng" rows={roomRows} />
+            <Distribution title="Trạng thái hóa đơn" rows={invoiceRows} />
+            <Distribution title="Chủ trọ mới theo tháng" rows={ownerRows} />
           </div>
 
           <div className="grid gap-4 xl:grid-cols-3">
             <Card className="p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-base font-bold text-slate-950">Há»£p Ä‘á»“ng cáº§n kiá»ƒm tra</h2>
+                <h2 className="text-base font-bold text-slate-950">Hợp đồng cần kiểm tra</h2>
                 <Badge variant="warning">{alerts?.nearExpiryContracts.length || 0}</Badge>
               </div>
               <div className="mt-4 space-y-3">
@@ -274,13 +274,13 @@ export default function AdminDashboardPage() {
                   <AlertRow
                     key={contract.id}
                     title={contract.id}
-                    description={`Háº¿t háº¡n: ${formatDate(contract.end_date)}`}
+                    description={`Hết hạn: ${formatDate(contract.end_date)}`}
                   />
                 ))}
                 {!alerts?.nearExpiryContracts.length && (
                   <p className="flex items-center gap-2 text-sm text-slate-500">
                     <CheckCircle2 size={16} className="text-emerald-600" />
-                    KhÃ´ng cÃ³ há»£p Ä‘á»“ng sáº¯p háº¿t háº¡n.
+                    Không có hợp đồng sắp hết hạn.
                   </p>
                 )}
               </div>
@@ -288,7 +288,7 @@ export default function AdminDashboardPage() {
 
             <Card className="p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-base font-bold text-slate-950">HÃ³a Ä‘Æ¡n quÃ¡ háº¡n</h2>
+                <h2 className="text-base font-bold text-slate-950">Hóa đơn quá hạn</h2>
                 <Badge variant="danger">{alerts?.overdueInvoices.length || 0}</Badge>
               </div>
               <div className="mt-4 space-y-3">
@@ -296,13 +296,13 @@ export default function AdminDashboardPage() {
                   <AlertRow
                     key={invoice.id}
                     title={invoice.id}
-                    description={`Äáº¿n háº¡n: ${formatDate(invoice.due_date)} - CÃ²n ná»£ ${formatMoney(Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0))}`}
+                    description={`Đến hạn: ${formatDate(invoice.due_date)} - Còn nợ ${formatMoney(Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0))}`}
                   />
                 ))}
                 {!alerts?.overdueInvoices.length && (
                   <p className="flex items-center gap-2 text-sm text-slate-500">
                     <CheckCircle2 size={16} className="text-emerald-600" />
-                    KhÃ´ng cÃ³ hÃ³a Ä‘Æ¡n quÃ¡ háº¡n.
+                    Không có hóa đơn quá hạn.
                   </p>
                 )}
               </div>
@@ -310,7 +310,7 @@ export default function AdminDashboardPage() {
 
             <Card className="p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-base font-bold text-slate-950">Chá»§ trá» Ã­t hoáº¡t Ä‘á»™ng</h2>
+                <h2 className="text-base font-bold text-slate-950">Chủ trọ ít hoạt động</h2>
                 <Badge variant="orange">{alerts?.inactiveOwners.length || 0}</Badge>
               </div>
               <div className="mt-4 space-y-3">
@@ -318,13 +318,13 @@ export default function AdminDashboardPage() {
                   <AlertRow
                     key={owner.id}
                     title={owner.name || owner.email || owner.id}
-                    description={owner.last_login_at ? `ÄÄƒng nháº­p: ${formatDate(owner.last_login_at)}` : "ChÆ°a ghi nháº­n Ä‘Äƒng nháº­p"}
+                    description={owner.last_login_at ? `Đăng nhập: ${formatDate(owner.last_login_at)}` : "Chưa ghi nhận đăng nhập"}
                   />
                 ))}
                 {!alerts?.inactiveOwners.length && (
                   <p className="flex items-center gap-2 text-sm text-slate-500">
                     <CheckCircle2 size={16} className="text-emerald-600" />
-                    KhÃ´ng cÃ³ cáº£nh bÃ¡o chá»§ trá».
+                    Không có cảnh báo chủ trọ.
                   </p>
                 )}
               </div>
@@ -334,7 +334,7 @@ export default function AdminDashboardPage() {
       ) : (
         <Card className="flex min-h-40 items-center gap-3 p-6 text-sm text-slate-500">
           <AlertTriangle size={18} />
-          ChÆ°a cÃ³ dá»¯ liá»‡u dashboard.
+          Chưa có dữ liệu dashboard.
         </Card>
       )}
     </div>

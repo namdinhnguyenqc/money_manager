@@ -24,7 +24,7 @@ export async function apiClient<T>(
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     if (res.status === 403 && data?.code === "PROFILE_REQUIRED") {
-      sessionStorage.setItem("profileRequiredMessage", data?.message || "Vui lÃ²ng hoÃ n táº¥t há»“ sÆ¡ Ä‘á»ƒ tiáº¿p tá»¥c sá»­ dá»¥ng há»‡ thá»‘ng.");
+      sessionStorage.setItem("profileRequiredMessage", data?.message || "Vui lòng hoàn tất hồ sơ để tiếp tục sử dụng hệ thống.");
       window.location.href = "/complete-profile";
       throw new Error(data?.message || "Profile required");
     }
