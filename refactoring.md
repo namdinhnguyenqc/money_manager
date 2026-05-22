@@ -1,17 +1,17 @@
-ổnn# Refactoring & Hardening Checklist
+á»•nn# Refactoring & Hardening Checklist
 
-Tài liệu này dùng để tracking refactor/hardening hệ thống theo từng phase. Quy tắc cập nhật:
+TÃ i liá»‡u nÃ y dÃ¹ng Ä‘á»ƒ tracking refactor/hardening há»‡ thá»‘ng theo tá»«ng phase. Quy táº¯c cáº­p nháº­t:
 
-- Chỉ đánh dấu `[x]` khi code đã được implement và test đạt tiêu chí của phase đó.
-- Sau mỗi phase, cập nhật phần **Đã làm được gì**, **Testing**, **Trạng thái**, và **Rủi ro còn lại**.
-- Nếu phát hiện lỗi P0/P1 trong phase sau, quay lại phase tương ứng và mở checklist mới.
+- Chá»‰ Ä‘Ã¡nh dáº¥u `[x]` khi code Ä‘Ã£ Ä‘Æ°á»£c implement vÃ  test Ä‘áº¡t tiÃªu chÃ­ cá»§a phase Ä‘Ã³.
+- Sau má»—i phase, cáº­p nháº­t pháº§n **ÄÃ£ lÃ m Ä‘Æ°á»£c gÃ¬**, **Testing**, **Tráº¡ng thÃ¡i**, vÃ  **Rá»§i ro cÃ²n láº¡i**.
+- Náº¿u phÃ¡t hiá»‡n lá»—i P0/P1 trong phase sau, quay láº¡i phase tÆ°Æ¡ng á»©ng vÃ  má»Ÿ checklist má»›i.
 
-## Trạng thái tổng quan
+## Tráº¡ng thÃ¡i tá»•ng quan
 
-| Phase | Trọng tâm | Trạng thái |
+| Phase | Trá»ng tÃ¢m | Tráº¡ng thÃ¡i |
 | --- | --- | --- |
 | Phase 1 | Auth/session/cache hotfix | In progress |
-| Phase 2 | Session architecture chuẩn | In progress |
+| Phase 2 | Session architecture chuáº©n | In progress |
 | Phase 3 | SQL/migration cleanup | Not started |
 | Phase 4 | Performance & observability | Not started |
 | Phase 5 | Scalability & operations | Not started |
@@ -21,348 +21,350 @@ Tài liệu này dùng để tracking refactor/hardening hệ thống theo từn
 
 ## Phase 1 - P0 Auth, Session, Cache Hotfix
 
-### Mục tiêu
+### Má»¥c tiÃªu
 
-Đảm bảo user logout xong không còn xem được private data qua back browser, reload, multiple tabs, hoặc dùng token/session cũ.
+Äáº£m báº£o user logout xong khÃ´ng cÃ²n xem Ä‘Æ°á»£c private data qua back browser, reload, multiple tabs, hoáº·c dÃ¹ng token/session cÅ©.
 
 ### Checklist
 
-- [x] Private route frontend không render private data chỉ dựa vào localStorage/client auth state.
-- [x] Private route gọi `/me` hoặc `/auth/session` trước khi render nội dung nhạy cảm.
-- [x] Khi `/me` trả `401`, frontend clear auth state và redirect về `/login`.
-- [x] Logout frontend gọi `POST /auth/logout`.
+- [x] Private route frontend khÃ´ng render private data chá»‰ dá»±a vÃ o localStorage/client auth state.
+- [x] Private route gá»i `/me` hoáº·c `/auth/session` trÆ°á»›c khi render ná»™i dung nháº¡y cáº£m.
+- [x] Khi `/me` tráº£ `401`, frontend clear auth state vÃ  redirect vá» `/login`.
+- [x] Logout frontend gá»i `POST /auth/logout`.
 - [x] Logout frontend clear memory auth store.
-- [x] Logout frontend clear `localStorage`/`sessionStorage` liên quan auth.
-- [x] Logout dùng `router.replace("/login")` để hạn chế back về private route trong history.
-- [x] Thêm `pageshow` handler để revalidate session khi browser restore từ bfcache.
-- [x] Thêm `focus` handler để revalidate session khi quay lại tab.
-- [x] Thêm multiple-tab logout sync bằng `BroadcastChannel` hoặc `storage` event.
+- [x] Logout frontend clear `localStorage`/`sessionStorage` liÃªn quan auth.
+- [x] Logout dÃ¹ng `router.replace("/login")` Ä‘á»ƒ háº¡n cháº¿ back vá» private route trong history.
+- [x] ThÃªm `pageshow` handler Ä‘á»ƒ revalidate session khi browser restore tá»« bfcache.
+- [x] ThÃªm `focus` handler Ä‘á»ƒ revalidate session khi quay láº¡i tab.
+- [x] ThÃªm multiple-tab logout sync báº±ng `BroadcastChannel` hoáº·c `storage` event.
 - [x] Backend revoke refresh token/session khi logout.
 - [x] Backend clear refresh cookie khi logout.
-- [x] Protected API verify access token ở mọi request.
-- [x] Protected API reject token/session đã logout/revoked.
-- [x] Private API trả `Cache-Control: no-store`.
-- [x] Private page trả header chống cache.
-- [x] Production không được boot nếu thiếu `JWT_SECRET`.
-- [ ] Production không dùng default admin credential.
-- [x] Production env bắt buộc validate `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_CLIENT_ID`, `CORS_ORIGINS`.
+- [x] Protected API verify access token á»Ÿ má»i request.
+- [x] Protected API reject token/session Ä‘Ã£ logout/revoked.
+- [x] Private API tráº£ `Cache-Control: no-store`.
+- [x] Private page tráº£ header chá»‘ng cache.
+- [x] Production khÃ´ng Ä‘Æ°á»£c boot náº¿u thiáº¿u `JWT_SECRET`.
+- [ ] Production khÃ´ng dÃ¹ng default admin credential.
+- [x] Production env báº¯t buá»™c validate `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_CLIENT_ID`, `CORS_ORIGINS`.
 
-### Testing bắt buộc
+### Testing báº¯t buá»™c
 
-- [ ] Login thành công.
-- [ ] Logout thành công.
-- [ ] Logout xong bấm back không thấy private data.
-- [ ] Logout xong bấm back không gọi private API thành công.
-- [ ] Token cũ sau logout gọi private API trả `401`.
-- [ ] Refresh token sau logout không refresh được.
+- [ ] Login thÃ nh cÃ´ng.
+- [ ] Logout thÃ nh cÃ´ng.
+- [ ] Logout xong báº¥m back khÃ´ng tháº¥y private data.
+- [ ] Logout xong báº¥m back khÃ´ng gá»i private API thÃ nh cÃ´ng.
+- [ ] Token cÅ© sau logout gá»i private API tráº£ `401`.
+- [ ] Refresh token sau logout khÃ´ng refresh Ä‘Æ°á»£c.
 - [ ] Reload private page sau logout redirect login.
-- [ ] Multiple tabs: logout tab A thì tab B cũng logout.
-- [x] Private API có header `Cache-Control: no-store`.
-- [x] Private page có header chống browser cache.
+- [ ] Multiple tabs: logout tab A thÃ¬ tab B cÅ©ng logout.
+- [x] Private API cÃ³ header `Cache-Control: no-store`.
+- [x] Private page cÃ³ header chá»‘ng browser cache.
 
-### Đã làm được gì
+### ÄÃ£ lÃ m Ä‘Æ°á»£c gÃ¬
 
-- Backend production env đã fail-fast với các biến bắt buộc: `JWT_SECRET`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_CLIENT_ID`, `CORS_ORIGINS`.
-- Backend thêm denylist in-memory cho access token khi logout, đồng thời xóa cache token hiện tại.
-- Backend logout revoke refresh token khi frontend gửi `refreshToken`.
-- Backend thêm `no-store` headers cho private API/auth endpoints.
-- Frontend logout gửi cả access token và refresh token về backend.
-- Frontend clear session, clear React Query cache, dùng redirect `replace`.
-- Frontend thêm revalidate `/auth/me` khi browser back từ bfcache hoặc tab focus lại.
-- Frontend thêm multiple-tab logout sync bằng `BroadcastChannel`.
-- Frontend owner/admin/super-admin guard gọi `/auth/me` với `cache: "no-store"`.
-- Đã bỏ fallback nguy hiểm ở owner shell: không còn cho vào owner portal chỉ vì localStorage còn `userRole=OWNER` khi `/auth/me` fail.
-- Web middleware thêm no-store cho private pages và bỏ bypass owner testing.
+- Backend production env Ä‘Ã£ fail-fast vá»›i cÃ¡c biáº¿n báº¯t buá»™c: `JWT_SECRET`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_CLIENT_ID`, `CORS_ORIGINS`.
+- Backend thÃªm denylist in-memory cho access token khi logout, Ä‘á»“ng thá»i xÃ³a cache token hiá»‡n táº¡i.
+- Backend logout revoke refresh token khi frontend gá»­i `refreshToken`.
+- Backend thÃªm `no-store` headers cho private API/auth endpoints.
+- Frontend logout gá»­i cáº£ access token vÃ  refresh token vá» backend.
+- Frontend clear session, clear React Query cache, dÃ¹ng redirect `replace`.
+- Frontend thÃªm revalidate `/auth/me` khi browser back tá»« bfcache hoáº·c tab focus láº¡i.
+- Frontend thÃªm multiple-tab logout sync báº±ng `BroadcastChannel`.
+- Frontend owner/admin/super-admin guard gá»i `/auth/me` vá»›i `cache: "no-store"`.
+- ÄÃ£ bá» fallback nguy hiá»ƒm á»Ÿ owner shell: khÃ´ng cÃ²n cho vÃ o owner portal chá»‰ vÃ¬ localStorage cÃ²n `userRole=OWNER` khi `/auth/me` fail.
+- Web middleware thÃªm no-store cho private pages vÃ  bá» bypass owner testing.
 
 ### Testing
 
 - `npm run build` trong `backend`: pass.
 - `npm run build` trong `web-admin`: pass.
-- Chưa test browser thực tế login/logout/back vì cần session thật trên môi trường đang chạy.
+- ChÆ°a test browser thá»±c táº¿ login/logout/back vÃ¬ cáº§n session tháº­t trÃªn mÃ´i trÆ°á»ng Ä‘ang cháº¡y.
 
-### Trạng thái
+### Tráº¡ng thÃ¡i
 
 In progress.
 
-### Rủi ro còn lại
+### Rá»§i ro cÃ²n láº¡i
 
-- Access token revoke hiện là in-memory denylist. Cách này đủ hotfix cho một instance, nhưng chưa bền nếu backend restart hoặc scale nhiều instance.
-- Refresh token vẫn đang lưu client-side/localStorage theo kiến trúc hiện tại. Phase 2 phải chuyển sang HttpOnly Secure SameSite cookie và refresh token rotation.
-- Cần xóa default admin credential ở production.
-- Cần chạy test browser thật trước khi đánh dấu Phase 1 `Done`.
+- Cáº§n chuyá»ƒn Denylist vÃ  User Session sang **Redis**. Khi Ä‘Ã³ API `/me` sáº½ pháº£n há»“i trong < 10ms vÃ¬ khÃ´ng cháº¡m vÃ o PostgreSQL.
+- Triá»ƒn khai **Prefetching** trÃªn Frontend: Khi user di chuá»™t vÃ o menu "PhÃ²ng trá»", FE sáº½ tá»± Ä‘á»™ng fetch data phÃ²ng trá» trÆ°á»›c khi user ká»‹p click.
+- Refresh token váº«n Ä‘ang lÆ°u client-side/localStorage theo kiáº¿n trÃºc hiá»‡n táº¡i. Phase 2 pháº£i chuyá»ƒn sang HttpOnly Secure SameSite cookie vÃ  refresh token rotation.
+- Cáº§n xÃ³a default admin credential á»Ÿ production.
+- Cáº§n cháº¡y test browser tháº­t trÆ°á»›c khi Ä‘Ã¡nh dáº¥u Phase 1 `Done`.
 
 ---
 
 ## Phase 2 - Proper Auth Architecture
 
-### Mục tiêu
+### Má»¥c tiÃªu
 
-Chuẩn hóa kiến trúc auth theo mô hình access token ngắn hạn, refresh token HttpOnly cookie, rotation và server-side revocation.
+Chuáº©n hÃ³a kiáº¿n trÃºc auth theo mÃ´ hÃ¬nh access token ngáº¯n háº¡n, refresh token HttpOnly cookie, rotation vÃ  server-side revocation.
 
 ### Checklist
 
-- [ ] Access token lifetime ngắn, ví dụ 5-15 phút.
-- [x] Refresh token là opaque random token, không phải JWT public dễ reuse.
-- [x] Refresh token chỉ lưu ở HttpOnly Secure SameSite cookie.
-- [x] Refresh token lưu DB dạng hash.
-- [x] Tạo bảng `sessions` hoặc `refresh_tokens`.
-- [x] Access token chứa `sub`, `role`, `session_id`, `iat`, `exp`.
-- [x] Backend kiểm tra session active cho protected API hoặc endpoint nhạy cảm.
+- [ ] Access token lifetime ngáº¯n, vÃ­ dá»¥ 5-15 phÃºt.
+- [x] Refresh token lÃ  opaque random token, khÃ´ng pháº£i JWT public dá»… reuse.
+- [x] Refresh token chá»‰ lÆ°u á»Ÿ HttpOnly Secure SameSite cookie.
+- [x] Refresh token lÆ°u DB dáº¡ng hash.
+- [x] Táº¡o báº£ng `sessions` hoáº·c `refresh_tokens`.
+- [x] Access token chá»©a `sub`, `role`, `session_id`, `iat`, `exp`.
+- [x] Backend kiá»ƒm tra session active cho protected API hoáº·c endpoint nháº¡y cáº£m.
 - [x] Implement refresh token rotation.
-- [x] Detect refresh token reuse và revoke token family.
-- [x] Implement logout all devices nếu cần.
-- [x] Thêm audit log cho login/logout/refresh/revoke.
-- [x] Thêm CSRF protection nếu cookie auth dùng cho state-changing request. (Dùng Bearer Token cho API nên an toàn với CSRF)
-- [x] Giảm/loại bỏ lưu token nhạy cảm trong localStorage.
+- [x] Detect refresh token reuse vÃ  revoke token family.
+- [x] Implement logout all devices náº¿u cáº§n.
+- [x] ThÃªm audit log cho login/logout/refresh/revoke.
+- [x] ThÃªm CSRF protection náº¿u cookie auth dÃ¹ng cho state-changing request. (DÃ¹ng Bearer Token cho API nÃªn an toÃ n vá»›i CSRF)
+- [x] Giáº£m/loáº¡i bá» lÆ°u token nháº¡y cáº£m trong localStorage.
 
-### Testing bắt buộc
+### Testing báº¯t buá»™c
 
-- [ ] Access token hết hạn thì refresh thành công.
-- [ ] Refresh token cũ sau rotation không dùng lại được.
-- [ ] Refresh token bị revoke thì không refresh được.
-- [ ] Session revoked thì access token liên quan không gọi API được.
-- [ ] Logout all devices revoke toàn bộ sessions.
-- [ ] CSRF test cho request thay đổi dữ liệu nếu dùng cookie credentials.
+- [ ] Access token háº¿t háº¡n thÃ¬ refresh thÃ nh cÃ´ng.
+- [ ] Refresh token cÅ© sau rotation khÃ´ng dÃ¹ng láº¡i Ä‘Æ°á»£c.
+- [ ] Refresh token bá»‹ revoke thÃ¬ khÃ´ng refresh Ä‘Æ°á»£c.
+- [ ] Session revoked thÃ¬ access token liÃªn quan khÃ´ng gá»i API Ä‘Æ°á»£c.
+- [ ] Logout all devices revoke toÃ n bá»™ sessions.
+- [ ] CSRF test cho request thay Ä‘á»•i dá»¯ liá»‡u náº¿u dÃ¹ng cookie credentials.
 
-### Đã làm được gì
+### ÄÃ£ lÃ m Ä‘Æ°á»£c gÃ¬
 
-- Backend đã dùng refresh token opaque random và lưu DB bằng hash.
-- Backend `/auth/refresh` đã rotate refresh token: revoke token cũ, insert token mới, trả access token mới.
-- Backend detect refresh token đã revoked bị dùng lại và revoke toàn bộ refresh token active của user.
-- Backend `/auth/refresh` đọc refresh token từ request body hoặc `refreshToken` cookie.
-- Backend set `refreshToken` cookie `HttpOnly`, `SameSite=Lax`, `Secure` ở production cho Google/owner login và refresh.
-- Frontend auth calls đã bật `credentials: "include"` để dùng refresh token từ cookie.
-- Frontend không còn lưu hoặc đọc refresh token từ `localStorage`.
-- Backend không còn trả refresh token trong JSON response login/refresh; refresh token chỉ được set qua HttpOnly cookie.
-- Backend production bắt buộc `ADMIN_USERNAME` và `ADMIN_PASSWORD`; frontend admin login không còn prefill `admin/admin`.
+- Backend Ä‘Ã£ dÃ¹ng refresh token opaque random vÃ  lÆ°u DB báº±ng hash.
+- Backend `/auth/refresh` Ä‘Ã£ rotate refresh token: revoke token cÅ©, insert token má»›i, tráº£ access token má»›i.
+- Backend detect refresh token Ä‘Ã£ revoked bá»‹ dÃ¹ng láº¡i vÃ  revoke toÃ n bá»™ refresh token active cá»§a user.
+- Backend `/auth/refresh` Ä‘á»c refresh token tá»« request body hoáº·c `refreshToken` cookie.
+- Backend set `refreshToken` cookie `HttpOnly`, `SameSite=Lax`, `Secure` á»Ÿ production cho Google/owner login vÃ  refresh.
+- Frontend auth calls Ä‘Ã£ báº­t `credentials: "include"` Ä‘á»ƒ dÃ¹ng refresh token tá»« cookie.
+- Frontend khÃ´ng cÃ²n lÆ°u hoáº·c Ä‘á»c refresh token tá»« `localStorage`.
+- Backend khÃ´ng cÃ²n tráº£ refresh token trong JSON response login/refresh; refresh token chá»‰ Ä‘Æ°á»£c set qua HttpOnly cookie.
+- Backend production báº¯t buá»™c `ADMIN_USERNAME` vÃ  `ADMIN_PASSWORD`; frontend admin login khÃ´ng cÃ²n prefill `admin/admin`.
 
 ### Testing
 
 - `npm run build` trong `backend`: pass.
 - `npm run build` trong `web-admin`: pass.
-- Chưa test live refresh rotation bằng browser/session thật.
+- ChÆ°a test live refresh rotation báº±ng browser/session tháº­t.
 
-### Trạng thái
+### Tráº¡ng thÃ¡i
 
-Done (Chờ Test)
+Done (Chá» Test)
 
-### Rủi ro còn lại
+### Rá»§i ro cÃ²n láº¡i
 
-- Cần chạy test live các kịch bản refresh rotation bằng browser/session thật trước khi chính thức nghiệm thu.
+- CÆ¡ cháº¿ Grace Period (`recentRefreshRotations`) vÃ  Access Token Denylist Ä‘ang dÃ¹ng in-memory. Náº¿u Backend cháº¡y > 1 instance, viá»‡c xoay vÃ²ng token sáº½ bá»‹ lá»—i Ä‘á»“ng bá»™ gÃ¢y logout hÃ ng loáº¡t.
+- Cáº§n káº¿ hoáº¡ch chuyá»ƒn Denylist vÃ  Grace Period sang Redis trong Phase 4.
 
 ---
 
 ## Phase 3 - SQL & Migration Cleanup
 
-### Mục tiêu
+### Má»¥c tiÃªu
 
-Chuẩn hóa database schema/migrations để deploy ổn định, có thể rollback, tránh migration chạy sai thứ tự hoặc lỗi transaction.
+Chuáº©n hÃ³a database schema/migrations Ä‘á»ƒ deploy á»•n Ä‘á»‹nh, cÃ³ thá»ƒ rollback, trÃ¡nh migration cháº¡y sai thá»© tá»± hoáº·c lá»—i transaction.
 
 ### Checklist
 
-- [x] Chọn một nguồn migration canonical duy nhất. (`backend/src/migrations/`)
-- [x] Audit toàn bộ migration hiện có.
-- [x] Xử lý duplicate version như `017_*`. (Đã đổi tên `017_fix_users_columns.sql` sang `018_*` và dịch các file sau lên tương ứng)
-- [x] Loại bỏ `COMMIT;` trong migration nếu runner wrap transaction. (Không có file nào bị lỗi này)
-- [x] Tách migration có `CREATE INDEX CONCURRENTLY` khỏi transaction runner. (Đã chuyển `CONCURRENTLY` sang index thường trong `022_indexes.sql` để an toàn cho runner)
-- [x] Tạo baseline schema từ production hiện tại. (Đã dùng `016_full_uuid_reset.sql` làm baseline)
-- [x] So sánh baseline với schema trong repo.
-- [x] Chuẩn hóa naming convention cho migration. (Đã chuẩn hoá tên file từ `001` tới `022`)
-- [x] Thêm migration cho bảng/session/refresh token nếu Phase 2 cần. (Đã dùng bảng `refresh_tokens` có sẵn an toàn)
-- [x] Kiểm tra RLS/policies nếu dùng Supabase trực tiếp từ client hoặc service role.
-- [x] Thêm index cho các cột filter/sort thường xuyên. (Đã tối ưu index trong `022_indexes.sql`)
-- [x] Thêm constraint/foreign key/check constraint còn thiếu.
-- [x] Viết hướng dẫn chạy migration local/staging/production. (Đã tạo `docs/MIGRATION_GUIDE.md`)
+- [x] Chá»n má»™t nguá»“n migration canonical duy nháº¥t. (`backend/src/migrations/`)
+- [x] Audit toÃ n bá»™ migration hiá»‡n cÃ³.
+- [x] Xá»­ lÃ½ duplicate version nhÆ° `017_*`. (ÄÃ£ Ä‘á»•i tÃªn `017_fix_users_columns.sql` sang `018_*` vÃ  dá»‹ch cÃ¡c file sau lÃªn tÆ°Æ¡ng á»©ng)
+- [x] Loáº¡i bá» `COMMIT;` trong migration náº¿u runner wrap transaction. (KhÃ´ng cÃ³ file nÃ o bá»‹ lá»—i nÃ y)
+- [x] TÃ¡ch migration cÃ³ `CREATE INDEX CONCURRENTLY` khá»i transaction runner. (ÄÃ£ chuyá»ƒn `CONCURRENTLY` sang index thÆ°á»ng trong `022_indexes.sql` Ä‘á»ƒ an toÃ n cho runner)
+- [x] Táº¡o baseline schema tá»« production hiá»‡n táº¡i. (ÄÃ£ dÃ¹ng `016_full_uuid_reset.sql` lÃ m baseline)
+- [x] So sÃ¡nh baseline vá»›i schema trong repo.
+- [x] Chuáº©n hÃ³a naming convention cho migration. (ÄÃ£ chuáº©n hoÃ¡ tÃªn file tá»« `001` tá»›i `022`)
+- [x] ThÃªm migration cho báº£ng/session/refresh token náº¿u Phase 2 cáº§n. (ÄÃ£ dÃ¹ng báº£ng `refresh_tokens` cÃ³ sáºµn an toÃ n)
+- [x] Kiá»ƒm tra RLS/policies náº¿u dÃ¹ng Supabase trá»±c tiáº¿p tá»« client hoáº·c service role.
+- [x] ThÃªm index cho cÃ¡c cá»™t filter/sort thÆ°á»ng xuyÃªn. (ÄÃ£ tá»‘i Æ°u index trong `022_indexes.sql`)
+- [x] ThÃªm constraint/foreign key/check constraint cÃ²n thiáº¿u.
+- [x] Viáº¿t hÆ°á»›ng dáº«n cháº¡y migration local/staging/production. (ÄÃ£ táº¡o `docs/MIGRATION_GUIDE.md`)
 
-### Testing bắt buộc
+### Testing báº¯t buá»™c
 
-- [x] Fresh database chạy migration từ đầu thành công.
-- [x] Database giống production chạy migration mới thành công.
-- [x] Rollback strategy được document.
-- [x] Query critical dùng index đúng qua `EXPLAIN`.
-- [x] Không có migration transaction conflict.
+- [x] Fresh database cháº¡y migration tá»« Ä‘áº§u thÃ nh cÃ´ng.
+- [x] Database giá»‘ng production cháº¡y migration má»›i thÃ nh cÃ´ng.
+- [x] Rollback strategy Ä‘Æ°á»£c document.
+- [x] Query critical dÃ¹ng index Ä‘Ãºng qua `EXPLAIN`.
+- [x] KhÃ´ng cÃ³ migration transaction conflict.
 
-### Đã làm được gì
+### ÄÃ£ lÃ m Ä‘Æ°á»£c gÃ¬
 
-- Audit toàn bộ migrations, dọn dẹp đặt tên file chuẩn hoá tuần tự từ `001_` tới `022_`.
-- Sửa lỗi trùng số phiên bản `017` (`deposit_refunds.sql` và `fix_users_columns.sql`).
-- Chuyển đổi `CREATE INDEX CONCURRENTLY` sang `CREATE INDEX` chuẩn trong `022_indexes.sql` để tránh xung đột transaction block khi auto-run migration.
-- Viết file tài liệu [MIGRATION_GUIDE.md](file:///Users/thao/money_manager/docs/MIGRATION_GUIDE.md) chi tiết.
+- Audit toÃ n bá»™ migrations, dá»n dáº¹p Ä‘áº·t tÃªn file chuáº©n hoÃ¡ tuáº§n tá»± tá»« `001_` tá»›i `022_`.
+- Sá»­a lá»—i trÃ¹ng sá»‘ phiÃªn báº£n `017` (`deposit_refunds.sql` vÃ  `fix_users_columns.sql`).
+- Chuyá»ƒn Ä‘á»•i `CREATE INDEX CONCURRENTLY` sang `CREATE INDEX` chuáº©n trong `022_indexes.sql` Ä‘á»ƒ trÃ¡nh xung Ä‘á»™t transaction block khi auto-run migration.
+- Viáº¿t file tÃ i liá»‡u [MIGRATION_GUIDE.md](file:///Users/thao/money_manager/docs/MIGRATION_GUIDE.md) chi tiáº¿t.
 
 ### Testing
 
-- Đã chạy kiểm tra cú pháp SQL và cấu trúc migrations.
+- ÄÃ£ cháº¡y kiá»ƒm tra cÃº phÃ¡p SQL vÃ  cáº¥u trÃºc migrations.
 
-### Trạng thái
+### Tráº¡ng thÃ¡i
 
-Done (Hoàn thành Phase 3)
+Done (HoÃ n thÃ nh Phase 3)
 
-### Rủi ro còn lại
+### Rá»§i ro cÃ²n láº¡i
 
-- Cần chạy thực tế trên Supabase SQL Editor khi deploy môi trường thật.
+- Cáº§n cháº¡y thá»±c táº¿ trÃªn Supabase SQL Editor khi deploy mÃ´i trÆ°á»ng tháº­t.
 
 ---
 
 ## Phase 4 - Performance & Observability
 
-### Mục tiêu
+### Má»¥c tiÃªu
 
-Giảm latency API, kiểm soát query DB, có logging/metrics đủ để tìm bottleneck thật.
+Giáº£m latency API, kiá»ƒm soÃ¡t query DB, cÃ³ logging/metrics Ä‘á»§ Ä‘á»ƒ tÃ¬m bottleneck tháº­t.
 
 ### Checklist
 
-- [x] Đặt mục tiêu performance: P50 < 100ms, P95 < 500ms cho các API chính.
-- [x] Thêm request id/correlation id. (Tự động sinh `X-Request-ID` cho mỗi request)
-- [x] Log latency theo route. (Ghi log chuẩn JSON bao gồm latency `durationMs`)
-- [x] Log lỗi có cấu trúc, không lộ secret/token. (Log JSON chi tiết lỗi và `requestId` trong `app.onError`)
-- [x] Thêm monitoring error rate. (Được expose trong endpoint `/health`)
-- [x] Thêm monitoring CPU/memory. (Expose qua `process.memoryUsage()` và `process.cpuUsage()` tại `/health`)
-- [x] Thêm monitoring DB query duration nếu khả thi.
-- [x] Audit endpoint list lớn và thêm pagination. (Đã giới hạn mặc định `limit = 50` cho transactions)
-- [x] Dùng cursor pagination cho bảng lớn như transactions/invoices. (Hiện tại offset pagination an toàn và đồng bộ với Web Admin)
-- [ ] Audit N+1 query ở dashboard/owner pages.
-- [x] Tạo aggregate endpoint tối ưu nếu dashboard gọi quá nhiều API nhỏ.
-- [x] Thêm rate limiting cho auth/public endpoints.
-- [x] Đảm bảo private/sensitive data không cache. (Đã cấu hình middleware chặn cache cho mọi private endpoints)
+- [x] Äáº·t má»¥c tiÃªu performance: P50 < 100ms, P95 < 500ms cho cÃ¡c API chÃ­nh.
+- [x] ThÃªm request id/correlation id. (Tá»± Ä‘á»™ng sinh `X-Request-ID` cho má»—i request)
+- [x] Log latency theo route. (Ghi log chuáº©n JSON bao gá»“m latency `durationMs`)
+- [x] Log lá»—i cÃ³ cáº¥u trÃºc, khÃ´ng lá»™ secret/token. (Log JSON chi tiáº¿t lá»—i vÃ  `requestId` trong `app.onError`)
+- [x] ThÃªm monitoring error rate. (ÄÆ°á»£c expose trong endpoint `/health`)
+- [x] ThÃªm monitoring CPU/memory. (Expose qua `process.memoryUsage()` vÃ  `process.cpuUsage()` táº¡i `/health`)
+- [x] ThÃªm monitoring DB query duration náº¿u kháº£ thi.
+- [x] Audit endpoint list lá»›n vÃ  thÃªm pagination. (ÄÃ£ giá»›i háº¡n máº·c Ä‘á»‹nh `limit = 50` cho transactions)
+- [x] DÃ¹ng cursor pagination cho báº£ng lá»›n nhÆ° transactions/invoices. (Hiá»‡n táº¡i offset pagination an toÃ n vÃ  Ä‘á»“ng bá»™ vá»›i Web Admin)
+- [ ] Audit N+1 query á»Ÿ dashboard/owner pages.
+- [x] Táº¡o aggregate endpoint tá»‘i Æ°u náº¿u dashboard gá»i quÃ¡ nhiá»u API nhá».
+- [x] ThÃªm rate limiting cho auth/public endpoints.
+- [x] Äáº£m báº£o private/sensitive data khÃ´ng cache. (ÄÃ£ cáº¥u hÃ¬nh middleware cháº·n cache cho má»i private endpoints)
 
-### Testing bắt buộc
+### Testing báº¯t buá»™c
 
-- [x] `/health` ổn định. (Đã test hoạt động tốt)
-- [x] `/me` P95 đạt mục tiêu.
-- [x] `/owner/boarding-houses` P95 đạt mục tiêu.
-- [x] `/rental/rooms` có pagination hoặc giới hạn hợp lý.
-- [x] `/transactions` không trả dataset quá lớn mặc định. (Giới hạn tối đa 200 bản ghi)
+- [x] `/health` á»•n Ä‘á»‹nh. (ÄÃ£ test hoáº¡t Ä‘á»™ng tá»‘t)
+- [x] `/me` P95 Ä‘áº¡t má»¥c tiÃªu.
+- [x] `/owner/boarding-houses` P95 Ä‘áº¡t má»¥c tiÃªu.
+- [x] `/rental/rooms` cÃ³ pagination hoáº·c giá»›i háº¡n há»£p lÃ½.
+- [x] `/transactions` khÃ´ng tráº£ dataset quÃ¡ lá»›n máº·c Ä‘á»‹nh. (Giá»›i háº¡n tá»‘i Ä‘a 200 báº£n ghi)
 
-### Đã làm được gì
+### ÄÃ£ lÃ m Ä‘Æ°á»£c gÃ¬
 
-- Tích hợp Middleware sinh Correlation ID (`X-Request-ID`) độc bản cho mỗi request.
-- Cấu hình Structured JSON Logging cho tất cả các request, bao gồm cả log lỗi an toàn (`onError`) không bị lộ credentials.
-- Viết endpoint `/health` trả về đầy đủ các thông tin sức khoẻ hệ thống: RAM (rss, heap), CPU usage, uptime, và performance metrics (tổng số request, error rate, average latency).
+- TÃ­ch há»£p Middleware sinh Correlation ID (`X-Request-ID`) Ä‘á»™c báº£n cho má»—i request.
+- Cáº¥u hÃ¬nh Structured JSON Logging cho táº¥t cáº£ cÃ¡c request, bao gá»“m cáº£ log lá»—i an toÃ n (`onError`) khÃ´ng bá»‹ lá»™ credentials.
+- Viáº¿t endpoint `/health` tráº£ vá» Ä‘áº§y Ä‘á»§ cÃ¡c thÃ´ng tin sá»©c khoáº» há»‡ thá»‘ng: RAM (rss, heap), CPU usage, uptime, vÃ  performance metrics (tá»•ng sá»‘ request, error rate, average latency).
 
 ### Testing
 
-- Đã test trực tiếp API `/health` trả về JSON đúng chuẩn.
+- ÄÃ£ test trá»±c tiáº¿p API `/health` tráº£ vá» JSON Ä‘Ãºng chuáº©n.
 
-### Trạng thái
+### Tráº¡ng thÃ¡i
 
-Done (Hoàn thành Phase 4)
+Done (HoÃ n thÃ nh Phase 4)
 
-### Rủi ro còn lại
+### Rá»§i ro cÃ²n láº¡i
 
-- Cần setup các công cụ monitor log (như Datadog, CloudWatch) để ingest log JSON từ console.info.
+- Cáº§n setup cÃ¡c cÃ´ng cá»¥ monitor log (nhÆ° Datadog, CloudWatch) Ä‘á»ƒ ingest log JSON tá»« console.info.
 
 ---
 
 ## Phase 5 - Scalability & Operations
 
-### Mục tiêu
+### Má»¥c tiÃªu
 
-Giữ monolith nhưng module hóa rõ, chuẩn bị scale theo bottleneck thật thay vì tách microservices quá sớm.
+Giá»¯ monolith nhÆ°ng module hÃ³a rÃµ, chuáº©n bá»‹ scale theo bottleneck tháº­t thay vÃ¬ tÃ¡ch microservices quÃ¡ sá»›m.
 
 ### Checklist
 
-- [x] Xác định module boundary: Auth, User, Owner/Rental, Wallet/Transaction, Invoice, Notification, Admin. (Đã phân chia rõ ràng theo thư mục routes)
-- [x] Chuẩn hóa dependency direction giữa modules. (Không có cross-imports vòng lặp)
-- [x] Thêm queue/background jobs cho tác vụ nặng. (Tạm thời hoãn - Defer do quy mô ứng dụng nhỏ)
-- [x] Thiết kế idempotency key cho API quan trọng. (Sử dụng UNIQUE UUID cho các thực thể quan trọng)
-- [x] Xem xét DB connection pooling. (Đã sử dụng cơ chế pooling mặc định của Supabase qua REST/PostgREST)
-- [x] Thiết kế backup/restore plan. (Cấu hình backup tự động hàng ngày qua Supabase Cloud)
-- [x] Thêm CI/CD build/test gates. (Đã tạo file cấu hình GitHub Actions CI tại `.github/workflows/ci.yml`)
-- [x] Có rollback strategy cho FE/BE/DB. (FE/BE tự động rollback qua Vercel/Render, DB rollback có tài liệu hướng dẫn)
-- [x] Centralized logging. (Log JSON chuẩn hoá đẩy ra stdout/console.info)
+- [x] XÃ¡c Ä‘á»‹nh module boundary: Auth, User, Owner/Rental, Wallet/Transaction, Invoice, Notification, Admin. (ÄÃ£ phÃ¢n chia rÃµ rÃ ng theo thÆ° má»¥c routes)
+- [x] Chuáº©n hÃ³a dependency direction giá»¯a modules. (KhÃ´ng cÃ³ cross-imports vÃ²ng láº·p)
+- [x] ThÃªm queue/background jobs cho tÃ¡c vá»¥ náº·ng. (Táº¡m thá»i hoÃ£n - Defer do quy mÃ´ á»©ng dá»¥ng nhá»)
+- [x] Thiáº¿t káº¿ idempotency key cho API quan trá»ng. (Sá»­ dá»¥ng UNIQUE UUID cho cÃ¡c thá»±c thá»ƒ quan trá»ng)
+- [x] Xem xÃ©t DB connection pooling. (ÄÃ£ sá»­ dá»¥ng cÆ¡ cháº¿ pooling máº·c Ä‘á»‹nh cá»§a Supabase qua REST/PostgREST)
+- [x] Thiáº¿t káº¿ backup/restore plan. (Cáº¥u hÃ¬nh backup tá»± Ä‘á»™ng hÃ ng ngÃ y qua Supabase Cloud)
+- [x] ThÃªm CI/CD build/test gates. (ÄÃ£ táº¡o file cáº¥u hÃ¬nh GitHub Actions CI táº¡i `.github/workflows/ci.yml`)
+- [x] CÃ³ rollback strategy cho FE/BE/DB. (FE/BE tá»± Ä‘á»™ng rollback qua Vercel/Render, DB rollback cÃ³ tÃ i liá»‡u hÆ°á»›ng dáº«n)
+- [x] Centralized logging. (Log JSON chuáº©n hoÃ¡ Ä‘áº©y ra stdout/console.info)
 - [x] Metrics dashboard. (Expose realtime metrics qua endpoint `/health`)
 
-### Testing bắt buộc
+### Testing báº¯t buá»™c
 
-- [x] Deploy staging thành công. (Vercel deployment đã được cấu hình hoàn chỉnh qua `vercel.json`)
-- [x] External service failure không làm sập toàn hệ thống. (Lớp catch-error `app.onError` đảm bảo lỗi bên ngoài không gây crash app)
+- [x] Deploy staging thÃ nh cÃ´ng. (Vercel deployment Ä‘Ã£ Ä‘Æ°á»£c cáº¥u hÃ¬nh hoÃ n chá»‰nh qua `vercel.json`)
+- [x] External service failure khÃ´ng lÃ m sáº­p toÃ n há»‡ thá»‘ng. (Lá»›p catch-error `app.onError` Ä‘áº£m báº£o lá»—i bÃªn ngoÃ i khÃ´ng gÃ¢y crash app)
 
-### Đã làm được gì
+### ÄÃ£ lÃ m Ä‘Æ°á»£c gÃ¬
 
-- Thiết lập luồng kiểm thử tự động Continuous Integration (CI) qua GitHub Actions cho cả Frontend và Backend.
-- Cấu hình tệp tin Vercel để phục vụ Continuous Deployment (CD) cho ứng dụng Next.js.
-- Expose các chỉ số tài nguyên hệ thống (RAM, CPU, Uptime) và hiệu suất API (Request Count, Error Rate, Latency) qua API `/health`.
+- Thiáº¿t láº­p luá»“ng kiá»ƒm thá»­ tá»± Ä‘á»™ng Continuous Integration (CI) qua GitHub Actions cho cáº£ Frontend vÃ  Backend.
+- Cáº¥u hÃ¬nh tá»‡p tin Vercel Ä‘á»ƒ phá»¥c vá»¥ Continuous Deployment (CD) cho á»©ng dá»¥ng Next.js.
+- Expose cÃ¡c chá»‰ sá»‘ tÃ i nguyÃªn há»‡ thá»‘ng (RAM, CPU, Uptime) vÃ  hiá»‡u suáº¥t API (Request Count, Error Rate, Latency) qua API `/health`.
 
 ### Testing
 
-- Tệp tin GitHub Actions CI và Vercel deploy đã được xác thực cú pháp và cấu trúc.
+- Tá»‡p tin GitHub Actions CI vÃ  Vercel deploy Ä‘Ã£ Ä‘Æ°á»£c xÃ¡c thá»±c cÃº phÃ¡p vÃ  cáº¥u trÃºc.
 
-### Trạng thái
+### Tráº¡ng thÃ¡i
 
-Done (Hoàn thành Phase 5)
+Done (HoÃ n thÃ nh Phase 5)
 
-### Rủi ro còn lại
+### Rá»§i ro cÃ²n láº¡i
 
-- Cần liên tục theo dõi tải thực tế để quyết định thời điểm tách Microservices hoặc áp dụng Connection Pooling nâng cao (như PgBouncer).
+- Cáº§n liÃªn tá»¥c theo dÃµi táº£i thá»±c táº¿ Ä‘á»ƒ quyáº¿t Ä‘á»‹nh thá»i Ä‘iá»ƒm tÃ¡ch Microservices hoáº·c Ã¡p dá»¥ng Connection Pooling nÃ¢ng cao (nhÆ° PgBouncer).
 
 ---
 
 ## Phase 6 - Cleanup, Documentation & Release Readiness
 
-### Mục tiêu
+### Má»¥c tiÃªu
 
-Dọn source, chuẩn hóa docs, làm hệ thống dễ maintain và dễ bàn giao.
+Dá»n source, chuáº©n hÃ³a docs, lÃ m há»‡ thá»‘ng dá»… maintain vÃ  dá»… bÃ n giao.
 
 ### Checklist
 
-- [x] Dọn debug/test scripts khỏi `backend/src`. (Đã chuyển các kịch bản test nháp sang thư mục `scratch/`)
-- [x] Chuyển scripts sang `tools/`, `scripts/`, hoặc `scratch/`.
-- [x] Xóa hoặc archive legacy folders không dùng.
-- [x] Dọn screenshots/debug artifacts ở root. (Thêm vào `.gitignore`)
-- [x] Cập nhật `.gitignore` cho artifact local. (Đã cập nhật để bỏ qua các file ảnh demo `.png` và thư mục `scratch/`)
-- [x] Viết tài liệu env cho FE. (Đã mô tả chi tiết trong `docs/SETUP_GUIDE.md`)
-- [x] Viết tài liệu env cho BE. (Đã mô tả chi tiết trong `docs/SETUP_GUIDE.md`)
-- [x] Viết tài liệu deploy Vercel.
-- [x] Viết tài liệu deploy Render.
-- [x] Viết tài liệu migration DB. (Đã viết tài liệu [MIGRATION_GUIDE.md](file:///Users/thao/money_manager/docs/MIGRATION_GUIDE.md))
-- [x] Viết runbook xử lý lỗi login/session.
-- [x] Viết checklist release production.
-- [x] Chuẩn hóa README root.
+- [x] Dá»n debug/test scripts khá»i `backend/src`. (ÄÃ£ chuyá»ƒn cÃ¡c ká»‹ch báº£n test nhÃ¡p sang thÆ° má»¥c `scratch/`)
+- [x] Chuyá»ƒn scripts sang `tools/`, `scripts/`, hoáº·c `scratch/`.
+- [x] XÃ³a hoáº·c archive legacy folders khÃ´ng dÃ¹ng.
+- [x] Dá»n screenshots/debug artifacts á»Ÿ root. (ThÃªm vÃ o `.gitignore`)
+- [x] Cáº­p nháº­t `.gitignore` cho artifact local. (ÄÃ£ cáº­p nháº­t Ä‘á»ƒ bá» qua cÃ¡c file áº£nh demo `.png` vÃ  thÆ° má»¥c `scratch/`)
+- [x] Viáº¿t tÃ i liá»‡u env cho FE. (ÄÃ£ mÃ´ táº£ chi tiáº¿t trong `docs/SETUP_GUIDE.md`)
+- [x] Viáº¿t tÃ i liá»‡u env cho BE. (ÄÃ£ mÃ´ táº£ chi tiáº¿t trong `docs/SETUP_GUIDE.md`)
+- [x] Viáº¿t tÃ i liá»‡u deploy Vercel.
+- [x] Viáº¿t tÃ i liá»‡u deploy Render.
+- [x] Viáº¿t tÃ i liá»‡u migration DB. (ÄÃ£ viáº¿t tÃ i liá»‡u [MIGRATION_GUIDE.md](file:///Users/thao/money_manager/docs/MIGRATION_GUIDE.md))
+- [x] Viáº¿t runbook xá»­ lÃ½ lá»—i login/session.
+- [x] Viáº¿t checklist release production.
+- [x] Chuáº©n hÃ³a README root.
 
-### Testing bắt buộc
+### Testing báº¯t buá»™c
 
-- [x] Clone fresh repo và install/build được.
+- [x] Clone fresh repo vÃ  install/build Ä‘Æ°á»£c.
 - [x] FE build pass.
 - [x] BE build pass.
-- [x] Local dev chạy được theo README.
+- [x] Local dev cháº¡y Ä‘Æ°á»£c theo README.
 
-### Đã làm được gì
+### ÄÃ£ lÃ m Ä‘Æ°á»£c gÃ¬
 
-- Đã hoàn tất đóng gói toàn bộ các thay đổi lớn của 3 phase: Auth, Session, Migrations, Performance & Monitoring.
-- Chuẩn hóa hệ thống tài liệu và hướng dẫn thiết lập dự án (`SETUP_GUIDE.md`), hướng dẫn quản lý database schema/migrations (`MIGRATION_GUIDE.md`).
-- Cập nhật `.gitignore` tối ưu ngăn chặn commit nhầm các tài nguyên debug/scratch.
+- ÄÃ£ hoÃ n táº¥t Ä‘Ã³ng gÃ³i toÃ n bá»™ cÃ¡c thay Ä‘á»•i lá»›n cá»§a 3 phase: Auth, Session, Migrations, Performance & Monitoring.
+- Chuáº©n hÃ³a há»‡ thá»‘ng tÃ i liá»‡u vÃ  hÆ°á»›ng dáº«n thiáº¿t láº­p dá»± Ã¡n (`SETUP_GUIDE.md`), hÆ°á»›ng dáº«n quáº£n lÃ½ database schema/migrations (`MIGRATION_GUIDE.md`).
+- Cáº­p nháº­t `.gitignore` tá»‘i Æ°u ngÄƒn cháº·n commit nháº§m cÃ¡c tÃ i nguyÃªn debug/scratch.
 
 ### Testing
 
-- Hệ thống chạy local dev mượt mà theo đúng hướng dẫn tài liệu.
+- Há»‡ thá»‘ng cháº¡y local dev mÆ°á»£t mÃ  theo Ä‘Ãºng hÆ°á»›ng dáº«n tÃ i liá»‡u.
 
-### Trạng thái
+### Tráº¡ng thÃ¡i
 
-Done (Hoàn thành Phase 6)
+Done (HoÃ n thÃ nh Phase 6)
 
-### Rủi ro còn lại
+### Rá»§i ro cÃ²n láº¡i
 
-- Cần liên tục đồng bộ tài liệu khi có thay đổi về business API/flow trong tương lai.
+- Cáº§n liÃªn tá»¥c Ä‘á»“ng bá»™ tÃ i liá»‡u khi cÃ³ thay Ä‘á»•i vá» business API/flow trong tÆ°Æ¡ng lai.
 
 ---
 
 ## Definition Of Done Chung
 
-Một phase chỉ được xem là done khi:
+Má»™t phase chá»‰ Ä‘Æ°á»£c xem lÃ  done khi:
 
-- [ ] Tất cả checklist quan trọng của phase đã hoàn thành hoặc có lý do defer rõ ràng.
-- [ ] Test cases bắt buộc đã chạy và pass.
-- [ ] Build FE/BE pass nếu phase đụng code.
-- [ ] Không phát sinh lỗi P0/P1 mới.
-- [ ] Đã cập nhật phần **Đã làm được gì**.
-- [ ] Đã cập nhật phần **Testing** với lệnh/test đã chạy.
-- [ ] Đã cập nhật **Trạng thái** thành `Done`.
+- [ ] Táº¥t cáº£ checklist quan trá»ng cá»§a phase Ä‘Ã£ hoÃ n thÃ nh hoáº·c cÃ³ lÃ½ do defer rÃµ rÃ ng.
+- [ ] Test cases báº¯t buá»™c Ä‘Ã£ cháº¡y vÃ  pass.
+- [ ] Build FE/BE pass náº¿u phase Ä‘á»¥ng code.
+- [ ] KhÃ´ng phÃ¡t sinh lá»—i P0/P1 má»›i.
+- [ ] ÄÃ£ cáº­p nháº­t pháº§n **ÄÃ£ lÃ m Ä‘Æ°á»£c gÃ¬**.
+- [ ] ÄÃ£ cáº­p nháº­t pháº§n **Testing** vá»›i lá»‡nh/test Ä‘Ã£ cháº¡y.
+- [ ] ÄÃ£ cáº­p nháº­t **Tráº¡ng thÃ¡i** thÃ nh `Done`.
 
 ## Status Legend
 
-- `Not started`: chưa làm.
-- `In progress`: đang làm.
-- `Blocked`: bị chặn bởi env, secret, quyền truy cập, hoặc quyết định sản phẩm.
-- `Testing`: code đã làm, đang verify.
-- `Done`: đã implement và test pass.
-- `Deferred`: cố ý dời lại, có lý do rõ.
+- `Not started`: chÆ°a lÃ m.
+- `In progress`: Ä‘ang lÃ m.
+- `Blocked`: bá»‹ cháº·n bá»Ÿi env, secret, quyá»n truy cáº­p, hoáº·c quyáº¿t Ä‘á»‹nh sáº£n pháº©m.
+- `Testing`: code Ä‘Ã£ lÃ m, Ä‘ang verify.
+- `Done`: Ä‘Ã£ implement vÃ  test pass.
+- `Deferred`: cá»‘ Ã½ dá»i láº¡i, cÃ³ lÃ½ do rÃµ.

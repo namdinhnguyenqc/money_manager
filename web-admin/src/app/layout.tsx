@@ -3,8 +3,8 @@ import "./globals.css";
 import QueryProvider from "@/components/QueryProvider";
 
 export const metadata: Metadata = {
-  title: "TrọCare Admin — Vận hành trọ thông minh",
-  description: "TrọCare - Nền tảng quản lý nhà trọ và phòng cho thuê thế hệ mới.",
+  title: "Trá»Care Owner",
+  description: "Trá»Care - Ná»n táº£ng quáº£n lÃ½ nhÃ  trá» vÃ  phÃ²ng cho thuÃª tháº¿ há»‡ má»›i.",
   icons: {
     icon: "/brand/app-icons/app-icon-gradient-32.png",
     apple: "/brand/app-icons/app-icon-gradient-180.png",

@@ -80,9 +80,9 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
     return c.json({ error: "Missing bearer token" }, 401);
   }
 
-  // ──────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Token In-Memory Cache (Performance Optimization)
-  // ──────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const now = Date.now();
   if (isAccessTokenRevoked(token, now)) {
     tokenCache.delete(token);
@@ -110,7 +110,7 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
         .select("revoked_at")
         .eq("id", appJwt.sessionId)
         .single();
-      
+
       if (!sessionData || sessionData.revoked_at) {
         return c.json({ error: "Session has been revoked", code: "SESSION_REVOKED" }, 401);
       }
@@ -159,9 +159,9 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
     return await next();
   }
 
-  // ──────────────────────────────────────────────
-  // Verify Supabase JWT — lấy user từ auth.users
-  // ──────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Verify Supabase JWT â€” láº¥y user tá»« auth.users
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const { data: { user: supaUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
   if (authError || !supaUser) {
@@ -169,7 +169,7 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
     return c.json({ error: "Invalid or expired token" }, 401);
   }
 
-  // Lấy thông tin user từ bảng public.users (nếu có)
+  // Láº¥y thÃ´ng tin user tá»« báº£ng public.users (náº¿u cÃ³)
   // We select only existing columns and handle potential missing ones
   let { data: dbUser, error: dbError } = await supabaseAdmin
     .from("users")
@@ -181,7 +181,7 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
     console.error("Database error fetching user:", dbError.message);
   }
 
-  // Auto-create user nếu chưa có trong public.users
+  // Auto-create user náº¿u chÆ°a cÃ³ trong public.users
   if (!dbUser) {
     console.log(`User ${supaUser.id} / ${supaUser.email} missing from public.users. Auto-creating...`);
     const insertPayload: any = {
@@ -193,7 +193,7 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
       avatar: supaUser.user_metadata?.avatar_url || null,
       provider: "GOOGLE",
     };
-    
+
     // Only add columns if they are expected to exist, or let catch handle it
     const { data: newUser, error: createError } = await supabaseAdmin.from("users").insert({
       ...insertPayload,
@@ -209,9 +209,9 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
          const { data: fallbackUser, error: fallbackError } = await supabaseAdmin.from("users").insert(insertPayload).select().single();
          if (fallbackError) {
            console.error("Critical error auto-creating user:", fallbackError.message);
-          return c.json({ error: "[AUTH_MID_001] Lỗi lưu thông tin người dùng: " + fallbackError.message }, 500);
+          return c.json({ error: "[AUTH_MID_001] Lá»—i lÆ°u thÃ´ng tin ngÆ°á»i dÃ¹ng: " + fallbackError.message }, 500);
         }
-        return c.json({ error: "[AUTH_MID_002] Lỗi lưu thông tin người dùng: " + createError.message }, 500);
+        return c.json({ error: "[AUTH_MID_002] Lá»—i lÆ°u thÃ´ng tin ngÆ°á»i dÃ¹ng: " + createError.message }, 500);
       }
     } else {
       dbUser = newUser;
@@ -223,7 +223,7 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
       .eq("email", supaUser.email)
       .select()
       .single();
-    
+
     if (updateError) {
       console.error("Failed to link user ID:", updateError.message);
     } else {
@@ -253,17 +253,17 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
     onboardingStep: (dbUser as any)?.onboarding_step ?? "COMPLETE_PROFILE",
   };
 
-  // Set user info vào context
+  // Set user info vÃ o context
   c.set("user", userContext);
 
-  // ──────────────────────────────────────────────
-  // Tạo per-request Supabase client VỚI user token
-  // ──────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Táº¡o per-request Supabase client Vá»šI user token
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   c.set("supabase", createUserClient(token));
 
   // Cache for 5 minutes
   tokenCache.set(token, { userContext, exp: now + 5 * 60 * 1000, isAppToken: false });
-  
+
   // Cleanup old cache occasionally
   if (tokenCache.size > 1000) {
     for (const [k, v] of tokenCache.entries()) {
@@ -289,6 +289,50 @@ export const requireSuperAdmin = createMiddleware<AppEnv>(async (c, next) => {
   }
   await next();
 });
+
+export const requireAdminPermission = (permissionKey: string) =>
+  createMiddleware<AppEnv>(async (c, next) => {
+    const user = c.get("user");
+    if (!user || !["ADMIN", "SUPER_ADMIN"].includes(user.role)) {
+      return c.json({ error: "Forbidden: admin access required" }, 403);
+    }
+
+    if (user.role === "SUPER_ADMIN") {
+      await next();
+      return;
+    }
+
+    const { data: dbUser, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("role_id")
+      .eq("id", user.id)
+      .single();
+
+    if (userError || !dbUser?.role_id) {
+      return c.json({
+        code: "ADMIN_PERMISSION_REQUIRED",
+        error: "Admin permission required",
+        required_permission: permissionKey,
+      }, 403);
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("role_permissions")
+      .select("permission_key")
+      .eq("role_id", dbUser.role_id)
+      .eq("permission_key", permissionKey)
+      .maybeSingle();
+
+    if (error || !data) {
+      return c.json({
+        code: "ADMIN_PERMISSION_REQUIRED",
+        error: "Admin permission required",
+        required_permission: permissionKey,
+      }, 403);
+    }
+
+    await next();
+  });
 
 export const requireOwner = createMiddleware<AppEnv>(async (c, next) => {
   const user = c.get("user");
