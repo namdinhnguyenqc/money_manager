@@ -20,6 +20,22 @@ function clearCookie(name: string) {
   document.cookie = `${name}=; path=/; max-age=0; samesite=lax`;
 }
 
+function clearSupabaseAuthStorage() {
+  if (typeof window === "undefined") return;
+
+  for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+    const key = localStorage.key(index);
+    if (key?.startsWith("sb-") || key?.includes("supabase.auth.token")) {
+      localStorage.removeItem(key);
+    }
+  }
+
+  document.cookie.split(";").forEach((cookie) => {
+    const name = cookie.split("=")[0]?.trim();
+    if (name?.startsWith("sb-")) clearCookie(name);
+  });
+}
+
 export function getLoginPath(pathname?: string, role?: string | null) {
   const path = pathname ?? (typeof window !== "undefined" ? window.location.pathname : "");
   if (path.startsWith("/admin") || path.startsWith("/super-admin") || role === "ADMIN" || role === "SUPER_ADMIN") {
@@ -74,7 +90,8 @@ export function clearClientSession(options: ClearSessionOptions = {}) {
   localStorage.removeItem("userEmail");
   localStorage.removeItem("isProfileCompleted");
   localStorage.removeItem("onboardingStep");
-  
+  clearSupabaseAuthStorage();
+
   clearCookie("accessToken");
   clearCookie("refreshToken");
   clearCookie("userRole");
