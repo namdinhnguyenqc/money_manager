@@ -243,7 +243,7 @@ adminRoutes.patch("/users/:id/status", requireAuth, requireAdmin, async (c) => {
   const currentUser = c.get("user");
 
   if (currentUser.id === userId) {
-    return c.json({ code: "CANNOT_BLOCK_SELF", message: "KhÃ´ng thá»ƒ tá»± khÃ³a tÃ i khoáº£n cá»§a mÃ¬nh." }, 400);
+    return c.json({ code: "CANNOT_BLOCK_SELF", message: "Không thể tự khóa tài khoản của mình." }, 400);
   }
 
   const parsed = await c.req.json();
@@ -267,7 +267,7 @@ adminRoutes.patch("/users/:id/status", requireAuth, requireAdmin, async (c) => {
   }
 
   if (targetUser.role === "SUPER_ADMIN" && currentUser.role !== "SUPER_ADMIN") {
-    return c.json({ code: "INSUFFICIENT_PERMISSION", message: "KhÃ´ng Ä‘á»§ quyá»n Ä‘á»ƒ thay Ä‘á»•i tráº¡ng thÃ¡i cá»§a SUPER_ADMIN." }, 403);
+    return c.json({ code: "INSUFFICIENT_PERMISSION", message: "Không đủ quyền để thay đổi trạng thái của SUPER_ADMIN." }, 403);
   }
 
   await supabaseAdmin
@@ -303,7 +303,7 @@ adminRoutes.patch("/users/:id/role", requireAuth, requireSuperAdmin, async (c) =
   }
 
   if (targetUser.role === "SUPER_ADMIN") {
-    return c.json({ code: "INSUFFICIENT_PERMISSION", message: "KhÃ´ng thá»ƒ thay Ä‘á»•i role cá»§a SUPER_ADMIN." }, 403);
+    return c.json({ code: "INSUFFICIENT_PERMISSION", message: "Không thể thay đổi role của SUPER_ADMIN." }, 403);
   }
 
   await supabaseAdmin
@@ -320,7 +320,7 @@ adminRoutes.delete("/users/:id", requireAuth, requireAdmin, async (c) => {
   const currentUser = c.get("user");
 
   if (currentUser.id === userId) {
-    return c.json({ code: "CANNOT_DELETE_SELF", message: "KhÃ´ng thá»ƒ tá»± xÃ³a tÃ i khoáº£n cá»§a mÃ¬nh." }, 400);
+    return c.json({ code: "CANNOT_DELETE_SELF", message: "Không thể tự xóa tài khoản của mình." }, 400);
   }
 
 
@@ -336,11 +336,11 @@ adminRoutes.delete("/users/:id", requireAuth, requireAdmin, async (c) => {
   }
 
   if (targetUser.role === "SUPER_ADMIN") {
-    return c.json({ code: "INSUFFICIENT_PERMISSION", message: "KhÃ´ng thá»ƒ xÃ³a SUPER_ADMIN." }, 403);
+    return c.json({ code: "INSUFFICIENT_PERMISSION", message: "Không thể xóa SUPER_ADMIN." }, 403);
   }
 
   if (targetUser.role === "ADMIN" && currentUser.role !== "SUPER_ADMIN") {
-    return c.json({ code: "INSUFFICIENT_PERMISSION", message: "Chá»‰ SUPER_ADMIN má»›i cÃ³ thá»ƒ xÃ³a ADMIN." }, 403);
+    return c.json({ code: "INSUFFICIENT_PERMISSION", message: "Chỉ SUPER_ADMIN mới có thể xóa ADMIN." }, 403);
   }
 
   await supabaseAdmin
