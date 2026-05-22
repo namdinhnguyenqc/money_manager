@@ -6,8 +6,6 @@ import { API_URL } from "@/lib/apiUrl";
 import { clearClientSession, createAuthBroadcastChannel, getLoginPath, getStoredAccessToken } from "@/utils/session";
 
 const privatePrefixes = [
-  "/admin",
-  "/super-admin",
   "/owner",
   "/facilities",
   "/contracts",

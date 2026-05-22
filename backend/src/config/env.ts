@@ -4,9 +4,9 @@ const required = (name: string): string => {
   const value = process.env[name];
   if (!value || value.includes("your-") || value.includes("change-in-production")) {
     if (process.env.NODE_ENV === "production") {
-      throw new Error(`❌ FATAL: Missing required env var in production: ${name}`);
+      throw new Error(`âŒ FATAL: Missing required env var in production: ${name}`);
     }
-    console.warn(`⚠️  Warning: Missing or placeholder env var: ${name}. Running in development mode.`);
+    console.warn(`âš ï¸  Warning: Missing or placeholder env var: ${name}. Running in development mode.`);
     return "";
   }
   return value;
@@ -27,7 +27,7 @@ const productionRequired = (name: string, fallback = ""): string => {
 };
 
 if (isProduction && process.env.ADMIN_PASSWORD === "admin") {
-  throw new Error(`❌ FATAL: Default ADMIN_PASSWORD is not allowed in production!`);
+  throw new Error(`âŒ FATAL: Default ADMIN_PASSWORD is not allowed in production!`);
 }
 
 const jwtSecret = productionRequired("JWT_SECRET", "dev-secret-ONLY-for-local-dev-do-not-use-in-prod");
@@ -45,5 +45,5 @@ export const env = {
   JWT_EXPIRY_SECONDS: Number(process.env.JWT_EXPIRY_SECONDS || 900), // 15 minutes
   REFRESH_TOKEN_EXPIRY_DAYS: Number(process.env.REFRESH_TOKEN_EXPIRY_DAYS || 30),
   // CORS: comma-separated list of allowed origins, e.g. "https://admin.yourdomain.com,https://app.yourdomain.com"
-  CORS_ORIGINS: optional("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:8081,http://localhost:19006").split(",").map(s => s.trim()),
+  CORS_ORIGINS: optional("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3011,http://localhost:8081,http://localhost:19006").split(",").map(s => s.trim()),
 };

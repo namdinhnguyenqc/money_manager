@@ -19,6 +19,8 @@ const authRoutes = new Hono<AppEnv>();
 
 const cookieOptions = `Path=/auth; HttpOnly; SameSite=Lax; Max-Age=${env.REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 const REFRESH_REPLAY_GRACE_MS = 10_000;
+
+// TODO: Chuyá»ƒn sang Redis náº¿u triá»ƒn khai nhiá»u instance backend (Horizontal Scaling)
 const recentRefreshRotations = new Map<
   string,
   {
@@ -165,7 +167,7 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
     });
   } catch (e) {
     await logLoginAttempt(null, false, "TOKEN_INVALID");
-    return { error: { code: "TOKEN_INVALID", message: "Xác thực Google thất bại." }, status: 401 };
+    return { error: { code: "TOKEN_INVALID", message: "XÃ¡c thá»±c Google tháº¥t báº¡i." }, status: 401 };
   }
   const payload = ticket.getPayload();
 
@@ -187,7 +189,7 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
 
   if (findError && findError.code !== "PGRST116") {
     console.error("Error finding user:", findError);
-    return { error: { code: "SERVER_ERROR", message: "Lỗi server." }, status: 500 };
+    return { error: { code: "SERVER_ERROR", message: "Lá»—i server." }, status: 500 };
   }
 
   let isNewUser = false;
@@ -210,18 +212,18 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
 
     if (createError) {
       console.error("Error creating user:", createError);
-      return { error: { code: "SERVER_ERROR", message: `[AUTH_ROUTE_001] Không thể tạo tài khoản: ${createError.message}` }, status: 500 };
+      return { error: { code: "SERVER_ERROR", message: `[AUTH_ROUTE_001] KhÃ´ng thá»ƒ táº¡o tÃ i khoáº£n: ${createError.message}` }, status: 500 };
     }
     existingUser = newUser;
   } else {
     if (existingUser.status === "BLOCKED") {
       await logLoginAttempt(existingUser.id, false, "ACCOUNT_BLOCKED");
-      return { error: { code: "ACCOUNT_BLOCKED", message: "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên." }, status: 403 };
+      return { error: { code: "ACCOUNT_BLOCKED", message: "TÃ i khoáº£n cá»§a báº¡n Ä‘Ã£ bá»‹ khÃ³a. Vui lÃ²ng liÃªn há»‡ quáº£n trá»‹ viÃªn." }, status: 403 };
     }
 
     if (existingUser.status === "DELETED") {
       await logLoginAttempt(existingUser.id, false, "ACCOUNT_DELETED");
-      return { error: { code: "ACCOUNT_DELETED", message: "Tài khoản đã bị xóa." }, status: 403 };
+      return { error: { code: "ACCOUNT_DELETED", message: "TÃ i khoáº£n Ä‘Ã£ bá»‹ xÃ³a." }, status: 403 };
     }
 
     // Update existing user info if found by email but google_id was missing
@@ -236,7 +238,7 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
       .eq("id", existingUser.id)
       .select()
       .single();
-    
+
     if (updateError) {
       console.error("Error updating existing user during login:", updateError);
     } else if (updatedUser) {
@@ -270,7 +272,7 @@ async function upsertOwnerGoogleUser(input: {
 
   if (googleFindError && googleFindError.code !== "PGRST116") {
     console.error("Error finding owner google user by google_id:", safeSupabaseError(googleFindError));
-    return { error: { code: "SERVER_ERROR", message: "Không thể kiểm tra tài khoản owner." }, status: 500 };
+    return { error: { code: "SERVER_ERROR", message: "KhÃ´ng thá»ƒ kiá»ƒm tra tÃ i khoáº£n owner." }, status: 500 };
   }
 
   existingUser = userByGoogleId;
@@ -285,7 +287,7 @@ async function upsertOwnerGoogleUser(input: {
 
     if (emailFindError && emailFindError.code !== "PGRST116") {
       console.error("Error finding owner google user by email:", safeSupabaseError(emailFindError));
-      return { error: { code: "SERVER_ERROR", message: "Không thể kiểm tra tài khoản owner." }, status: 500 };
+      return { error: { code: "SERVER_ERROR", message: "KhÃ´ng thá»ƒ kiá»ƒm tra tÃ i khoáº£n owner." }, status: 500 };
     }
 
     existingUser = userByEmail;
@@ -313,7 +315,7 @@ async function upsertOwnerGoogleUser(input: {
 
     if (createError || !createdUser) {
       console.error("Error creating owner google user:", safeSupabaseError(createError));
-      return { error: { code: "SERVER_ERROR", message: "[AUTH_ROUTE_002] Không thể tạo tài khoản owner." }, status: 500 };
+      return { error: { code: "SERVER_ERROR", message: "[AUTH_ROUTE_002] KhÃ´ng thá»ƒ táº¡o tÃ i khoáº£n owner." }, status: 500 };
     }
 
     existingUser = createdUser;
@@ -332,13 +334,13 @@ async function upsertOwnerGoogleUser(input: {
     }
 
     if (!["OWNER", "SUPER_ADMIN"].includes(existingUser.role)) {
-      return { error: { code: "OWNER_ACCESS_REQUIRED", message: "Tài khoản này không có quyền owner." }, status: 403 };
+      return { error: { code: "OWNER_ACCESS_REQUIRED", message: "TÃ i khoáº£n nÃ y khÃ´ng cÃ³ quyá»n owner." }, status: 403 };
     }
     if (existingUser.status === "BLOCKED") {
-      return { error: { code: "ACCOUNT_BLOCKED", message: "Tài khoản owner đã bị khóa." }, status: 403 };
+      return { error: { code: "ACCOUNT_BLOCKED", message: "TÃ i khoáº£n owner Ä‘Ã£ bá»‹ khÃ³a." }, status: 403 };
     }
     if (existingUser.status === "DELETED") {
-      return { error: { code: "ACCOUNT_DELETED", message: "Tài khoản owner đã bị xóa." }, status: 403 };
+      return { error: { code: "ACCOUNT_DELETED", message: "TÃ i khoáº£n owner Ä‘Ã£ bá»‹ xÃ³a." }, status: 403 };
     }
 
     const { data: updatedUser } = await supabaseAdmin
@@ -365,7 +367,7 @@ async function handleOwnerGoogleAuth(idToken: string | undefined) {
 
 
   if (!idToken) {
-    return { error: { code: "TOKEN_INVALID", message: "Thiếu Google credential." }, status: 400 };
+    return { error: { code: "TOKEN_INVALID", message: "Thiáº¿u Google credential." }, status: 400 };
   }
 
   if (process.env.NODE_ENV !== "production" && idToken === "mock-owner-google-token") {
@@ -379,7 +381,7 @@ async function handleOwnerGoogleAuth(idToken: string | undefined) {
   }
 
   if (!env.GOOGLE_CLIENT_ID) {
-    return { error: { code: "GOOGLE_OAUTH_NOT_CONFIGURED", message: "Backend chưa cấu hình Google OAuth client." }, status: 500 };
+    return { error: { code: "GOOGLE_OAUTH_NOT_CONFIGURED", message: "Backend chÆ°a cáº¥u hÃ¬nh Google OAuth client." }, status: 500 };
   }
 
   let ticket;
@@ -389,12 +391,12 @@ async function handleOwnerGoogleAuth(idToken: string | undefined) {
       audience: env.GOOGLE_CLIENT_ID,
     });
   } catch {
-    return { error: { code: "TOKEN_INVALID", message: "Xác thực Google thất bại." }, status: 401 };
+    return { error: { code: "TOKEN_INVALID", message: "XÃ¡c thá»±c Google tháº¥t báº¡i." }, status: 401 };
   }
 
   const payload = ticket.getPayload();
   if (!payload?.email) {
-    return { error: { code: "TOKEN_INVALID", message: "Token payload không hợp lệ." }, status: 400 };
+    return { error: { code: "TOKEN_INVALID", message: "Token payload khÃ´ng há»£p lá»‡." }, status: 400 };
   }
 
   return upsertOwnerGoogleUser({
@@ -456,7 +458,7 @@ async function createAuthResponse(user: any, isNewUser: boolean) {
 }
 
 
-// POST /auth/admin-login — Username/Password login for Web Admin
+// POST /auth/admin-login â€” Username/Password login for Web Admin
 authRoutes.post("/admin-login", async (c) => {
   const parsed = await parseJson(c, adminLoginSchema);
   if (!parsed.ok) return parsed.response;
@@ -464,7 +466,7 @@ authRoutes.post("/admin-login", async (c) => {
   const { username, password } = parsed.data;
 
   if (username !== env.ADMIN_USERNAME || password !== env.ADMIN_PASSWORD) {
-    return c.json({ code: "INVALID_CREDENTIALS", message: "Sai tên đăng nhập hoặc mật khẩu." }, 401);
+    return c.json({ code: "INVALID_CREDENTIALS", message: "Sai tÃªn Ä‘Äƒng nháº­p hoáº·c máº­t kháº©u." }, 401);
   }
 
   const adminUser = {
@@ -493,7 +495,7 @@ authRoutes.post("/admin-login", async (c) => {
   });
 });
 
-// POST /auth/google — Google Sign-In for Mobile/Web App
+// POST /auth/google â€” Google Sign-In for Mobile/Web App
 authRoutes.post("/google", async (c) => {
   const parsed = await parseJson(c, googleAuthSchema);
   if (!parsed.ok) return parsed.response;
@@ -514,7 +516,7 @@ authRoutes.post("/google", async (c) => {
   return c.json(result);
 });
 
-// POST /auth/owner-google — Owner-only Google sign-in for web admin
+// POST /auth/owner-google â€” Owner-only Google sign-in for web admin
 authRoutes.post("/owner-google", async (c) => {
   const parsed = await parseJson(c, ownerGoogleAuthSchema);
   if (!parsed.ok) return parsed.response;
@@ -537,7 +539,7 @@ authRoutes.post("/refresh", async (c) => {
   const refreshToken = body?.refreshToken || getCookieValue(c.req.header("Cookie"), "refreshToken");
   const parsed = refreshSchema.safeParse({ refreshToken });
   if (!parsed.success) {
-    return c.json({ code: "REFRESH_TOKEN_REQUIRED", message: "Thiếu refresh token." }, 401);
+    return c.json({ code: "REFRESH_TOKEN_REQUIRED", message: "Thiáº¿u refresh token." }, 401);
   }
 
   const tokenHash = await hashToken(parsed.data.refreshToken);
@@ -549,7 +551,7 @@ authRoutes.post("/refresh", async (c) => {
     .single();
 
   if (findError || !tokenRecord) {
-    return c.json({ code: "REFRESH_TOKEN_EXPIRED", message: "Phiên đăng nhập đã hết hạn." }, 401);
+    return c.json({ code: "REFRESH_TOKEN_EXPIRED", message: "PhiÃªn Ä‘Äƒng nháº­p Ä‘Ã£ háº¿t háº¡n." }, 401);
   }
 
   if (tokenRecord.revoked_at) {
@@ -580,7 +582,7 @@ authRoutes.post("/refresh", async (c) => {
       .eq("user_id", tokenRecord.user_id)
       .is("revoked_at", null);
     auditLog("REFRESH_FAILED_REUSED", tokenRecord.user_id, { tokenHash });
-    return c.json({ code: "REFRESH_TOKEN_REUSED", message: "Phiên đăng nhập không còn hợp lệ." }, 401);
+    return c.json({ code: "REFRESH_TOKEN_REUSED", message: "PhiÃªn Ä‘Äƒng nháº­p khÃ´ng cÃ²n há»£p lá»‡." }, 401);
   }
 
   if (new Date(tokenRecord.expires_at) < new Date()) {
@@ -589,7 +591,7 @@ authRoutes.post("/refresh", async (c) => {
       .update({ revoked_at: new Date().toISOString() })
       .eq("token_hash", tokenHash);
     auditLog("REFRESH_FAILED_EXPIRED", tokenRecord.user_id, { tokenHash });
-    return c.json({ code: "REFRESH_TOKEN_EXPIRED", message: "Phiên đăng nhập đã hết hạn." }, 401);
+    return c.json({ code: "REFRESH_TOKEN_EXPIRED", message: "PhiÃªn Ä‘Äƒng nháº­p Ä‘Ã£ háº¿t háº¡n." }, 401);
   }
 
   const user = tokenRecord.users;
@@ -612,7 +614,7 @@ authRoutes.post("/refresh", async (c) => {
 
   if (revokeError) {
     console.error("Error rotating refresh token:", safeSupabaseError(revokeError));
-    return c.json({ code: "SESSION_ROTATION_FAILED", message: "Không thể gia hạn phiên đăng nhập." }, 500);
+    return c.json({ code: "SESSION_ROTATION_FAILED", message: "KhÃ´ng thá»ƒ gia háº¡n phiÃªn Ä‘Äƒng nháº­p." }, 500);
   }
 
   const { error: insertError } = await supabaseAdmin.from("refresh_tokens").insert({
@@ -624,7 +626,7 @@ authRoutes.post("/refresh", async (c) => {
 
   if (insertError) {
     console.error("Error inserting rotated refresh token:", safeSupabaseError(insertError));
-    return c.json({ code: "SESSION_ROTATION_FAILED", message: "Không thể gia hạn phiên đăng nhập." }, 500);
+    return c.json({ code: "SESSION_ROTATION_FAILED", message: "KhÃ´ng thá»ƒ gia háº¡n phiÃªn Ä‘Äƒng nháº­p." }, 500);
   }
 
   setRefreshCookie(c, nextRefreshToken);
@@ -637,6 +639,7 @@ authRoutes.post("/refresh", async (c) => {
     nextSessionId,
     expiresAtMs: Date.now() + REFRESH_REPLAY_GRACE_MS,
   });
+
   auditLog("REFRESH_SUCCESS", user.id, { sessionId: nextSessionId });
 
   return c.json({
@@ -661,6 +664,7 @@ authRoutes.post("/logout", async (c) => {
   const authHeader = c.req.header("Authorization");
   const bearerToken = authHeader?.toLowerCase().startsWith("bearer ") ? authHeader.slice(7).trim() : "";
   if (bearerToken) {
+    // Access Token Denylist (In-memory hotfix)
     revokeAccessToken(bearerToken);
   }
 
@@ -668,6 +672,7 @@ authRoutes.post("/logout", async (c) => {
   try {
     const body = await c.req.json().catch(() => ({}));
     const refreshToken = body?.refreshToken || getCookieValue(c.req.header("Cookie"), "refreshToken");
+
     if (refreshToken) {
       const tokenHash = await hashToken(refreshToken);
       await supabaseAdmin
@@ -675,13 +680,18 @@ authRoutes.post("/logout", async (c) => {
         .update({ revoked_at: new Date().toISOString() })
         .eq("token_hash", tokenHash);
     }
-  } catch {}
+
+    // Cleanup grace period map for this specific token to prevent potential memory leaks
+    const currentTokenHash = refreshToken ? await hashToken(refreshToken) : null;
+    if (currentTokenHash) recentRefreshRotations.delete(currentTokenHash);
+
+  } catch { }
 
   clearAuthCookies(c);
   c.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   c.header("Pragma", "no-cache");
   c.header("Expires", "0");
-  
+
   auditLog("LOGOUT_SUCCESS", null, { notes: "Client logged out" });
   return c.json({ success: true });
 });
@@ -703,12 +713,12 @@ authRoutes.post("/logout-all", requireAuth, async (c) => {
 
   clearAuthCookies(c);
   c.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  
+
   auditLog("LOGOUT_ALL_SUCCESS", user.id, { notes: "User revoked all active sessions" });
   return c.json({ success: true, message: "Logged out from all devices" });
 });
 
-// GET /auth/me — Get current user info from JWT
+// GET /auth/me â€” Get current user info from JWT
 authRoutes.get("/me", requireAuth, async (c) => {
   const user = c.get("user");
 
@@ -730,27 +740,22 @@ authRoutes.get("/me", requireAuth, async (c) => {
     return c.json({ ...responseUser, user: responseUser });
   }
 
-  const { data: dbUser, error: dbUserErr } = await supabaseAdmin
-    .from("users")
-    .select("id, email, name, avatar, role, status, is_profile_completed, onboarding_step")
-    .eq("id", user.id)
-    .single();
-
-  if (dbUserErr) {
-    console.error("Error fetching dbUser in /auth/me:", dbUserErr.message);
-  }
-
+  // Tá»‘i Æ°u: Náº¿u JWT payload Ä‘Ã£ cÃ³ sáºµn thÃ´ng tin cáº§n thiáº¿t,
+  // tráº£ vá» trá»±c tiáº¿p Ä‘á»ƒ trÃ¡nh Ä‘á»™ trá»… network hit Database (~200-500ms)
+  // Chá»‰ tráº£ vá» identity, khÃ´ng tráº£ vá» data nghiá»‡p vá»¥ á»Ÿ Ä‘Ã¢y.
   const responseUser = {
-    id: dbUser?.id,
-    email: dbUser?.email,
-    name: dbUser?.name,
-    avatarUrl: dbUser?.avatar,
-    role: dbUser?.role,
-    status: dbUser?.status,
-    isProfileCompleted: dbUser?.is_profile_completed ?? true,
-    onboardingStep: dbUser?.onboarding_step ?? "DONE",
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    avatarUrl: user.avatarUrl,
+    role: user.role,
+    status: user.status || "ACTIVE",
+    // DÃ¹ng header Cache-Control Ä‘á»ƒ trÃ¬nh duyá»‡t/CDN cÃ³ thá»ƒ cache session check
+    isProfileCompleted: user.isProfileCompleted ?? true,
+    onboardingStep: user.onboardingStep ?? "DONE",
   };
 
+  c.header("Cache-Control", "private, max-age=60"); // Cache session local 1 phÃºt
   return c.json({ ...responseUser, user: responseUser });
 });
 
