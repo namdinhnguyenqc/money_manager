@@ -3,7 +3,7 @@
 import React from "react";
 import { inputBase, selectBase, labelBase } from "./design-tokens";
 
-/* â”€â”€ Label â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Label ──────────────────────────────────────────────────────── */
 type LabelProps = React.LabelHTMLAttributes<HTMLLabelElement> & {
   children: React.ReactNode;
 };
@@ -16,7 +16,7 @@ export function Label({ children, className = "", ...rest }: LabelProps) {
   );
 }
 
-/* â”€â”€ Input â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Input ──────────────────────────────────────────────────────── */
 type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   icon?: React.ReactNode;
   error?: string;
@@ -49,7 +49,7 @@ export default function Input({
   );
 }
 
-/* â”€â”€ Select â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Select ─────────────────────────────────────────────────────── */
 type SelectProps = React.SelectHTMLAttributes<HTMLSelectElement> & {
   error?: string;
 };

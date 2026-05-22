@@ -1,9 +1,9 @@
 /**
- * Trá»Care Design System â€” Shared design tokens
+ * TrọCare Design System — Shared design tokens
  * Only className strings & maps. No runtime logic.
  */
 
-/* â”€â”€ Color palette â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Color palette ──────────────────────────────────────────────── */
 export const colors = {
   primary: "#2563EB",
   primaryDark: "#1D4ED8",
@@ -23,7 +23,7 @@ export const colors = {
   }
 } as const;
 
-/* â”€â”€ Button variant class maps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Button variant class maps ──────────────────────────────────── */
 export const buttonVariants = {
   primary:
     "bg-blue-600 text-white border border-blue-600 hover:bg-blue-700 hover:border-blue-700 focus-visible:ring-blue-500 shadow-sm",
@@ -47,7 +47,7 @@ export const buttonSizes = {
   lg: "h-12 px-6 text-sm font-semibold gap-2 rounded-xl",
 } as const;
 
-/* â”€â”€ Badge variant class maps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Badge variant class maps ───────────────────────────────────── */
 export const badgeVariants = {
   primary: "bg-blue-50 text-blue-700 border-blue-200",
   success: "bg-green-50 text-green-700 border-green-200",
@@ -57,7 +57,7 @@ export const badgeVariants = {
   orange: "bg-orange-50 text-orange-700 border-orange-200",
 } as const;
 
-/* â”€â”€ Input base classes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Input base classes ─────────────────────────────────────────── */
 export const inputBase =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400";
 
@@ -67,14 +67,14 @@ export const selectBase =
 export const labelBase =
   "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
 
-/* â”€â”€ Card classes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Card classes ───────────────────────────────────────────────── */
 export const cardBase =
   "rounded-xl border border-slate-200 bg-white shadow-sm";
 
 export const cardHover =
   "rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md hover:border-slate-300";
 
-/* â”€â”€ Typography scale â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Typography scale ───────────────────────────────────────────── */
 export const typography = {
   pageTitle: "text-2xl font-black tracking-tight text-slate-900",
   pageSubtitle: "text-xs font-bold uppercase tracking-widest text-blue-600",
@@ -89,7 +89,7 @@ export const typography = {
   idCode: "font-mono text-xs font-medium text-slate-500 truncate",
 } as const;
 
-/* â”€â”€ Filter pill classes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Filter pill classes ────────────────────────────────────────── */
 export const filterPillActive =
   "border-blue-600 bg-blue-600 text-white shadow-sm font-bold";
 export const filterPillInactive =

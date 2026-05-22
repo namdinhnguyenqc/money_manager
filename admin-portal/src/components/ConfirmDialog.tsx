@@ -19,8 +19,8 @@ export default function ConfirmDialog({
   message,
   onConfirm,
   onCancel,
-  confirmLabel = "XÃ¡c nháº­n",
-  cancelLabel = "Há»§y",
+  confirmLabel = "Xác nhận",
+  cancelLabel = "Hủy",
 }: Props) {
   if (!open) return null;
 
@@ -32,7 +32,7 @@ export default function ConfirmDialog({
             <AlertTriangle size={18} />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-slate-950">{title || "XÃ¡c nháº­n hÃ nh Ä‘á»™ng"}</h3>
+            <h3 className="text-base font-semibold text-slate-950">{title || "Xác nhận hành động"}</h3>
             <p className="mt-1 text-sm leading-6 text-slate-600">{message}</p>
           </div>
         </div>

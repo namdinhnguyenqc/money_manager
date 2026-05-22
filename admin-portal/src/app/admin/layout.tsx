@@ -101,7 +101,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-sm text-slate-500">
-        Äang xÃ¡c thá»±c quyá»n truy cáº­p Admin...
+        Đang xác thực quyền truy cập Admin...
       </div>
     );
   }
@@ -150,19 +150,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {hasAdminPermission(permissions, "dashboard.view") && (
             <Link href="/admin" className={navClass("/admin", true)}>
               <LayoutDashboard size={18} />
-              <span className="text-sm font-medium">Tá»•ng quan</span>
+              <span className="text-sm font-medium">Tổng quan</span>
             </Link>
           )}
           {hasAdminPermission(permissions, "account.view") && (
             <Link href="/admin/users" className={navClass("/admin/users")}>
               <Users size={18} />
-              <span className="text-sm font-medium">NgÆ°á»i dÃ¹ng</span>
+              <span className="text-sm font-medium">Người dùng</span>
             </Link>
           )}
           {hasAdminPermission(permissions, "owner.view") && (
             <Link href="/admin/owners" className={navClass("/admin/owners")}>
               <Home size={18} />
-              <span className="text-sm font-medium">Chá»§ trá»</span>
+              <span className="text-sm font-medium">Chủ trọ</span>
             </Link>
           )}
         </nav>
@@ -173,7 +173,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-red-600 transition-colors hover:bg-red-50"
           >
             <LogOut size={18} />
-            <span className="text-sm font-medium">ÄÄƒng xuáº¥t</span>
+            <span className="text-sm font-medium">Đăng xuất</span>
           </button>
         </div>
       </aside>
@@ -183,7 +183,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <button onClick={() => setSidebarOpen(true)} className="text-slate-600">
             <Menu size={22} />
           </button>
-          <span className="text-sm font-bold text-slate-800">Trá»Care Admin</span>
+          <span className="text-sm font-bold text-slate-800">TrọCare Admin</span>
         </header>
         <main className="p-6">{children}</main>
       </div>

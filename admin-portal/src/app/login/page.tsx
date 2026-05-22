@@ -41,7 +41,7 @@ export default function AdminLoginPage() {
       const data = (await res.json().catch(() => ({}))) as AdminLoginResponse;
       const accessToken = data.session?.access_token || data.accessToken;
       if (!res.ok || !accessToken) {
-        throw new Error(data.error || data.message || "ÄÄƒng nháº­p Admin tháº¥t báº¡i.");
+        throw new Error(data.error || data.message || "Đăng nhập Admin thất bại.");
       }
       setClientSession({
         accessToken,
@@ -51,7 +51,7 @@ export default function AdminLoginPage() {
       });
       router.replace("/admin");
     } catch (err: any) {
-      setError(err?.message || "KhÃ´ng thá»ƒ Ä‘Äƒng nháº­p Admin.");
+      setError(err?.message || "Không thể đăng nhập Admin.");
     } finally {
       setLoading(false);
     }
@@ -67,13 +67,13 @@ export default function AdminLoginPage() {
           </span>
           <div>
             <h1 className="text-2xl font-black text-slate-950">Admin Portal</h1>
-            <p className="text-sm text-slate-500">ÄÄƒng nháº­p cá»•ng váº­n hÃ nh ná»™i bá»™.</p>
+            <p className="text-sm text-slate-500">Đăng nhập cổng vận hành nội bộ.</p>
           </div>
         </div>
 
         <form className="mt-7 space-y-4" onSubmit={submit}>
           <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-slate-700">TÃªn Ä‘Äƒng nháº­p</span>
+            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Tên đăng nhập</span>
             <input
               value={username}
               onChange={(event) => setUsername(event.target.value)}
@@ -83,7 +83,7 @@ export default function AdminLoginPage() {
             />
           </label>
           <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Máº­t kháº©u</span>
+            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Mật khẩu</span>
             <input
               type="password"
               value={password}
@@ -99,7 +99,7 @@ export default function AdminLoginPage() {
             disabled={loading}
           >
             <LogIn size={17} />
-            {loading ? "Äang Ä‘Äƒng nháº­p..." : "ÄÄƒng nháº­p Admin"}
+            {loading ? "Đang đăng nhập..." : "Đăng nhập Admin"}
           </button>
         </form>
       </section>

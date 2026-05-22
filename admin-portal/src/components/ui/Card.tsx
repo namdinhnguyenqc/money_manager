@@ -11,7 +11,7 @@ type CardProps = {
 };
 
 /**
- * Unified Card wrapper. No fixed widths â€” use grid for responsive layout.
+ * Unified Card wrapper. No fixed widths — use grid for responsive layout.
  */
 export default function Card({
   children,

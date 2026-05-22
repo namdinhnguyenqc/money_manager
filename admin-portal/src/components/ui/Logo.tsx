@@ -72,7 +72,7 @@ export default function Logo({
             <span className="text-[#2563EB] font-black">Care</span>
           </span>
           <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 -mt-0.5">
-            Quáº£n lÃ½ trá» thÃ´ng minh
+            Quản lý trọ thông minh
           </span>
         </div>
       )}

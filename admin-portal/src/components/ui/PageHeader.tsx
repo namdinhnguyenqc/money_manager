@@ -10,7 +10,7 @@ type PageHeaderProps = {
   title: string;
   /** Description paragraph below title */
   description?: string;
-  /** Actions slot (buttons, etc.) â€” rendered on the right */
+  /** Actions slot (buttons, etc.) — rendered on the right */
   actions?: React.ReactNode;
   /** Optional breadcrumb or extra content above subtitle */
   breadcrumb?: React.ReactNode;

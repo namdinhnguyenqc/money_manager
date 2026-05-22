@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  MapPin, 
-  Phone, 
-  RefreshCw, 
-  ShieldCheck, 
-  UserCircle, 
-  Edit3, 
-  Mail, 
+import {
+  MapPin,
+  Phone,
+  RefreshCw,
+  ShieldCheck,
+  UserCircle,
+  Edit3,
+  Mail,
   Info,
   BadgeCheck,
   Smartphone,
@@ -58,6 +58,9 @@ export default function OwnerProfilePage() {
     }
   };
 
+  // Giả sử bạn chuyển sang dùng TanStack Query (React Query)
+  // const { data, isLoading } = useQuery({ queryKey: ['profile'], queryFn: getMyProfile });
+
   useEffect(() => {
     load();
   }, []);
@@ -69,8 +72,8 @@ export default function OwnerProfilePage() {
         title="Hồ sơ tài khoản"
         description="Thông tin cá nhân dùng để định danh chủ trọ và làm cơ sở cho bộ chứng từ, hợp đồng."
         actions={
-          <Button 
-            variant="primary" 
+          <Button
+            variant="primary"
             icon={<Edit3 size={16} />}
             onClick={() => router.push("/owner/settings/profile")}
             className="shadow-lg shadow-blue-500/20"
@@ -90,7 +93,7 @@ export default function OwnerProfilePage() {
         />
       ) : data ? (
         <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)] items-start">
-          
+
           {/* Left Column: Avatar & Summary */}
           <div className="space-y-6 lg:sticky lg:top-8">
             <Card className="overflow-hidden border-none shadow-[0_20px_50px_rgba(15,23,42,0.08)]">
@@ -158,7 +161,7 @@ export default function OwnerProfilePage() {
 
           {/* Right Column: Detailed Info */}
           <div className="space-y-6">
-            
+
             {/* Contact Group */}
             <div className="grid gap-6 md:grid-cols-2">
               <Card className="p-6 transition-all hover:shadow-md group">
@@ -192,7 +195,7 @@ export default function OwnerProfilePage() {
                   <MapPin className="text-blue-600" size={18} />
                   Địa chỉ thường trú / Liên hệ
                 </div>
-                
+
                 <div className="grid md:grid-cols-2 gap-x-12 gap-y-8">
                   <div>
                     <InfoLabel label="Tỉnh / Thành phố" icon={Globe} />

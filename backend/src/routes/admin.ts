@@ -151,7 +151,7 @@ const adminWithPermission = (permission: string) => [requireAuth, requireAdmin, 
 adminRoutes.get("/users", requireAuth, requireAdmin, async (c) => {
 
 
-  const { page = "1", limit = "20", search = "", role = "", status = "ACTIVE", sortBy = "created_at", sortOrder = "desc" } = c.req.query();
+  const { page = "1", limit = "20", search = "", role = "", status = "", sortBy = "created_at", sortOrder = "desc" } = c.req.query();
 
   const pageNum = parseInt(page) || 1;
   const limitNum = Math.min(parseInt(limit) || 20, 100);
