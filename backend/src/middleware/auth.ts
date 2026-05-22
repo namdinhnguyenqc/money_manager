@@ -13,6 +13,24 @@ const extractBearer = (headerValue: string | undefined): string | null => {
   return token;
 };
 
+const decodeJwtPayload = (token: string): Record<string, any> | null => {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+  } catch {
+    return null;
+  }
+};
+
+const isSupabaseAuthTokenCandidate = (token: string) => {
+  const payload = decodeJwtPayload(token);
+  const issuer = typeof payload?.iss === "string" ? payload.iss : "";
+  return issuer === `${env.SUPABASE_URL}/auth/v1` || issuer.startsWith(`${env.SUPABASE_URL}/auth/v1`);
+};
+
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
 function checkRateLimit(ip: string, endpoint: string): boolean {
@@ -162,6 +180,10 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Verify Supabase JWT â€” láº¥y user tá»« auth.users
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  if (!isSupabaseAuthTokenCandidate(token)) {
+    return c.json({ error: "Invalid or expired token", code: "APP_JWT_INVALID" }, 401);
+  }
+
   const { data: { user: supaUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
   if (authError || !supaUser) {
