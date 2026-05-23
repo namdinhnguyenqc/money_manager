@@ -111,6 +111,15 @@ export function getStoredAccessToken() {
   return memoryAccessToken || localStorage.getItem("accessToken");
 }
 
+export function getStoredSessionUser() {
+  if (typeof window === "undefined") return { role: null, name: null, email: null };
+  return {
+    role: localStorage.getItem("userRole"),
+    name: localStorage.getItem("userName"),
+    email: localStorage.getItem("userEmail"),
+  };
+}
+
 export function createAuthBroadcastChannel() {
   if (typeof window === "undefined" || !("BroadcastChannel" in window)) return null;
   return new BroadcastChannel(AUTH_CHANNEL);

@@ -1,5 +1,14 @@
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api";
+import type { BoardingHouse, RentalRoom, Transaction, Wallet } from "@/lib/rentalOps";
+
+export type OwnerDashboardInit = {
+  boardingHouses: BoardingHouse[];
+  rooms: RentalRoom[];
+  wallets: Wallet[];
+  transactions: Transaction[];
+  settings: Record<string, unknown>;
+};
 
 export function useBoardingHouses() {
   return useQuery({
@@ -33,6 +42,7 @@ export function useSettings() {
 export function useOwnerDashboardInit() {
   return useQuery({
     queryKey: ["owner", "dashboard-init"],
-    queryFn: () => apiClient("/owner/dashboard-init"),
+    queryFn: () => apiClient<OwnerDashboardInit>("/owner/dashboard-init"),
+    staleTime: 60_000,
   });
 }

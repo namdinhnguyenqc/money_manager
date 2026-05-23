@@ -2,7 +2,6 @@
 
 import React, { useMemo } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
 import { 
   BarChart, 
   Bar, 
@@ -34,27 +33,21 @@ import {
   ArrowDownRight
 } from 'lucide-react';
 import { 
-  loadRentalRooms, 
-  loadTransactions, 
-  loadBoardingHouses, 
   formatMoney, 
   normalizeRoomStatus,
-  loadWallets
 } from '@/lib/rentalOps';
 import RBACGuard from '@/components/RBACGuard';
 import LoadingSkeleton from '@/components/ops/LoadingSkeleton';
+import { useOwnerDashboardInit } from '@/hooks/useOwnerData';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444'];
 
 export default function OwnerDashboard() {
-  const roomsQuery = useQuery({ queryKey: ['rooms'], queryFn: () => loadRentalRooms(), staleTime: 60000 });
-  const transactionsQuery = useQuery({ queryKey: ['transactions'], queryFn: loadTransactions, staleTime: 60000 });
-  const housesQuery = useQuery({ queryKey: ['boarding-houses'], queryFn: loadBoardingHouses, staleTime: 60000 });
-  const walletsQuery = useQuery({ queryKey: ['wallets'], queryFn: loadWallets, staleTime: 60000 });
+  const dashboardQuery = useOwnerDashboardInit();
+  const rooms = dashboardQuery.data?.rooms ?? [];
+  const transactions = dashboardQuery.data?.transactions ?? [];
 
   const stats = useMemo(() => {
-    if (!roomsQuery.data) return null;
-    const rooms = roomsQuery.data;
     const total = rooms.length;
     const occupied = rooms.filter(r => normalizeRoomStatus(r) === 'occupied').length;
     const vacant = rooms.filter(r => normalizeRoomStatus(r) === 'vacant').length;
@@ -69,11 +62,10 @@ export default function OwnerDashboard() {
       maintenance,
       occupancyRate: total > 0 ? Math.round((occupied / total) * 100) : 0
     };
-  }, [roomsQuery.data]);
+  }, [rooms]);
 
   const financialStats = useMemo(() => {
-    if (!transactionsQuery.data) return null;
-    const txs = transactionsQuery.data;
+    const txs = transactions;
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
@@ -106,16 +98,15 @@ export default function OwnerDashboard() {
     }
 
     return { income, expense, profit: income - expense, chartData };
-  }, [transactionsQuery.data]);
+  }, [transactions]);
 
   const vacantRoomsList = useMemo(() => {
-    if (!roomsQuery.data) return [];
-    return roomsQuery.data
+    return rooms
       .filter(r => normalizeRoomStatus(r) === 'vacant')
       .slice(0, 4);
-  }, [roomsQuery.data]);
+  }, [rooms]);
 
-  const isLoading = roomsQuery.isLoading || transactionsQuery.isLoading || housesQuery.isLoading;
+  const isLoading = dashboardQuery.isLoading;
   const safeStats = stats ?? { total: 0, occupied: 0, vacant: 0, reserved: 0, maintenance: 0, occupancyRate: 0 };
   const chartData = financialStats?.chartData ?? [];
 
@@ -428,4 +419,3 @@ function QuickAction({ title, href, icon, color }: any) {
     </a>
   );
 }
-
