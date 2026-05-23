@@ -22,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { API_URL } from "@/lib/api";
-import { clearClientSession, getStoredAccessToken } from "@/utils/session";
+import { clearClientSession, getStoredAccessToken, getStoredSessionUser } from "@/utils/session";
 import Logo from "@/components/ui/Logo";
 
 const navSections = [
@@ -94,6 +94,14 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
       const token = getStoredAccessToken();
       if (!token) {
         router.replace("/login");
+        return;
+      }
+      const storedUser = getStoredSessionUser();
+      if (storedUser.role === "OWNER" || storedUser.role === "SUPER_ADMIN") {
+        setOwnerName(storedUser.name || "Owner");
+        setOwnerEmail(storedUser.email || "");
+        setAuthorized(true);
+        setLoading(false);
         return;
       }
       try {

@@ -18,20 +18,32 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
   const supabase = c.get("supabase");
 
   // Parallel Supabase queries for performance
-  const [bhRes, roomsRes, walletsRes, settingsRes] = await Promise.all([
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5, 1);
+  sixMonthsAgo.setHours(0, 0, 0, 0);
+
+  const [bhRes, roomsRes, walletsRes, settingsRes, transactionsRes] = await Promise.all([
     supabase.from("boarding_houses").select(`
       id, name, address, status, is_public, created_at,
       rooms(id, status)
     `).eq("owner_id", currentUser.id),
     supabase.from("rooms").select("id, name, price, status, num_people, has_ac").eq("user_id", currentUser.id),
     supabase.from("wallets").select("*").eq("user_id", currentUser.id),
-    supabase.from("users").select("id, status, is_profile_completed").eq("id", currentUser.id).single()
+    supabase.from("users").select("id, status, is_profile_completed").eq("id", currentUser.id).single(),
+    supabase
+      .from("transactions")
+      .select("id, type, amount, description, date, wallet_id, category_id, invoice_id")
+      .eq("user_id", currentUser.id)
+      .gte("date", sixMonthsAgo.toISOString().slice(0, 10))
+      .order("date", { ascending: false })
+      .limit(200),
   ]);
 
   return c.json({
     boardingHouses: bhRes.data || [],
     rooms: roomsRes.data || [],
     wallets: walletsRes.data || [],
+    transactions: transactionsRes.data || [],
     settings: settingsRes.data || {}
   });
 });
@@ -916,6 +928,7 @@ ownerRoutes.get("/notifications", async (c) => {
     body: item.payload?.body ?? "",
     readAt: item.read_at,
     createdAt: item.created_at,
+    payload: item.payload,
   }));
 
   return c.json({
@@ -923,6 +936,24 @@ ownerRoutes.get("/notifications", async (c) => {
     unreadCount: rows.filter((item) => !item.readAt).length,
   });
 });
+
+ownerRoutes.post("/notifications/:id/read", async (c) => {
+  const currentUser = c.get("user");
+  const notificationId = c.req.param("id");
+
+  const { data, error } = await c
+    .get("supabase")
+    .from("rental_notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("id", notificationId)
+    .eq("user_id", currentUser.id)
+    .select()
+    .single();
+
+  if (error) return c.json({ error: "Failed to mark notification as read" }, 500);
+  return c.json({ data });
+});
+
 
 ownerRoutes.get("/audit-logs", async (c) => {
   const currentUser = c.get("user");
