@@ -18,6 +18,15 @@ const privatePrefixes = [
 ];
 
 const isPrivatePath = (pathname: string) => privatePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+const CACHE_SYNC_KEY = "trocare-cache-sync";
+const syncedQueryKeys = [
+  ["contracts"],
+  ["rooms"],
+  ["facility"],
+  ["deposits"],
+  ["transactions"],
+  ["owner", "dashboard-init"],
+] as const;
 
 export default function QueryProvider({ children }: { children: React.ReactNode }) {
   const [client] = useState(
@@ -38,10 +47,18 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
     const handleSessionCleared = () => {
       client.clear();
     };
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== CACHE_SYNC_KEY || !event.newValue) return;
+      syncedQueryKeys.forEach((queryKey) => {
+        client.invalidateQueries({ queryKey: [...queryKey], refetchType: "all" });
+      });
+    };
 
     window.addEventListener("session-cleared", handleSessionCleared);
+    window.addEventListener("storage", handleStorage);
     return () => {
       window.removeEventListener("session-cleared", handleSessionCleared);
+      window.removeEventListener("storage", handleStorage);
     };
   }, [client]);
 

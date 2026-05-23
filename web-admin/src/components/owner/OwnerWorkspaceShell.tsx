@@ -9,6 +9,7 @@ import {
   FileText,
   Home,
   LayoutDashboard,
+  Loader2,
   LogOut,
   Menu,
   MessageSquare,
@@ -160,8 +161,23 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-sm text-slate-500">
-        Đang xác thực quyền truy cập owner...
+      <div className="flex min-h-screen bg-slate-50">
+        <aside className="hidden w-72 border-r border-slate-200 bg-white lg:block">
+          <div className="space-y-4 p-5">
+            <div className="h-8 w-36 animate-pulse rounded-lg bg-slate-100" />
+            <div className="h-12 animate-pulse rounded-xl bg-slate-100" />
+            <div className="space-y-2 pt-4">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="h-9 animate-pulse rounded-lg bg-slate-100" />
+              ))}
+            </div>
+          </div>
+        </aside>
+        <main className="flex min-w-0 flex-1 items-center justify-center p-6">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          </div>
+        </main>
       </div>
     );
   }
