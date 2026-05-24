@@ -1,9 +1,21 @@
 {
   "name": "money-manager-root",
   "private": true,
+  "workspaces": [
+    "mobile",
+    "web-admin",
+    "backend"
+  ],
   "scripts": {
     "local:backend": "npm --prefix backend run dev",
     "local:ui": "npm --prefix web-admin run dev",
     "local": "npm run local:backend & npm run local:ui"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0"
   }
 }
