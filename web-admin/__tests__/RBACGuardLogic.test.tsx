@@ -9,7 +9,7 @@ describe('RBAC guard logic (evaluateRBACGuard)', () => {
 
   it('redirects to login when no token', () => {
     const res = evaluateRBACGuard({ token: null, role: 'OWNER' })
-    expect(res).toEqual({ ok: false, redirectTo: '/login/owner' })
+    expect(res).toEqual({ ok: false, redirectTo: '/login' })
   })
 
   it('redirects to not-authorized when non-owner with token', () => {
