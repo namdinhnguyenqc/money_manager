@@ -17,6 +17,8 @@ import invoicesRoutes from "./routes/invoices.js";
 import tradingRoutes from "./routes/trading.js";
 import categoriesRoutes from "./routes/categories.js";
 import bankConfigRoutes from "./routes/bankConfig.js";
+import paymentChannelsRoutes from "./routes/paymentChannels.js";
+import sepayWebhookRoutes from "./routes/sepayWebhook.js";
 import type { AppEnv } from "./types.js";
 
 import { requireCompletedProfile } from "./middleware/requireCompletedProfile.js";
@@ -48,6 +50,7 @@ const privatePathPrefixes = [
   "/invoices",
   "/trading",
   "/bank-config",
+  "/payment-channels",
 ];
 
 app.use("*", async (c, next) => {
@@ -113,6 +116,7 @@ app.route("/auth", authRoutes);
 app.route("/me", profileRoutes);
 app.route("/locations", locationRoutes);
 app.route("/public", publicRoutes);
+app.route("/webhooks/sepay", sepayWebhookRoutes);
 app.route("/admin", adminRoutes);
 import { requireAuth } from "./middleware/auth.js";
 
@@ -131,6 +135,7 @@ app.route("/rental", rentalRoutes);
 app.route("/invoices", invoicesRoutes);
 app.route("/trading", tradingRoutes);
 app.route("/bank-config", bankConfigRoutes);
+app.route("/payment-channels", paymentChannelsRoutes);
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
 app.onError((err, c) => {

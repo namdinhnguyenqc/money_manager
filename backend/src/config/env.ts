@@ -44,6 +44,9 @@ export const env = {
   JWT_SECRET: jwtSecret,
   JWT_EXPIRY_SECONDS: Number(process.env.JWT_EXPIRY_SECONDS || 900), // 15 minutes
   REFRESH_TOKEN_EXPIRY_DAYS: Number(process.env.REFRESH_TOKEN_EXPIRY_DAYS || 30),
+  SEPAY_WEBHOOK_SECRET: optional("SEPAY_WEBHOOK_SECRET", ""),
+  SEPAY_API_KEY: optional("SEPAY_API_KEY", ""),
+  SEPAY_PAYMENT_PREFIX: optional("SEPAY_PAYMENT_PREFIX", "TCINV"),
   // CORS: comma-separated list of allowed origins, e.g. "https://admin.yourdomain.com,https://app.yourdomain.com"
   CORS_ORIGINS: optional("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3011,http://localhost:8081,http://localhost:19006").split(",").map(s => s.trim()),
 };

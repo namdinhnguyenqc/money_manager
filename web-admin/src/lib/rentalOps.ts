@@ -185,6 +185,13 @@ export type Invoice = {
   water_new?: number | null;
   items?: Array<{ id?: string; name: string; detail?: string; amount: number }>;
   transaction_id?: string | null;
+  payment_code?: string | null;
+  paymentCode?: string | null;
+  payment_channel_id?: string | null;
+  paymentChannelId?: string | null;
+  payment_channel?: PaymentChannel | null;
+  remaining_amount?: number;
+  remainingAmount?: number;
   created_at?: string;
   updated_at?: string;
 };
@@ -208,6 +215,30 @@ export type Transaction = {
   category_id?: string;
   category_name?: string;
   invoice_id?: string | null;
+  source?: string;
+  external_ref?: string | null;
+  metadata?: Record<string, any>;
+};
+
+export type PaymentChannel = {
+  id: string;
+  provider: "sepay" | "bank_transfer" | "cash" | "manual" | string;
+  display_name?: string;
+  displayName?: string;
+  bank_id?: string | null;
+  bankId?: string | null;
+  account_no?: string | null;
+  accountNo?: string | null;
+  account_name?: string | null;
+  accountName?: string | null;
+  wallet_id?: string | null;
+  walletId?: string | null;
+  enabled?: boolean;
+  auto_reconcile_enabled?: boolean;
+  autoReconcileEnabled?: boolean;
+  is_default?: boolean;
+  isDefault?: boolean;
+  config?: Record<string, any>;
 };
 
 export type FacilityRoomSummary = {
@@ -219,6 +250,22 @@ export type FacilityRoomSummary = {
 
 export const formatMoney = (value?: number | null) =>
   `${new Intl.NumberFormat("vi-VN").format(Math.round(Number(value || 0)))} ₫`;
+
+export const getInvoiceRemainingAmount = (invoice?: Invoice | null) => {
+  if (!invoice) return 0;
+  return Math.max(0, Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0));
+};
+
+export const buildInvoiceQrUrl = (invoice: Invoice, fallback?: { bankId?: string; accountNo?: string }) => {
+  const channel = invoice.payment_channel;
+  const bankId = channel?.bank_id || channel?.bankId || fallback?.bankId || "";
+  const accountNo = channel?.account_no || channel?.accountNo || fallback?.accountNo || "";
+  const amount = getInvoiceRemainingAmount(invoice) || Number(invoice.total_amount || 0);
+  const addInfo = invoice.payment_code || invoice.paymentCode || "";
+
+  if (!bankId || !accountNo || !addInfo) return "";
+  return `https://img.vietqr.io/image/${String(bankId).replace(/\s/g, "")}-${String(accountNo).replace(/\s/g, "")}-compact2.png?amount=${Math.round(amount)}&addInfo=${encodeURIComponent(addInfo)}`;
+};
 
 export const currentPeriod = () => {
   const now = new Date();
@@ -484,6 +531,26 @@ export async function loadInvoice(id: string) {
 export async function loadWallets() {
   const res = await apiGet<any>("/wallets");
   return (res?.data ?? []) as Wallet[];
+}
+
+export async function loadPaymentChannels() {
+  const res = await apiGet<any>("/payment-channels");
+  return (res?.data ?? []) as PaymentChannel[];
+}
+
+export async function createPaymentChannel(input: Partial<PaymentChannel> & { displayName: string }) {
+  const res = await apiPost<any>("/payment-channels", input);
+  return res?.data as PaymentChannel;
+}
+
+export async function updatePaymentChannel(id: string, input: Partial<PaymentChannel>) {
+  const res = await apiPatch<any>(`/payment-channels/${id}`, input);
+  return res?.data as PaymentChannel;
+}
+
+export async function disablePaymentChannel(id: string) {
+  const res = await apiDelete<any>(`/payment-channels/${id}`);
+  return res?.data ?? res;
 }
 
 export async function loadTransactions() {
