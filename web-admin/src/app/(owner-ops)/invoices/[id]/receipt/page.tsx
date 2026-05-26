@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Printer, ArrowLeft } from "lucide-react";
-import { Invoice, Transaction, buildInvoiceQrUrl, formatMoney, getInvoiceRemainingAmount, loadInvoice, loadSettingsMap, loadTransactions } from "@/lib/rentalOps";
+import { BankConfig, Invoice, Transaction, buildInvoiceQrUrl, formatMoney, getInvoiceRemainingAmount, loadBankConfig, loadInvoice, loadSettingsMap, loadTransactions } from "@/lib/rentalOps";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 
 export default function ReceiptViewPage() {
@@ -12,6 +12,7 @@ export default function ReceiptViewPage() {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [settings, setSettings] = useState<Record<string, any>>({});
+  const [bankConfig, setBankConfig] = useState<BankConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -20,13 +21,15 @@ export default function ReceiptViewPage() {
       setLoading(true);
       setError("");
       try {
-        const [invoiceData, settingsData, txs] = await Promise.all([
+        const [invoiceData, settingsData, txs, bankData] = await Promise.all([
           loadInvoice(String(id)),
           loadSettingsMap(),
-          loadTransactions()
+          loadTransactions(),
+          loadBankConfig(),
         ]);
         setInvoice(invoiceData);
         setSettings(settingsData);
+        setBankConfig(bankData);
         setTransactions((txs || []).filter(t => String(t.invoice_id) === String(id)));
       } catch (err: any) {
         setError(err?.message || "Không tải được thông báo thu tiền.");
@@ -61,11 +64,11 @@ export default function ReceiptViewPage() {
 
   const totalPayable = getInvoiceRemainingAmount(invoice) || invoice.total_amount;
   
-  // Bank details from settings with fallbacks
+  // Bank details from invoice's payment channel, dedicated bank config, or settings with fallbacks
   const channel = invoice.payment_channel;
-  const bankName1 = channel?.bank_id || channel?.bankId || settings.bank_name_1 || "ACB";
-  const bankAccount1 = channel?.account_no || channel?.accountNo || settings.bank_account_1 || "252369089";
-  const bankOwner1 = channel?.account_name || channel?.accountName || settings.bank_owner_1 || "Nguyễn Đình Hà Nam";
+  const bankName1 = channel?.bank_id || channel?.bankId || bankConfig?.bank_id || settings.bank_name_1 || "ACB";
+  const bankAccount1 = channel?.account_no || channel?.accountNo || bankConfig?.account_no || settings.bank_account_1 || "252369089";
+  const bankOwner1 = channel?.account_name || channel?.accountName || bankConfig?.account_name || settings.bank_owner_1 || "Nguyễn Đình Hà Nam";
   
   const bankName2 = settings.bank_name_2;
   const bankAccount2 = settings.bank_account_2;
@@ -73,8 +76,13 @@ export default function ReceiptViewPage() {
 
   const paymentNote = invoice.payment_code || invoice.paymentCode || settings.payment_note || "(Không ghi nội dung Chuyển khoản)";
   
-  // QR Code URL (Use static URL if provided, otherwise generate VietQR)
-  const qrUrl = buildInvoiceQrUrl(invoice, { bankId: bankName1, accountNo: bankAccount1 }) || settings.bank_qr_static_url || "";
+  // QR Code URL (Use invoice-specific URL, dedicated bank config's QR, static URL, or generate default VietQR)
+  const qrUrl = buildInvoiceQrUrl(invoice, { bankId: bankName1, accountNo: bankAccount1 }) || 
+    bankConfig?.qr_uri || 
+    settings.bank_qr_static_url || 
+    (bankName1 && bankAccount1
+      ? `https://img.vietqr.io/image/${String(bankName1).replace(/\s/g, "")}-${String(bankAccount1).replace(/\s/g, "")}-compact2.png?amount=${totalPayable}&addInfo=${encodeURIComponent(paymentNote)}`
+      : "");
 
   const isPaid = invoice.status === "paid" || (invoice.paid_amount || 0) >= invoice.total_amount;
   const isPartial = (invoice.paid_amount || 0) > 0 && !isPaid;
@@ -257,18 +265,24 @@ export default function ReceiptViewPage() {
               )}
             </div>
 
-            {!isPaid ? (
+            {!isPaid && (bankAccount1 || qrUrl) ? (
               <div className="w-64 flex flex-col items-center bg-slate-50 p-6 rounded-[2.5rem] border border-slate-200">
                 <p className="text-[8pt] font-black text-slate-400 uppercase tracking-widest mb-4">Quét để trả tiền</p>
-                <div className="bg-white p-3 rounded-3xl shadow-sm border border-slate-100 mb-6 w-full">
+                {qrUrl ? <div className="bg-white p-3 rounded-3xl shadow-sm border border-slate-100 mb-6 w-full">
                   <img src={qrUrl} alt="QR" className="w-full h-auto rounded-2xl" />
-                </div>
+                </div> : null}
                 <div className="text-center w-full">
+<<<<<<< Updated upstream
                   <p className="text-[10pt] font-black text-slate-900">{bankName1}</p>
                   <p className="text-[12pt] font-black text-blue-600 tracking-wider mb-1">{bankAccount1}</p>
                   <p className="text-[8pt] font-bold text-slate-400 uppercase">{bankOwner1}</p>
                   <p className="mt-3 text-[8pt] font-black uppercase tracking-widest text-slate-400">Nội dung CK</p>
                   <p className="font-mono text-[10pt] font-black text-blue-700">{paymentNote}</p>
+=======
+                  {bankName1 ? <p className="text-[10pt] font-black text-slate-900">{bankName1}</p> : null}
+                  {bankAccount1 ? <p className="text-[12pt] font-black text-blue-600 tracking-wider mb-1">{bankAccount1}</p> : null}
+                  {bankOwner1 ? <p className="text-[8pt] font-bold text-slate-400 uppercase">{bankOwner1}</p> : null}
+>>>>>>> Stashed changes
                 </div>
               </div>
             ) : (
@@ -295,4 +309,3 @@ export default function ReceiptViewPage() {
     </div>
   );
 }
-

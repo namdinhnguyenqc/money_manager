@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import RBACGuard from '@/components/RBACGuard';
 import { apiGet } from '@/utils/apiClient';
-import { Users, Phone, User as UserIcon, Mail, MapPin, Search, Plus, Filter, MoreVertical, ShieldCheck } from 'lucide-react';
+import { Users, Phone, User as UserIcon, Mail, MapPin, Search, Filter, MoreVertical, ShieldCheck } from 'lucide-react';
 import StatusBadge from '@/components/ops/StatusBadge';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import PageHeader from '@/components/ui/PageHeader';
+import Pagination from '@/components/ui/Pagination';
 
 type Tenant = {
   id: string;
@@ -19,12 +20,14 @@ type Tenant = {
   address?: string;
   created_at?: string;
 };
+const pageSize = 12;
 
 export default function OwnerTenantsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
 
   const loadTenants = async () => {
     setLoading(true);
@@ -43,11 +46,14 @@ export default function OwnerTenantsPage() {
     loadTenants();
   }, []);
 
-  const filteredTenants = tenants.filter(t => 
+  const filteredTenants = useMemo(() => tenants.filter(t =>
     t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.phone?.includes(searchQuery) ||
     t.id_card?.includes(searchQuery)
-  );
+  ), [tenants, searchQuery]);
+  const visibleTenants = useMemo(() => filteredTenants.slice((page - 1) * pageSize, page * pageSize), [filteredTenants, page]);
+
+  useEffect(() => setPage(1), [searchQuery]);
 
   return (
     <RBACGuard allowedRoles={["OWNER", "SUPER_ADMIN"]}>
@@ -61,9 +67,6 @@ export default function OwnerTenantsPage() {
             <>
               <Button variant="outline" onClick={loadTenants}>
                 Làm mới
-              </Button>
-              <Button variant="primary" icon={<Plus size={16} />}>
-                Thêm khách mới
               </Button>
             </>
           }
@@ -117,15 +120,10 @@ export default function OwnerTenantsPage() {
             <p className="mt-1 max-w-xs text-sm text-slate-500">
               {searchQuery ? "Không có kết quả nào khớp với tìm kiếm của bạn." : "Bắt đầu bằng cách thêm khách thuê đầu tiên vào hệ thống."}
             </p>
-            {!searchQuery && (
-              <Button variant="primary" className="mt-6">
-                Thêm khách ngay
-              </Button>
-            )}
           </div>
         ) : (
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {filteredTenants.map((tenant) => (
+            {visibleTenants.map((tenant) => (
               <Card
                 key={tenant.id}
                 hover
@@ -186,6 +184,7 @@ export default function OwnerTenantsPage() {
             ))}
           </div>
         )}
+        <Pagination page={page} pageSize={pageSize} total={filteredTenants.length} onPageChange={setPage} />
       </div>
     </RBACGuard>
   );

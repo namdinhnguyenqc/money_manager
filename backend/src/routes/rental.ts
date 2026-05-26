@@ -33,6 +33,7 @@ const updateRoomSchema = z
     numPeople: z.number().int().positive().optional(),
     roomType: z.string().trim().optional().nullable(),
     room_type: z.string().trim().optional().nullable(),
+    status: z.string().optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, "No fields to update");
 
@@ -281,7 +282,11 @@ const insertDeposit = async (db: any, payload: Record<string, any>) => {
 
   const { user_id, ...fallbackPayload } = payload;
   console.warn("Retrying deposit insert without user_id after FK failure", insertWithUser.error.message);
-  return db.from("deposits").insert(fallbackPayload).select("*").single();
+  const fallbackRes = await db.from("deposits").insert(fallbackPayload).select("*").single();
+  if (fallbackRes.error) {
+    fallbackRes.error.message = `${fallbackRes.error.message} (Original FK error: ${insertWithUser.error.message})`;
+  }
+  return fallbackRes;
 };
 
 rentalRoutes.get("/deposits", async (c) => {
@@ -356,6 +361,9 @@ rentalRoutes.post("/deposits", async (c) => {
 
   if (depError) return c.json({ error: depError.message }, 400);
 
+  // 2. Update room status to 'reserved'
+  await db.from("rooms").update({ status: "reserved" }).eq("id", parsed.data.roomId).eq("user_id", user.id);
+
   // 3. Create transaction for the deposit income
   if (parsed.data.amount > 0 && parsed.data.walletId) {
     await db.from("transactions").insert({
@@ -425,7 +433,7 @@ rentalRoutes.post("/rooms", async (c) => {
 
   const db = c.get("supabase");
   const roomType = parsed.data.roomType ?? parsed.data.room_type ?? null;
-  const { data, error } = await db.from("rooms").insert({
+  const insertPayload: Record<string, unknown> = {
     user_id: user.id,
     name: parsed.data.name.trim(),
     price: parsed.data.price,
@@ -433,13 +441,24 @@ rentalRoutes.post("/rooms", async (c) => {
     num_people: parsed.data.numPeople ?? 1,
     room_type: roomType || null,
     status: "vacant",
-  }).select("*").single();
+  };
+  let { data, error } = await db.from("rooms").insert(insertPayload).select("*").single();
+
+  // Retry without room_type if column doesn't exist (migration 020 not applied)
+  if (error && (error.message?.includes("room_type") || error.message?.includes("schema cache"))) {
+    const { room_type: _, ...fallbackPayload } = insertPayload;
+    const fallback = await db.from("rooms").insert(fallbackPayload).select("*").single();
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (!error && roomType) {
-    await db.from("room_types").upsert(
-      { user_id: user.id, name: roomType },
-      { onConflict: "user_id,name" }
-    );
+    try {
+      await db.from("room_types").upsert(
+        { user_id: user.id, name: roomType },
+        { onConflict: "user_id,name" }
+      );
+    } catch { /* room_types table may not exist */ }
   }
 
   if (error) return c.json({ error: error.message }, 400);
@@ -461,18 +480,27 @@ rentalRoutes.patch("/rooms/:id", async (c) => {
   if (parsed.data.numPeople !== undefined) payload.num_people = parsed.data.numPeople;
   const roomType = parsed.data.roomType ?? parsed.data.room_type;
   if (roomType !== undefined) payload.room_type = roomType || null;
+  if (parsed.data.status !== undefined) payload.status = parsed.data.status;
   payload.updated_at = new Date().toISOString();
-
-
 
   const db = c.get("supabase");
   if (roomType) {
-    await db.from("room_types").upsert(
-      { user_id: user.id, name: roomType },
-      { onConflict: "user_id,name" }
-    );
+    try {
+      await db.from("room_types").upsert(
+        { user_id: user.id, name: roomType },
+        { onConflict: "user_id,name" }
+      );
+    } catch { /* room_types table may not exist */ }
   }
-  const { data, error } = await db.from("rooms").update(payload).eq("id", id).eq("user_id", user.id).select("*").single();
+  let { data, error } = await db.from("rooms").update(payload).eq("id", id).eq("user_id", user.id).select("*").single();
+
+  // Retry without room_type if column doesn't exist
+  if (error && (error.message?.includes("room_type") || error.message?.includes("schema cache"))) {
+    const { room_type: _, ...fallbackPayload } = payload;
+    const fallback = await db.from("rooms").update(fallbackPayload).eq("id", id).eq("user_id", user.id).select("*").single();
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) return c.json({ error: error.message }, 400);
   return c.json({ data: { ...data, hasAc: data.has_ac, numPeople: data.num_people, roomType: data.room_type ?? null } });
@@ -828,9 +856,34 @@ rentalRoutes.get("/contracts/:id", async (c) => {
       .eq("contract_id", id)
       .eq("user_id", user.id);
 
-    if (servicesRes.error) return c.json({ error: servicesRes.error.message }, 500);
+    let serviceRows = servicesRes.data ?? [];
+    if (
+      servicesRes.error?.message?.includes("contract_services.service_snapshot") ||
+      servicesRes.error?.message?.includes("schema cache")
+    ) {
+      const fallbackServicesRes = await db
+        .from("contract_services")
+        .select("service_id")
+        .eq("contract_id", id)
+        .eq("user_id", user.id);
 
-    appliedServicesSnapshot = (servicesRes.data ?? []).map((service) => ({
+      if (fallbackServicesRes.error) return c.json({ error: fallbackServicesRes.error.message }, 500);
+
+      serviceRows = (fallbackServicesRes.data ?? []).map((service) => ({
+          service_snapshot: null,
+          service_id: service.service_id,
+          service_name: null,
+          service_type: null,
+          calculation_type: null,
+          unit_price: null,
+          unit_price_ac: null,
+          unit: null,
+      }));
+    } else if (servicesRes.error) {
+      return c.json({ error: servicesRes.error.message }, 500);
+    }
+
+    appliedServicesSnapshot = serviceRows.map((service) => ({
       service_id: service.service_id,
       name: service.service_snapshot?.name ?? service.service_name ?? "",
       category: service.service_snapshot?.category ?? "other",
@@ -904,6 +957,26 @@ rentalRoutes.post("/contracts", async (c) => {
   // 2. Get room to check for AC
   const { data: room, error: roomErr } = await db.from("rooms").select("*").eq("id", parsed.data.roomId).eq("user_id", user.id).single();
   if (roomErr || !room) return c.json({ error: roomErr?.message || "Room not found" }, 404);
+
+  // Validate deposit and wallet requirement before any mutations
+  const reservationAmount = reservation ? Number(reservation.amount || 0) : 0;
+  const amountToRecord = Math.max(0, Number(parsed.data.deposit || 0) - reservationAmount);
+
+  if (amountToRecord > 0) {
+    if (!parsed.data.walletId) {
+      return c.json({ error: "Tiền cọc không hợp lệ: Vui lòng chọn ví nhận tiền cọc." }, 400);
+    }
+    const { data: wallet, error: walletErr } = await db
+      .from("wallets")
+      .select("id")
+      .eq("id", parsed.data.walletId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (walletErr || !wallet) {
+      return c.json({ error: "Tiền cọc không hợp lệ: Ví nhận tiền cọc không tồn tại hoặc không thuộc tài khoản của bạn." }, 400);
+    }
+  }
 
   // 3. Get services to create snapshot
   const serviceIds = parsed.data.serviceIds ?? [];
@@ -987,7 +1060,13 @@ rentalRoutes.post("/contracts", async (c) => {
 
     if (depErr) {
       console.error("Failed to record deposit:", depErr.message);
-      return c.json({ error: `Hợp đồng đã tạo nhưng không thể lưu thông tin tiền cọc: ${depErr.message}` }, 400);
+      
+      // Rollback contract creation
+      await db.from("contract_services").delete().eq("contract_id", contract.id);
+      await db.from("contracts").delete().eq("id", contract.id);
+      await db.from("rooms").update({ status: "vacant" }).eq("id", parsed.data.roomId).eq("user_id", user.id);
+      
+      return c.json({ error: `Tạo hợp đồng thất bại do không thể lưu thông tin tiền cọc: ${depErr.message}` }, 400);
     }
 
     // 5. Create Transaction for the income
@@ -1020,7 +1099,20 @@ rentalRoutes.post("/contracts", async (c) => {
 
       if (txErr) {
         console.error("Failed to create transaction:", txErr.message);
-        return c.json({ error: `Hợp đồng đã tạo nhưng không thể tạo phiếu thu: ${txErr.message}` }, 400);
+        
+        // Rollback contract, deposit, and room status
+        await db.from("deposits").delete().eq("contract_id", contract.id);
+        await db.from("contract_services").delete().eq("contract_id", contract.id);
+        await db.from("contracts").delete().eq("id", contract.id);
+        await db.from("rooms").update({ status: "vacant" }).eq("id", parsed.data.roomId).eq("user_id", user.id);
+        
+        if (reservation) {
+          await db.from("deposits")
+            .update({ status: "active", contract_id: null })
+            .eq("id", reservation.id);
+        }
+        
+        return c.json({ error: `Tạo hợp đồng thất bại do không thể tạo phiếu thu tiền cọc: ${txErr.message}` }, 400);
       }
       
       // Cập nhật số dư ví

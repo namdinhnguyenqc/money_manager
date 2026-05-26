@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, PencilLine, Send, Wallet } from "lucide-react";
 import StatusBadge from "@/components/ops/StatusBadge";
-import { Invoice, Transaction, buildInvoiceQrUrl, formatMoney, getInvoiceRemainingAmount, loadInvoice, normalizeInvoiceStatus, loadTransactions, loadSettingsMap } from "@/lib/rentalOps";
+import { BankConfig, Invoice, Transaction, buildInvoiceQrUrl, formatMoney, getInvoiceRemainingAmount, loadBankConfig, loadInvoice, normalizeInvoiceStatus, loadTransactions, loadSettingsMap } from "@/lib/rentalOps";
 import { History, CreditCard, QrCode, ArrowRight } from "lucide-react";
 
 export default function InvoiceDetailPage() {
@@ -13,6 +13,7 @@ export default function InvoiceDetailPage() {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [settings, setSettings] = useState<Record<string, any>>({});
+  const [bankConfig, setBankConfig] = useState<BankConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -21,13 +22,15 @@ export default function InvoiceDetailPage() {
       setLoading(true);
       setError("");
       try {
-        const [inv, txs, settingsData] = await Promise.all([
+        const [inv, txs, settingsData, bankData] = await Promise.all([
           loadInvoice(String(id)),
           loadTransactions(),
-          loadSettingsMap()
+          loadSettingsMap(),
+          loadBankConfig(),
         ]);
         setInvoice(inv);
         setSettings(settingsData);
+        setBankConfig(bankData);
         setTransactions((txs || []).filter(t => String(t.invoice_id) === String(id)));
       } catch (err: any) {
         setError(err?.message || "Không tải được hóa đơn.");
@@ -59,10 +62,15 @@ export default function InvoiceDetailPage() {
   const remainingAmount = getInvoiceRemainingAmount(invoice);
   const paymentCode = invoice.payment_code || invoice.paymentCode || "";
   const paymentChannel = invoice.payment_channel;
-  const paymentBankId = paymentChannel?.bank_id || paymentChannel?.bankId || settings.bank_name_1 || "ACB";
-  const paymentAccountNo = paymentChannel?.account_no || paymentChannel?.accountNo || settings.bank_account_1 || "252369089";
-  const paymentAccountName = paymentChannel?.account_name || paymentChannel?.accountName || settings.bank_owner_1 || "Nguyễn Đình Hà Nam";
-  const qrUrl = buildInvoiceQrUrl(invoice, { bankId: paymentBankId, accountNo: paymentAccountNo });
+  const paymentBankId = paymentChannel?.bank_id || paymentChannel?.bankId || bankConfig?.bank_id || settings.bank_name_1 || "ACB";
+  const paymentAccountNo = paymentChannel?.account_no || paymentChannel?.accountNo || bankConfig?.account_no || settings.bank_account_1 || "252369089";
+  const paymentAccountName = paymentChannel?.account_name || paymentChannel?.accountName || bankConfig?.account_name || settings.bank_owner_1 || "Nguyễn Đình Hà Nam";
+  const qrUrl = buildInvoiceQrUrl(invoice, { bankId: paymentBankId, accountNo: paymentAccountNo }) ||
+    bankConfig?.qr_uri ||
+    settings.bank_qr_static_url ||
+    (paymentBankId && paymentAccountNo
+      ? `https://img.vietqr.io/image/${String(paymentBankId).replace(/\s/g, "")}-${String(paymentAccountNo).replace(/\s/g, "")}-compact2.png?amount=${remainingAmount || invoice.total_amount}&addInfo=${encodeURIComponent(paymentCode)}`
+      : "");
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -142,9 +150,9 @@ export default function InvoiceDetailPage() {
           <div className="flex gap-4">
             <div className="flex-1 space-y-3">
               <div className="rounded-lg bg-slate-50 p-3 text-sm">
-                <p className="font-bold text-blue-700">{paymentBankId}</p>
-                <p className="mt-1 font-semibold">{paymentAccountNo}</p>
-                <p className="text-xs text-slate-500 uppercase">{paymentAccountName}</p>
+                <p className="font-bold text-blue-700">{paymentBankId || "Chưa cấu hình ngân hàng"}</p>
+                <p className="mt-1 font-semibold">{paymentAccountNo || "Chưa có số tài khoản"}</p>
+                <p className="text-xs text-slate-500 uppercase">{paymentAccountName || "Cập nhật trong cài đặt"}</p>
               </div>
               <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs">
                 <div className="font-semibold text-slate-500">Nội dung chuyển khoản</div>
@@ -155,9 +163,15 @@ export default function InvoiceDetailPage() {
                 Xem bản in đầy đủ <ArrowRight size={12} />
               </Link>
             </div>
-            <div className="shrink-0 rounded-xl border border-slate-200 p-2 bg-white shadow-md">
-              {qrUrl ? <img src={qrUrl} alt="Payment QR" className="w-32 h-32 object-contain" /> : <div className="flex h-32 w-32 items-center justify-center text-center text-xs text-slate-400">Chưa cấu hình QR</div>}
-            </div>
+            {qrUrl ? (
+              <div className="shrink-0 rounded-xl border border-slate-200 p-2 bg-white shadow-md">
+                <img src={qrUrl} alt="Payment QR" className="w-32 h-32 object-contain" />
+              </div>
+            ) : (
+              <div className="shrink-0 rounded-xl border border-slate-200 p-2 bg-white shadow-md flex h-32 w-32 items-center justify-center text-center text-xs text-slate-400">
+                Chưa cấu hình QR
+              </div>
+            )}
           </div>
         </div>
       </div>

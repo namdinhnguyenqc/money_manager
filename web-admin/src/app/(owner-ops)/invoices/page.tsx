@@ -18,16 +18,18 @@ import { apiPost } from "@/utils/apiClient";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
 import DataTable from "@/components/ui/DataTable";
+import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 import BulkInvoiceModal from "@/components/ops/BulkInvoiceModal";
 
 const statusTabs = ["Tất cả", "Chưa lập HĐ", "Chưa gửi", "Đã gửi", "Quá hạn", "Đã thanh toán"];
+const pageSize = 10;
 
 const matchesStatus = (invoice: Invoice, filter: string) => {
   if (filter === "Tất cả") return true;
-  const status = String(invoice.status || "").toLowerCase();
-  if (filter === "Đã thanh toán") return status === "paid" || status === "partially_paid";
-  if (filter === "Đã gửi") return status === "unpaid" || status === "sent" || status === "partially_paid";
+  const status = normalizeInvoiceStatus(invoice);
+  if (filter === "Đã thanh toán") return status === "paid" || status === "partial";
+  if (filter === "Đã gửi") return status === "sent" || status === "partial";
   if (filter === "Quá hạn") return status === "overdue";
   if (filter === "Chưa gửi") return status === "draft";
   return false;
@@ -44,6 +46,7 @@ export default function InvoicesPage() {
   const [generating, setGenerating] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
   
   const [period, setPeriod] = useState(() => {
     const now = new Date();
@@ -89,7 +92,12 @@ export default function InvoicesPage() {
   };
 
   const filteredInvoices = useMemo(() => invoices.filter((invoice) => matchesStatus(invoice, filter)), [invoices, filter]);
+  const filteredRows = filter === "Chưa lập HĐ" ? pendingRooms : filteredInvoices;
+  const visibleInvoices = useMemo(() => filteredInvoices.slice((page - 1) * pageSize, page * pageSize), [filteredInvoices, page]);
+  const visiblePendingRooms = useMemo(() => pendingRooms.slice((page - 1) * pageSize, page * pageSize), [pendingRooms, page]);
   const selectedCount = Object.values(selected).filter(Boolean).length;
+
+  useEffect(() => setPage(1), [filter, selectedHouse, period]);
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -162,7 +170,7 @@ export default function InvoicesPage() {
         ) : filter === "Chưa lập HĐ" ? (
           pendingRooms.length === 0 ? (
             <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Tất cả các phòng đã được lập hóa đơn cho kỳ này.</td></tr>
-          ) : pendingRooms.map((room) => (
+          ) : visiblePendingRooms.map((room) => (
             <tr key={room.id} className="hover:bg-slate-50 transition-colors">
               <td className="px-4 py-3"><input type="checkbox" disabled /></td>
               <td className="px-4 py-3 font-medium text-slate-900">{room.name}</td>
@@ -178,7 +186,7 @@ export default function InvoicesPage() {
           ))
         ) : filteredInvoices.length === 0 ? (
           <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Chưa có hóa đơn phù hợp cho kỳ T{period.month}/{period.year}.</td></tr>
-        ) : filteredInvoices.map((invoice) => {
+        ) : visibleInvoices.map((invoice) => {
           const status = normalizeInvoiceStatus(invoice);
           return (
             <tr key={invoice.id} className="hover:bg-slate-50 transition-colors">
@@ -192,13 +200,14 @@ export default function InvoicesPage() {
               <td className="px-4 py-3">
                 <div className="flex gap-3">
                   <Link href={`/invoices/${invoice.id}`} className="font-semibold text-blue-700 hover:underline">Xem</Link>
-                  {status === "sent" || status === "overdue" ? <Link href={`/payments/new?invoice_id=${invoice.id}`} className="font-semibold text-blue-700 hover:underline">Thu tiền</Link> : null}
+                  {status === "sent" || status === "overdue" || status === "partial" ? <Link href={`/payments/new?invoice_id=${invoice.id}`} className="font-semibold text-blue-700 hover:underline">Thu tiền</Link> : null}
                 </div>
               </td>
             </tr>
           );
         })}
       </DataTable>
+      <Pagination page={page} pageSize={pageSize} total={filteredRows.length} onPageChange={setPage} />
 
       <BulkInvoiceModal
         isOpen={isBulkModalOpen}

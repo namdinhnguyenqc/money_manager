@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { Plus, Search, Wallet as WalletIcon, X, Calendar, User, Phone, Home, ArrowRight, ShieldCheck, Filter, MoreVertical, History } from "lucide-react";
+import { Search, Wallet as WalletIcon, X, Calendar, User, Phone, Home, ArrowRight, ShieldCheck, Filter, MoreVertical, History } from "lucide-react";
 import StatusBadge from "@/components/ops/StatusBadge";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import {
@@ -22,11 +22,15 @@ import Card from "@/components/ui/Card";
 import Input, { Label, Select } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
 import DataTable from "@/components/ui/DataTable";
+import Pagination from "@/components/ui/Pagination";
+
+const pageSize = 10;
 
 export default function DepositsPage() {
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   const depositsQuery = useQuery({
     queryKey: ["deposits"],
@@ -35,14 +39,17 @@ export default function DepositsPage() {
   });
 
   const deposits = depositsQuery.data ?? [];
-  const filtered = search.trim()
+  const filtered = useMemo(() => search.trim()
     ? deposits.filter(
         (d) =>
           d.tenant_name?.toLowerCase().includes(search.toLowerCase()) ||
           d.room_name?.toLowerCase().includes(search.toLowerCase()) ||
           d.tenant_phone?.includes(search)
       )
-    : deposits;
+    : deposits, [deposits, search]);
+  const visibleDeposits = useMemo(() => filtered.slice((page - 1) * pageSize, page * pageSize), [filtered, page]);
+
+  useEffect(() => setPage(1), [search]);
 
   const totalHolding = deposits
     .filter((d) => d.status === "holding")
@@ -59,15 +66,6 @@ export default function DepositsPage() {
         icon={<History size={14} />}
         title="Tiền Cọc"
         description="Theo dõi và quản lý mọi khoản đặt cọc giữ chỗ và cọc hợp đồng."
-        actions={
-          <Button
-            variant="primary"
-            icon={<Plus size={16} />}
-            onClick={() => setFormOpen(true)}
-          >
-            Ghi nhận cọc mới
-          </Button>
-        }
       />
 
       {/* Summary Cards */}
@@ -131,7 +129,7 @@ export default function DepositsPage() {
             </td>
           </tr>
         ) : (
-          filtered.map((deposit) => (
+          visibleDeposits.map((deposit) => (
             <DepositRow
               key={deposit.id}
               deposit={deposit}
@@ -140,6 +138,7 @@ export default function DepositsPage() {
           ))
         )}
       </DataTable>
+      <Pagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
 
       {/* Form Modal */}
       {formOpen && (

@@ -204,6 +204,14 @@ export type Wallet = {
   color?: string;
 };
 
+export type BankConfig = {
+  id?: string;
+  bank_id: string;
+  account_no: string;
+  account_name: string;
+  qr_uri?: string | null;
+};
+
 export type Transaction = {
   id: string;
   type: "income" | "expense";
@@ -356,7 +364,9 @@ const toContractViewFromApi = (contract: any): ContractView => ({
   occupant_count: contract.occupant_count != null ? Number(contract.occupant_count) : Number(contract.num_people || 1),
   applied_services_snapshot: (contract.applied_services_snapshot ?? null) as AppliedServiceSnapshot[] | null,
   note: contract.note || "",
-  status: contract.status === "terminated" || contract.status === "ended" ? "ended" : contract.is_expired ? "expired" as any : "active",
+  status: ["terminated", "ended", "cancelled"].includes(String(contract.status || "").toLowerCase())
+    ? "ended"
+    : contract.is_expired ? "expired" as any : "active",
 });
 
 export const getServiceCategory = (service: Pick<ServiceConfig, "name"> | Pick<AppliedServiceSnapshot, "name">) => {
@@ -553,9 +563,20 @@ export async function disablePaymentChannel(id: string) {
   return res?.data ?? res;
 }
 
+export async function loadBankConfig() {
+  const res = await apiGet<any>("/bank-config");
+  return (res?.data ?? null) as BankConfig | null;
+}
+}
+
 export async function loadTransactions() {
-  const res = await apiGet<any>("/transactions?limit=100");
+  const res = await apiGet<any>("/transactions?limit=200");
   return (res?.data ?? []) as Transaction[];
+}
+
+export async function createTransaction(input: { type: "income" | "expense"; amount: number; description: string; walletId: string; date: string }) {
+  const res = await apiPost<any>("/transactions", input);
+  return res?.data ?? res;
 }
 
 export async function loadTransactionsByContract(contractId: string) {

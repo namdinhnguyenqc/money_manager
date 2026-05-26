@@ -23,9 +23,11 @@ import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import Input, { Label, Select } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
+import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 
 const roomFilters = ["Tất cả", "Trống", "Đang thuê", "Bảo trì", "Sắp hết HĐ", "Đã cọc"];
+const pageSize = 10;
 
 export default function AllRoomsPage() {
   const searchParams = useSearchParams();
@@ -34,6 +36,7 @@ export default function AllRoomsPage() {
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
 
   const housesQuery = useQuery({ queryKey: ["facilities"], queryFn: loadBoardingHouses, staleTime: 60_000 });
   const roomsQuery = useQuery({ queryKey: ["rooms", "all"], queryFn: () => loadRentalRooms(), staleTime: 30_000 });
@@ -64,6 +67,9 @@ export default function AllRoomsPage() {
     if (roomFilter === "Đã cọc") return status === "reserved";
     return true;
   }), [rooms, roomFilter, facilityIdFilter]);
+  const visibleRooms = useMemo(() => filteredRooms.slice((page - 1) * pageSize, page * pageSize), [filteredRooms, page]);
+
+  useEffect(() => setPage(1), [roomFilter, facilityIdFilter]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -136,7 +142,7 @@ export default function AllRoomsPage() {
 
       {!roomsQuery.isLoading && (
         <div className="grid gap-4 lg:grid-cols-2">
-          {filteredRooms.map((room) => {
+          {visibleRooms.map((room) => {
             const meta = roomStatusMeta(room.status, isContractSoonEnding(room), (room as any).is_expired);
             const facilityId = getFacilityId(room);
             const facilityName = getFacilityName(room);
@@ -207,6 +213,7 @@ export default function AllRoomsPage() {
           })}
         </div>
       )}
+      <Pagination page={page} pageSize={pageSize} total={filteredRooms.length} onPageChange={setPage} />
 
       {isAddModalOpen && (
         <AddRoomModal 
