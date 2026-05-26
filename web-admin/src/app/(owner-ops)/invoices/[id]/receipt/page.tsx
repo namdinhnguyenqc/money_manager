@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Printer, ArrowLeft } from "lucide-react";
-import { Invoice, Transaction, formatMoney, loadInvoice, loadSettingsMap, loadTransactions } from "@/lib/rentalOps";
+import { Invoice, Transaction, buildInvoiceQrUrl, formatMoney, getInvoiceRemainingAmount, loadInvoice, loadSettingsMap, loadTransactions } from "@/lib/rentalOps";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 
 export default function ReceiptViewPage() {
@@ -59,21 +59,22 @@ export default function ReceiptViewPage() {
   const elecUsed = Math.max(0, (invoice.elec_new || 0) - (invoice.elec_old || 0));
   const waterUsed = Math.max(0, (invoice.water_new || 0) - (invoice.water_old || 0));
 
-  const totalPayable = invoice.total_amount;
+  const totalPayable = getInvoiceRemainingAmount(invoice) || invoice.total_amount;
   
   // Bank details from settings with fallbacks
-  const bankName1 = settings.bank_name_1 || "ACB";
-  const bankAccount1 = settings.bank_account_1 || "252369089";
-  const bankOwner1 = settings.bank_owner_1 || "Nguyễn Đình Hà Nam";
+  const channel = invoice.payment_channel;
+  const bankName1 = channel?.bank_id || channel?.bankId || settings.bank_name_1 || "ACB";
+  const bankAccount1 = channel?.account_no || channel?.accountNo || settings.bank_account_1 || "252369089";
+  const bankOwner1 = channel?.account_name || channel?.accountName || settings.bank_owner_1 || "Nguyễn Đình Hà Nam";
   
   const bankName2 = settings.bank_name_2;
   const bankAccount2 = settings.bank_account_2;
   const bankOwner2 = settings.bank_owner_2;
 
-  const paymentNote = settings.payment_note || "(Không ghi nội dung Chuyển khoản)";
+  const paymentNote = invoice.payment_code || invoice.paymentCode || settings.payment_note || "(Không ghi nội dung Chuyển khoản)";
   
   // QR Code URL (Use static URL if provided, otherwise generate VietQR)
-  const qrUrl = settings.bank_qr_static_url || `https://img.vietqr.io/image/${bankName1.replace(/\s/g, "")}-${bankAccount1.replace(/\s/g, "")}-compact2.png?amount=${totalPayable}&addInfo=PHONG%20${invoice.room_name?.replace(/\s/g, "")}%20T${invoice.month}%20${invoice.year}`;
+  const qrUrl = buildInvoiceQrUrl(invoice, { bankId: bankName1, accountNo: bankAccount1 }) || settings.bank_qr_static_url || "";
 
   const isPaid = invoice.status === "paid" || (invoice.paid_amount || 0) >= invoice.total_amount;
   const isPartial = (invoice.paid_amount || 0) > 0 && !isPaid;
@@ -266,6 +267,8 @@ export default function ReceiptViewPage() {
                   <p className="text-[10pt] font-black text-slate-900">{bankName1}</p>
                   <p className="text-[12pt] font-black text-blue-600 tracking-wider mb-1">{bankAccount1}</p>
                   <p className="text-[8pt] font-bold text-slate-400 uppercase">{bankOwner1}</p>
+                  <p className="mt-3 text-[8pt] font-black uppercase tracking-widest text-slate-400">Nội dung CK</p>
+                  <p className="font-mono text-[10pt] font-black text-blue-700">{paymentNote}</p>
                 </div>
               </div>
             ) : (
@@ -292,5 +295,4 @@ export default function ReceiptViewPage() {
     </div>
   );
 }
-
 

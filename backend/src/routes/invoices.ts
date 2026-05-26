@@ -4,8 +4,8 @@ import crypto from "crypto";
 import { requireAuth } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { parseJson, toId } from "../utils/validation.js";
-import { updateWalletBalance } from "../utils/wallet.js";
 import { env } from "../config/env.js";
+import { applyInvoicePayment } from "../services/invoicePayments.js";
 
 
 const invoicesRoutes = new Hono<AppEnv>();
@@ -50,6 +50,7 @@ const invoiceItemSchema = z.object({
 const createInvoiceSchema = z.object({
   roomId: optionalString,
   contractId: optionalString,
+  paymentChannelId: nullableString,
   month: z.coerce.number().int().min(1).max(12),
   year: z.coerce.number().int().min(2000).max(2100),
   roomFee: optionalNumber,
@@ -79,6 +80,53 @@ const bulkCollectPaymentSchema = z.object({
   invoiceIds: z.array(z.string().min(1)),
   walletId: z.string().min(1),
 });
+
+const generatePaymentCode = () =>
+  `${env.SEPAY_PAYMENT_PREFIX || "TCINV"}${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
+
+const loadDefaultPaymentChannel = async (db: any, userId: string) => {
+  const { data } = await db
+    .from("payment_channels")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("enabled", true)
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return data || null;
+};
+
+const enrichPaymentFields = (invoice: any, channel?: any | null) => {
+  const total = Number(invoice.total_amount || 0);
+  const paid = Number(invoice.paid_amount || 0);
+  const remaining = Math.max(0, total - paid);
+  return {
+    ...invoice,
+    paymentCode: invoice.payment_code ?? null,
+    payment_code: invoice.payment_code ?? null,
+    paymentChannelId: invoice.payment_channel_id ?? null,
+    payment_channel_id: invoice.payment_channel_id ?? null,
+    payment_channel: channel ? {
+      id: channel.id,
+      provider: channel.provider,
+      displayName: channel.display_name,
+      display_name: channel.display_name,
+      bankId: channel.bank_id,
+      bank_id: channel.bank_id,
+      accountNo: channel.account_no,
+      account_no: channel.account_no,
+      accountName: channel.account_name,
+      account_name: channel.account_name,
+      walletId: channel.wallet_id,
+      wallet_id: channel.wallet_id,
+      autoReconcileEnabled: channel.auto_reconcile_enabled,
+      auto_reconcile_enabled: channel.auto_reconcile_enabled,
+    } : null,
+    remainingAmount: remaining,
+    remaining_amount: remaining,
+  };
+};
 
 invoicesRoutes.get("/", async (c) => {
   const user = c.get("user");
@@ -136,12 +184,19 @@ invoicesRoutes.get("/", async (c) => {
   const contractsById = new Map(contracts.map((contract) => [String(contract.id), contract]));
   const tenantsById = new Map(tenants.map((tenant) => [String(tenant.id), tenant]));
 
+  const channelIds = [...new Set(invoices.map((x) => x.payment_channel_id).filter(Boolean))];
+  const channelsRes = channelIds.length > 0
+    ? await db.from("payment_channels").select("*").eq("user_id", user.id).in("id", channelIds)
+    : { data: [], error: null };
+  if (channelsRes.error) return c.json({ error: channelsRes.error.message }, 500);
+  const channelsById = new Map((channelsRes.data ?? []).map((channel) => [String(channel.id), channel]));
+
   const data = invoices
     .map((inv) => {
       const room = roomsById.get(String(inv.room_id));
       const contract = contractsById.get(String(inv.contract_id));
       const tenant = contract?.tenant_id ? tenantsById.get(String(contract.tenant_id)) : null;
-      return {
+      return enrichPaymentFields({
         ...inv,
         roomId: inv.room_id,
         contractId: inv.contract_id,
@@ -158,7 +213,7 @@ invoicesRoutes.get("/", async (c) => {
         tenant_name: tenant?.name ?? "",
         tenantPhone: tenant?.phone ?? "",
         tenant_phone: tenant?.phone ?? "",
-      };
+      }, inv.payment_channel_id ? channelsById.get(String(inv.payment_channel_id)) : null);
     })
     .sort((a, b) => String(a.room_name).localeCompare(String(b.room_name)));
 
@@ -344,6 +399,10 @@ invoicesRoutes.post("/", async (c) => {
     return c.json({ error: "Invoice already exists for this room and billing period", data: existingInvoiceRes.data }, 409);
   }
 
+  const paymentChannel = parsed.data.paymentChannelId
+    ? (await db.from("payment_channels").select("*").eq("id", parsed.data.paymentChannelId).eq("user_id", user.id).maybeSingle()).data
+    : await loadDefaultPaymentChannel(db, user.id);
+
   const invRes = await db
     .from("invoices")
     .insert({
@@ -360,6 +419,8 @@ invoicesRoutes.post("/", async (c) => {
       water_old: waterOld,
       water_new: parsed.data.waterNew ?? null,
       note: parsed.data.invoiceNote ?? null,
+      payment_code: generatePaymentCode(),
+      payment_channel_id: paymentChannel?.id || null,
     })
     .select("*")
     .single();
@@ -388,7 +449,7 @@ invoicesRoutes.post("/", async (c) => {
     if (itemRes.error) return c.json({ error: itemRes.error.message }, 400);
   }
 
-  return c.json({ data: invRes.data }, 201);
+  return c.json({ data: enrichPaymentFields(invRes.data, paymentChannel) }, 201);
 });
 
 invoicesRoutes.get("/history/:contractId", async (c) => {
@@ -401,14 +462,14 @@ invoicesRoutes.get("/history/:contractId", async (c) => {
   const db = c.get("supabase");
   const { data, error } = await db
     .from("invoices")
-    .select("id, room_id, contract_id, month, year, room_fee, total_amount, paid_amount, previous_debt, status, elec_old, elec_new, water_old, water_new, transaction_id, created_at, updated_at")
+    .select("id, room_id, contract_id, month, year, room_fee, total_amount, paid_amount, previous_debt, status, elec_old, elec_new, water_old, water_new, transaction_id, payment_code, payment_channel_id, created_at, updated_at")
     .eq("contract_id", contractId)
     .eq("user_id", user.id)
     .order("year", { ascending: false })
     .order("month", { ascending: false });
 
   if (error) return c.json({ error: error.message }, 500);
-  return c.json({ data: data ?? [] });
+  return c.json({ data: (data ?? []).map((invoice) => enrichPaymentFields(invoice)) });
 });
 
 invoicesRoutes.get("/previous-debt", async (c) => {
@@ -556,8 +617,20 @@ invoicesRoutes.get("/:id", async (c) => {
     serviceSnapshot: item.service_snapshot,
   }));
 
+  let paymentChannel = null;
+  if (invoice.payment_channel_id) {
+    const channelRes = await db
+      .from("payment_channels")
+      .select("*")
+      .eq("id", invoice.payment_channel_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (channelRes.error) return c.json({ error: channelRes.error.message }, 500);
+    paymentChannel = channelRes.data;
+  }
+
   return c.json({
-    data: {
+    data: enrichPaymentFields({
       ...invoice,
       roomId: invoice.room_id,
       contractId: invoice.contract_id,
@@ -577,7 +650,7 @@ invoicesRoutes.get("/:id", async (c) => {
       tenantPhone: tenant?.phone ?? "",
       tenant_phone: tenant?.phone ?? "",
       items: formattedItems,
-    },
+    }, paymentChannel),
   });
 });
 
@@ -641,69 +714,21 @@ invoicesRoutes.post("/:id/collect-payment", async (c) => {
   if (invRes.error || !invRes.data) return c.json({ error: "Invoice not found" }, 404);
 
   const invoice = invRes.data;
-  const total = Number(invoice.total_amount || 0);
-  const currentPaid = Number(invoice.paid_amount || 0);
-  const dueAmount = Math.max(0, total - currentPaid);
-
+  const dueAmount = Math.max(0, Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0));
   const collectAmount = Number(parsed.data.amount ?? dueAmount);
-  if (collectAmount <= 0) {
-    return c.json({ error: "Invalid payment amount", data: invoice }, 400);
-  }
-
-  // 1. Prevent duplicate collection if invoice is already paid
-  if (invoice.status === "paid" && dueAmount <= 0) {
-    return c.json({ error: "Hóa đơn này đã được thanh toán đầy đủ.", data: invoice }, 400);
-  }
-
   const roomRes = await db.from("rooms").select("name").eq("id", invoice.room_id).eq("user_id", user.id).maybeSingle();
+  const paymentRes = await applyInvoicePayment(db, {
+    invoice,
+    amount: collectAmount,
+    walletId: parsed.data.walletId,
+    source: parsed.data.method === "cash" ? "cash" : parsed.data.method === "bank_transfer" ? "bank_transfer" : "manual",
+    date: parsed.data.date,
+    note: parsed.data.note,
+    roomName: roomRes.data?.name || null,
+  });
 
-  // 2. Perform both operations. 
-  // In a real production app, we should use a Postgres Transaction or RPC here.
-  // For now, we perform them sequentially and ensure atomicity via logic.
-  const txRes = await db
-    .from("transactions")
-    .insert({
-      user_id: user.id,
-      type: "income",
-      amount: collectAmount,
-      description: `Thu tiền phòng ${roomRes.data?.name ?? invoice.room_id} ${invoice.month}/${invoice.year}${parsed.data.note ? ` · ${parsed.data.note}` : ""}`,
-      category_id: null,
-      wallet_id: parsed.data.walletId,
-      image_uri: null,
-      date: parsed.data.date || new Date().toISOString().split("T")[0],
-      invoice_id: invoice.id,
-    })
-    .select("*")
-    .single();
-
-  if (txRes.error || !txRes.data) return c.json({ error: txRes.error?.message || "Failed to create transaction" }, 400);
-
-  // Cập nhật số dư ví
-  await updateWalletBalance(db, parsed.data.walletId, collectAmount, 'income');
-
-  const newPaid = currentPaid + collectAmount;
-  const updateRes = await db
-    .from("invoices")
-    .update({
-      paid_amount: newPaid,
-      status: newPaid >= total ? "paid" : "partial",
-      transaction_id: txRes.data.id,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .select("*")
-    .single();
-
-  if (updateRes.error) {
-    // CRITICAL: If invoice update fails, we MUST attempt to roll back the transaction
-    await db.from("transactions").delete().eq("id", txRes.data.id).eq("user_id", user.id);
-    return c.json({ error: "Lỗi khi cập nhật trạng thái hóa đơn. Giao dịch đã được hủy để tránh sai sót." }, 400);
-  }
-
-  if (!updateRes.data) return c.json({ error: "Failed to update invoice" }, 400);
-
-  return c.json({ data: { invoice: updateRes.data, transaction: txRes.data } });
+  if (paymentRes.error || !paymentRes.data) return c.json({ error: paymentRes.error || "Failed to collect payment" }, 400);
+  return c.json({ data: { invoice: paymentRes.data.invoice, transaction: paymentRes.data.transaction } });
 });
 
 invoicesRoutes.post("/bulk-collect-payment", async (c) => {
@@ -751,58 +776,22 @@ invoicesRoutes.post("/bulk-collect-payment", async (c) => {
       continue;
     }
 
-    const roomName = roomMap.get(invoice.room_id) ?? invoice.room_id;
+    const paymentRes = await applyInvoicePayment(db, {
+      invoice,
+      amount: dueAmount,
+      walletId,
+      source: "manual",
+      note: "Thanh toán hàng loạt",
+      roomName: roomMap.get(invoice.room_id) ?? invoice.room_id,
+    });
 
-    // Create transaction
-    const txRes = await db
-      .from("transactions")
-      .insert({
-        user_id: user.id,
-        type: "income",
-        amount: dueAmount,
-        description: `Thu tiền phòng ${roomName} ${invoice.month}/${invoice.year} · Thanh toán hàng loạt`,
-        category_id: null,
-        wallet_id: walletId,
-        image_uri: null,
-        date: new Date().toISOString().split("T")[0],
-        invoice_id: invoice.id,
-        contract_id: invoice.contract_id || null,
-      })
-      .select("*")
-      .single();
-
-    if (txRes.error || !txRes.data) {
-      results.push({ invoiceId: invoice.id, status: "error", error: txRes.error?.message || "Failed to create transaction" });
+    if (paymentRes.error || !paymentRes.data) {
+      results.push({ invoiceId: invoice.id, status: "error", error: paymentRes.error || "Failed to collect payment" });
       continue;
     }
 
-    // Update wallet balance
-    await updateWalletBalance(db, walletId, dueAmount, "income");
     totalCollected += dueAmount;
-
-    // Update invoice
-    const newPaid = currentPaid + dueAmount;
-    const updateRes = await db
-      .from("invoices")
-      .update({
-        paid_amount: newPaid,
-        status: "paid",
-        transaction_id: txRes.data.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", invoice.id)
-      .eq("user_id", user.id)
-      .select("*")
-      .single();
-
-    if (updateRes.error) {
-      // Rollback
-      await db.from("transactions").delete().eq("id", txRes.data.id).eq("user_id", user.id);
-      await updateWalletBalance(db, walletId, dueAmount, "expense");
-      results.push({ invoiceId: invoice.id, status: "error", error: "Failed to update invoice status" });
-    } else {
-      results.push({ invoiceId: invoice.id, status: "success", amount: dueAmount, transactionId: txRes.data.id });
-    }
+    results.push({ invoiceId: invoice.id, status: "success", amount: dueAmount, transactionId: paymentRes.data.transaction.id });
   }
 
   return c.json({ data: results, totalCollected });

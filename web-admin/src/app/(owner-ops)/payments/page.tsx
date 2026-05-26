@@ -11,7 +11,7 @@ import Input, { Label, Select } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
 import DataTable from "@/components/ui/DataTable";
 
-const methods = ["Tất cả", "Tiền mặt", "Chuyển khoản", "Ví điện tử"];
+const methods = ["Tất cả", "Tiền mặt", "Chuyển khoản", "Ví điện tử", "SePay"];
 
 export default function PaymentsPage() {
   const queryClient = useQueryClient();
@@ -44,7 +44,10 @@ export default function PaymentsPage() {
     return payments.filter((tx) => {
       if (from && tx.date < from) return false;
       if (to && tx.date > to) return false;
-      if (method !== "Tất cả" && !String(tx.description || "").includes(method)) return false;
+      if (method !== "Tất cả") {
+        if (method === "SePay" && tx.source !== "sepay") return false;
+        if (method !== "SePay" && !String(tx.description || "").includes(method)) return false;
+      }
       return true;
     });
   }, [payments, from, to, method]);
@@ -61,6 +64,7 @@ export default function PaymentsPage() {
   const totalCash = filtered.filter((tx) => !String(tx.description || "").includes("Chuyển khoản") && !String(tx.description || "").includes("Ví điện tử")).reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
   const totalBank = filtered.filter((tx) => String(tx.description || "").includes("Chuyển khoản")).reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
   const totalWallet = filtered.filter((tx) => String(tx.description || "").includes("Ví điện tử")).reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  const totalSepay = filtered.filter((tx) => tx.source === "sepay").reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -103,11 +107,12 @@ export default function PaymentsPage() {
 
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="mb-4 grid gap-3 md:grid-cols-4">
+      <div className="mb-4 grid gap-3 md:grid-cols-5">
         <PaymentSummaryCard label="Tổng thu" value={total} />
         <PaymentSummaryCard label="Tiền mặt" value={totalCash} />
         <PaymentSummaryCard label="Chuyển khoản" value={totalBank} />
         <PaymentSummaryCard label="Ví điện tử" value={totalWallet} />
+        <PaymentSummaryCard label="SePay tự động" value={totalSepay} />
       </div>
 
       <DataTable
@@ -127,7 +132,9 @@ export default function PaymentsPage() {
               <td className="px-4 py-3 font-medium text-slate-900">{room}</td>
               <td className="px-4 py-3 text-slate-600">Theo hóa đơn</td>
               <td className="px-4 py-3 font-semibold text-emerald-700 whitespace-nowrap">{formatMoney(tx.amount)}</td>
-              <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{String(tx.description || "").includes("Chuyển khoản") ? "Chuyển khoản" : String(tx.description || "").includes("Ví điện tử") ? "Ví điện tử" : "Tiền mặt"}</td>
+              <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                {tx.source === "sepay" ? <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">SePay</span> : String(tx.description || "").includes("Chuyển khoản") ? "Chuyển khoản" : String(tx.description || "").includes("Ví điện tử") ? "Ví điện tử" : "Tiền mặt"}
+              </td>
               <td className="px-4 py-3 text-slate-600">Owner</td>
               <td className="px-4 py-3 text-slate-500 font-mono text-xs">#{tx.id}</td>
             </tr>

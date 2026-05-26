@@ -1,0 +1,156 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { applyInvoicePayment } from "../src/services/invoicePayments.js";
+import { updateWalletBalance } from "../src/utils/wallet.js";
+
+type Row = Record<string, any>;
+
+vi.mock("../src/utils/wallet.js", () => ({
+  updateWalletBalance: vi.fn().mockResolvedValue(undefined),
+}));
+
+let rows: Record<string, Row[]>;
+let failTransactionInsert = false;
+
+class Query {
+  filters: { col: string; value: any }[] = [];
+  mode: "select" | "insert" | "update" = "select";
+  payload: any = null;
+  wantsSingle = false;
+
+  constructor(private table: string) {}
+
+  select() { return this; }
+  eq(col: string, value: any) { this.filters.push({ col, value }); return this; }
+  single() { this.wantsSingle = true; return this; }
+  insert(payload: any) { this.mode = "insert"; this.payload = payload; return this; }
+  update(payload: any) { this.mode = "update"; this.payload = payload; return this; }
+
+  async execute() {
+    rows[this.table] ||= [];
+    let found = rows[this.table].filter((row) => this.filters.every((filter) => row[filter.col] === filter.value));
+
+    if (this.mode === "insert") {
+      if (this.table === "transactions" && failTransactionInsert) {
+        return { data: null, error: { message: "insert failed" } };
+      }
+      const inserted = { id: `${this.table}-${rows[this.table].length + 1}`, ...this.payload };
+      rows[this.table].push(inserted);
+      found = [inserted];
+    }
+
+    if (this.mode === "update") {
+      rows[this.table] = rows[this.table].map((row) => {
+        if (!found.some((match) => match.id === row.id)) return row;
+        return { ...row, ...this.payload };
+      });
+      found = rows[this.table].filter((row) => this.filters.every((filter) => row[filter.col] === filter.value));
+    }
+
+    if (this.wantsSingle) {
+      return found[0] ? { data: found[0], error: null } : { data: null, error: { message: "not found" } };
+    }
+    return { data: found, error: null };
+  }
+
+  then(resolve: any, reject: any) {
+    return this.execute().then(resolve, reject);
+  }
+}
+
+const db = {
+  from: (table: string) => new Query(table),
+};
+
+const seedInvoice = (overrides: Row = {}) => {
+  const invoice = {
+    id: "invoice-1",
+    user_id: "owner-1",
+    room_id: "room-1",
+    room_name: "101",
+    contract_id: "contract-1",
+    month: 5,
+    year: 2026,
+    total_amount: 2_000_000,
+    paid_amount: 0,
+    status: "unpaid",
+    payment_code: "TCINV123",
+    transaction_id: null,
+    ...overrides,
+  };
+  rows.invoices = [invoice];
+  return invoice;
+};
+
+describe("applyInvoicePayment", () => {
+  beforeEach(() => {
+    rows = { invoices: [], transactions: [] };
+    failTransactionInsert = false;
+    vi.clearAllMocks();
+  });
+
+  it("records a partial receipt when received amount is below remaining invoice amount", async () => {
+    const invoice = seedInvoice();
+
+    const result = await applyInvoicePayment(db as any, {
+      invoice,
+      amount: 1_500_000,
+      walletId: "wallet-1",
+      source: "sepay",
+      externalRef: "SP-1",
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.data).toMatchObject({ allocatedAmount: 1_500_000, overpaidAmount: 0, status: "partial" });
+    expect(rows.invoices[0]).toMatchObject({ paid_amount: 1_500_000, status: "partial", transaction_id: "transactions-1" });
+    expect(rows.transactions[0]).toMatchObject({ amount: 1_500_000, source: "sepay", external_ref: "SP-1" });
+    expect(updateWalletBalance).toHaveBeenCalledWith(db, "wallet-1", 1_500_000, "income");
+  });
+
+  it("marks the invoice paid when received amount exactly covers the remaining amount", async () => {
+    const invoice = seedInvoice({ paid_amount: 500_000, status: "partial" });
+
+    const result = await applyInvoicePayment(db as any, {
+      invoice,
+      amount: 1_500_000,
+      walletId: "wallet-1",
+      source: "sepay",
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.data).toMatchObject({ allocatedAmount: 1_500_000, overpaidAmount: 0, status: "paid" });
+    expect(rows.invoices[0]).toMatchObject({ paid_amount: 2_000_000, status: "paid" });
+  });
+
+  it("keeps actual receipt amount while allocating only the remaining invoice amount when overpaid", async () => {
+    const invoice = seedInvoice();
+
+    const result = await applyInvoicePayment(db as any, {
+      invoice,
+      amount: 2_200_000,
+      walletId: "wallet-1",
+      source: "sepay",
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.data).toMatchObject({ allocatedAmount: 2_000_000, overpaidAmount: 200_000, status: "paid" });
+    expect(rows.invoices[0]).toMatchObject({ paid_amount: 2_000_000, status: "paid" });
+    expect(rows.transactions[0]).toMatchObject({ amount: 2_200_000 });
+    expect(rows.transactions[0].metadata).toMatchObject({ allocated_amount: 2_000_000, overpaid_amount: 200_000 });
+  });
+
+  it("rolls the invoice back when receipt creation fails", async () => {
+    const invoice = seedInvoice({ paid_amount: 300_000, status: "partial", transaction_id: "old-tx" });
+    failTransactionInsert = true;
+
+    const result = await applyInvoicePayment(db as any, {
+      invoice,
+      amount: 1_700_000,
+      walletId: "wallet-1",
+      source: "sepay",
+    });
+
+    expect(result.error).toBe("insert failed");
+    expect(rows.invoices[0]).toMatchObject({ paid_amount: 300_000, status: "partial", transaction_id: "old-tx" });
+    expect(updateWalletBalance).not.toHaveBeenCalled();
+  });
+});

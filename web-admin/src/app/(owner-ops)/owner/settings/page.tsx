@@ -3,7 +3,15 @@
 import React, { useEffect, useState } from "react";
 import { Save, RefreshCw, Settings, CreditCard, DollarSign, Home, Zap, Layers, Trash2, Plus, Edit2, Upload, Image as ImageIcon, Wallet, Landmark, ChevronDown } from "lucide-react";
 import { apiGet, apiPost, apiPatch, apiDelete, apiPut } from "@/utils/apiClient";
-import { ServiceConfig, formatMoney } from "@/lib/rentalOps";
+import {
+  PaymentChannel,
+  ServiceConfig,
+  createPaymentChannel,
+  disablePaymentChannel,
+  formatMoney,
+  loadPaymentChannels,
+  updatePaymentChannel,
+} from "@/lib/rentalOps";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input, { Label, Select as UISelect } from "@/components/ui/Input";
@@ -34,16 +42,28 @@ export default function OwnerSettingsPage() {
   });
   const [newWallet, setNewWallet] = useState({ name: "", type: "personal" });
   const [savingExtension, setSavingExtension] = useState(false);
+  const [paymentChannels, setPaymentChannels] = useState<PaymentChannel[]>([]);
+  const [newPaymentChannel, setNewPaymentChannel] = useState({
+    displayName: "SePay tự động",
+    provider: "sepay",
+    bankId: "970436",
+    accountNo: "",
+    accountName: "",
+    walletId: "",
+    autoReconcileEnabled: true,
+    isDefault: true,
+  });
 
   const load = async () => {
     setLoading(true);
     setError("");
     try {
-      const [settingsRes, servicesRes, walletsRes, bankRes] = await Promise.all([
+      const [settingsRes, servicesRes, walletsRes, bankRes, channelsRes] = await Promise.all([
         apiGet<any>("/owner/settings"),
         apiGet<any>("/rental/services?activeOnly=0"),
         apiGet<any>("/wallets"),
-        apiGet<any>("/bank-config")
+        apiGet<any>("/bank-config"),
+        loadPaymentChannels()
       ]);
       const map: Record<string, SettingItem> = {};
       (settingsRes?.data || []).forEach((s: SettingItem) => {
@@ -52,6 +72,7 @@ export default function OwnerSettingsPage() {
       setSettings(map);
       setServices(servicesRes?.data || []);
       setWallets(walletsRes?.data || []);
+      setPaymentChannels(channelsRes || []);
       if (bankRes?.data) {
         setBankConfig({
           bank_id: bankRes.data.bank_id || "970436",
@@ -250,6 +271,80 @@ export default function OwnerSettingsPage() {
       setSuccess("Đã lưu cấu hình ngân hàng.");
     } catch (err: any) {
       setError(err.message || "Không lưu được cấu hình ngân hàng.");
+    } finally {
+      setSavingExtension(false);
+    }
+  };
+
+  const handleCreatePaymentChannel = async () => {
+    if (!newPaymentChannel.displayName || !newPaymentChannel.accountNo || !newPaymentChannel.accountName) {
+      setError("Vui lòng nhập đủ tên kênh, số tài khoản và tên chủ tài khoản.");
+      return;
+    }
+    try {
+      setSavingExtension(true);
+      await createPaymentChannel({
+        displayName: newPaymentChannel.displayName,
+        provider: newPaymentChannel.provider,
+        bankId: newPaymentChannel.bankId,
+        accountNo: newPaymentChannel.accountNo,
+        accountName: newPaymentChannel.accountName,
+        walletId: newPaymentChannel.walletId || null,
+        autoReconcileEnabled: newPaymentChannel.autoReconcileEnabled,
+        isDefault: newPaymentChannel.isDefault,
+        enabled: true,
+      });
+      setSuccess("Đã tạo kênh thanh toán.");
+      setNewPaymentChannel((prev) => ({ ...prev, accountNo: "", accountName: "" }));
+      load();
+    } catch (err: any) {
+      setError(err.message || "Không tạo được kênh thanh toán.");
+    } finally {
+      setSavingExtension(false);
+    }
+  };
+
+  const handleTogglePaymentChannel = async (channel: PaymentChannel) => {
+    try {
+      setSavingExtension(true);
+      await updatePaymentChannel(channel.id, {
+        enabled: !channel.enabled,
+        displayName: channel.displayName || channel.display_name || "Kênh thanh toán",
+      });
+      setSuccess("Đã cập nhật kênh thanh toán.");
+      load();
+    } catch (err: any) {
+      setError(err.message || "Không cập nhật được kênh thanh toán.");
+    } finally {
+      setSavingExtension(false);
+    }
+  };
+
+  const handleSetDefaultPaymentChannel = async (channel: PaymentChannel) => {
+    try {
+      setSavingExtension(true);
+      await updatePaymentChannel(channel.id, {
+        displayName: channel.displayName || channel.display_name || "Kênh thanh toán",
+        isDefault: true,
+      });
+      setSuccess("Đã đặt kênh thanh toán mặc định.");
+      load();
+    } catch (err: any) {
+      setError(err.message || "Không cập nhật được kênh thanh toán.");
+    } finally {
+      setSavingExtension(false);
+    }
+  };
+
+  const handleDisablePaymentChannel = async (channel: PaymentChannel) => {
+    if (!window.confirm("Tắt kênh thanh toán này?")) return;
+    try {
+      setSavingExtension(true);
+      await disablePaymentChannel(channel.id);
+      setSuccess("Đã tắt kênh thanh toán.");
+      load();
+    } catch (err: any) {
+      setError(err.message || "Không tắt được kênh thanh toán.");
     } finally {
       setSavingExtension(false);
     }
@@ -477,6 +572,97 @@ export default function OwnerSettingsPage() {
                       >
                         Lưu tất cả cấu hình
                       </Button>
+                    </div>
+                  </Card>
+                </section>
+
+                <section className="space-y-4 pt-4 border-t border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <Wallet size={20} className="text-blue-600" />
+                    <h3 className="text-lg font-bold text-slate-900">Kênh thanh toán & đối soát SePay</h3>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Kênh thanh toán quyết định QR hóa đơn và ví doanh thu được ghi nhận khi SePay báo tiền vào.
+                  </p>
+
+                  <div className="grid gap-3">
+                    {paymentChannels.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                        Chưa có kênh thanh toán. Tạo một kênh SePay để hóa đơn tự sinh QR và tự đối soát.
+                      </div>
+                    ) : paymentChannels.map((channel) => {
+                      const wallet = wallets.find((item) => String(item.id) === String(channel.wallet_id || channel.walletId));
+                      return (
+                        <div key={channel.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-bold text-slate-900">{channel.displayName || channel.display_name}</span>
+                                {(channel.isDefault || channel.is_default) && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase text-blue-700">Mặc định</span>}
+                                {channel.provider === "sepay" && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">SePay</span>}
+                                {!channel.enabled && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500">Tắt</span>}
+                              </div>
+                              <div className="mt-1 text-xs text-slate-500">
+                                {channel.bank_id || channel.bankId || "-"} · {channel.account_no || channel.accountNo || "-"} · Ví: {wallet?.name || "Chưa chọn ví"}
+                              </div>
+                              {(channel.autoReconcileEnabled || channel.auto_reconcile_enabled) ? (
+                                <div className="mt-1 text-xs font-medium text-emerald-700">Tự động đối soát và sinh phiếu thu khi SePay báo tiền vào.</div>
+                              ) : (
+                                <div className="mt-1 text-xs font-medium text-amber-700">Webhook sẽ được log nhưng không tự ghi nhận nếu chưa bật đối soát.</div>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button variant="outline" onClick={() => handleSetDefaultPaymentChannel(channel)} disabled={savingExtension}>Đặt mặc định</Button>
+                              <Button variant="outline" onClick={() => handleTogglePaymentChannel(channel)} disabled={savingExtension}>{channel.enabled ? "Tạm tắt" : "Bật lại"}</Button>
+                              <Button variant="outline" onClick={() => handleDisablePaymentChannel(channel)} disabled={savingExtension}>Tắt kênh</Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <Card className="grid gap-4 p-5">
+                    <h4 className="text-sm font-bold uppercase tracking-wide text-slate-500">Tạo kênh SePay</h4>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <Label>Tên kênh</Label>
+                        <Input value={newPaymentChannel.displayName} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, displayName: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Ví ghi nhận doanh thu</Label>
+                        <UISelect value={newPaymentChannel.walletId} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, walletId: e.target.value })}>
+                          <option value="">Chọn ví</option>
+                          {wallets.map((wallet) => <option key={wallet.id} value={wallet.id}>{wallet.name}</option>)}
+                        </UISelect>
+                      </div>
+                      <div>
+                        <Label>Ngân hàng</Label>
+                        <UISelect value={newPaymentChannel.bankId} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, bankId: e.target.value })}>
+                          {BANK_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                        </UISelect>
+                      </div>
+                      <div>
+                        <Label>Số tài khoản</Label>
+                        <Input value={newPaymentChannel.accountNo} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, accountNo: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Tên chủ tài khoản</Label>
+                        <Input value={newPaymentChannel.accountName} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, accountName: e.target.value })} />
+                      </div>
+                      <div className="flex items-end gap-4">
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                          <input type="checkbox" checked={newPaymentChannel.autoReconcileEnabled} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, autoReconcileEnabled: e.target.checked })} />
+                          Tự động đối soát SePay
+                        </label>
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                          <input type="checkbox" checked={newPaymentChannel.isDefault} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, isDefault: e.target.checked })} />
+                          Mặc định
+                        </label>
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button onClick={handleCreatePaymentChannel} disabled={savingExtension} loading={savingExtension}>Tạo kênh thanh toán</Button>
                     </div>
                   </Card>
                 </section>

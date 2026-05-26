@@ -21,6 +21,9 @@ const createTxSchema = z.object({
   invoiceId: z.string().optional(),
   imageUri: z.string().nullable().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  source: z.string().optional(),
+  externalRef: z.string().nullable().optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 const updateTxSchema = z
@@ -33,6 +36,9 @@ const updateTxSchema = z
     invoiceId: z.string().nullable().optional(),
     imageUri: z.string().nullable().optional(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    source: z.string().optional(),
+    externalRef: z.string().nullable().optional(),
+    metadata: z.record(z.string(), z.any()).optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, "No fields to update");
 
@@ -104,6 +110,9 @@ transactionsRoutes.get("/", async (c) => {
       categoryId: row.category_id,
       invoiceId: row.invoice_id,
       imageUri: row.image_uri,
+      source: row.source || "manual",
+      externalRef: row.external_ref,
+      metadata: row.metadata || {},
       wallet_name: wallet?.name ?? "",
       wallet_color: wallet?.color ?? null,
       category_name: category?.name ?? null,
@@ -130,6 +139,9 @@ transactionsRoutes.post("/", async (c) => {
     invoice_id: parsed.data.invoiceId ?? null,
     image_uri: parsed.data.imageUri ?? null,
     date: parsed.data.date,
+    source: parsed.data.source || "manual",
+    external_ref: parsed.data.externalRef ?? null,
+    metadata: parsed.data.metadata || {},
   };
 
   const db = c.get("supabase");
@@ -160,6 +172,9 @@ transactionsRoutes.patch("/:id", async (c) => {
   if (parsed.data.invoiceId !== undefined) payload.invoice_id = parsed.data.invoiceId;
   if (parsed.data.imageUri !== undefined) payload.image_uri = parsed.data.imageUri;
   if (parsed.data.date !== undefined) payload.date = parsed.data.date;
+  if (parsed.data.source !== undefined) payload.source = parsed.data.source;
+  if (parsed.data.externalRef !== undefined) payload.external_ref = parsed.data.externalRef;
+  if (parsed.data.metadata !== undefined) payload.metadata = parsed.data.metadata;
   payload.updated_at = new Date().toISOString();
 
   const db = c.get("supabase");

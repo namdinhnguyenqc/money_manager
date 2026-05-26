@@ -3,7 +3,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Image } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
@@ -13,6 +13,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { apiGet, apiDelete } from '@/lib/api';
+import { buildInvoiceQrUrl } from '@/lib/rentalOps';
 
 const formatMoney = (v?: number | null) => `${new Intl.NumberFormat('vi-VN').format(Math.round(Number(v || 0)))} ₫`;
 
@@ -49,6 +50,9 @@ export default function InvoiceDetailScreen() {
   const outstanding = total - paid;
   const status = paid >= total && total > 0 ? 'paid' : paid > 0 ? 'partial' : 'sent';
   const items = invoice.items || [];
+  const paymentCode = invoice.payment_code || invoice.paymentCode || '';
+  const channel = invoice.payment_channel;
+  const qrUrl = buildInvoiceQrUrl(invoice);
 
   return (
     <>
@@ -80,6 +84,33 @@ export default function InvoiceDetailScreen() {
             )}
           </View>
         </Card>
+
+        {outstanding > 0 && (
+          <Card style={styles.qrCard}>
+            <View style={styles.qrHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>Thanh toán chuyển khoản</Text>
+                <Text style={styles.qrSubtext}>SePay sẽ tự ghi nhận phiếu thu khi khách chuyển đúng mã.</Text>
+              </View>
+              <Ionicons name="qr-code-outline" size={22} color={Colors.primary} />
+            </View>
+            <View style={styles.qrBody}>
+              {qrUrl ? (
+                <Image source={{ uri: qrUrl }} style={styles.qrImage} resizeMode="contain" />
+              ) : (
+                <View style={styles.qrPlaceholder}>
+                  <Text style={styles.qrPlaceholderText}>Chưa cấu hình kênh QR</Text>
+                </View>
+              )}
+              <View style={styles.bankInfo}>
+                <Text style={styles.bankLabel}>Nội dung chuyển khoản</Text>
+                <Text style={styles.paymentCode}>{paymentCode || 'Chưa có mã'}</Text>
+                <Text style={styles.bankLine}>{channel?.bank_id || channel?.bankId || ''} {channel?.account_no || channel?.accountNo || ''}</Text>
+                <Text style={styles.bankLine}>{channel?.account_name || channel?.accountName || ''}</Text>
+              </View>
+            </View>
+          </Card>
+        )}
 
         {/* Items */}
         <Card style={styles.itemsCard}>
@@ -128,6 +159,17 @@ const styles = StyleSheet.create({
   outstandingLabel: { fontSize: 15, fontFamily: Typography.fontFamily.semibold, color: Colors.textPrimary },
   outstandingValue: { fontSize: 18, fontFamily: Typography.fontFamily.bold, color: Colors.danger, letterSpacing: -0.5 },
   itemsCard: { padding: 18 },
+  qrCard: { padding: 18 },
+  qrHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
+  qrSubtext: { marginTop: 4, fontSize: 12, fontFamily: Typography.fontFamily.regular, color: Colors.textMuted, lineHeight: 17 },
+  qrBody: { flexDirection: 'row', gap: 14, alignItems: 'center' },
+  qrImage: { width: 124, height: 124, borderRadius: 12, backgroundColor: '#fff' },
+  qrPlaceholder: { width: 124, height: 124, borderRadius: 12, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center', padding: 10 },
+  qrPlaceholderText: { textAlign: 'center', fontSize: 11, fontFamily: Typography.fontFamily.medium, color: Colors.textMuted },
+  bankInfo: { flex: 1 },
+  bankLabel: { fontSize: 11, fontFamily: Typography.fontFamily.semibold, color: Colors.textMuted, textTransform: 'uppercase' },
+  paymentCode: { marginTop: 6, fontSize: 17, fontFamily: Typography.fontFamily.bold, color: Colors.primary },
+  bankLine: { marginTop: 4, fontSize: 12, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
   sectionTitle: { fontSize: 15, fontFamily: Typography.fontFamily.semibold, color: Colors.textPrimary, marginBottom: 12, letterSpacing: -0.2 },
   itemRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   itemName: { fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textPrimary },

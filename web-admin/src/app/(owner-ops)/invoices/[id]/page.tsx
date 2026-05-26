@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, PencilLine, Send, Wallet } from "lucide-react";
 import StatusBadge from "@/components/ops/StatusBadge";
-import { Invoice, Transaction, formatMoney, loadInvoice, normalizeInvoiceStatus, loadTransactions, loadSettingsMap } from "@/lib/rentalOps";
+import { Invoice, Transaction, buildInvoiceQrUrl, formatMoney, getInvoiceRemainingAmount, loadInvoice, normalizeInvoiceStatus, loadTransactions, loadSettingsMap } from "@/lib/rentalOps";
 import { History, CreditCard, QrCode, ArrowRight } from "lucide-react";
 
 export default function InvoiceDetailPage() {
@@ -56,6 +56,13 @@ export default function InvoiceDetailPage() {
 
   const status = normalizeInvoiceStatus(invoice);
   const isPaid = status === "paid";
+  const remainingAmount = getInvoiceRemainingAmount(invoice);
+  const paymentCode = invoice.payment_code || invoice.paymentCode || "";
+  const paymentChannel = invoice.payment_channel;
+  const paymentBankId = paymentChannel?.bank_id || paymentChannel?.bankId || settings.bank_name_1 || "ACB";
+  const paymentAccountNo = paymentChannel?.account_no || paymentChannel?.accountNo || settings.bank_account_1 || "252369089";
+  const paymentAccountName = paymentChannel?.account_name || paymentChannel?.accountName || settings.bank_owner_1 || "Nguyễn Đình Hà Nam";
+  const qrUrl = buildInvoiceQrUrl(invoice, { bankId: paymentBankId, accountNo: paymentAccountNo });
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -135,23 +142,21 @@ export default function InvoiceDetailPage() {
           <div className="flex gap-4">
             <div className="flex-1 space-y-3">
               <div className="rounded-lg bg-slate-50 p-3 text-sm">
-                <p className="font-bold text-blue-700">{settings.bank_name_1 || "ACB"}</p>
-                <p className="mt-1 font-semibold">{settings.bank_account_1 || "252369089"}</p>
-                <p className="text-xs text-slate-500 uppercase">{settings.bank_owner_1 || "Nguyễn Đình Hà Nam"}</p>
+                <p className="font-bold text-blue-700">{paymentBankId}</p>
+                <p className="mt-1 font-semibold">{paymentAccountNo}</p>
+                <p className="text-xs text-slate-500 uppercase">{paymentAccountName}</p>
               </div>
-              <p className="text-[11px] font-bold italic text-red-600 leading-tight">
-                {settings.payment_note || "(Không ghi nội dung Chuyển khoản)"}
-              </p>
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs">
+                <div className="font-semibold text-slate-500">Nội dung chuyển khoản</div>
+                <div className="mt-1 font-mono text-sm font-black text-blue-700">{paymentCode || "Chưa có mã"}</div>
+              </div>
+              <p className="text-[11px] font-bold italic text-red-600 leading-tight">Quét QR hoặc nhập đúng mã trên để hệ thống tự ghi nhận phiếu thu.</p>
               <Link href={`/invoices/${invoice.id}/receipt`} target="_blank" className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline">
                 Xem bản in đầy đủ <ArrowRight size={12} />
               </Link>
             </div>
             <div className="shrink-0 rounded-xl border border-slate-200 p-2 bg-white shadow-md">
-              <img 
-                src={settings.bank_qr_static_url || `https://img.vietqr.io/image/${(settings.bank_name_1 || "ACB").replace(/\s/g, "")}-${(settings.bank_account_1 || "252369089").replace(/\s/g, "")}-compact2.png?amount=${invoice.total_amount}&addInfo=PHONG%20${invoice.room_name?.replace(/\s/g, "")}%20T${invoice.month}%20${invoice.year}`} 
-                alt="Payment QR" 
-                className="w-32 h-32 object-contain" 
-              />
+              {qrUrl ? <img src={qrUrl} alt="Payment QR" className="w-32 h-32 object-contain" /> : <div className="flex h-32 w-32 items-center justify-center text-center text-xs text-slate-400">Chưa cấu hình QR</div>}
             </div>
           </div>
         </div>
@@ -163,12 +168,12 @@ export default function InvoiceDetailPage() {
             <div className="flex flex-wrap justify-between gap-4">
               <div>
                 <span className="font-medium">Tổng đã thu:</span>{" "}
-                <span className="font-bold">{formatMoney(invoice.paid_amount || 0)}</span>
+                  <span className="font-bold">{formatMoney(invoice.paid_amount || 0)}</span>
               </div>
               {!isPaid && (
                 <div className="text-red-600">
                   <span className="font-medium">Còn thiếu:</span>{" "}
-                  <span className="font-bold">{formatMoney(Math.max(0, invoice.total_amount - (invoice.paid_amount || 0)))}</span>
+                  <span className="font-bold">{formatMoney(remainingAmount)}</span>
                 </div>
               )}
             </div>
