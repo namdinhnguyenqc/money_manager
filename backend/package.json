@@ -28,6 +28,8 @@
     "@types/bcrypt": "^5.0.1",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/pg": "^8.20.0",
+    "@types/supertest": "^7.2.0",
+    "supertest": "^7.2.2",
     "tsconfig-paths": "^3.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.0.4",

@@ -162,16 +162,15 @@ export default function NewContractPage() {
     onSuccess: async (created) => {
       setSuccess(true);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["contracts"] }),
-        queryClient.invalidateQueries({ queryKey: ["rooms"] }),
-        queryClient.invalidateQueries({ queryKey: ["facility"] }),
-        queryClient.invalidateQueries({ queryKey: ["deposits"] }),
-        queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+        queryClient.invalidateQueries({ queryKey: ["contracts"], refetchType: "all" }),
+        queryClient.invalidateQueries({ queryKey: ["rooms"], refetchType: "all" }),
+        queryClient.invalidateQueries({ queryKey: ["facility"], refetchType: "all" }),
+        queryClient.invalidateQueries({ queryKey: ["deposits"], refetchType: "all" }),
+        queryClient.invalidateQueries({ queryKey: ["transactions"], refetchType: "all" }),
+        queryClient.invalidateQueries({ queryKey: ["owner", "dashboard-init"], refetchType: "all" }),
       ]);
-      // Give time to show success state
-      setTimeout(() => {
-        router.push(`/contracts/${created.id}`);
-      }, 1500);
+      localStorage.setItem("trocare-cache-sync", String(Date.now()));
+      router.push(`/contracts/${created.id}`);
     },
     onError: (err: any) => {
       setError(err?.message || "Không tạo được hợp đồng.");

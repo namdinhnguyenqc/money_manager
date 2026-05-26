@@ -38,6 +38,7 @@ export const env = {
   SUPABASE_ANON_KEY: productionRequired("SUPABASE_ANON_KEY", ""),
   SUPABASE_SERVICE_ROLE_KEY: productionRequired("SUPABASE_SERVICE_ROLE_KEY", ""),
   GOOGLE_CLIENT_ID: productionRequired("GOOGLE_CLIENT_ID", ""),
+  GOOGLE_CLIENT_IDS: optional("GOOGLE_CLIENT_IDS", ""),
   GOOGLE_CLIENT_SECRET: optional("GOOGLE_CLIENT_SECRET", ""),
   ADMIN_USERNAME: optional("ADMIN_USERNAME", "admin"),
   ADMIN_PASSWORD: optional("ADMIN_PASSWORD", "admin-prod-please-change"),

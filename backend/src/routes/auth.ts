@@ -88,6 +88,14 @@ function getGoogleClient(): OAuth2Client {
   return googleOAuth2Client!;
 }
 
+const getGoogleClientAudiences = () => {
+  const audiences = [env.GOOGLE_CLIENT_ID, ...env.GOOGLE_CLIENT_IDS.split(",")]
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return [...new Set(audiences)];
+};
+
 const safeSupabaseError = (error: any) => ({
   code: error?.code,
   message: error?.message,
@@ -163,7 +171,7 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
   try {
     ticket = await getGoogleClient().verifyIdToken({
       idToken,
-      audience: env.GOOGLE_CLIENT_ID,
+      audience: getGoogleClientAudiences(),
     });
   } catch (e) {
     await logLoginAttempt(null, false, "TOKEN_INVALID");
@@ -372,10 +380,10 @@ async function handleOwnerGoogleAuth(idToken: string | undefined) {
 
   if (process.env.NODE_ENV !== "production" && idToken === "mock-owner-google-token") {
     return upsertOwnerGoogleUser({
-      googleId: "mock-owner-google-id",
-      email: "owner.local@example.com",
-      name: "Owner Local",
-      avatar: null,
+      googleId: "109755943978980298572-chelsea",
+      email: "namchelsea2611@gmail.com",
+      name: "Nam Chelsea",
+      avatar: "https://lh3.googleusercontent.com/a/ACg8ocI6xyVrrGXfxgxyKj5x8CdUantzwKgQ6ReY4kLY0A5Rk1bL3UMk=s96-c",
       isProfileCompleted: true,
     });
   }
@@ -388,7 +396,7 @@ async function handleOwnerGoogleAuth(idToken: string | undefined) {
   try {
     ticket = await getGoogleClient().verifyIdToken({
       idToken,
-      audience: env.GOOGLE_CLIENT_ID,
+      audience: getGoogleClientAudiences(),
     });
   } catch {
     return { error: { code: "TOKEN_INVALID", message: "Xác thực Google thất bại." }, status: 401 };
@@ -511,7 +519,9 @@ authRoutes.post("/google", async (c) => {
 
   if ((result as any).refreshToken) {
     setRefreshCookie(c, (result as any).refreshToken);
-    delete (result as any).refreshToken;
+    if (!c.req.header("x-client-platform")) {
+      delete (result as any).refreshToken;
+    }
   }
   return c.json(result);
 });
@@ -528,7 +538,9 @@ authRoutes.post("/owner-google", async (c) => {
 
   if ((result as any).refreshToken) {
     setRefreshCookie(c, (result as any).refreshToken);
-    delete (result as any).refreshToken;
+    if (!c.req.header("x-client-platform")) {
+      delete (result as any).refreshToken;
+    }
   }
   return c.json(result);
 });
@@ -642,7 +654,7 @@ authRoutes.post("/refresh", async (c) => {
 
   auditLog("REFRESH_SUCCESS", user.id, { sessionId: nextSessionId });
 
-  return c.json({
+  const responseData: any = {
     accessToken,
     session: {
       access_token: accessToken,
@@ -656,7 +668,13 @@ authRoutes.post("/refresh", async (c) => {
       role: user.role,
       status: user.status,
     },
-  });
+  };
+
+  if (c.req.header("x-client-platform")) {
+    responseData.refreshToken = nextRefreshToken;
+  }
+
+  return c.json(responseData);
 });
 
 // POST /auth/logout
