@@ -227,7 +227,7 @@ export default function InvoicesPage() {
               <td className="px-4 py-3 text-slate-500">-</td>
               <td className="px-4 py-3"><span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 border border-amber-200">Chưa lập</span></td>
               <td className="px-4 py-3">
-                <Link href={`/contracts/${room.contract_id}`} className="font-semibold text-blue-700 hover:underline">Lập hóa đơn</Link>
+                <Link href={`/invoices/new?contract_id=${room.contract_id}`} className="font-semibold text-blue-700 hover:underline">Lập hóa đơn</Link>
               </td>
             </tr>
           ))
