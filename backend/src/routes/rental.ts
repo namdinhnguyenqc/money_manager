@@ -278,6 +278,41 @@ const insertDeposit = async (db: any, payload: Record<string, any>) => {
   return db.from("deposits").insert(payload).select("*").single();
 };
 
+const normalizeDepositStatus = (status: string | null | undefined) =>
+  status === "active" ? "holding" : status;
+
+const normalizeDepositText = (value: unknown) =>
+  String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+
+const getDepositDisplayDedupeKey = (deposit: any) => [
+  deposit.room_id || "",
+  normalizeDepositText(deposit.tenant_name),
+  normalizeDepositText(deposit.tenant_phone),
+  Number(deposit.amount || 0),
+  deposit.recorded_at || "",
+  normalizeDepositStatus(deposit.status) || "",
+].join("|");
+
+const dedupeDepositRowsForDisplay = (rows: any[]) => {
+  const byKey = new Map<string, any>();
+
+  for (const row of rows) {
+    const key = getDepositDisplayDedupeKey(row);
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, row);
+      continue;
+    }
+
+    // Prefer rows already linked to a contract; otherwise keep the newest row.
+    if (row.contract_id && !existing.contract_id) {
+      byKey.set(key, row);
+    }
+  }
+
+  return Array.from(byKey.values());
+};
+
 rentalRoutes.get("/deposits", async (c) => {
   const user = c.get("user");
   const db = c.get("supabase");
@@ -309,7 +344,7 @@ rentalRoutes.get("/deposits", async (c) => {
 
   if (error) return c.json({ error: error.message }, 500);
 
-  const formatted = (data ?? []).map((d: any) => ({
+  const formatted = dedupeDepositRowsForDisplay(data ?? []).map((d: any) => ({
     id: d.id,
     room_id: d.room_id,
     room_name: d.rooms?.name || "Phòng đã xóa",
@@ -318,7 +353,7 @@ rentalRoutes.get("/deposits", async (c) => {
     tenant_phone: d.tenant_phone,
     amount: d.amount,
     deposit_date: d.recorded_at,
-    status: d.status === "active" ? "holding" : d.status, // Map legacy 'active' to 'holding'
+    status: normalizeDepositStatus(d.status),
     note: d.note,
     contract_id: d.contract_id,
     created_at: d.created_at,
