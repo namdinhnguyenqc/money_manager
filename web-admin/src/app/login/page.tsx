@@ -1,13 +1,25 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Logo from "@/components/ui/Logo";
 import OwnerGoogleLoginButton from "@/components/OwnerGoogleLoginButton";
+import { getStoredAccessToken } from "@/utils/session";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    setMounted(true);
+    // Auto-redirect to dashboard if user has an active session and goes back to login page
+    const token = getStoredAccessToken();
+    if (token) {
+      const isProfileCompleted = localStorage.getItem("isProfileCompleted") === "true";
+      router.replace(isProfileCompleted ? "/owner/dashboard" : "/complete-profile");
+    }
+  }, [router]);
 
   if (!mounted) return null;
 
