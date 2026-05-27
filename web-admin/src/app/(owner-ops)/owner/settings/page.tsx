@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { 
   Save, 
   RefreshCw, 
@@ -31,7 +32,10 @@ import {
   ToggleRight,
   TrendingUp,
   Sliders,
-  Sparkles
+  Sparkles,
+  MessageSquare,
+  KeyRound,
+  ExternalLink
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiGet, apiPost, apiPatch, apiDelete, apiPut } from "@/utils/apiClient";
@@ -51,9 +55,26 @@ import Input, { Label, Select as UISelect } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
 
 type SettingItem = { key: string; value: any; type: string; category: string };
+type ZaloConnection = {
+  connected: boolean;
+  zaloId?: string;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+  status?: string;
+  connectedAt?: string;
+};
+type ZaloConfig = {
+  appId: string;
+  appSecret: string;
+  hasSecret: boolean;
+  redirectUri: string;
+};
+
+const DEFAULT_ZALO_REDIRECT_URI = "https://money-manager-xdem.onrender.com/api/auth/zalo/callback";
 
 export default function OwnerSettingsPage() {
-  const [activeTab, setActiveTab] = useState("general");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "general");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<Record<string, SettingItem>>({});
@@ -97,6 +118,13 @@ export default function OwnerSettingsPage() {
   // UI interactive states
   const [showApiKey, setShowApiKey] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+  const [zaloConnection, setZaloConnection] = useState<ZaloConnection>({ connected: false });
+  const [zaloConfig, setZaloConfig] = useState<ZaloConfig>({
+    appId: "",
+    appSecret: "",
+    hasSecret: false,
+    redirectUri: DEFAULT_ZALO_REDIRECT_URI,
+  });
 
   const fetchSepayEvents = async () => {
     setLoadingSepayEvents(true);
@@ -152,6 +180,19 @@ export default function OwnerSettingsPage() {
           qr_uri: bankRes.data.qr_uri || "",
         });
       }
+      const [zaloStatusRes, zaloConfigRes] = await Promise.all([
+        apiGet<any>("/auth/zalo/status").catch(() => null),
+        apiGet<any>("/auth/zalo/config").catch(() => null),
+      ]);
+      setZaloConnection(zaloStatusRes?.data || { connected: false });
+      if (zaloConfigRes?.data) {
+        setZaloConfig({
+          appId: zaloConfigRes.data.appId || "",
+          appSecret: "",
+          hasSecret: Boolean(zaloConfigRes.data.hasSecret),
+          redirectUri: zaloConfigRes.data.redirectUri || DEFAULT_ZALO_REDIRECT_URI,
+        });
+      }
     } catch (err: any) {
       setError(err?.message || "Lỗi tải cài đặt hệ thống.");
     } finally {
@@ -162,6 +203,15 @@ export default function OwnerSettingsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    const zalo = searchParams.get("zalo");
+    const message = searchParams.get("message");
+    if (tab) setActiveTab(tab);
+    if (zalo === "connected") setSuccess("Đã kết nối Zalo cá nhân.");
+    if (zalo === "error") setError(message ? `Không kết nối được Zalo: ${message}` : "Không kết nối được Zalo.");
+  }, [searchParams]);
 
   useEffect(() => {
     if (activeTab === "sepay-logs") {
@@ -427,6 +477,69 @@ export default function OwnerSettingsPage() {
     }
   };
 
+  const handleSaveZaloConfig = async () => {
+    const appId = zaloConfig.appId.trim();
+    const appSecret = zaloConfig.appSecret.trim();
+    const redirectUri = zaloConfig.redirectUri.trim() || DEFAULT_ZALO_REDIRECT_URI;
+
+    if (!appId) {
+      setError("Vui lòng nhập Zalo App ID.");
+      return;
+    }
+    if (!appSecret && !zaloConfig.hasSecret) {
+      setError("Vui lòng nhập Zalo Secret Key.");
+      return;
+    }
+
+    try {
+      setSavingExtension(true);
+      setError("");
+      setSuccess("");
+      const res = await apiPut<any>("/auth/zalo/config", { appId, appSecret, redirectUri });
+      setZaloConfig({
+        appId: res?.data?.appId || appId,
+        appSecret: "",
+        hasSecret: true,
+        redirectUri: res?.data?.redirectUri || redirectUri,
+      });
+      setSuccess("Đã lưu cấu hình Zalo Login.");
+    } catch (err: any) {
+      setError(err?.message || "Không lưu được cấu hình Zalo.");
+    } finally {
+      setSavingExtension(false);
+    }
+  };
+
+  const handleConnectZalo = async () => {
+    try {
+      setSavingExtension(true);
+      setError("");
+      setSuccess("");
+      const res = await apiGet<any>("/auth/zalo/connect");
+      const url = res?.data?.url;
+      if (!url) throw new Error("Không tạo được đường dẫn Zalo Login.");
+      window.location.href = url;
+    } catch (err: any) {
+      setError(err?.message || "Không mở được Zalo Login. Hãy kiểm tra App ID, Secret Key và Redirect URI.");
+    } finally {
+      setSavingExtension(false);
+    }
+  };
+
+  const handleDisconnectZalo = async () => {
+    if (!window.confirm("Ngắt kết nối tài khoản Zalo cá nhân?")) return;
+    try {
+      setSavingExtension(true);
+      await apiDelete("/auth/zalo/disconnect");
+      setZaloConnection({ connected: false });
+      setSuccess("Đã ngắt kết nối Zalo.");
+    } catch (err: any) {
+      setError(err?.message || "Không ngắt được kết nối Zalo.");
+    } finally {
+      setSavingExtension(false);
+    }
+  };
+
   const BANK_OPTIONS = [
     { id: '970436', label: 'Vietcombank' },
     { id: '970418', label: 'BIDV' },
@@ -451,6 +564,7 @@ export default function OwnerSettingsPage() {
     { id: "general", label: "Chung", icon: Settings, desc: "Cấu hình thông tin cơ bản & hiển thị" },
     { id: "payment", label: "Thanh toán", icon: CreditCard, desc: "Cài đặt chu kỳ thanh toán & Ngân hàng tĩnh" },
     { id: "sepay-logs", label: "Kết nối SePay", icon: Layers, desc: "Tích hợp API, Kênh thanh toán & Webhook logs" },
+    { id: "zalo", label: "Zalo Login", icon: MessageSquare, desc: "Kết nối tài khoản Zalo cá nhân bằng QR chính thức" },
     { id: "pricing", label: "Bảng giá", icon: Zap, desc: "Đơn giá các dịch vụ điện, nước, tiện ích" },
     { id: "extension", label: "Mở rộng", icon: Wallet, desc: "Quản lý dòng tiền, Ví lưu trữ và đối soát" },
   ];
@@ -1228,6 +1342,153 @@ export default function OwnerSettingsPage() {
                     </div>
                   )}
                 </section>
+              </div>
+            )}
+
+            {activeTab === "zalo" && (
+              <div className="space-y-7 animate-in fade-in duration-300">
+                <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-100 bg-blue-50">
+                      <MessageSquare size={20} className="text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black tracking-tight text-slate-900">Zalo Login</h3>
+                      <p className="mt-1 max-w-2xl text-xs font-medium leading-relaxed text-slate-500">
+                        Lưu App ID và Secret Key trong backend, sau đó mở trang đăng nhập Zalo chính thức để quét QR bằng tài khoản cá nhân.
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-wide ${
+                    zaloConnection.connected
+                      ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                      : "border-slate-200 bg-slate-50 text-slate-500"
+                  }`}>
+                    <span className={`h-2 w-2 rounded-full ${zaloConnection.connected ? "bg-emerald-500" : "bg-slate-300"}`} />
+                    {zaloConnection.connected ? "Đang liên kết" : "Chưa liên kết"}
+                  </span>
+                </div>
+
+                <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.15fr)_minmax(380px,0.85fr)]">
+                  <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <KeyRound size={16} className="text-slate-600" />
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-700">Cấu hình Zalo Developer App</span>
+                    </div>
+
+                    <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <Label className="font-bold text-slate-700 text-xs">Zalo App ID</Label>
+                        <Input
+                          value={zaloConfig.appId}
+                          onChange={(e) => setZaloConfig({ ...zaloConfig, appId: e.target.value })}
+                          placeholder="179158901382369691"
+                          className="mt-1.5 font-mono text-xs"
+                        />
+                      </div>
+                      <div>
+                        <Label className="font-bold text-slate-700 text-xs">Secret Key</Label>
+                        <Input
+                          type="password"
+                          value={zaloConfig.appSecret}
+                          onChange={(e) => setZaloConfig({ ...zaloConfig, appSecret: e.target.value })}
+                          placeholder={zaloConfig.hasSecret ? "Đã lưu. Nhập mới nếu cần đổi" : "Nhập Secret Key"}
+                          className="mt-1.5 font-mono text-xs"
+                        />
+                        {zaloConfig.hasSecret && (
+                          <p className="mt-1.5 text-[10px] font-bold text-emerald-700">Secret Key đã được lưu ở backend và không hiển thị lại.</p>
+                        )}
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label className="font-bold text-slate-700 text-xs">Redirect URI</Label>
+                        <Input
+                          value={zaloConfig.redirectUri}
+                          onChange={(e) => setZaloConfig({ ...zaloConfig, redirectUri: e.target.value })}
+                          className="mt-1.5 font-mono text-xs"
+                        />
+                        <p className="mt-1.5 text-[10px] font-medium text-slate-500">
+                          Copy đúng URI này vào mục Zalo Login trong Zalo Developer Console.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="max-w-2xl text-xs font-medium leading-relaxed text-slate-600">
+                        QR đăng nhập sẽ do Zalo hiển thị trên trang OAuth chính thức, hệ thống mình chỉ mở đúng đường dẫn đã ký state.
+                      </div>
+                      <Button
+                        onClick={handleSaveZaloConfig}
+                        disabled={savingExtension}
+                        loading={savingExtension}
+                        icon={<Save size={14} />}
+                        className="w-full rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 lg:w-auto"
+                      >
+                        Lưu cấu hình
+                      </Button>
+                    </div>
+                  </section>
+
+                  <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <div className="flex items-start gap-4">
+                        {zaloConnection.avatarUrl ? (
+                          <img src={zaloConnection.avatarUrl} alt="Zalo avatar" className="h-12 w-12 rounded-2xl border border-slate-200 object-cover" />
+                        ) : (
+                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                            <MessageSquare size={22} />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-black text-slate-900">
+                            {zaloConnection.connected ? (zaloConnection.displayName || "Tài khoản Zalo đã liên kết") : "Chưa có tài khoản Zalo"}
+                          </div>
+                          <p className="mt-1 text-xs font-medium leading-relaxed text-slate-500">
+                            {zaloConnection.connected
+                              ? "Backend đã lưu Zalo ID cho owner hiện tại."
+                              : "Lưu cấu hình trước, sau đó mở Zalo Login để quét QR."}
+                          </p>
+                          {zaloConnection.zaloId && (
+                            <div className="mt-2 rounded-xl bg-slate-100 px-3 py-2 text-[10px] font-bold text-slate-600">
+                              Zalo ID: <span className="font-mono">{zaloConnection.zaloId}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-5 grid gap-2">
+                        <Button
+                          onClick={handleConnectZalo}
+                          disabled={savingExtension}
+                          loading={savingExtension}
+                          icon={<ExternalLink size={14} />}
+                          className="w-full rounded-xl bg-blue-600 py-3 text-xs font-black text-white hover:bg-blue-700"
+                        >
+                          Mở QR Zalo để quét
+                        </Button>
+                        {zaloConnection.connected && (
+                          <Button
+                            variant="outline"
+                            onClick={handleDisconnectZalo}
+                            disabled={savingExtension}
+                            className="w-full rounded-xl border-slate-200 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                          >
+                            Ngắt kết nối
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className={`mt-4 rounded-2xl border p-4 text-xs font-semibold leading-relaxed ${
+                      zaloConfig.appId && zaloConfig.hasSecret
+                        ? "border-emerald-100 bg-emerald-50 text-emerald-800"
+                        : "border-amber-100 bg-amber-50 text-amber-800"
+                    }`}>
+                      {zaloConfig.appId && zaloConfig.hasSecret
+                        ? "Cấu hình đã sẵn sàng. Nếu Zalo vẫn không mở QR, kiểm tra Redirect URI trong Developer Console."
+                        : "Chưa đủ cấu hình. Cần App ID, Secret Key và Redirect URI được whitelist trước khi mở QR."}
+                    </div>
+                  </section>
+                </div>
               </div>
             )}
 
