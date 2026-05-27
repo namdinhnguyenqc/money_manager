@@ -285,9 +285,19 @@ export default function NewContractPage() {
               <Field label="Ngày thu tiền hàng tháng *" error={fieldErrors.billing_day}><input className="input" type="number" min={1} max={28} value={contract.billing_day} onChange={(e) => setContract((prev) => ({ ...prev, billing_day: e.target.value }))} /></Field>
               <Field label="Số người ở trong phòng *" error={fieldErrors.occupant_count}><input className="input" type="number" min={1} value={contract.occupant_count} onChange={(e) => setContract((prev) => ({ ...prev, occupant_count: e.target.value }))} /></Field>
               <Field label="Ví thu tiền cọc *" error={fieldErrors.walletId}>
-                <select className="input" value={contract.walletId} onChange={(e) => setContract((prev) => ({ ...prev, walletId: e.target.value }))}>
-                  {walletsQuery.data?.map((w: Wallet) => <option key={w.id} value={w.id}>{w.name} ({formatMoney(w.balance || 0)})</option>)}
-                </select>
+                {walletsQuery.data && walletsQuery.data.length === 0 ? (
+                  <div className="rounded-[8px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <span className="font-semibold block">Bạn chưa có ví nào.</span>
+                    <span>Vui lòng{" "}
+                      <a href="/owner/settings" className="font-bold text-blue-700 underline" target="_blank">tạo ví trong Cài đặt hệ thống → Mở rộng</a>
+                      {" "}trước khi tạo hợp đồng có tiền cọc.
+                    </span>
+                  </div>
+                ) : (
+                  <select className="input" value={contract.walletId} onChange={(e) => setContract((prev) => ({ ...prev, walletId: e.target.value }))}>
+                    {walletsQuery.data?.map((w: Wallet) => <option key={w.id} value={w.id}>{w.name} ({formatMoney(w.balance || 0)})</option>)}
+                  </select>
+                )}
               </Field>
               <div className="hidden md:block"></div>
               <Field label="Điện đầu kỳ (kWh) *" error={fieldErrors.electric_start}><input className="input" type="number" value={contract.electric_start} onChange={(e) => setContract((prev) => ({ ...prev, electric_start: e.target.value }))} /></Field>

@@ -980,17 +980,132 @@ ownerRoutes.get("/audit-logs", async (c) => {
 
 ownerRoutes.get("/sepay/events", async (c) => {
   const currentUser = c.get("user");
-  const { data, error } = await c
-    .get("supabase")
-    .from("sepay_webhook_events")
-    .select("*")
-    .eq("user_id", currentUser.id)
+  const db = c.get("supabase");
+
+  // Get user's invoices to retrieve their payment codes
+  const { data: userInvoices } = await db
+    .from("invoices")
+    .select("payment_code")
+    .eq("user_id", currentUser.id);
+
+  const paymentCodes = (userInvoices || [])
+    .map((inv: any) => inv.payment_code)
+    .filter(Boolean);
+
+  let query = db.from("sepay_webhook_events").select("*");
+  if (paymentCodes.length > 0) {
+    query = query.or(`user_id.eq.${currentUser.id},payment_code.in.(${paymentCodes.map(code => `"${code}"`).join(",")})`);
+  } else {
+    query = query.eq("user_id", currentUser.id);
+  }
+
+  const { data, error } = await query
     .order("created_at", { ascending: false })
     .limit(100);
 
   if (error) return c.json({ error: error.message }, 500);
   return c.json({ data: data ?? [] });
 });
+
+ownerRoutes.post("/sepay/events/:id/reprocess", async (c) => {
+  const user = c.get("user");
+  const eventId = c.req.param("id");
+  const db = c.get("supabase");
+
+  const { data: event, error: evErr } = await db
+    .from("sepay_webhook_events")
+    .select("*")
+    .eq("id", eventId)
+    .maybeSingle();
+
+  if (evErr || !event) return c.json({ error: "Không tìm thấy sự kiện." }, 404);
+
+  // Find invoice first
+  const invoiceRes = await db.from("invoices").select("*").eq("payment_code", event.payment_code).maybeSingle();
+  const invoice = invoiceRes.data;
+
+  // Verify ownership:
+  // If event has user_id, it must match user.id
+  // If event doesn't have user_id, the matched invoice must exist and belong to user.id
+  if (event.user_id) {
+    if (event.user_id !== user.id) {
+      return c.json({ error: "Bạn không có quyền xử lý sự kiện này." }, 403);
+    }
+  } else {
+    if (!invoice || invoice.user_id !== user.id) {
+      return c.json({ error: "Bạn không có quyền xử lý sự kiện này hoặc không tìm thấy hóa đơn khớp mã thanh toán." }, 403);
+    }
+  }
+
+  if (!["pending_wallet", "unmatched", "error"].includes(event.status)) {
+    return c.json({ error: "Sự kiện này không ở trạng thái cần thử lại." }, 400);
+  }
+
+  if (!invoice) {
+    return c.json({ error: "Không tìm thấy hóa đơn khớp mã thanh toán. Vui lòng kiểm tra lại mã thanh toán trong nội dung chuyển khoản." }, 404);
+  }
+
+  // Find channel
+  let channel: any = null;
+  if (event.payment_channel_id) {
+    const chRes = await db.from("payment_channels").select("*").eq("id", event.payment_channel_id).eq("user_id", user.id).maybeSingle();
+    channel = chRes.data;
+  }
+  if (!channel && event.account_number) {
+    const chRes = await db.from("payment_channels").select("*").eq("user_id", user.id).eq("account_no", event.account_number).eq("enabled", true).limit(1).maybeSingle();
+    channel = chRes.data;
+  }
+
+  if (!channel?.wallet_id) {
+    return c.json({ error: "Kênh thanh toán chưa được gán ví hoặc tài khoản ngân hàng chưa được cấu hình. Vui lòng kiểm tra lại thiết lập SePay." }, 400);
+  }
+
+  const { applyInvoicePayment } = await import("../services/invoicePayments.js");
+  const roomRes = await db.from("rooms").select("name").eq("id", invoice.room_id).eq("user_id", user.id).maybeSingle();
+
+  const paymentRes = await applyInvoicePayment(db, {
+    invoice,
+    amount: event.transfer_amount,
+    walletId: String(channel.wallet_id),
+    source: "sepay",
+    date: event.raw_payload?.transactionDate || event.raw_payload?.transaction_date || null,
+    externalRef: event.sepay_transaction_id,
+    roomName: roomRes.data?.name || null,
+    metadata: {
+      sepay_transaction_id: event.sepay_transaction_id,
+      sepay_reference_code: event.raw_payload?.referenceCode || event.raw_payload?.reference_code || null,
+      account_number: event.account_number || null,
+      gateway: event.raw_payload?.gateway || null,
+      content: event.raw_payload?.content || null,
+    },
+  });
+
+  if (paymentRes.error || !paymentRes.data) {
+    await db.from("sepay_webhook_events").update({
+      status: "error",
+      error_message: paymentRes.error || "Thử lại thất bại",
+      user_id: user.id, // Update user_id since we now matched it
+      invoice_id: invoice.id,
+      payment_channel_id: channel.id,
+    }).eq("id", eventId);
+    return c.json({ error: paymentRes.error || "Thử lại thất bại" }, 400);
+  }
+
+  const newStatus = paymentRes.data.overpaidAmount > 0 ? "overpaid" : paymentRes.data.status;
+  await db.from("sepay_webhook_events").update({
+    status: newStatus,
+    transaction_id: paymentRes.data.transaction.id,
+    payment_channel_id: channel.id,
+    invoice_id: invoice.id,
+    user_id: user.id, // Update user_id since we now matched it
+    allocated_amount: paymentRes.data.allocatedAmount,
+    overpaid_amount: paymentRes.data.overpaidAmount,
+    error_message: null,
+  }).eq("id", eventId);
+
+  return c.json({ ok: true, status: newStatus });
+});
+
 
 ownerRoutes.get("/settings", async (c) => {
   const user = c.get("user");

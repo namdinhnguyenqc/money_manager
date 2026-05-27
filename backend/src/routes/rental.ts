@@ -962,14 +962,29 @@ rentalRoutes.post("/contracts", async (c) => {
   const reservationAmount = reservation ? Number(reservation.amount || 0) : 0;
   const amountToRecord = Math.max(0, Number(parsed.data.deposit || 0) - reservationAmount);
 
+  let walletId = parsed.data.walletId;
+
   if (amountToRecord > 0) {
-    if (!parsed.data.walletId) {
+    if (!walletId) {
+      const { data: activeWallets, error: activeWalletsErr } = await db
+        .from("wallets")
+        .select("id")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true })
+        .limit(1);
+      
+      if (!activeWalletsErr && activeWallets && activeWallets.length > 0) {
+        walletId = activeWallets[0].id;
+      }
+    }
+
+    if (!walletId) {
       return c.json({ error: "Tiền cọc không hợp lệ: Vui lòng chọn ví nhận tiền cọc." }, 400);
     }
     const { data: wallet, error: walletErr } = await db
       .from("wallets")
       .select("id")
-      .eq("id", parsed.data.walletId)
+      .eq("id", walletId)
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -977,6 +992,7 @@ rentalRoutes.post("/contracts", async (c) => {
       return c.json({ error: "Tiền cọc không hợp lệ: Ví nhận tiền cọc không tồn tại hoặc không thuộc tài khoản của bạn." }, 400);
     }
   }
+
 
   // 3. Get services to create snapshot
   const serviceIds = parsed.data.serviceIds ?? [];
@@ -1085,10 +1101,10 @@ rentalRoutes.post("/contracts", async (c) => {
       if (resUpdErr) console.error("Failed to update reservation status:", resUpdErr.message);
     }
 
-    if (amountToRecord > 0 && parsed.data.walletId) {
+    if (amountToRecord > 0 && walletId) {
       const { error: txErr } = await db.from("transactions").insert({
         user_id: user.id,
-        wallet_id: parsed.data.walletId,
+        wallet_id: walletId,
         type: "income",
         amount: amountToRecord,
         description: `Thu tiền cọc HĐ - Phòng ${room.name}${txNote ? ` (${txNote})` : ""}`,
@@ -1116,7 +1132,7 @@ rentalRoutes.post("/contracts", async (c) => {
       }
       
       // Cập nhật số dư ví
-      await updateWalletBalance(db, parsed.data.walletId, amountToRecord, 'income');
+      await updateWalletBalance(db, walletId, amountToRecord, 'income');
     }
   }
 
