@@ -1014,7 +1014,7 @@ ownerRoutes.post("/settings", async (c) => {
   const { error } = await c
     .get("supabase")
     .from("system_settings")
-    .upsert(upsertData, { onConflict: "user_id, key" });
+    .upsert(upsertData, { onConflict: "user_id, category, key" });
 
   if (error) return c.json({ error: error.message }, 500);
   return c.json({ ok: true });
