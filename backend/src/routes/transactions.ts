@@ -49,9 +49,10 @@ transactionsRoutes.get("/", async (c) => {
   const offset = Math.max(Number(c.req.query("offset") || 0), 0);
 
   const db = c.get("supabase");
+  // Single embedded query: fetch transactions + wallet + category in one round-trip
   let query = db
     .from("transactions")
-    .select("*", { count: "exact" })
+    .select("*, wallets(id, name, color), categories(id, name, icon, color)", { count: "exact" })
     .eq("user_id", user.id)
     .order("date", { ascending: false })
     .order("created_at", { ascending: false })
@@ -77,35 +78,14 @@ transactionsRoutes.get("/", async (c) => {
   const txRows = data ?? [];
   if (txRows.length === 0) return c.json({ data: [], count: count ?? 0, limit, offset });
 
-  const walletIds = [...new Set(txRows.map((x) => x.wallet_id))];
-  const categoryIds = [
-    ...new Set(
-      txRows
-        .map((x) => x.category_id)
-        .filter((x) => x != null)
-    ),
-  ];
-
-  const [walletsRes, categoriesRes] = await Promise.all([
-    walletIds.length > 0
-      ? db.from("wallets").select("*").eq("user_id", user.id).in("id", walletIds)
-      : Promise.resolve({ data: [], error: null }),
-    categoryIds.length > 0
-      ? db.from("categories").select("*").eq("user_id", user.id).in("id", categoryIds)
-      : Promise.resolve({ data: [], error: null }),
-  ]);
-
-  if (walletsRes.error) return c.json({ error: walletsRes.error.message }, 500);
-  if (categoriesRes.error) return c.json({ error: categoriesRes.error.message }, 500);
-
-  const walletMap = new Map((walletsRes.data ?? []).map((x) => [String(x.id), x]));
-  const categoryMap = new Map((categoriesRes.data ?? []).map((x) => [String(x.id), x]));
-
-  const enriched = txRows.map((row) => {
-    const wallet = walletMap.get(String(row.wallet_id));
-    const category = row.category_id == null ? null : categoryMap.get(String(row.category_id));
+  // Map embedded objects back to the original flat response format
+  const enriched = txRows.map((row: any) => {
+    const wallet = row.wallets;
+    const category = row.categories;
+    // Remove embedded objects from the spread to keep response clean
+    const { wallets: _w, categories: _c, ...rest } = row;
     return {
-      ...row,
+      ...rest,
       walletId: row.wallet_id,
       categoryId: row.category_id,
       invoiceId: row.invoice_id,

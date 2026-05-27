@@ -155,8 +155,11 @@ export async function isUserProfileCompleted(userId: string, explicit?: boolean 
   return Boolean(profile);
 }
 
-export async function buildProfileAuthMeta(user: any) {
-  const profile = await getUserProfile(user.id);
+export async function buildProfileAuthMeta(user: any, preFetchedProfile?: any) {
+  let profile = preFetchedProfile !== undefined ? preFetchedProfile : await getUserProfile(user.id);
+  if (profile && !profile.fullName && profile.full_name) {
+    profile = toProfileResponse(profile);
+  }
   const isProfileCompleted = Boolean(profile || user.is_profile_completed === true || user.onboarding_step === "DONE");
   const onboardingStep: OnboardingStep = isProfileCompleted ? "DONE" : "COMPLETE_PROFILE";
 

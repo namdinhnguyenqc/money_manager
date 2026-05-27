@@ -122,24 +122,30 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
 
   const appJwt = await verifyAccessToken(token);
   if (appJwt) {
-    if (appJwt.sessionId) {
-      const { data: sessionData } = await supabaseAdmin
-        .from("refresh_tokens")
-        .select("revoked_at")
-        .eq("id", appJwt.sessionId)
-        .single();
+    // Parallel fetch: session check + user data in one round-trip instead of two
+    const [sessionRes, userRes] = await Promise.all([
+      appJwt.sessionId
+        ? supabaseAdmin
+            .from("refresh_tokens")
+            .select("revoked_at")
+            .eq("id", appJwt.sessionId)
+            .single()
+        : Promise.resolve({ data: { revoked_at: null } }),
+      supabaseAdmin
+        .from("users")
+        .select("*")
+        .eq("id", appJwt.sub)
+        .single(),
+    ]);
 
-      if (!sessionData || sessionData.revoked_at) {
+    if (appJwt.sessionId) {
+      if (!sessionRes.data || sessionRes.data.revoked_at) {
         return c.json({ error: "Session has been revoked", code: "SESSION_REVOKED" }, 401);
       }
     }
 
-    const { data: dbUser, error: dbError } = await supabaseAdmin
-      .from("users")
-      .select("*")
-      .eq("id", appJwt.sub)
-      .single();
-
+    const dbUser = userRes.data;
+    const dbError = userRes.error;
     if (dbError && dbError.code !== "PGRST116") {
       console.error("Database error fetching app JWT user:", dbError.message);
     }

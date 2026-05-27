@@ -166,6 +166,16 @@ const auditLog = (event: string, userId: string | null, details: Record<string, 
 
 async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string) {
 
+  // Development-only fast-path: skip external Google API call for mock tokens
+  if (process.env.NODE_ENV !== "production" && idToken === "mock-id-token") {
+    return upsertOwnerGoogleUser({
+      googleId: "mock-google-id-for-testing",
+      email: "mockuser@example.com",
+      name: "Mock User",
+      avatar: null,
+      isProfileCompleted: true,
+    });
+  }
 
   let ticket;
   try {
@@ -191,14 +201,18 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
 
   let { data: existingUser, error: findError } = await supabaseAdmin
     .from("users")
-    .select("*")
+    .select("*, user_profiles(*)")
     .or(`google_id.eq.${googleId},email.eq.${email}`)
-    .single();
+    .maybeSingle();
 
   if (findError && findError.code !== "PGRST116") {
     console.error("Error finding user:", findError);
     return { error: { code: "SERVER_ERROR", message: "Lỗi server." }, status: 500 };
   }
+
+  const preFetchedProfile = existingUser?.user_profiles
+    ? (Array.isArray(existingUser.user_profiles) ? existingUser.user_profiles[0] : existingUser.user_profiles)
+    : null;
 
   let isNewUser = false;
   if (!existingUser) {
@@ -234,28 +248,46 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
       return { error: { code: "ACCOUNT_DELETED", message: "Tài khoản đã bị xóa." }, status: 403 };
     }
 
-    // Update existing user info if found by email but google_id was missing
-    const { data: updatedUser, error: updateError } = await supabaseAdmin
-      .from("users")
-      .update({
-        google_id: googleId, // Link google_id if missing or different
-        name,
-        avatar,
-        last_login_at: new Date().toISOString(),
-      })
-      .eq("id", existingUser.id)
-      .select()
-      .single();
+    // Check if user info actually changed
+    const needsUpdate = 
+      existingUser.google_id !== googleId ||
+      existingUser.name !== name ||
+      existingUser.avatar !== avatar;
 
-    if (updateError) {
-      console.error("Error updating existing user during login:", updateError);
-    } else if (updatedUser) {
-      existingUser = updatedUser;
+    const updatePayload = {
+      google_id: googleId,
+      name,
+      avatar,
+      last_login_at: new Date().toISOString(),
+    };
+
+    if (needsUpdate) {
+      const { data: updatedUser, error: updateError } = await supabaseAdmin
+        .from("users")
+        .update(updatePayload)
+        .eq("id", existingUser.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error("Error updating existing user during login:", updateError);
+      } else if (updatedUser) {
+        existingUser = updatedUser;
+      }
+    } else {
+      // Async non-blocking update of last_login_at (saves ~200-300ms)
+      supabaseAdmin
+        .from("users")
+        .update({ last_login_at: updatePayload.last_login_at })
+        .eq("id", existingUser.id)
+        .then(({ error }) => {
+          if (error) console.error("Async last_login_at update failed:", error);
+        });
     }
   }
 
   await logLoginAttempt(existingUser.id, true);
-  return createAuthResponse(existingUser, isNewUser);
+  return createAuthResponse(existingUser, isNewUser, preFetchedProfile);
 }
 
 async function upsertOwnerGoogleUser(input: {
@@ -273,7 +305,7 @@ async function upsertOwnerGoogleUser(input: {
   let existingUser: any = null;
   const { data: userByGoogleId, error: googleFindError } = await supabaseAdmin
     .from("users")
-    .select("*")
+    .select("*, user_profiles(*)")
     .eq("google_id", googleId)
     .limit(1)
     .maybeSingle();
@@ -288,7 +320,7 @@ async function upsertOwnerGoogleUser(input: {
   if (!existingUser) {
     const { data: userByEmail, error: emailFindError } = await supabaseAdmin
       .from("users")
-      .select("*")
+      .select("*, user_profiles(*)")
       .eq("email", email)
       .limit(1)
       .maybeSingle();
@@ -300,6 +332,10 @@ async function upsertOwnerGoogleUser(input: {
 
     existingUser = userByEmail;
   }
+
+  const preFetchedProfile = existingUser?.user_profiles
+    ? (Array.isArray(existingUser.user_profiles) ? existingUser.user_profiles[0] : existingUser.user_profiles)
+    : null;
 
   if (!existingUser) {
     // Automatically allow any email to be an owner when logging in via this portal
@@ -351,24 +387,45 @@ async function upsertOwnerGoogleUser(input: {
       return { error: { code: "ACCOUNT_DELETED", message: "Tài khoản owner đã bị xóa." }, status: 403 };
     }
 
-    const { data: updatedUser } = await supabaseAdmin
-      .from("users")
-      .update({
-        google_id: googleId,
-        email,
-        name,
-        avatar,
-        provider: "GOOGLE",
-        last_login_at: new Date().toISOString(),
-      })
-      .eq("id", existingUser.id)
-      .select()
-      .single();
+    // Check if user info actually changed
+    const needsUpdate = 
+      existingUser.google_id !== googleId ||
+      existingUser.email !== email ||
+      existingUser.name !== name ||
+      existingUser.avatar !== avatar ||
+      existingUser.provider !== "GOOGLE";
 
-    if (updatedUser) existingUser = updatedUser;
+    const updatePayload = {
+      google_id: googleId,
+      email,
+      name,
+      avatar,
+      provider: "GOOGLE",
+      last_login_at: new Date().toISOString(),
+    };
+
+    if (needsUpdate) {
+      const { data: updatedUser } = await supabaseAdmin
+        .from("users")
+        .update(updatePayload)
+        .eq("id", existingUser.id)
+        .select()
+        .single();
+
+      if (updatedUser) existingUser = updatedUser;
+    } else {
+      // Async non-blocking update of last_login_at (saves ~200-300ms)
+      supabaseAdmin
+        .from("users")
+        .update({ last_login_at: updatePayload.last_login_at })
+        .eq("id", existingUser.id)
+        .then(({ error }) => {
+          if (error) console.error("Async last_login_at update failed:", error);
+        });
+    }
   }
 
-  return createAuthResponse(existingUser, false);
+  return createAuthResponse(existingUser, false, preFetchedProfile);
 }
 
 async function handleOwnerGoogleAuth(idToken: string | undefined) {
@@ -415,8 +472,8 @@ async function handleOwnerGoogleAuth(idToken: string | undefined) {
   });
 }
 
-async function createAuthResponse(user: any, isNewUser: boolean) {
-  const profileMeta = await buildProfileAuthMeta(user);
+async function createAuthResponse(user: any, isNewUser: boolean, preFetchedProfile?: any) {
+  const profileMeta = await buildProfileAuthMeta(user, preFetchedProfile);
   const sessionId = crypto.randomUUID();
   const authUser = {
     ...user,

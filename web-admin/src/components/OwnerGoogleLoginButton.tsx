@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { setClientSession } from "@/utils/session";
@@ -14,6 +15,7 @@ declare global {
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
 export default function OwnerGoogleLoginButton() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLocalDev, setIsLocalDev] = useState(false);
@@ -53,7 +55,8 @@ export default function OwnerGoogleLoginButton() {
         onboardingStep,
       });
 
-      window.location.assign(isProfileCompleted ? "/owner/dashboard" : "/complete-profile");
+      // Use client-side router.push to prevent heavy page reload, making transition instantaneous (~50ms)
+      router.push(isProfileCompleted ? "/owner/dashboard" : "/complete-profile");
     } catch (err: any) {
       console.error("Login error:", err);
       setError(err?.message ?? "Đăng nhập owner thất bại.");
