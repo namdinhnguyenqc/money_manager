@@ -1369,7 +1369,7 @@ rentalRoutes.get("/contracts/:id/settlement-preview", async (c) => {
   const endDate = new Date(endDateStr);
 
   const db = c.get("supabase");
-  const { data: contract, error } = await db.from("contracts").select("*, rooms(*)").eq("id", id).single();
+  const { data: contract, error } = await db.from("contracts").select("*, rooms(*)").eq("id", id).eq("user_id", user.id).single();
   if (error || !contract) return c.json({ error: "Contract not found" }, 404);
 
   // Kiểm tra xem hóa đơn tháng hiện tại đã được thanh toán chưa
