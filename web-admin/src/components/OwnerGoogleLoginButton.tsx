@@ -55,8 +55,8 @@ export default function OwnerGoogleLoginButton() {
         onboardingStep,
       });
 
-      // Use client-side router.push to prevent heavy page reload, making transition instantaneous (~50ms)
-      router.push(isProfileCompleted ? "/owner/dashboard" : "/complete-profile");
+      // Use client-side router.replace to prevent saving login page in browser history
+      router.replace(isProfileCompleted ? "/owner/dashboard" : "/complete-profile");
     } catch (err: any) {
       console.error("Login error:", err);
       setError(err?.message ?? "Đăng nhập owner thất bại.");
