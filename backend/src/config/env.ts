@@ -48,6 +48,10 @@ export const env = {
   SEPAY_WEBHOOK_SECRET: optional("SEPAY_WEBHOOK_SECRET", ""),
   SEPAY_API_KEY: optional("SEPAY_API_KEY", ""),
   SEPAY_PAYMENT_PREFIX: optional("SEPAY_PAYMENT_PREFIX", "TCINV"),
+  ZALO_APP_ID: optional("ZALO_APP_ID", ""),
+  ZALO_APP_SECRET: optional("ZALO_APP_SECRET", ""),
+  ZALO_REDIRECT_URI: optional("ZALO_REDIRECT_URI", ""),
+  WEB_ADMIN_URL: optional("WEB_ADMIN_URL", "http://localhost:3001"),
   // CORS: comma-separated list of allowed origins, e.g. "https://admin.yourdomain.com,https://app.yourdomain.com"
   CORS_ORIGINS: optional("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3011,http://localhost:8081,http://localhost:19006").split(",").map(s => s.trim()),
 };

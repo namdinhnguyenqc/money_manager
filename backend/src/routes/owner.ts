@@ -1113,7 +1113,8 @@ ownerRoutes.get("/settings", async (c) => {
   const { data, error } = await c
     .get("supabase")
     .from("system_settings")
-    .select("*");
+    .select("*")
+    .neq("key", "app_secret");
   if (error) return c.json({ error: error.message }, 500);
   return c.json({ data: data ?? [] });
 });

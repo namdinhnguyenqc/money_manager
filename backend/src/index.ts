@@ -115,6 +115,7 @@ app.use(
 
 app.route("/health", healthRoutes);
 app.route("/auth", authRoutes);
+app.route("/api/auth", authRoutes);
 app.route("/me", profileRoutes);
 app.route("/locations", locationRoutes);
 app.route("/public", publicRoutes);

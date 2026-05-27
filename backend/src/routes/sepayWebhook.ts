@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { env } from "../config/env.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 import { applyInvoicePayment } from "../services/invoicePayments.js";
+import { extractPaymentCodeFromPayload } from "../utils/paymentCodes.js";
 import type { AppEnv } from "../types.js";
 
 const sepayWebhookRoutes = new Hono<AppEnv>();
@@ -21,31 +22,20 @@ const timingSafeEqualText = (left: string, right: string) => {
 const verifySignature = (rawBody: string, signature?: string, timestamp?: string, customSecret?: string | null) => {
   const activeSecret = customSecret || env.SEPAY_WEBHOOK_SECRET;
   if (!activeSecret) return true;
-  if (!signature) return false;
+  if (!signature || !timestamp || !signature.toLowerCase().startsWith("sha256=")) return false;
 
-  const cleaned = signature.replace(/^sha256=/i, "");
-  const candidates = [
-    crypto.createHmac("sha256", activeSecret).update(`${timestamp || ""}.${rawBody}`).digest("hex"),
-    crypto.createHmac("sha256", activeSecret).update(rawBody).digest("hex"),
-  ];
+  const expected = `sha256=${crypto
+    .createHmac("sha256", activeSecret)
+    .update(`${timestamp}.${rawBody}`)
+    .digest("hex")}`;
 
-  return candidates.some((candidate) => timingSafeEqualText(candidate, cleaned));
+  return timingSafeEqualText(expected, signature);
 };
 
 const verifyApiKey = (apiKey?: string, customApiKey?: string | null) => {
   const activeApiKey = customApiKey || env.SEPAY_API_KEY;
   if (!activeApiKey) return true;
   return apiKey === activeApiKey;
-};
-
-const findPaymentCode = (payload: any) => {
-  const prefix = env.SEPAY_PAYMENT_PREFIX || "TCINV";
-  const direct = String(payload.code || "").trim();
-  if (direct.toUpperCase().startsWith(prefix.toUpperCase())) return direct.toUpperCase();
-
-  const content = String(payload.content || payload.description || "");
-  const match = content.toUpperCase().match(new RegExp(`${prefix.toUpperCase()}[A-Z0-9]+`));
-  return match?.[0] || "";
 };
 
 const insertEvent = async (payload: Record<string, unknown>) => {
@@ -70,7 +60,7 @@ sepayWebhookRoutes.post("/", async (c) => {
     return c.json({ success: false, error: "Invalid JSON payload" }, 400);
   }
 
-  const paymentCode = findPaymentCode(payload);
+  const paymentCode = extractPaymentCodeFromPayload(payload);
   let userWebhookSecret: string | null = null;
   let userApiKey: string | null = null;
 
