@@ -342,6 +342,32 @@ export const toContractView = (room: RentalRoom): ContractView | null => {
   };
 };
 
+export function normalizeAppliedServicesSnapshot(snapshot: any[] | null | undefined): AppliedServiceSnapshot[] | null {
+  if (!Array.isArray(snapshot)) return null;
+  return snapshot.map((s: any) => {
+    const name = String(s.name || "");
+    const isElec = name.toLowerCase().includes("điện") || name.toLowerCase().includes("dien") || name.toLowerCase().includes("electric") || String(s.type || "").toLowerCase().includes("meter");
+    const isWater = name.toLowerCase().includes("nước") || name.toLowerCase().includes("nuoc") || name.toLowerCase().includes("water");
+    const category = s.category || (isElec ? "electricity" : (isWater ? "water" : "other"));
+    const type = String(s.type || s.calculation_type || s.service_type || s.billing_type || "fixed").toLowerCase();
+    
+    const unitPrice = Number(s.unit_price ?? s.price ?? s.unitPrice ?? 0);
+    const applied_unit_price = Number(s.applied_unit_price ?? s.unit_price ?? s.price ?? s.unitPrice ?? 0);
+    const amount = s.amount != null ? Number(s.amount) : (s.monthlyPrice || s.monthlyAmount || s.monthly_price || s.monthly_amount || null);
+    
+    return {
+      ...s,
+      service_id: s.service_id || s.id || s.serviceId,
+      name,
+      category,
+      type,
+      unit_price: unitPrice,
+      applied_unit_price: applied_unit_price,
+      amount,
+    };
+  });
+}
+
 const toContractViewFromApi = (contract: any): ContractView => ({
   id: contract.id,
   room_id: contract.room_id,
@@ -362,7 +388,7 @@ const toContractViewFromApi = (contract: any): ContractView => ({
   electric_start: contract.electric_start != null ? Number(contract.electric_start) : 0,
   water_start: contract.water_start != null ? Number(contract.water_start) : 0,
   occupant_count: contract.occupant_count != null ? Number(contract.occupant_count) : Number(contract.num_people || 1),
-  applied_services_snapshot: (contract.applied_services_snapshot ?? null) as AppliedServiceSnapshot[] | null,
+  applied_services_snapshot: normalizeAppliedServicesSnapshot(contract.applied_services_snapshot),
   note: contract.note || "",
   status: ["terminated", "ended", "cancelled"].includes(String(contract.status || "").toLowerCase())
     ? "ended"
@@ -641,7 +667,7 @@ export async function createInvoiceForContract(contract: ContractView, input: {
   waterNew: number;
   items: Array<{ name: string; amount: number }>;
 }) {
-  const appliedServices = contract.applied_services_snapshot ?? [];
+  const appliedServices = normalizeAppliedServicesSnapshot(contract.applied_services_snapshot) ?? [];
   const serviceItems = appliedServices.map((service) => {
     const category = String(service.category || getServiceCategory(service));
     const type = String(service.type || "").toLowerCase();
