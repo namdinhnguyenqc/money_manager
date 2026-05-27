@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft, Plus, X, Zap, Droplets, Package, CalendarDays } from "lucide-react";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import { createInvoiceForContract, currentPeriod, describeServiceType, formatMoney, getServiceUnitLabel, loadContract, loadLatestMeterReadings } from "@/lib/rentalOps";
 import { calculateProratedRent } from "@/utils/rentCalc";
@@ -41,26 +41,14 @@ export default function NewInvoicePage() {
   }, [contract]);
 
   const appliedServices = contract?.applied_services_snapshot || [];
-  
-  // Dynamic electricity price detection if snapshot is missing
   const defaultElecPrice = (contract?.has_ac) ? 4000 : 3500;
   const defaultWaterPrice = 15000;
 
   const electricityService = appliedServices.find((service) => String(service.category || "").toLowerCase() === "electricity") || {
-    service_id: 0,
-    name: "Tiền điện",
-    category: "electricity",
-    type: "metered",
-    applied_unit_price: defaultElecPrice,
-    amount: null,
+    service_id: 0, name: "Tiền điện", category: "electricity", type: "metered", applied_unit_price: defaultElecPrice, amount: null,
   };
   const waterService = appliedServices.find((service) => String(service.category || "").toLowerCase() === "water") || {
-    service_id: 0,
-    name: "Tiền nước",
-    category: "water",
-    type: "metered",
-    applied_unit_price: defaultWaterPrice,
-    amount: null,
+    service_id: 0, name: "Tiền nước", category: "water", type: "metered", applied_unit_price: defaultWaterPrice, amount: null,
   };
   const otherServices = appliedServices.filter((service) => !["electricity", "water"].includes(String(service.category || "").toLowerCase()));
   const electricityIsMetered = ["meter", "metered"].includes(String(electricityService?.type || "").toLowerCase());
@@ -81,9 +69,7 @@ export default function NewInvoicePage() {
         }));
       })
       .catch(() => undefined);
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [contract, electricityIsMetered, waterIsMetered]);
 
   const isFirstMonth = useMemo(() => {
@@ -95,7 +81,7 @@ export default function NewInvoicePage() {
   const proratedInfo = useMemo(() => {
     if (!contract || !isFirstMonth || !contract.start_date) return null;
     const startDate = new Date(contract.start_date);
-    const endDate = new Date(period.year, period.month, 0); // last day of month
+    const endDate = new Date(period.year, period.month, 0);
     return calculateProratedRent(Number(contract.rent_amount || 0), startDate, endDate);
   }, [contract, isFirstMonth]);
 
@@ -104,7 +90,6 @@ export default function NewInvoicePage() {
     const waterUsed = Math.max(0, Number(form.waterNew || 0) - Number(form.waterOld || 0));
     const electricType = String(electricityService?.type || "").toLowerCase();
     const waterType = String(waterService?.type || "").toLowerCase();
-    
     const occupantCount = Number(contract?.occupant_count || 1);
 
     const electricAmount = electricityService
@@ -125,7 +110,7 @@ export default function NewInvoicePage() {
 
     const serviceAmount = otherServices.reduce((sum, item) => {
       const type = String(item.type || "").toLowerCase();
-      const amount = type === "per_person" 
+      const amount = type === "per_person"
         ? occupantCount * Number(item.applied_unit_price || 0)
         : Number(item.amount || item.applied_unit_price || 0);
       return sum + amount;
@@ -133,17 +118,7 @@ export default function NewInvoicePage() {
 
     const otherAmount = fees.reduce((sum, item) => sum + Number(item.amount || 0), 0);
     const rent = proratedInfo ? proratedInfo.totalAmount : Number(contract?.rent_amount || 0);
-    
-    return { 
-      electricUsed, 
-      waterUsed, 
-      electricAmount, 
-      waterAmount, 
-      serviceAmount, 
-      otherAmount, 
-      rent, 
-      total: rent + electricAmount + waterAmount + serviceAmount + otherAmount 
-    };
+    return { electricUsed, waterUsed, electricAmount, waterAmount, serviceAmount, otherAmount, rent, total: rent + electricAmount + waterAmount + serviceAmount + otherAmount };
   }, [contract?.rent_amount, contract?.occupant_count, electricityService, fees, form.electricNew, form.electricOld, form.waterNew, form.waterOld, otherServices, waterService, proratedInfo]);
 
   const mutation = useMutation({
@@ -175,129 +150,182 @@ export default function NewInvoicePage() {
   if (contractQuery.isLoading) return <LoadingSkeleton rows={5} />;
   if (!contract) return <div className="rounded-[8px] border border-red-200 bg-red-50 p-4 text-sm text-red-700">Không tìm thấy hợp đồng.</div>;
 
+  const occupantCount = Number(contract.occupant_count || 1);
+
   return (
-    <div className="mx-auto max-w-2xl">
-      <Link href={`/contracts/${contract.id}`} className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-700">
-        <ArrowLeft size={15} />
-        Quay lại hợp đồng
-      </Link>
-      <div className="mb-6">
-        <p className="text-sm font-medium text-blue-700">Hóa đơn</p>
-        <h1 className="text-2xl font-semibold text-slate-950">Tạo hóa đơn</h1>
+    <div className="mx-auto max-w-xl">
+      {/* Header */}
+      <div className="mb-4 flex items-center justify-between">
+        <Link href={`/contracts/${contract.id}`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors">
+          <ArrowLeft size={14} />
+          Quay lại
+        </Link>
+        <span className="text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-3 py-1">
+          T{period.month}/{period.year}
+        </span>
       </div>
 
-      {error && <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-
-      <div className="mb-5 rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="font-semibold text-slate-950">Phòng {contract.room_name} · Khách: {contract.tenant_name} · Kỳ: T{period.month}/{period.year}</div>
-        <div className="mt-2 flex flex-col gap-2 text-sm text-slate-500">
-          <div>Tiền phòng cố định từ hợp đồng: <span className="font-semibold text-slate-900">{formatMoney(contract.rent_amount)}</span></div>
-          {proratedInfo && (
-            <div className="rounded-[8px] bg-blue-50 px-3 py-2 text-blue-800 border border-blue-100">
-              <span className="font-semibold block mb-1">Tháng đầu tiên tính theo ngày thực tế:</span>
-              <ul className="list-disc pl-4 space-y-0.5 text-blue-700/80 text-xs">
-                <li>Vào ngày: {new Date(contract.start_date!).toLocaleDateString("vi-VN")}</li>
-                <li>Công thức: {proratedInfo.breakdown}</li>
-              </ul>
-              <div className="mt-2 font-bold text-blue-700">Tiền phòng tháng này: {formatMoney(proratedInfo.totalAmount)}</div>
-            </div>
-          )}
+      {/* Contract info */}
+      <div className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="flex items-baseline justify-between gap-2">
+          <div>
+            <span className="text-base font-bold text-slate-900">Phòng {contract.room_name}</span>
+            <span className="ml-2 text-sm text-slate-500">{contract.tenant_name}</span>
+          </div>
+          <span className="shrink-0 text-sm font-semibold text-slate-900">{formatMoney(computed.rent)}</span>
         </div>
+        {proratedInfo && (
+          <div className="mt-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-700">
+            Tháng đầu (từ {new Date(contract.start_date!).toLocaleDateString("vi-VN")}): {proratedInfo.breakdown} = <strong>{formatMoney(proratedInfo.totalAmount)}</strong>
+          </div>
+        )}
       </div>
 
-      <form className="space-y-5" onSubmit={(event) => { event.preventDefault(); mutation.mutate(); }}>
-        {electricityService ? (
-          <Section title="Điện">
+      {error && <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</div>}
+
+      <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="space-y-3">
+        {/* Electricity */}
+        {electricityService && (
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2">
+              <Zap size={13} className="text-amber-500" />
+              <span className="text-sm font-semibold text-slate-700">{electricityService.name}</span>
+              <span className="ml-auto text-sm font-bold text-slate-900">{formatMoney(computed.electricAmount)}</span>
+            </div>
             {electricityIsMetered ? (
-              <MeterRows oldValue={form.electricOld} newValue={form.electricNew} price={String(electricityService.applied_unit_price || 0)} unit="kWh" used={computed.electricUsed} amount={computed.electricAmount} onOld={(value) => setForm((prev) => ({ ...prev, electricOld: value }))} onNew={(value) => setForm((prev) => ({ ...prev, electricNew: value }))} readOnlyPrice />
+              <div className="grid grid-cols-2 gap-3 px-4 py-3">
+                <CompactField label="Chỉ số đầu">
+                  <input className="input text-sm" type="number" value={form.electricOld} onChange={(e) => setForm((p) => ({ ...p, electricOld: e.target.value }))} />
+                </CompactField>
+                <CompactField label="Chỉ số cuối">
+                  <input className="input text-sm" type="number" value={form.electricNew} onChange={(e) => setForm((p) => ({ ...p, electricNew: e.target.value }))} />
+                </CompactField>
+                <div className="col-span-2 text-xs text-slate-500">
+                  Tiêu thụ: <strong>{computed.electricUsed} kWh</strong> × {formatMoney(electricityService.applied_unit_price)}/kWh
+                </div>
+              </div>
             ) : (
-              <StaticServiceRow 
-                label={electricityService.name} 
-                description={
-                  String(electricityService.type).toLowerCase() === "per_person"
-                    ? `${contract.occupant_count || 1} người × ${formatMoney(electricityService.applied_unit_price)}`
-                    : `${describeServiceType(electricityService)} · ${formatMoney(electricityService.applied_unit_price)}${getServiceUnitLabel(electricityService)}`
-                } 
-                amount={computed.electricAmount} 
-              />
+              <div className="px-4 py-3 text-xs text-slate-500">
+                {String(electricityService.type).toLowerCase() === "per_person"
+                  ? `${occupantCount} người × ${formatMoney(electricityService.applied_unit_price)}`
+                  : `${describeServiceType(electricityService)} · ${formatMoney(electricityService.applied_unit_price)}${getServiceUnitLabel(electricityService)}`}
+              </div>
             )}
-          </Section>
-        ) : null}
-        {waterService ? (
-          <Section title="Nước">
+          </div>
+        )}
+
+        {/* Water */}
+        {waterService && (
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2">
+              <Droplets size={13} className="text-blue-500" />
+              <span className="text-sm font-semibold text-slate-700">{waterService.name}</span>
+              <span className="ml-auto text-sm font-bold text-slate-900">{formatMoney(computed.waterAmount)}</span>
+            </div>
             {waterIsMetered ? (
-              <MeterRows oldValue={form.waterOld} newValue={form.waterNew} price={String(waterService.applied_unit_price || 0)} unit="m³" used={computed.waterUsed} amount={computed.waterAmount} onOld={(value) => setForm((prev) => ({ ...prev, waterOld: value }))} onNew={(value) => setForm((prev) => ({ ...prev, waterNew: value }))} readOnlyPrice />
+              <div className="grid grid-cols-2 gap-3 px-4 py-3">
+                <CompactField label="Chỉ số đầu">
+                  <input className="input text-sm" type="number" value={form.waterOld} onChange={(e) => setForm((p) => ({ ...p, waterOld: e.target.value }))} />
+                </CompactField>
+                <CompactField label="Chỉ số cuối">
+                  <input className="input text-sm" type="number" value={form.waterNew} onChange={(e) => setForm((p) => ({ ...p, waterNew: e.target.value }))} />
+                </CompactField>
+                <div className="col-span-2 text-xs text-slate-500">
+                  Tiêu thụ: <strong>{computed.waterUsed} m³</strong> × {formatMoney(waterService.applied_unit_price)}/m³
+                </div>
+              </div>
             ) : (
-              <StaticServiceRow
-                label={waterService.name}
-                description={
-                  String(waterService.type).toLowerCase() === "per_person"
-                    ? `${contract.occupant_count || 1} người × ${formatMoney(waterService.applied_unit_price)}`
-                    : `${describeServiceType(waterService)} · ${formatMoney(waterService.applied_unit_price)}${getServiceUnitLabel(waterService)}`
-                }
-                amount={computed.waterAmount}
-              />
+              <div className="px-4 py-3 text-xs text-slate-500">
+                {String(waterService.type).toLowerCase() === "per_person"
+                  ? `${occupantCount} người × ${formatMoney(waterService.applied_unit_price)}`
+                  : `${describeServiceType(waterService)} · ${formatMoney(waterService.applied_unit_price)}${getServiceUnitLabel(waterService)}`}
+              </div>
             )}
-          </Section>
-        ) : null}
-        {otherServices.length > 0 ? (
-          <Section title="Dịch vụ theo hợp đồng">
-            <div className="space-y-2">
+          </div>
+        )}
+
+        {/* Other contract services */}
+        {otherServices.length > 0 && (
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2">
+              <Package size={13} className="text-slate-400" />
+              <span className="text-sm font-semibold text-slate-700">Dịch vụ khác</span>
+              <span className="ml-auto text-sm font-bold text-slate-900">{formatMoney(computed.serviceAmount)}</span>
+            </div>
+            <div className="divide-y divide-slate-100">
               {otherServices.map((service) => {
                 const isPerPerson = String(service.type).toLowerCase() === "per_person";
-                const amount = isPerPerson 
-                  ? Number(contract.occupant_count || 1) * Number(service.applied_unit_price || 0)
+                const amount = isPerPerson
+                  ? occupantCount * Number(service.applied_unit_price || 0)
                   : Number(service.amount || service.applied_unit_price || 0);
-                
                 return (
-                  <div key={service.service_id} className="flex items-center justify-between rounded-[8px] bg-slate-50 px-3 py-2.5 text-sm">
+                  <div key={service.service_id} className="flex items-center justify-between px-4 py-2.5 text-sm">
                     <div>
-                      <div className="font-medium text-slate-900">{service.name}</div>
-                      <div className="text-xs text-slate-500">
-                        {isPerPerson 
-                          ? `${contract.occupant_count || 1} người × ${formatMoney(service.applied_unit_price)}` 
-                          : `${formatMoney(service.applied_unit_price)} / mặc định`
-                        }
-                      </div>
+                      <span className="font-medium text-slate-800">{service.name}</span>
+                      <span className="ml-2 text-xs text-slate-400">
+                        {isPerPerson ? `${occupantCount} người × ${formatMoney(service.applied_unit_price)}` : formatMoney(service.applied_unit_price)}
+                      </span>
                     </div>
-                    <div className="font-semibold text-slate-900">{formatMoney(amount)}</div>
+                    <span className="font-semibold text-slate-900">{formatMoney(amount)}</span>
                   </div>
                 );
               })}
             </div>
-          </Section>
-        ) : null}
-        <Section title="Phí khác">
-          <div className="space-y-2">
+          </div>
+        )}
+
+        {/* Extra fees */}
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2">
+            <Plus size={13} className="text-slate-400" />
+            <span className="text-sm font-semibold text-slate-700">Phí phát sinh</span>
+            {fees.length > 0 && <span className="ml-auto text-sm font-bold text-slate-900">{formatMoney(computed.otherAmount)}</span>}
+          </div>
+          <div className="px-4 py-3 space-y-2">
             {fees.map((fee, index) => (
-              <div key={index} className="grid gap-2 md:grid-cols-[1fr_160px_36px]">
-                <input className="input" placeholder="Tên phí" value={fee.label} onChange={(e) => setFees((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, label: e.target.value } : item))} />
-                <input className="input" type="number" placeholder="Số tiền" value={fee.amount} onChange={(e) => setFees((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, amount: e.target.value } : item))} />
-                <button type="button" onClick={() => setFees((prev) => prev.filter((_, itemIndex) => itemIndex !== index))} className="flex h-10 items-center justify-center rounded-[8px] border border-slate-200 text-slate-500"><X size={16} /></button>
+              <div key={index} className="flex gap-2">
+                <input className="input flex-1 text-sm" placeholder="Tên phí" value={fee.label} onChange={(e) => setFees((prev) => prev.map((item, i) => i === index ? { ...item, label: e.target.value } : item))} />
+                <input className="input w-28 text-sm" type="number" placeholder="Số tiền" value={fee.amount} onChange={(e) => setFees((prev) => prev.map((item, i) => i === index ? { ...item, amount: e.target.value } : item))} />
+                <button type="button" onClick={() => setFees((prev) => prev.filter((_, i) => i !== index))} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 transition-colors">
+                  <X size={14} />
+                </button>
               </div>
             ))}
-            <button type="button" onClick={() => setFees((prev) => [...prev, { label: "", amount: "" }])} className="inline-flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"><Plus size={15} /> Thêm phí</button>
+            <button type="button" onClick={() => setFees((prev) => [...prev, { label: "", amount: "" }])} className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors">
+              <Plus size={13} /> Thêm phí
+            </button>
           </div>
-        </Section>
-        <Section title="Thông tin thanh toán">
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Hạn thanh toán</span>
-            <input className="input" type="date" value={form.dueDate} onChange={(e) => setForm((prev) => ({ ...prev, dueDate: e.target.value }))} />
-          </label>
-          <label className="mt-4 block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Ghi chú</span>
-            <textarea className="input min-h-[90px]" value={form.note} onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))} />
-          </label>
-        </Section>
+        </div>
 
-        <div className="sticky bottom-0 flex flex-col gap-3 rounded-[8px] border border-slate-200 bg-white p-4 shadow-lg md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="text-sm font-medium text-slate-500">Tổng cộng</div>
-            <div className="text-2xl font-bold text-blue-700">{formatMoney(computed.total)}</div>
+        {/* Due date & note — compact row */}
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2">
+            <CalendarDays size={13} className="text-slate-400" />
+            <span className="text-sm font-semibold text-slate-700">Thanh toán</span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link href={`/contracts/${contract.id}`} className="rounded-[8px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700">Hủy</Link>
-            <button type="submit" disabled={mutation.isPending} className="rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{mutation.isPending ? "Đang tạo..." : "Tạo và gửi luôn"}</button>
+          <div className="grid grid-cols-2 gap-3 px-4 py-3">
+            <CompactField label="Hạn thanh toán">
+              <input className="input text-sm" type="date" value={form.dueDate} onChange={(e) => setForm((p) => ({ ...p, dueDate: e.target.value }))} />
+            </CompactField>
+            <CompactField label="Ghi chú">
+              <input className="input text-sm" placeholder="Không bắt buộc" value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} />
+            </CompactField>
+          </div>
+        </div>
+
+        {/* Sticky footer */}
+        <div className="sticky bottom-0 z-10 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-lg">
+          <div>
+            <div className="text-xs text-slate-400">Tổng hóa đơn</div>
+            <div className="text-xl font-bold text-blue-700">{formatMoney(computed.total)}</div>
+          </div>
+          <div className="flex gap-2">
+            <Link href={`/contracts/${contract.id}`} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
+              Hủy
+            </Link>
+            <button type="submit" disabled={mutation.isPending} className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors">
+              {mutation.isPending ? "Đang tạo..." : "Tạo hóa đơn"}
+            </button>
           </div>
         </div>
       </form>
@@ -305,32 +333,11 @@ export default function NewInvoicePage() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm"><h2 className="mb-4 text-lg font-semibold text-slate-950">{title}</h2>{children}</section>;
-}
-
-function MeterRows({ oldValue, newValue, price, unit, used, amount, onOld, onNew, readOnlyPrice = false }: { oldValue: string; newValue: string; price: string; unit: string; used: number; amount: number; onOld: (value: string) => void; onNew: (value: string) => void; readOnlyPrice?: boolean }) {
+function CompactField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <Field label="Chỉ số đầu"><input className="input" type="number" value={oldValue} onChange={(e) => onOld(e.target.value)} /></Field>
-      <Field label="Chỉ số cuối"><input className="input" type="number" value={newValue} onChange={(e) => onNew(e.target.value)} /></Field>
-      <Field label={`Số dùng (${unit})`}><div className="rounded-[8px] bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-900">{used}</div></Field>
-      <Field label={`Đơn giá (đ/${unit})`}>{readOnlyPrice ? <div className="rounded-[8px] bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-900">{price}</div> : <input className="input" type="number" value={price} readOnly />}</Field>
-      <div className="md:col-span-2 rounded-[8px] bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-700">Thành tiền: {formatMoney(amount)}</div>
-    </div>
+    <label className="block">
+      <span className="mb-1 block text-xs font-medium text-slate-500">{label}</span>
+      {children}
+    </label>
   );
-}
-
-function StaticServiceRow({ label, description, amount }: { label: string; description: string; amount: number }) {
-  return (
-    <div className="rounded-[8px] bg-blue-50 px-3 py-3">
-      <div className="text-sm font-semibold text-slate-900">{label}</div>
-      <div className="mt-1 text-xs text-slate-600">{description}</div>
-      <div className="mt-2 text-sm font-semibold text-blue-700">Thành tiền: {formatMoney(amount)}</div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="block"><span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>{children}</label>;
 }
