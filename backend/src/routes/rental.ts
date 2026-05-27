@@ -275,18 +275,7 @@ const depositSchema = z.object({
 });
 
 const insertDeposit = async (db: any, payload: Record<string, any>) => {
-  const insertWithUser = await db.from("deposits").insert(payload).select("*").single();
-  if (!insertWithUser.error || insertWithUser.error.code !== "23503" || !("user_id" in payload)) {
-    return insertWithUser;
-  }
-
-  const { user_id, ...fallbackPayload } = payload;
-  console.warn("Retrying deposit insert without user_id after FK failure", insertWithUser.error.message);
-  const fallbackRes = await db.from("deposits").insert(fallbackPayload).select("*").single();
-  if (fallbackRes.error) {
-    fallbackRes.error.message = `${fallbackRes.error.message} (Original FK error: ${insertWithUser.error.message})`;
-  }
-  return fallbackRes;
+  return db.from("deposits").insert(payload).select("*").single();
 };
 
 rentalRoutes.get("/deposits", async (c) => {

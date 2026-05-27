@@ -1,11 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import crypto from "crypto";
 import { requireAuth } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { parseJson, toId } from "../utils/validation.js";
-import { env } from "../config/env.js";
 import { applyInvoicePayment } from "../services/invoicePayments.js";
+import { generatePaymentCode } from "../utils/paymentCodes.js";
 
 
 const invoicesRoutes = new Hono<AppEnv>();
@@ -81,9 +80,6 @@ const bulkCollectPaymentSchema = z.object({
   walletId: z.string().min(1),
 });
 
-const generatePaymentCode = () =>
-  `${env.SEPAY_PAYMENT_PREFIX || "TCINV"}${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
-
 const loadDefaultPaymentChannel = async (db: any, userId: string) => {
   const { data } = await db
     .from("payment_channels")
@@ -126,6 +122,11 @@ const enrichPaymentFields = (invoice: any, channel?: any | null) => {
     remainingAmount: remaining,
     remaining_amount: remaining,
   };
+};
+
+const isPaymentCodeCollision = (error: any) => {
+  const message = String(error?.message || error?.details || "").toLowerCase();
+  return error?.code === "23505" && message.includes("payment_code");
 };
 
 invoicesRoutes.get("/", async (c) => {
@@ -403,9 +404,11 @@ invoicesRoutes.post("/", async (c) => {
     ? (await db.from("payment_channels").select("*").eq("id", parsed.data.paymentChannelId).eq("user_id", user.id).maybeSingle()).data
     : await loadDefaultPaymentChannel(db, user.id);
 
-  const invRes = await db
-    .from("invoices")
-    .insert({
+  let invRes: any = { data: null, error: null };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    invRes = await db
+      .from("invoices")
+      .insert({
       user_id: user.id,
       room_id: roomId,
       contract_id: contractId,
@@ -422,8 +425,11 @@ invoicesRoutes.post("/", async (c) => {
       payment_code: generatePaymentCode(),
       payment_channel_id: paymentChannel?.id || null,
     })
-    .select("*")
-    .single();
+      .select("*")
+      .single();
+
+    if (!isPaymentCodeCollision(invRes.error)) break;
+  }
 
   if (invRes.error) return c.json({ error: invRes.error.message }, 400);
 
@@ -814,14 +820,14 @@ invoicesRoutes.delete("/:id", async (c) => {
 
   if (invRes.error) return c.json({ error: invRes.error.message }, 404);
 
-  const transactionId = invRes.data.transaction_id;
+  const paidAmount = Number(invRes.data.paid_amount || 0);
+  if (paidAmount > 0 || invRes.data.transaction_id) {
+    return c.json({ error: "Chỉ có thể xóa hóa đơn chưa ghi nhận thanh toán." }, 400);
+  }
+
   await db.from("invoice_items").delete().eq("invoice_id", id).eq("user_id", user.id);
   const delInv = await db.from("invoices").delete().eq("id", id).eq("user_id", user.id);
   if (delInv.error) return c.json({ error: delInv.error.message }, 400);
-
-  if (transactionId) {
-    await db.from("transactions").delete().eq("id", transactionId).eq("user_id", user.id);
-  }
 
   return c.json({ ok: true });
 });
