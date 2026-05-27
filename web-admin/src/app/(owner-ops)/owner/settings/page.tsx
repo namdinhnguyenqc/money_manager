@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Save, RefreshCw, Settings, CreditCard, DollarSign, Home, Zap, Layers, Trash2, Plus, Edit2, Upload, Image as ImageIcon, Wallet, Landmark, ChevronDown, Copy, Check } from "lucide-react";
 import { apiGet, apiPost, apiPatch, apiDelete, apiPut } from "@/utils/apiClient";
+import { PRODUCTION_API_URL } from "@/lib/apiUrl";
 import {
   PaymentChannel,
   ServiceConfig,
@@ -696,12 +697,10 @@ export default function OwnerSettingsPage() {
                           className="flex-1 w-full min-w-0 rounded-xl border border-slate-300 bg-slate-100/80 px-4 py-2.5 text-sm text-slate-600 focus:outline-none"
                           value={(() => {
                             try {
-                              const base = typeof window !== "undefined" ? window.location.origin : "http://localhost:3001";
-                              // Dynamic fallback or pointing to the Hono API url
-                              const apiUrl = "http://localhost:8787";
+                              const apiUrl = PRODUCTION_API_URL || "https://money-manager-xdem.onrender.com";
                               return `${apiUrl}/webhooks/sepay`;
                             } catch {
-                              return "http://localhost:8787/webhooks/sepay";
+                              return "https://money-manager-xdem.onrender.com/webhooks/sepay";
                             }
                           })()}
                         />
@@ -709,7 +708,8 @@ export default function OwnerSettingsPage() {
                           type="button"
                           onClick={() => {
                             try {
-                              navigator.clipboard.writeText("http://localhost:8787/webhooks/sepay");
+                              const apiUrl = PRODUCTION_API_URL || "https://money-manager-xdem.onrender.com";
+                              navigator.clipboard.writeText(`${apiUrl}/webhooks/sepay`);
                               setCopiedWebhook(true);
                               setTimeout(() => setCopiedWebhook(false), 2000);
                             } catch {}
