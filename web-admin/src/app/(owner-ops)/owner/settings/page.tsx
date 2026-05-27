@@ -56,6 +56,25 @@ export default function OwnerSettingsPage() {
   });
   const [copiedWebhook, setCopiedWebhook] = useState(false);
 
+  // SePay Webhook Events logs state
+  const [sepayEvents, setSepayEvents] = useState<any[]>([]);
+  const [loadingSepayEvents, setLoadingSepayEvents] = useState(false);
+  const [sepayEventsError, setSepayEventsError] = useState("");
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
+
+  const fetchSepayEvents = async () => {
+    setLoadingSepayEvents(true);
+    setSepayEventsError("");
+    try {
+      const res = await apiGet<any>("/owner/sepay/events");
+      setSepayEvents(res?.data || []);
+    } catch (err: any) {
+      setSepayEventsError(err?.message || "Không thể tải lịch sử giao dịch SePay.");
+    } finally {
+      setLoadingSepayEvents(false);
+    }
+  };
+
   const load = async () => {
     setLoading(true);
     setError("");
@@ -93,6 +112,12 @@ export default function OwnerSettingsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "sepay-logs") {
+      fetchSepayEvents();
+    }
+  }, [activeTab]);
 
   const handleChange = (key: string, value: any, type: string, category: string) => {
     setSettings((prev) => ({
@@ -365,6 +390,7 @@ export default function OwnerSettingsPage() {
   const tabs = [
     { id: "general", label: "Chung", icon: Settings },
     { id: "payment", label: "Thanh toán", icon: CreditCard },
+    { id: "sepay-logs", label: "Lịch sử SePay", icon: Layers },
     { id: "pricing", label: "Bảng giá", icon: Zap },
     { id: "extension", label: "Mở rộng (Ví & Ngân hàng)", icon: Wallet },
   ];
@@ -763,6 +789,143 @@ export default function OwnerSettingsPage() {
                     </div>
                   </Card>
                 </section>
+              </div>
+            )}
+
+            {activeTab === "sepay-logs" && (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">Nhật ký giao dịch & Webhook SePay</h3>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Danh sách các thông báo chuyển khoản tự động nhận được từ SePay.vn.
+                    </p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    icon={<RefreshCw size={14} className={loadingSepayEvents ? "animate-spin" : ""} />} 
+                    onClick={fetchSepayEvents}
+                    disabled={loadingSepayEvents}
+                  >
+                    Làm mới
+                  </Button>
+                </div>
+
+                {sepayEventsError && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+                    {sepayEventsError}
+                  </div>
+                )}
+
+                {loadingSepayEvents ? (
+                  <div className="py-10 text-center text-slate-500">
+                    <RefreshCw className="animate-spin mx-auto text-blue-500 mb-3" size={28} />
+                    <span>Đang tải nhật ký webhook...</span>
+                  </div>
+                ) : sepayEvents.length === 0 ? (
+                  <Card className="p-8 text-center text-slate-500 border border-dashed border-slate-200 bg-slate-50/20">
+                    <Layers size={40} className="mx-auto text-slate-300 mb-3" />
+                    <p className="font-semibold text-slate-700 text-sm">Chưa có giao dịch SePay nào</p>
+                    <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                      Các sự kiện webhook nhận tiền từ SePay sẽ tự động xuất hiện ở đây sau khi được gửi đến hệ thống.
+                    </p>
+                  </Card>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                    <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                      <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="px-4 py-3">Thời gian</th>
+                          <th className="px-4 py-3">Mã giao dịch / Cú pháp</th>
+                          <th className="px-4 py-3 text-right">Số tiền</th>
+                          <th className="px-4 py-3">Trạng thái</th>
+                          <th className="px-4 py-3 text-center">Hành động</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                        {sepayEvents.map((event) => {
+                          const isExpanded = expandedEventId === event.id;
+                          return (
+                            <React.Fragment key={event.id}>
+                              <tr className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">
+                                  {new Date(event.created_at).toLocaleString("vi-VN")}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-slate-900 text-xs font-mono">{event.sepay_transaction_id}</span>
+                                    <span className="text-[10px] text-slate-400 mt-0.5">
+                                      Cú pháp: <span className="font-bold text-slate-600 font-mono">{event.payment_code || "Không có"}</span>
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-right font-bold text-emerald-600 whitespace-nowrap">
+                                  +{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(event.transfer_amount)}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                                    event.status === "paid" || event.status === "overpaid"
+                                      ? "bg-emerald-100 text-emerald-800"
+                                      : event.status === "pending_wallet"
+                                      ? "bg-blue-100 text-blue-800"
+                                      : event.status === "ignored"
+                                      ? "bg-slate-100 text-slate-800"
+                                      : event.status === "unmatched"
+                                      ? "bg-amber-100 text-amber-800"
+                                      : "bg-red-100 text-red-800"
+                                  }`}>
+                                    {event.status === "paid"
+                                      ? "Thành công"
+                                      : event.status === "overpaid"
+                                      ? "Thanh toán thừa"
+                                      : event.status === "pending_wallet"
+                                      ? "Chờ ví nhận"
+                                      : event.status === "ignored"
+                                      ? "Bỏ qua"
+                                      : event.status === "unmatched"
+                                      ? "Không khớp"
+                                      : "Lỗi xử lý"}
+                                  </span>
+                                  {event.error_message && (
+                                    <p className="text-[9px] text-red-500 font-medium mt-0.5 max-w-[150px] truncate" title={event.error_message}>
+                                      {event.error_message}
+                                    </p>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-center whitespace-nowrap">
+                                  <button
+                                    onClick={() => setExpandedEventId(isExpanded ? null : event.id)}
+                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-bold"
+                                  >
+                                    {isExpanded ? "Thu gọn" : "Chi tiết JSON"}
+                                  </button>
+                                </td>
+                              </tr>
+                              {isExpanded && (
+                                <tr>
+                                  <td colSpan={5} className="bg-slate-50/50 p-4 border-t border-b border-slate-100">
+                                    <div className="space-y-2">
+                                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chi tiết dữ liệu Webhook nhận được:</p>
+                                      <pre className="text-[11px] font-mono bg-slate-900 text-emerald-400 p-3 rounded-lg overflow-x-auto max-h-[300px] leading-relaxed shadow-inner">
+                                        {JSON.stringify(event.raw_payload, null, 2)}
+                                      </pre>
+                                      {event.error_message && (
+                                        <div className="mt-2 text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg p-2.5">
+                                          <span className="font-bold">Lỗi xử lý: </span>
+                                          {event.error_message}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
