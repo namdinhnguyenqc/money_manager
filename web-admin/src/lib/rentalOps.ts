@@ -567,7 +567,6 @@ export async function loadBankConfig() {
   const res = await apiGet<any>("/bank-config");
   return (res?.data ?? null) as BankConfig | null;
 }
-}
 
 export async function loadTransactions() {
   const res = await apiGet<any>("/transactions?limit=200");

@@ -272,17 +272,11 @@ export default function ReceiptViewPage() {
                   <img src={qrUrl} alt="QR" className="w-full h-auto rounded-2xl" />
                 </div> : null}
                 <div className="text-center w-full">
-<<<<<<< Updated upstream
-                  <p className="text-[10pt] font-black text-slate-900">{bankName1}</p>
-                  <p className="text-[12pt] font-black text-blue-600 tracking-wider mb-1">{bankAccount1}</p>
-                  <p className="text-[8pt] font-bold text-slate-400 uppercase">{bankOwner1}</p>
-                  <p className="mt-3 text-[8pt] font-black uppercase tracking-widest text-slate-400">Nội dung CK</p>
-                  <p className="font-mono text-[10pt] font-black text-blue-700">{paymentNote}</p>
-=======
                   {bankName1 ? <p className="text-[10pt] font-black text-slate-900">{bankName1}</p> : null}
                   {bankAccount1 ? <p className="text-[12pt] font-black text-blue-600 tracking-wider mb-1">{bankAccount1}</p> : null}
                   {bankOwner1 ? <p className="text-[8pt] font-bold text-slate-400 uppercase">{bankOwner1}</p> : null}
->>>>>>> Stashed changes
+                  <p className="mt-3 text-[8pt] font-black uppercase tracking-widest text-slate-400">Nội dung CK</p>
+                  <p className="font-mono text-[10pt] font-black text-blue-700">{paymentNote}</p>
                 </div>
               </div>
             ) : (

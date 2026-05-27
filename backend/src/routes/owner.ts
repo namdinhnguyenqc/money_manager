@@ -1004,6 +1004,7 @@ ownerRoutes.post("/settings", async (c) => {
   }
 
   const upsertData = body.settings.map((s: any) => ({
+    user_id: user.id,
     key: s.key,
     value: s.value,
     type: s.type,
