@@ -390,7 +390,7 @@ export default function OwnerSettingsPage() {
   const tabs = [
     { id: "general", label: "Chung", icon: Settings },
     { id: "payment", label: "Thanh toán", icon: CreditCard },
-    { id: "sepay-logs", label: "Lịch sử SePay", icon: Layers },
+    { id: "sepay-logs", label: "Kết nối SePay", icon: Layers },
     { id: "pricing", label: "Bảng giá", icon: Zap },
     { id: "extension", label: "Mở rộng (Ví & Ngân hàng)", icon: Wallet },
   ];
@@ -498,17 +498,6 @@ export default function OwnerSettingsPage() {
                         onChange={(e) => handleChange("payment_due_day", Number(e.target.value), "number", "payment")}
                       />
                     </div>
-                    <div className="sm:col-span-2 pt-1">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                          checked={getValue("allow_debt", true)}
-                          onChange={(e) => handleChange("allow_debt", e.target.checked, "boolean", "payment")}
-                        />
-                        <span className="text-sm font-medium text-slate-700">Cho phép khách nợ tiền phòng sang tháng sau</span>
-                      </label>
-                    </div>
                   </div>
                 </section>
 
@@ -611,8 +600,13 @@ export default function OwnerSettingsPage() {
                     </div>
                   </Card>
                 </section>
+              </div>
+            )}
 
-                <section className="space-y-4 pt-4 border-t border-slate-100">
+            {activeTab === "sepay-logs" && (
+              <div className="space-y-6">
+                {/* 1. Kênh thanh toán & đối soát SePay */}
+                <section className="space-y-4">
                   <div className="flex items-center gap-2">
                     <Wallet size={20} className="text-blue-600" />
                     <h3 className="text-lg font-bold text-slate-900">Kênh thanh toán & đối soát SePay</h3>
@@ -703,6 +697,7 @@ export default function OwnerSettingsPage() {
                   </Card>
                 </section>
 
+                {/* 2. Cấu hình Tích hợp SePay (API & Webhook) */}
                 <section className="space-y-4 pt-6 border-t border-slate-100">
                   <div className="flex items-center gap-2">
                     <Layers size={20} className="text-indigo-600" />
@@ -793,139 +788,315 @@ export default function OwnerSettingsPage() {
             )}
 
             {activeTab === "sepay-logs" && (
-              <div className="space-y-5">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900">Nhật ký giao dịch & Webhook SePay</h3>
-                    <p className="text-sm text-slate-500 mt-1">
-                      Danh sách các thông báo chuyển khoản tự động nhận được từ SePay.vn.
-                    </p>
+              <div className="space-y-6">
+                {/* 1. Kênh thanh toán & đối soát SePay */}
+                <section className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Wallet size={20} className="text-blue-600" />
+                    <h3 className="text-lg font-bold text-slate-900">Kênh thanh toán & đối soát SePay</h3>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    icon={<RefreshCw size={14} className={loadingSepayEvents ? "animate-spin" : ""} />} 
-                    onClick={fetchSepayEvents}
-                    disabled={loadingSepayEvents}
-                  >
-                    Làm mới
-                  </Button>
-                </div>
+                  <p className="text-xs text-slate-500">
+                    Kênh thanh toán quyết định QR hóa đơn và ví doanh thu được ghi nhận khi SePay báo tiền vào.
+                  </p>
 
-                {sepayEventsError && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
-                    {sepayEventsError}
+                  <div className="grid gap-3">
+                    {paymentChannels.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                        Chưa có kênh thanh toán. Tạo một kênh SePay để hóa đơn tự sinh QR và tự đối soát.
+                      </div>
+                    ) : paymentChannels.map((channel) => {
+                      const wallet = wallets.find((item) => String(item.id) === String(channel.wallet_id || channel.walletId));
+                      return (
+                        <div key={channel.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-bold text-slate-900">{channel.displayName || channel.display_name}</span>
+                                {(channel.isDefault || channel.is_default) && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase text-blue-700">Mặc định</span>}
+                                {channel.provider === "sepay" && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">SePay</span>}
+                                {!channel.enabled && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500">Tắt</span>}
+                              </div>
+                              <div className="mt-1 text-xs text-slate-500">
+                                {channel.bank_id || channel.bankId || "-"} · {channel.account_no || channel.accountNo || "-"} · Ví: {wallet?.name || "Chưa chọn ví"}
+                              </div>
+                              {(channel.autoReconcileEnabled || channel.auto_reconcile_enabled) ? (
+                                <div className="mt-1 text-xs font-medium text-emerald-700">Tự động đối soát và sinh phiếu thu khi SePay báo tiền vào.</div>
+                              ) : (
+                                <div className="mt-1 text-xs font-medium text-amber-700">Webhook sẽ được log nhưng không tự ghi nhận nếu chưa bật đối soát.</div>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button variant="outline" onClick={() => handleSetDefaultPaymentChannel(channel)} disabled={savingExtension}>Đặt mặc định</Button>
+                              <Button variant="outline" onClick={() => handleTogglePaymentChannel(channel)} disabled={savingExtension}>{channel.enabled ? "Tạm tắt" : "Bật lại"}</Button>
+                              <Button variant="outline" onClick={() => handleDisablePaymentChannel(channel)} disabled={savingExtension}>Tắt kênh</Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
 
-                {loadingSepayEvents ? (
-                  <div className="py-10 text-center text-slate-500">
-                    <RefreshCw className="animate-spin mx-auto text-blue-500 mb-3" size={28} />
-                    <span>Đang tải nhật ký webhook...</span>
-                  </div>
-                ) : sepayEvents.length === 0 ? (
-                  <Card className="p-8 text-center text-slate-500 border border-dashed border-slate-200 bg-slate-50/20">
-                    <Layers size={40} className="mx-auto text-slate-300 mb-3" />
-                    <p className="font-semibold text-slate-700 text-sm">Chưa có giao dịch SePay nào</p>
-                    <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                      Các sự kiện webhook nhận tiền từ SePay sẽ tự động xuất hiện ở đây sau khi được gửi đến hệ thống.
-                    </p>
+                  <Card className="grid gap-4 p-5">
+                    <h4 className="text-sm font-bold uppercase tracking-wide text-slate-500">Tạo kênh SePay</h4>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <Label>Tên kênh</Label>
+                        <Input value={newPaymentChannel.displayName} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, displayName: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Ví ghi nhận doanh thu</Label>
+                        <UISelect value={newPaymentChannel.walletId} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, walletId: e.target.value })}>
+                          <option value="">Chọn ví</option>
+                          {wallets.map((wallet) => <option key={wallet.id} value={wallet.id}>{wallet.name}</option>)}
+                        </UISelect>
+                      </div>
+                      <div>
+                        <Label>Ngân hàng</Label>
+                        <UISelect value={newPaymentChannel.bankId} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, bankId: e.target.value })}>
+                          {BANK_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                        </UISelect>
+                      </div>
+                      <div>
+                        <Label>Số tài khoản</Label>
+                        <Input value={newPaymentChannel.accountNo} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, accountNo: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Tên chủ tài khoản</Label>
+                        <Input value={newPaymentChannel.accountName} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, accountName: e.target.value })} />
+                      </div>
+                      <div className="flex items-end gap-4">
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                          <input type="checkbox" checked={newPaymentChannel.autoReconcileEnabled} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, autoReconcileEnabled: e.target.checked })} />
+                          Tự động đối soát SePay
+                        </label>
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                          <input type="checkbox" checked={newPaymentChannel.isDefault} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, isDefault: e.target.checked })} />
+                          Mặc định
+                        </label>
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button onClick={handleCreatePaymentChannel} disabled={savingExtension} loading={savingExtension}>Tạo kênh thanh toán</Button>
+                    </div>
                   </Card>
-                ) : (
-                  <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                    <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-                      <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        <tr>
-                          <th className="px-4 py-3">Thời gian</th>
-                          <th className="px-4 py-3">Mã giao dịch / Cú pháp</th>
-                          <th className="px-4 py-3 text-right">Số tiền</th>
-                          <th className="px-4 py-3">Trạng thái</th>
-                          <th className="px-4 py-3 text-center">Hành động</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                        {sepayEvents.map((event) => {
-                          const isExpanded = expandedEventId === event.id;
-                          return (
-                            <React.Fragment key={event.id}>
-                              <tr className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">
-                                  {new Date(event.created_at).toLocaleString("vi-VN")}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <div className="flex flex-col">
-                                    <span className="font-bold text-slate-900 text-xs font-mono">{event.sepay_transaction_id}</span>
-                                    <span className="text-[10px] text-slate-400 mt-0.5">
-                                      Cú pháp: <span className="font-bold text-slate-600 font-mono">{event.payment_code || "Không có"}</span>
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3 text-right font-bold text-emerald-600 whitespace-nowrap">
-                                  +{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(event.transfer_amount)}
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                                    event.status === "paid" || event.status === "overpaid"
-                                      ? "bg-emerald-100 text-emerald-800"
-                                      : event.status === "pending_wallet"
-                                      ? "bg-blue-100 text-blue-800"
-                                      : event.status === "ignored"
-                                      ? "bg-slate-100 text-slate-800"
-                                      : event.status === "unmatched"
-                                      ? "bg-amber-100 text-amber-800"
-                                      : "bg-red-100 text-red-800"
-                                  }`}>
-                                    {event.status === "paid"
-                                      ? "Thành công"
-                                      : event.status === "overpaid"
-                                      ? "Thanh toán thừa"
-                                      : event.status === "pending_wallet"
-                                      ? "Chờ ví nhận"
-                                      : event.status === "ignored"
-                                      ? "Bỏ qua"
-                                      : event.status === "unmatched"
-                                      ? "Không khớp"
-                                      : "Lỗi xử lý"}
-                                  </span>
-                                  {event.error_message && (
-                                    <p className="text-[9px] text-red-500 font-medium mt-0.5 max-w-[150px] truncate" title={event.error_message}>
-                                      {event.error_message}
-                                    </p>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 text-center whitespace-nowrap">
-                                  <button
-                                    onClick={() => setExpandedEventId(isExpanded ? null : event.id)}
-                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-bold"
-                                  >
-                                    {isExpanded ? "Thu gọn" : "Chi tiết JSON"}
-                                  </button>
-                                </td>
-                              </tr>
-                              {isExpanded && (
-                                <tr>
-                                  <td colSpan={5} className="bg-slate-50/50 p-4 border-t border-b border-slate-100">
-                                    <div className="space-y-2">
-                                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chi tiết dữ liệu Webhook nhận được:</p>
-                                      <pre className="text-[11px] font-mono bg-slate-900 text-emerald-400 p-3 rounded-lg overflow-x-auto max-h-[300px] leading-relaxed shadow-inner">
-                                        {JSON.stringify(event.raw_payload, null, 2)}
-                                      </pre>
-                                      {event.error_message && (
-                                        <div className="mt-2 text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg p-2.5">
-                                          <span className="font-bold">Lỗi xử lý: </span>
-                                          {event.error_message}
-                                        </div>
-                                      )}
+                </section>
+
+                {/* 2. Cấu hình Tích hợp SePay (API & Webhook) */}
+                <section className="space-y-4 pt-6 border-t border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <Layers size={20} className="text-indigo-600" />
+                    <h3 className="text-lg font-bold text-slate-900">Cấu hình Tích hợp SePay (API & Webhook)</h3>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Cung cấp thông tin xác thực để kết nối API SePay và nhận thông báo chuyển khoản (Webhook) tự động.
+                  </p>
+
+                  <Card className="grid gap-5 p-5 bg-slate-50/40">
+                    {/* Webhook URL copy field */}
+                    <div>
+                      <Label className="font-bold text-slate-700">Địa chỉ Webhook (Webhook URL)</Label>
+                      <div className="flex gap-2 mt-1">
+                        <input
+                          type="text"
+                          readOnly
+                          className="flex-1 w-full min-w-0 rounded-xl border border-slate-300 bg-slate-100/80 px-4 py-2.5 text-sm text-slate-600 focus:outline-none"
+                          value="https://money-manager-xdem.onrender.com/webhooks/sepay"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            try {
+                              navigator.clipboard.writeText("https://money-manager-xdem.onrender.com/webhooks/sepay");
+                              setCopiedWebhook(true);
+                              setTimeout(() => setCopiedWebhook(false), 2000);
+                            } catch {}
+                          }}
+                          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-white transition-all shadow-md ${
+                            copiedWebhook ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/10" : "bg-slate-900 hover:bg-slate-800 shadow-slate-900/10"
+                          }`}
+                        >
+                          {copiedWebhook ? <Check size={14} /> : <Copy size={14} />}
+                          {copiedWebhook ? "Đã chép!" : "Sao chép"}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Hãy sao chép địa chỉ này dán vào cấu hình Webhook trên trang quản trị SePay.vn của bạn.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-slate-100">
+                      <div>
+                        <Label>SePay API Key (Token API)</Label>
+                        <input
+                          type="password"
+                          placeholder="Nhập API Token hoặc API Key từ SePay.vn"
+                          className="w-full mt-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all bg-white font-mono"
+                          value={getValue("sepay_api_key", "")}
+                          onChange={(e) => handleChange("sepay_api_key", e.target.value, "string", "payment")}
+                        />
+                      </div>
+                      <div>
+                        <Label>SePay Webhook Secret (Mã xác thực chữ ký)</Label>
+                        <input
+                          type="password"
+                          placeholder="Nhập mã chữ ký xác thực Webhook"
+                          className="w-full mt-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all bg-white font-mono"
+                          value={getValue("sepay_webhook_secret", "")}
+                          onChange={(e) => handleChange("sepay_webhook_secret", e.target.value, "string", "payment")}
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label>Cú pháp chuyển khoản (Tiền tố mặc định)</Label>
+                        <Input
+                          type="text"
+                          placeholder="TCINV (Mặc định nếu để trống)"
+                          value={getValue("sepay_payment_prefix", "TCINV")}
+                          onChange={(e) => handleChange("sepay_payment_prefix", e.target.value, "string", "payment")}
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Tiền tố đi kèm mã hóa đơn khi sinh cú pháp chuyển khoản tự động (Ví dụ: TCINV12345).
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                </section>
+
+                {/* 3. Nhật ký giao dịch & Webhook SePay */}
+                <section className="space-y-4 pt-6 border-t border-slate-100 font-medium">
+                  <div className="flex items-center justify-between pb-2">
+                    <div className="flex items-center gap-2">
+                      <Layers size={20} className="text-slate-700" />
+                      <h3 className="text-lg font-bold text-slate-900 font-bold">Nhật ký giao dịch & Webhook SePay</h3>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      icon={<RefreshCw size={14} className={loadingSepayEvents ? "animate-spin" : ""} />} 
+                      onClick={fetchSepayEvents}
+                      disabled={loadingSepayEvents}
+                    >
+                      Làm mới
+                    </Button>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Danh sách các thông báo chuyển khoản tự động nhận được từ SePay.vn.
+                  </p>
+
+                  {sepayEventsError && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+                      {sepayEventsError}
+                    </div>
+                  )}
+
+                  {loadingSepayEvents ? (
+                    <div className="py-10 text-center text-slate-500">
+                      <RefreshCw className="animate-spin mx-auto text-blue-500 mb-3" size={28} />
+                      <span>Đang tải nhật ký webhook...</span>
+                    </div>
+                  ) : sepayEvents.length === 0 ? (
+                    <Card className="p-8 text-center text-slate-500 border border-dashed border-slate-200 bg-slate-50/20">
+                      <Layers size={40} className="mx-auto text-slate-300 mb-3" />
+                      <p className="font-semibold text-slate-700 text-sm">Chưa có giao dịch SePay nào</p>
+                      <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                        Các sự kiện webhook nhận tiền từ SePay sẽ tự động xuất hiện ở đây sau khi được gửi đến hệ thống.
+                      </p>
+                    </Card>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                      <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                        <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                          <tr>
+                            <th className="px-4 py-3">Thời gian</th>
+                            <th className="px-4 py-3">Mã giao dịch / Cú pháp</th>
+                            <th className="px-4 py-3 text-right">Số tiền</th>
+                            <th className="px-4 py-3">Trạng thái</th>
+                            <th className="px-4 py-3 text-center">Hành động</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                          {sepayEvents.map((event) => {
+                            const isExpanded = expandedEventId === event.id;
+                            return (
+                              <React.Fragment key={event.id}>
+                                <tr className="hover:bg-slate-50/50 transition-colors">
+                                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">
+                                    {new Date(event.created_at).toLocaleString("vi-VN")}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex flex-col">
+                                      <span className="font-bold text-slate-900 text-xs font-mono">{event.sepay_transaction_id}</span>
+                                      <span className="text-[10px] text-slate-400 mt-0.5">
+                                        Cú pháp: <span className="font-bold text-slate-600 font-mono">{event.payment_code || "Không có"}</span>
+                                      </span>
                                     </div>
                                   </td>
+                                  <td className="px-4 py-3 text-right font-bold text-emerald-600 whitespace-nowrap">
+                                    +{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(event.transfer_amount)}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                                      event.status === "paid" || event.status === "overpaid"
+                                        ? "bg-emerald-100 text-emerald-800"
+                                        : event.status === "pending_wallet"
+                                        ? "bg-blue-100 text-blue-800"
+                                        : event.status === "ignored"
+                                        ? "bg-slate-100 text-slate-800"
+                                        : event.status === "unmatched"
+                                        ? "bg-amber-100 text-amber-800"
+                                        : "bg-red-100 text-red-800"
+                                    }`}>
+                                      {event.status === "paid"
+                                        ? "Thành công"
+                                        : event.status === "overpaid"
+                                        ? "Thanh toán thừa"
+                                        : event.status === "pending_wallet"
+                                        ? "Chờ ví nhận"
+                                        : event.status === "ignored"
+                                        ? "Bỏ qua"
+                                        : event.status === "unmatched"
+                                        ? "Không khớp"
+                                        : "Lỗi xử lý"}
+                                    </span>
+                                    {event.error_message && (
+                                      <p className="text-[9px] text-red-500 font-medium mt-0.5 max-w-[150px] truncate" title={event.error_message}>
+                                        {event.error_message}
+                                      </p>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-center whitespace-nowrap">
+                                    <button
+                                      onClick={() => setExpandedEventId(isExpanded ? null : event.id)}
+                                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-bold"
+                                    >
+                                      {isExpanded ? "Thu gọn" : "Chi tiết JSON"}
+                                    </button>
+                                  </td>
                                 </tr>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                                {isExpanded && (
+                                  <tr>
+                                    <td colSpan={5} className="bg-slate-50/50 p-4 border-t border-b border-slate-100">
+                                      <div className="space-y-2">
+                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chi tiết dữ liệu Webhook nhận được:</p>
+                                        <pre className="text-[11px] font-mono bg-slate-900 text-emerald-400 p-3 rounded-lg overflow-x-auto max-h-[300px] leading-relaxed shadow-inner">
+                                          {JSON.stringify(event.raw_payload, null, 2)}
+                                        </pre>
+                                        {event.error_message && (
+                                          <div className="mt-2 text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg p-2.5">
+                                            <span className="font-bold">Lỗi xử lý: </span>
+                                            {event.error_message}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
               </div>
             )}
 
