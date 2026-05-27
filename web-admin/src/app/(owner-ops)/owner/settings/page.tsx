@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Save, RefreshCw, Settings, CreditCard, DollarSign, Home, Zap, Layers, Trash2, Plus, Edit2, Upload, Image as ImageIcon, Wallet, Landmark, ChevronDown } from "lucide-react";
+import { Save, RefreshCw, Settings, CreditCard, DollarSign, Home, Zap, Layers, Trash2, Plus, Edit2, Upload, Image as ImageIcon, Wallet, Landmark, ChevronDown, Copy, Check } from "lucide-react";
 import { apiGet, apiPost, apiPatch, apiDelete, apiPut } from "@/utils/apiClient";
 import {
   PaymentChannel,
@@ -53,6 +53,7 @@ export default function OwnerSettingsPage() {
     autoReconcileEnabled: true,
     isDefault: true,
   });
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -368,7 +369,7 @@ export default function OwnerSettingsPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-5xl animate-in fade-in duration-500">
+    <div className="mx-auto max-w-6xl w-full animate-in fade-in duration-500">
       <PageHeader
         subtitle="Quản lý cấu hình, bảng giá và vận hành nhà trọ."
         title="Cài đặt hệ thống"
@@ -395,24 +396,32 @@ export default function OwnerSettingsPage() {
           <RefreshCw size={24} className="animate-spin text-blue-500" />
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* Category Selector */}
-          <div className="max-w-sm">
-            <Label className="uppercase tracking-wider text-slate-400 mb-1.5 flex text-[10px]">Danh mục cài đặt</Label>
-            <UISelect
-              value={activeTab}
-              onChange={(e) => setActiveTab(e.target.value)}
-              className="font-bold text-slate-900"
-            >
-              {tabs.map((tab) => (
-                <option key={tab.id} value={tab.id}>
-                  {tab.label}
-                </option>
-              ))}
-            </UISelect>
+        <div className="flex flex-col md:flex-row gap-6 items-start">
+          {/* Left Vertical Menu */}
+          <div className="w-full md:w-64 shrink-0 flex flex-col gap-1.5 bg-slate-50/50 p-2 rounded-2xl border border-slate-100">
+            <span className="uppercase tracking-wider text-slate-400 mb-1 flex text-[10px] font-bold pl-3 pt-1">Danh mục cài đặt</span>
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-3 w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all border ${
+                    isActive
+                      ? "bg-slate-900 text-white border-slate-900 shadow-md shadow-slate-900/10"
+                      : "bg-white text-slate-600 border-slate-200/60 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <Icon size={16} className={isActive ? "text-white" : "text-slate-400"} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
 
-          <Card className="flex-1 p-6 lg:p-8">
+          {/* Right Content Section */}
+          <Card className="flex-1 w-full md:w-auto min-w-0 p-6 lg:p-8">
             {activeTab === "general" && (
               <div className="space-y-5">
                 <h3 className="text-lg font-bold text-slate-900">Thông tin chung</h3>
@@ -663,6 +672,94 @@ export default function OwnerSettingsPage() {
                     </div>
                     <div className="flex justify-end">
                       <Button onClick={handleCreatePaymentChannel} disabled={savingExtension} loading={savingExtension}>Tạo kênh thanh toán</Button>
+                    </div>
+                  </Card>
+                </section>
+
+                <section className="space-y-4 pt-6 border-t border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <Layers size={20} className="text-indigo-600" />
+                    <h3 className="text-lg font-bold text-slate-900">Cấu hình Tích hợp SePay (API & Webhook)</h3>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Cung cấp thông tin xác thực để kết nối API SePay và nhận thông báo chuyển khoản (Webhook) tự động.
+                  </p>
+
+                  <Card className="grid gap-5 p-5 bg-slate-50/40">
+                    {/* Webhook URL copy field */}
+                    <div>
+                      <Label className="font-bold text-slate-700">Địa chỉ Webhook (Webhook URL)</Label>
+                      <div className="flex gap-2 mt-1">
+                        <input
+                          type="text"
+                          readOnly
+                          className="flex-1 w-full min-w-0 rounded-xl border border-slate-300 bg-slate-100/80 px-4 py-2.5 text-sm text-slate-600 focus:outline-none"
+                          value={(() => {
+                            try {
+                              const base = typeof window !== "undefined" ? window.location.origin : "http://localhost:3001";
+                              // Dynamic fallback or pointing to the Hono API url
+                              const apiUrl = "http://localhost:8787";
+                              return `${apiUrl}/webhooks/sepay`;
+                            } catch {
+                              return "http://localhost:8787/webhooks/sepay";
+                            }
+                          })()}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            try {
+                              navigator.clipboard.writeText("http://localhost:8787/webhooks/sepay");
+                              setCopiedWebhook(true);
+                              setTimeout(() => setCopiedWebhook(false), 2000);
+                            } catch {}
+                          }}
+                          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-white transition-all shadow-md ${
+                            copiedWebhook ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/10" : "bg-slate-900 hover:bg-slate-800 shadow-slate-900/10"
+                          }`}
+                        >
+                          {copiedWebhook ? <Check size={14} /> : <Copy size={14} />}
+                          {copiedWebhook ? "Đã chép!" : "Sao chép"}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Hãy sao chép địa chỉ này dán vào cấu hình Webhook trên trang quản trị SePay.vn của bạn.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-slate-100">
+                      <div>
+                        <Label>SePay API Key (Token API)</Label>
+                        <input
+                          type="password"
+                          placeholder="Nhập API Token hoặc API Key từ SePay.vn"
+                          className="w-full mt-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all bg-white font-mono"
+                          value={getValue("sepay_api_key", "")}
+                          onChange={(e) => handleChange("sepay_api_key", e.target.value, "string", "payment")}
+                        />
+                      </div>
+                      <div>
+                        <Label>SePay Webhook Secret (Mã xác thực chữ ký)</Label>
+                        <input
+                          type="password"
+                          placeholder="Nhập mã chữ ký xác thực Webhook"
+                          className="w-full mt-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all bg-white font-mono"
+                          value={getValue("sepay_webhook_secret", "")}
+                          onChange={(e) => handleChange("sepay_webhook_secret", e.target.value, "string", "payment")}
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label>Cú pháp chuyển khoản (Tiền tố mặc định)</Label>
+                        <Input
+                          type="text"
+                          placeholder="TCINV (Mặc định nếu để trống)"
+                          value={getValue("sepay_payment_prefix", "TCINV")}
+                          onChange={(e) => handleChange("sepay_payment_prefix", e.target.value, "string", "payment")}
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Tiền tố đi kèm mã hóa đơn khi sinh cú pháp chuyển khoản tự động (Ví dụ: TCINV12345).
+                        </p>
+                      </div>
                     </div>
                   </Card>
                 </section>

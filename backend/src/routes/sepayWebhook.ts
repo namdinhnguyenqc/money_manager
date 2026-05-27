@@ -18,22 +18,24 @@ const timingSafeEqualText = (left: string, right: string) => {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 };
 
-const verifySignature = (rawBody: string, signature?: string, timestamp?: string) => {
-  if (!env.SEPAY_WEBHOOK_SECRET) return true;
+const verifySignature = (rawBody: string, signature?: string, timestamp?: string, customSecret?: string | null) => {
+  const activeSecret = customSecret || env.SEPAY_WEBHOOK_SECRET;
+  if (!activeSecret) return true;
   if (!signature) return false;
 
   const cleaned = signature.replace(/^sha256=/i, "");
   const candidates = [
-    crypto.createHmac("sha256", env.SEPAY_WEBHOOK_SECRET).update(`${timestamp || ""}.${rawBody}`).digest("hex"),
-    crypto.createHmac("sha256", env.SEPAY_WEBHOOK_SECRET).update(rawBody).digest("hex"),
+    crypto.createHmac("sha256", activeSecret).update(`${timestamp || ""}.${rawBody}`).digest("hex"),
+    crypto.createHmac("sha256", activeSecret).update(rawBody).digest("hex"),
   ];
 
   return candidates.some((candidate) => timingSafeEqualText(candidate, cleaned));
 };
 
-const verifyApiKey = (apiKey?: string) => {
-  if (!env.SEPAY_API_KEY) return true;
-  return apiKey === env.SEPAY_API_KEY;
+const verifyApiKey = (apiKey?: string, customApiKey?: string | null) => {
+  const activeApiKey = customApiKey || env.SEPAY_API_KEY;
+  if (!activeApiKey) return true;
+  return apiKey === activeApiKey;
 };
 
 const findPaymentCode = (payload: any) => {
@@ -61,15 +63,47 @@ sepayWebhookRoutes.post("/", async (c) => {
   const timestamp = c.req.header("x-sepay-timestamp");
   const apiKey = c.req.header("x-api-key") || c.req.header("authorization")?.replace(/^Bearer\s+/i, "");
 
-  if (!verifySignature(rawBody, signature, timestamp) || !verifyApiKey(apiKey)) {
-    return c.json({ success: false, error: "Invalid SePay signature" }, 401);
-  }
-
   let payload: any;
   try {
     payload = JSON.parse(rawBody);
   } catch {
     return c.json({ success: false, error: "Invalid JSON payload" }, 400);
+  }
+
+  const paymentCode = findPaymentCode(payload);
+  let userWebhookSecret: string | null = null;
+  let userApiKey: string | null = null;
+
+  if (paymentCode) {
+    const invoiceRes = await supabaseAdmin
+      .from("invoices")
+      .select("user_id")
+      .eq("payment_code", paymentCode)
+      .maybeSingle();
+
+    if (invoiceRes.data?.user_id) {
+      const settingsRes = await supabaseAdmin
+        .from("system_settings")
+        .select("*")
+        .eq("user_id", invoiceRes.data.user_id)
+        .in("key", ["sepay_webhook_secret", "sepay_api_key"]);
+
+      if (settingsRes.data) {
+        const secretSetting = settingsRes.data.find((s) => s.key === "sepay_webhook_secret");
+        const apiKeySetting = settingsRes.data.find((s) => s.key === "sepay_api_key");
+
+        if (secretSetting?.value !== undefined && secretSetting?.value !== null) {
+          userWebhookSecret = String(secretSetting.value);
+        }
+        if (apiKeySetting?.value !== undefined && apiKeySetting?.value !== null) {
+          userApiKey = String(apiKeySetting.value);
+        }
+      }
+    }
+  }
+
+  if (!verifySignature(rawBody, signature, timestamp, userWebhookSecret) || !verifyApiKey(apiKey, userApiKey)) {
+    return c.json({ success: false, error: "Invalid SePay signature" }, 401);
   }
 
   const sepayTransactionId = String(payload.id || payload.referenceCode || payload.reference_code || "");
@@ -87,7 +121,6 @@ sepayWebhookRoutes.post("/", async (c) => {
   const transferType = String(payload.transferType || payload.transfer_type || "").toLowerCase();
   const transferAmount = Number(payload.transferAmount ?? payload.transfer_amount ?? payload.amount ?? 0);
   const accountNumber = String(payload.accountNumber || payload.account_number || "");
-  const paymentCode = findPaymentCode(payload);
 
   if (transferType && !["in", "credit"].includes(transferType)) {
     await insertEvent({
