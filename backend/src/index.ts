@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
+import { compress } from "hono/compress";
 import { env } from "./config/env.js";
 import healthRoutes from "./routes/health.js";
 import authRoutes from "./routes/auth.js";
@@ -34,6 +35,7 @@ app.use("*", async (c, next) => {
   await next();
 });
 
+app.use("*", compress());
 app.use("*", logger());
 
 const privatePathPrefixes = [

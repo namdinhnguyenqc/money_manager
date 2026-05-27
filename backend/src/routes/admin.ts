@@ -659,27 +659,29 @@ adminRoutes.get("/rooms", ...adminWithPermission("room.view"), async (c) => {
 // GET /admin/rooms/:id - Get room detail
 adminRoutes.get("/rooms/:id", ...adminWithPermission("room.view"), async (c) => {
   const roomId = c.req.param("id");
-  const [room, contracts, invoices] = await Promise.all([
-    supabaseAdmin.from("rooms").select("*").eq("id", roomId).single(),
-    supabaseAdmin.from("contracts").select("*").eq("room_id", roomId),
-    supabaseAdmin.from("invoices").select("*").eq("room_id", roomId),
-  ]);
+  // Single embedded query: fetch room + contracts + invoices in one round-trip
+  const { data: room, error } = await supabaseAdmin
+    .from("rooms")
+    .select("*, contracts(id, tenant_id, status, start_date, end_date, deposit, created_at), invoices(id, contract_id, status, total_amount, paid_amount, due_date, month, year, created_at)")
+    .eq("id", roomId)
+    .single();
 
-  if (room.error || !room.data) {
+  if (error || !room) {
     return c.json({ error: "Room not found" }, 404);
   }
 
+  const { contracts: roomContracts, invoices: roomInvoices, ...roomData } = room as any;
   return c.json({
-    data: room.data,
-    id: room.data.id,
-    name: room.data.name,
-    boardingHouseId: room.data.boarding_house_id,
-    price: room.data.price,
-    status: room.data.status,
-    isPublic: room.data.is_public,
-    createdAt: room.data.created_at,
-    contracts: contracts.data ?? [],
-    invoices: invoices.data ?? [],
+    data: roomData,
+    id: roomData.id,
+    name: roomData.name,
+    boardingHouseId: roomData.boarding_house_id,
+    price: roomData.price,
+    status: roomData.status,
+    isPublic: roomData.is_public,
+    createdAt: roomData.created_at,
+    contracts: roomContracts ?? [],
+    invoices: roomInvoices ?? [],
   });
 });
 
@@ -1038,11 +1040,11 @@ adminRoutes.get("/owners/:id", ...adminWithPermission("owner.view"), async (c) =
   const id = c.req.param("id");
   const [owner, houses, rooms, tenants, contracts, invoices] = await Promise.all([
     supabaseAdmin.from("users").select("*").eq("id", id).single(),
-    supabaseAdmin.from("boarding_houses").select("*").eq("owner_id", id),
-    supabaseAdmin.from("rooms").select("*").eq("user_id", id),
-    supabaseAdmin.from("tenants").select("*").eq("user_id", id),
-    supabaseAdmin.from("contracts").select("*").eq("user_id", id),
-    supabaseAdmin.from("invoices").select("*").eq("user_id", id),
+    supabaseAdmin.from("boarding_houses").select("id, name, address, status, is_public, created_at").eq("owner_id", id),
+    supabaseAdmin.from("rooms").select("id, name, price, status, boarding_house_id, created_at").eq("user_id", id),
+    supabaseAdmin.from("tenants").select("id, name, phone, email, status, created_at").eq("user_id", id),
+    supabaseAdmin.from("contracts").select("id, room_id, tenant_id, status, start_date, end_date, created_at").eq("user_id", id),
+    supabaseAdmin.from("invoices").select("id, room_id, contract_id, status, total_amount, paid_amount, due_date, month, year, created_at").eq("user_id", id),
   ]);
   if (owner.error || !owner.data) return c.json({ error: "Owner not found" }, 404);
   return c.json({
@@ -1324,7 +1326,7 @@ adminRoutes.get("/dashboard/summary", ...adminWithPermission("dashboard.view"), 
     supabaseAdmin.from("boarding_houses").select("id"),
     supabaseAdmin.from("rooms").select("id, status"),
     supabaseAdmin.from("contracts").select("id, status, end_date"),
-    supabaseAdmin.from("invoices").select("*"),
+    supabaseAdmin.from("invoices").select("id, status, due_date, total_amount, paid_amount"),
   ]);
   const anyError = [users, tenants, houses, rooms, contracts, invoices].find((x) => x.error);
   if (anyError?.error) return jsonDbError(c, anyError.error, "Failed to fetch dashboard summary");
@@ -1379,8 +1381,8 @@ adminRoutes.get("/dashboard/alerts", ...adminWithPermission("dashboard.view"), a
   const today = new Date().toISOString().slice(0, 10);
   const cutoff = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const [contracts, invoices, owners] = await Promise.all([
-    supabaseAdmin.from("contracts").select("*").eq("status", "active").lte("end_date", cutoff),
-    supabaseAdmin.from("invoices").select("*").neq("status", "paid"),
+    supabaseAdmin.from("contracts").select("id, room_id, tenant_id, status, start_date, end_date").eq("status", "active").lte("end_date", cutoff),
+    supabaseAdmin.from("invoices").select("id, room_id, contract_id, status, due_date, total_amount, paid_amount, month, year").neq("status", "paid"),
     supabaseAdmin.from("users").select("id, email, name, last_login_at").eq("role", "OWNER"),
   ]);
   if (contracts.error) return jsonDbError(c, contracts.error, "Failed to fetch contract alerts");
@@ -1419,7 +1421,7 @@ adminRoutes.get("/reports/contracts", ...adminWithPermission("report.view"), asy
 });
 
 adminRoutes.get("/reports/invoices", ...adminWithPermission("report.view"), async (c) => {
-  const { data, error } = await supabaseAdmin.from("invoices").select("*");
+  const { data, error } = await supabaseAdmin.from("invoices").select("id, room_id, contract_id, status, total_amount, paid_amount, due_date, month, year, created_at");
   if (error) return jsonDbError(c, error, "Failed to fetch invoice report");
   const rows = data ?? [];
   return c.json({
