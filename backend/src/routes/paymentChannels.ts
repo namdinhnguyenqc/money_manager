@@ -39,6 +39,7 @@ paymentChannelsRoutes.get("/", async (c) => {
     .from("payment_channels")
     .select("*")
     .eq("user_id", user.id)
+    .eq("enabled", true)
     .order("is_default", { ascending: false })
     .order("created_at", { ascending: true });
 

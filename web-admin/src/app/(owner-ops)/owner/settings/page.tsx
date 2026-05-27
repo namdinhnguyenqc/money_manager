@@ -1,7 +1,39 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Save, RefreshCw, Settings, CreditCard, DollarSign, Home, Zap, Layers, Trash2, Plus, Edit2, Upload, Image as ImageIcon, Wallet, Landmark, ChevronDown, Copy, Check } from "lucide-react";
+import { 
+  Save, 
+  RefreshCw, 
+  Settings, 
+  CreditCard, 
+  DollarSign, 
+  Home, 
+  Zap, 
+  Layers, 
+  Trash2, 
+  Plus, 
+  Edit2, 
+  Upload, 
+  Image as ImageIcon, 
+  Wallet, 
+  Landmark, 
+  ChevronDown, 
+  Copy, 
+  Check, 
+  Eye, 
+  EyeOff, 
+  Info,
+  MapPin,
+  Clock,
+  Coins,
+  ShieldCheck,
+  ToggleLeft,
+  ToggleRight,
+  TrendingUp,
+  Sliders,
+  Sparkles
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { apiGet, apiPost, apiPatch, apiDelete, apiPut } from "@/utils/apiClient";
 import { PRODUCTION_API_URL } from "@/lib/apiUrl";
 import {
@@ -62,6 +94,10 @@ export default function OwnerSettingsPage() {
   const [sepayEventsError, setSepayEventsError] = useState("");
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
 
+  // UI interactive states
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+
   const fetchSepayEvents = async () => {
     setLoadingSepayEvents(true);
     setSepayEventsError("");
@@ -93,7 +129,7 @@ export default function OwnerSettingsPage() {
       setSettings(map);
       setServices(servicesRes?.data || []);
       setWallets(walletsRes?.data || []);
-      setPaymentChannels(channelsRes || []);
+      setPaymentChannels((channelsRes || []).filter((c: any) => c.enabled !== false));
       if (bankRes?.data) {
         setBankConfig({
           bank_id: bankRes.data.bank_id || "970436",
@@ -387,46 +423,69 @@ export default function OwnerSettingsPage() {
     { id: '970423', label: 'TPBank' },
   ];
 
+  const getBankLabel = (id: string) => {
+    return BANK_OPTIONS.find(opt => opt.id === id)?.label || "Ngân hàng";
+  };
+
+  const formatCardNumber = (num: string) => {
+    const clean = num.replace(/\s?/g, "");
+    const groups = clean.match(/.{1,4}/g);
+    return groups ? groups.join("  ") : clean;
+  };
+
   const tabs = [
-    { id: "general", label: "Chung", icon: Settings },
-    { id: "payment", label: "Thanh toán", icon: CreditCard },
-    { id: "sepay-logs", label: "Kết nối SePay", icon: Layers },
-    { id: "pricing", label: "Bảng giá", icon: Zap },
-    { id: "extension", label: "Mở rộng (Ví & Ngân hàng)", icon: Wallet },
+    { id: "general", label: "Chung", icon: Settings, desc: "Cấu hình thông tin cơ bản & hiển thị" },
+    { id: "payment", label: "Thanh toán", icon: CreditCard, desc: "Cài đặt chu kỳ thanh toán & Ngân hàng tĩnh" },
+    { id: "sepay-logs", label: "Kết nối SePay", icon: Layers, desc: "Tích hợp API, Kênh thanh toán & Webhook logs" },
+    { id: "pricing", label: "Bảng giá", icon: Zap, desc: "Đơn giá các dịch vụ điện, nước, tiện ích" },
+    { id: "extension", label: "Mở rộng", icon: Wallet, desc: "Quản lý dòng tiền, Ví lưu trữ và đối soát" },
   ];
 
   return (
-    <div className="mx-auto max-w-6xl w-full animate-in fade-in duration-500">
+    <div className="mx-auto max-w-6xl w-full animate-in fade-in duration-500 pb-16">
       <PageHeader
-        subtitle="Quản lý cấu hình, bảng giá và vận hành nhà trọ."
+        subtitle="Quản lý cấu hình, bảng giá và tự động hóa vận hành phòng trọ."
         title="Cài đặt hệ thống"
         actions={
-          <>
-            <Button variant="outline" icon={<RefreshCw size={16} />} onClick={load}>
+          <div className="flex gap-2.5">
+            <Button variant="outline" icon={<RefreshCw size={14} />} onClick={load} className="border-slate-200 hover:bg-slate-50 transition-all font-semibold rounded-xl text-slate-700">
               Làm mới
             </Button>
-            <Button variant="primary" icon={<Save size={16} />} onClick={handleSave} disabled={saving} loading={saving}>
+            <Button 
+              variant="primary" 
+              icon={<Save size={14} />} 
+              onClick={handleSave} 
+              disabled={saving} 
+              loading={saving}
+              className="bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg shadow-slate-900/10 px-5 transition-all"
+            >
               Lưu thay đổi
             </Button>
-          </>
+          </div>
         }
       />
 
       {(error || success) && (
-        <div className={`mb-6 rounded-xl p-4 text-sm font-medium ${error ? "border border-red-200 bg-red-50 text-red-700" : "border border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
-          {error || success}
+        <div className={`mb-6 rounded-2xl p-4 text-sm font-semibold flex items-center gap-3 border shadow-sm transition-all animate-in slide-in-from-top-2 ${
+          error 
+            ? "border-red-100 bg-red-50/70 text-red-700" 
+            : "border-emerald-100 bg-emerald-50/70 text-emerald-700"
+        }`}>
+          <div className={`w-2 h-2 rounded-full ${error ? "bg-red-500" : "bg-emerald-500"}`} />
+          <span className="flex-1">{error || success}</span>
         </div>
       )}
 
       {loading ? (
-        <div className="flex h-64 items-center justify-center text-slate-500">
-          <RefreshCw size={24} className="animate-spin text-blue-500" />
+        <div className="py-24 text-center">
+          <RefreshCw className="animate-spin mx-auto text-slate-400 mb-3" size={32} />
+          <span className="text-sm font-medium text-slate-500">Đang tải cấu hình hệ thống...</span>
         </div>
       ) : (
-        <div className="flex flex-col md:flex-row gap-6 items-start">
-          {/* Left Vertical Menu */}
-          <div className="w-full md:w-64 shrink-0 flex flex-col gap-1.5 bg-slate-50/50 p-2 rounded-2xl border border-slate-100">
-            <span className="uppercase tracking-wider text-slate-400 mb-1 flex text-[10px] font-bold pl-3 pt-1">Danh mục cài đặt</span>
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
+          {/* Glassmorphic Navigation Sidebar */}
+          <div className="w-full lg:w-72 shrink-0 flex flex-col gap-2 bg-slate-50/70 backdrop-blur-md p-4 rounded-[2rem] border border-slate-200/40 shadow-sm relative z-10">
+            <span className="uppercase tracking-wider text-slate-400 text-[10px] font-black pl-3 pb-2 select-none">Danh mục cài đặt</span>
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -434,472 +493,447 @@ export default function OwnerSettingsPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-3 w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all border ${
+                  className={`relative flex items-start gap-3.5 w-full rounded-2xl px-4 py-4 text-left transition-colors duration-300 group ${
                     isActive
-                      ? "bg-slate-900 text-white border-slate-900 shadow-md shadow-slate-900/10"
-                      : "bg-white text-slate-600 border-slate-200/60 hover:bg-slate-50 hover:text-slate-900"
+                      ? "text-white"
+                      : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  <Icon size={16} className={isActive ? "text-white" : "text-slate-400"} />
-                  <span>{tab.label}</span>
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeTabIndicator"
+                      className="absolute inset-0 bg-slate-950 rounded-2xl -z-10 shadow-lg shadow-slate-900/15"
+                      transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                    />
+                  )}
+                  <Icon 
+                    size={18} 
+                    className={`mt-0.5 shrink-0 transition-transform duration-300 ${
+                      isActive ? "text-white scale-110" : "text-slate-400 group-hover:text-slate-600 group-hover:scale-105"
+                    }`} 
+                  />
+                  <div className="flex flex-col min-w-0 z-10">
+                    <span className="text-sm font-bold tracking-tight">{tab.label}</span>
+                    <span className={`text-[10px] truncate font-medium mt-0.5 transition-colors ${
+                      isActive ? "text-slate-300" : "text-slate-400 group-hover:text-slate-500"
+                    }`}>
+                      {tab.desc}
+                    </span>
+                  </div>
                 </button>
               );
             })}
           </div>
 
-          {/* Right Content Section */}
-          <Card className="flex-1 w-full md:w-auto min-w-0 p-6 lg:p-8">
+          {/* Premium Content Panel */}
+          <Card className="flex-1 w-full lg:w-auto min-w-0 p-6 sm:p-8 rounded-[2rem] border border-slate-200/70 shadow-sm bg-white relative overflow-hidden transition-all duration-300">
+            {/* Visual background sparkles for modern feel */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-slate-100/30 rounded-full -mr-32 -mt-32 pointer-events-none blur-3xl"></div>
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="w-full h-full"
+              >
+
             {activeTab === "general" && (
-              <div className="space-y-5">
-                <h3 className="text-lg font-bold text-slate-900">Thông tin chung</h3>
-                <div className="grid gap-4">
-                  <div>
-                    <Label>Tên hệ thống</Label>
-                    <Input
-                      type="text"
-                      value={getValue("system_name", "TrọCare")}
-                      onChange={(e) => handleChange("system_name", e.target.value, "string", "general")}
-                    />
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                  <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
+                    <Settings size={20} className="text-slate-600 animate-spin-slow" />
                   </div>
                   <div>
-                    <Label>Thông tin chủ trọ</Label>
-                    <textarea
-                      rows={3}
-                      className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
-                      value={getValue("owner_info", "")}
-                      onChange={(e) => handleChange("owner_info", e.target.value, "string", "general")}
-                      placeholder="Tên, Số điện thoại, Địa chỉ liên hệ..."
-                    />
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Thông tin chung</h3>
+                    <p className="text-xs text-slate-500 font-medium">Thiết lập các thuộc tính cơ bản hiển thị trên hệ thống phòng trọ.</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="relative">
+                    <Label className="font-bold text-slate-800 text-xs">Tên nhà trọ (Landlord Name)</Label>
+                    <div className="relative mt-1.5">
+                      <Home className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <input
+                        type="text"
+                        placeholder="Nhập tên nhà trọ..."
+                        className="w-full pl-11 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm"
+                        value={getValue("landlord_name", "")}
+                        onChange={(e) => handleChange("landlord_name", e.target.value, "string", "general")}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="font-bold text-slate-800 text-xs">Múi giờ hệ thống</Label>
+                    <div className="relative mt-1.5">
+                      <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <select
+                        className="w-full pl-11 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm appearance-none"
+                        value={getValue("timezone", "Asia/Ho_Chi_Minh")}
+                        onChange={(e) => handleChange("timezone", e.target.value, "string", "general")}
+                      >
+                        <option value="Asia/Ho_Chi_Minh">Việt Nam (GMT+7)</option>
+                        <option value="UTC">Múi giờ quốc tế (UTC)</option>
+                      </select>
+                      <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <Label className="font-bold text-slate-800 text-xs">Địa chỉ nhà trọ</Label>
+                    <div className="relative mt-1.5">
+                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <input
+                        type="text"
+                        placeholder="Nhập địa chỉ chi tiết nhà trọ..."
+                        className="w-full pl-11 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm"
+                        value={getValue("landlord_address", "")}
+                        onChange={(e) => handleChange("landlord_address", e.target.value, "string", "general")}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="font-bold text-slate-800 text-xs">Định dạng tiền tệ</Label>
+                    <div className="relative mt-1.5">
+                      <Coins className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <select
+                        className="w-full pl-11 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm appearance-none"
+                        value={getValue("currency_format", "VND")}
+                        onChange={(e) => handleChange("currency_format", e.target.value, "string", "general")}
+                      >
+                        <option value="VND">Việt Nam Đồng (đ)</option>
+                        <option value="USD">Đô la Mỹ ($)</option>
+                      </select>
+                      <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
             {activeTab === "payment" && (
-              <div className="space-y-6">
-                <section className="space-y-4">
-                  <h3 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-2">Kỳ thanh toán & Chốt điện nước</h3>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <Label>Ngày chốt điện nước hàng tháng</Label>
-                      <Input
-                        type="number"
-                        min="1" max="31"
-                        value={getValue("meter_reading_day", 25)}
-                        onChange={(e) => handleChange("meter_reading_day", Number(e.target.value), "number", "payment")}
-                      />
-                    </div>
-                    <div>
-                      <Label>Hạn thanh toán hàng tháng</Label>
-                      <Input
-                        type="number"
-                        min="1" max="31"
-                        value={getValue("payment_due_day", 5)}
-                        onChange={(e) => handleChange("payment_due_day", Number(e.target.value), "number", "payment")}
-                      />
-                    </div>
+              <div className="space-y-8 animate-in fade-in duration-300">
+                {/* Header */}
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center border border-indigo-100">
+                    <CreditCard size={20} className="text-indigo-600" />
                   </div>
-                </section>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Kỳ thanh toán & Chốt điện nước</h3>
+                    <p className="text-xs text-slate-500 font-medium">Thiết lập các chu kỳ ghi nhận số đo và hạn định đóng tiền phòng hàng tháng.</p>
+                  </div>
+                </div>
 
-                {/* Integrated Bank Configuration Form */}
-                <section className="space-y-4 pt-4 border-t border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <Landmark size={20} className="text-emerald-600" />
-                    <h3 className="text-lg font-bold text-slate-900">Cấu hình Ngân hàng & Thanh toán</h3>
-                  </div>
-                  <p className="text-xs text-slate-500 italic">Cung cấp thông tin tài khoản để khách thuê thanh toán và đối soát giao dịch.</p>
-                  
-                  <Card className="grid gap-6 p-6">
-                    {/* Bank Account Info */}
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="sm:col-span-2">
-                        <Label>Chọn Ngân hàng</Label>
-                        <UISelect
-                          value={bankConfig.bank_id}
-                          onChange={(e) => setBankConfig({...bankConfig, bank_id: e.target.value})}
+                <div className="grid gap-6 md:grid-cols-2">
+                  {/* Left Column: Form config */}
+                  <div className="space-y-6">
+                    <div className="bg-slate-50/60 rounded-2xl border border-slate-200/50 p-5 space-y-4">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Thời gian thanh toán</span>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <Label className="font-bold text-slate-700 text-xs">Ngày chốt điện nước</Label>
+                          <input
+                            type="number"
+                            min="1" max="31"
+                            className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm"
+                            value={getValue("meter_reading_day", 25)}
+                            onChange={(e) => handleChange("meter_reading_day", Number(e.target.value), "number", "payment")}
+                          />
+                          <span className="text-[9px] text-slate-400 mt-1 block">Chốt chỉ số ngày {getValue("meter_reading_day", 25)} hàng tháng.</span>
+                        </div>
+                        <div>
+                          <Label className="font-bold text-slate-700 text-xs">Hạn đóng tiền phòng</Label>
+                          <input
+                            type="number"
+                            min="1" max="31"
+                            className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm"
+                            value={getValue("payment_due_day", 5)}
+                            onChange={(e) => handleChange("payment_due_day", Number(e.target.value), "number", "payment")}
+                          />
+                          <span className="text-[9px] text-slate-400 mt-1 block">Hạn đóng hóa đơn ngày {getValue("payment_due_day", 5)} hàng tháng.</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Integrated Bank Configuration Card Form */}
+                    <div className="bg-white rounded-2xl border border-slate-200/70 p-5 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Landmark size={16} className="text-slate-600" />
+                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Thông tin Ngân hàng Tĩnh</span>
+                      </div>
+                      
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <Label className="font-semibold text-slate-600 text-xs">Tên Ngân hàng</Label>
+                          <div className="relative mt-1.5">
+                            <select
+                              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm appearance-none"
+                              value={bankConfig.bank_id}
+                              onChange={(e) => setBankConfig({ ...bankConfig, bank_id: e.target.value })}
+                            >
+                              {BANK_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                            </select>
+                            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label className="font-semibold text-slate-600 text-xs">Số tài khoản</Label>
+                          <input
+                            type="text"
+                            placeholder="Số tài khoản ngân hàng..."
+                            className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm"
+                            value={bankConfig.account_no}
+                            onChange={(e) => setBankConfig({ ...bankConfig, account_no: e.target.value })}
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <Label className="font-semibold text-slate-600 text-xs">Tên chủ tài khoản (Viết hoa)</Label>
+                          <input
+                            type="text"
+                            placeholder="NGUYEN VAN A..."
+                            className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm uppercase"
+                            value={bankConfig.account_name}
+                            onChange={(e) => setBankConfig({ ...bankConfig, account_name: e.target.value })}
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <Label className="font-semibold text-slate-600 text-xs">Nội dung Chuyển khoản mặc định</Label>
+                          <textarea
+                            rows={2}
+                            placeholder="Nội dung khách thuê sẽ ghi khi chuyển khoản..."
+                            className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm"
+                            value={getValue("payment_note", "(Không ghi nội dung Chuyển khoản)")}
+                            onChange={(e) => handleChange("payment_note", e.target.value, "string", "payment")}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end pt-2 border-t border-slate-100">
+                        <Button 
+                          onClick={handleSaveBankConfig} 
+                          disabled={savingExtension}
+                          loading={savingExtension}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs px-4 py-2 shadow-md shadow-emerald-600/10 transition-all flex items-center gap-1.5"
                         >
-                          {BANK_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
-                        </UISelect>
+                          <Save size={12} /> Lưu thông tin ngân hàng
+                        </Button>
                       </div>
-                      <div>
-                        <Label>Số tài khoản</Label>
-                        <Input
-                          type="text"
-                          value={bankConfig.account_no}
-                          onChange={(e) => setBankConfig({...bankConfig, account_no: e.target.value})}
-                        />
+                    </div>
+                  </div>
+
+                  {/* Right Column: Live Card Mockup & Static QR */}
+                  <div className="flex flex-col gap-6 justify-center">
+                    {/* Live credit card mockup */}
+                    <div className="relative w-full max-w-[340px] aspect-[1.58/1] rounded-[1.8rem] bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 text-white p-6 shadow-2xl flex flex-col justify-between overflow-hidden border border-white/10 mx-auto select-none">
+                      {/* Decorative translucent circles */}
+                      <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/5 rounded-full -mr-10 -mb-10 blur-xl"></div>
+                      <div className="absolute left-0 top-0 w-24 h-24 bg-pink-500/10 rounded-full -ml-8 -mt-8 blur-lg"></div>
+
+                      <div className="flex justify-between items-start z-10">
+                        <div className="flex flex-col">
+                          <span className="text-[9px] font-bold tracking-widest text-white/50 uppercase">Thẻ nhận tiền tĩnh</span>
+                          <span className="text-sm font-black tracking-tight mt-0.5">{getBankLabel(bankConfig.bank_id)}</span>
+                        </div>
+                        <Landmark size={22} className="text-white/80 animate-pulse" />
                       </div>
-                      <div>
-                        <Label>Tên chủ tài khoản</Label>
-                        <Input
-                          type="text"
-                          value={bankConfig.account_name}
-                          onChange={(e) => setBankConfig({...bankConfig, account_name: e.target.value})}
-                        />
+
+                      <div className="my-auto z-10">
+                        <span className="text-xs font-medium text-white/40 tracking-wider">SỐ TÀI KHOẢN</span>
+                        <div className="text-base font-bold tracking-widest mt-1 font-mono">
+                          {formatCardNumber(bankConfig.account_no) || "••••  ••••  ••••  ••••"}
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-end z-10">
+                        <div className="flex flex-col">
+                          <span className="text-[8px] font-medium text-white/40 uppercase tracking-widest">CHỦ TÀI KHOẢN</span>
+                          <span className="text-xs font-extrabold tracking-wide uppercase mt-0.5 truncate max-w-[170px]">
+                            {bankConfig.account_name || "NGUYEN VAN A"}
+                          </span>
+                        </div>
+                        <div className="flex -space-x-2">
+                          <div className="w-6 h-6 rounded-full bg-red-500/80"></div>
+                          <div className="w-6 h-6 rounded-full bg-yellow-500/80"></div>
+                        </div>
                       </div>
                     </div>
 
-                    {/* QR Code Upload */}
-                    <div className="pt-4 border-t border-slate-100">
-                      <Label className="mb-3 block text-sm font-bold text-slate-800">QR Code Tĩnh (Tải lên hình ảnh)</Label>
-                      <div className="flex flex-col sm:flex-row items-start gap-6">
-                        <div className="shrink-0">
-                          {getValue("bank_qr_static_url", "") ? (
-                            <div className="relative group w-32 h-32 rounded-xl border border-slate-200 overflow-hidden bg-slate-50 shadow-inner">
-                              <img src={getValue("bank_qr_static_url", "")} alt="QR Code" className="w-full h-full object-contain" />
-                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => handleChange("bank_qr_static_url", "", "string", "payment")} className="p-2 bg-white rounded-full text-red-600 hover:scale-110 transition-transform">
-                                  <Trash2 size={18} />
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="w-32 h-32 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-400 bg-slate-50/50">
-                              <ImageIcon size={24} />
-                              <span className="text-[10px] font-bold uppercase text-slate-400">Chưa có ảnh</span>
-                            </div>
-                          )}
-                        </div>
+                    {/* QR Code static / preview card */}
+                    <div className="bg-slate-50/60 rounded-3xl border border-slate-200/50 p-5 flex items-center gap-4 max-w-[340px] w-full mx-auto">
+                      <div className="w-20 h-20 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+                        {getValue("bank_qr_static_url", "") ? (
+                          <img src={getValue("bank_qr_static_url", "")} alt="Static QR" className="w-full h-full object-cover" />
+                        ) : (
+                          <ImageIcon className="text-slate-300" size={28} />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-bold text-slate-700 block">Ảnh QR tĩnh thay thế</span>
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium leading-relaxed">
+                          Tải ảnh QR tĩnh lên nếu bạn muốn sử dụng thay thế cho VietQR tự sinh động.
+                        </p>
                         
-                        <div className="space-y-3">
-                          <label className="flex w-fit items-center gap-2 cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition-all shadow-md">
-                            <Upload size={14} />
-                            {getValue("bank_qr_static_url", "") ? "Thay đổi ảnh QR" : "Tải lên ảnh QR"}
-                            <input type="file" className="hidden" accept="image/*" onChange={handleQrUpload} />
-                          </label>
-                          <p className="text-[10px] text-slate-500 leading-relaxed max-w-[200px]">
-                            Tải lên mã QR tài khoản của bạn để hiển thị trên biên lai. Hỗ trợ định dạng JPG, PNG.
-                          </p>
-                        </div>
+                        <label className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 text-[10px] font-extrabold text-slate-600 cursor-pointer shadow-sm transition-all mt-3">
+                          <Upload size={10} /> Tải ảnh lên
+                          <input type="file" accept="image/*" className="hidden" onChange={handleQrUpload} />
+                        </label>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
-                    {/* Payment Note */}
-                    <div className="pt-4 border-t border-slate-100">
-                      <Label className="mb-2 block text-sm font-bold text-slate-800">Nội dung thêm (Lưu ý chuyển khoản)</Label>
-                      <textarea
-                        rows={2}
-                        className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
-                        value={getValue("payment_note", "(Không ghi nội dung Chuyển khoản)")}
-                        onChange={(e) => handleChange("payment_note", e.target.value, "string", "payment")}
-                        placeholder="VD: Không ghi nội dung chuyển khoản..."
-                      />
+            {activeTab === "sepay-logs" && (
+              <div className="space-y-8 animate-in fade-in duration-300">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center border border-emerald-100">
+                      <Layers size={20} className="text-emerald-600 animate-pulse" />
                     </div>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight">Cổng tích hợp & Đối soát SePay</h3>
+                      <p className="text-xs text-slate-500 font-medium">Đối soát tự động chuyển khoản, tự động gạch nợ và sinh phiếu thu tự động.</p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    icon={<RefreshCw size={12} className={loadingSepayEvents ? "animate-spin text-blue-500" : ""} />} 
+                    onClick={fetchSepayEvents}
+                    disabled={loadingSepayEvents}
+                    className="border-slate-200 text-slate-700 text-xs font-semibold rounded-xl"
+                  >
+                    Làm mới Nhật ký
+                  </Button>
+                </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex justify-end gap-3 pt-2">
-                      <Button 
-                        onClick={handleSaveBankConfig} 
-                        disabled={savingExtension}
-                        loading={savingExtension}
-                        className="!bg-emerald-600 hover:!bg-emerald-700 shadow-emerald-600/20"
-                        icon={<Save size={16} />}
-                      >
-                        Lưu tất cả cấu hình
+                {/* 1. Kênh thanh toán & đối soát SePay */}
+                <section className="space-y-4 bg-slate-50/40 rounded-3xl border border-slate-200/50 p-5">
+                  <div className="flex items-center gap-2">
+                    <Wallet size={16} className="text-blue-600" />
+                    <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Kênh ngân hàng SePay hoạt động</span>
+                  </div>
+
+                  <div className="grid gap-3">
+                    {paymentChannels.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-slate-500 text-xs font-medium">
+                        Chưa có kênh đối soát SePay nào. Vui lòng thêm tài khoản đối soát phía dưới.
+                      </div>
+                    ) : paymentChannels.map((channel) => {
+                      const wallet = wallets.find((item) => String(item.id) === String(channel.wallet_id || channel.walletId));
+                      return (
+                        <div key={channel.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-all">
+                          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-bold text-slate-900 text-sm">{channel.displayName || channel.display_name}</span>
+                                {(channel.isDefault || channel.is_default) && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-black uppercase text-blue-700">Mặc định</span>}
+                                {channel.provider === "sepay" && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-700">SePay</span>}
+                                {!channel.enabled && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-black uppercase text-slate-500">Đã tắt</span>}
+                              </div>
+                              <div className="mt-1.5 text-xs text-slate-500 font-medium">
+                                {channel.bank_id || channel.bankId || "-"} · {channel.account_no || channel.accountNo || "-"} · Ghi nhận vào: <span className="font-bold text-slate-700">{wallet?.name || "Chưa cấu hình Ví"}</span>
+                              </div>
+                              {(channel.autoReconcileEnabled || channel.auto_reconcile_enabled) ? (
+                                <div className="mt-1 text-[10px] font-semibold text-emerald-600 flex items-center gap-1">
+                                  <ShieldCheck size={12} /> Tự động đối soát và ghi nhận doanh thu khi SePay báo tiền vào.
+                                </div>
+                              ) : (
+                                <div className="mt-1 text-[10px] font-semibold text-amber-600 flex items-center gap-1">
+                                  <Info size={12} /> Chỉ ghi nhận nhật ký Webhook (Không gạch nợ tự động).
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              <Button variant="outline" onClick={() => handleSetDefaultPaymentChannel(channel)} disabled={savingExtension} className="text-[10px] px-2.5 py-1.5 border-slate-200 font-bold hover:bg-slate-50 rounded-xl">Mặc định</Button>
+                              <Button variant="outline" onClick={() => handleTogglePaymentChannel(channel)} disabled={savingExtension} className="text-[10px] px-2.5 py-1.5 border-slate-200 font-bold hover:bg-slate-50 rounded-xl">
+                                {channel.enabled ? "Tạm tắt" : "Kích hoạt lại"}
+                              </Button>
+                              <Button variant="outline" onClick={() => handleDisablePaymentChannel(channel)} disabled={savingExtension} className="text-[10px] px-2.5 py-1.5 border-red-100 hover:border-red-200 text-red-600 hover:bg-red-50 font-bold rounded-xl">Xoá kênh</Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Form Create payment channel */}
+                  <Card className="grid gap-4 p-5 bg-white border border-slate-200 rounded-2xl">
+                    <span className="text-xs font-extrabold uppercase text-slate-400 tracking-wider">Thêm tài khoản ngân hàng đối soát SePay</span>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <Label className="font-semibold text-slate-600 text-xs">Tên hiển thị gợi nhớ</Label>
+                        <Input value={newPaymentChannel.displayName} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, displayName: e.target.value })} className="mt-1" />
+                      </div>
+                      <div>
+                        <Label className="font-semibold text-slate-600 text-xs">Ví ghi nhận doanh thu *</Label>
+                        <div className="relative mt-1">
+                          <UISelect value={newPaymentChannel.walletId} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, walletId: e.target.value })}>
+                            <option value="">Chọn ví ghi nhận tiền</option>
+                            {wallets.map((wallet) => <option key={wallet.id} value={wallet.id}>{wallet.name}</option>)}
+                          </UISelect>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="font-semibold text-slate-600 text-xs">Ngân hàng đối soát</Label>
+                        <div className="relative mt-1">
+                          <UISelect value={newPaymentChannel.bankId} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, bankId: e.target.value })}>
+                            {BANK_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                          </UISelect>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="font-semibold text-slate-600 text-xs">Số tài khoản</Label>
+                        <Input value={newPaymentChannel.accountNo} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, accountNo: e.target.value })} className="mt-1" />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label className="font-semibold text-slate-600 text-xs">Tên chủ tài khoản (NGUYEN VAN A)</Label>
+                        <Input value={newPaymentChannel.accountName} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, accountName: e.target.value })} className="mt-1 uppercase" />
+                      </div>
+                      <div className="sm:col-span-2 flex flex-wrap gap-6 py-2">
+                        <label className="flex items-center gap-2.5 text-xs font-semibold text-slate-600 cursor-pointer">
+                          <input type="checkbox" className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500" checked={newPaymentChannel.autoReconcileEnabled} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, autoReconcileEnabled: e.target.checked })} />
+                          Tự động đối soát chuyển khoản
+                        </label>
+                        <label className="flex items-center gap-2.5 text-xs font-semibold text-slate-600 cursor-pointer">
+                          <input type="checkbox" className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500" checked={newPaymentChannel.isDefault} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, isDefault: e.target.checked })} />
+                          Đặt làm kênh nhận tiền mặc định
+                        </label>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-2 border-t border-slate-100">
+                      <Button onClick={handleCreatePaymentChannel} disabled={savingExtension} loading={savingExtension} className="bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs px-4 py-2 transition-all">
+                        Tạo Kênh Thanh Toán SePay
                       </Button>
                     </div>
                   </Card>
                 </section>
-              </div>
-            )}
-
-            {activeTab === "sepay-logs" && (
-              <div className="space-y-6">
-                {/* 1. Kênh thanh toán & đối soát SePay */}
-                <section className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Wallet size={20} className="text-blue-600" />
-                    <h3 className="text-lg font-bold text-slate-900">Kênh thanh toán & đối soát SePay</h3>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Kênh thanh toán quyết định QR hóa đơn và ví doanh thu được ghi nhận khi SePay báo tiền vào.
-                  </p>
-
-                  <div className="grid gap-3">
-                    {paymentChannels.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                        Chưa có kênh thanh toán. Tạo một kênh SePay để hóa đơn tự sinh QR và tự đối soát.
-                      </div>
-                    ) : paymentChannels.map((channel) => {
-                      const wallet = wallets.find((item) => String(item.id) === String(channel.wallet_id || channel.walletId));
-                      return (
-                        <div key={channel.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-bold text-slate-900">{channel.displayName || channel.display_name}</span>
-                                {(channel.isDefault || channel.is_default) && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase text-blue-700">Mặc định</span>}
-                                {channel.provider === "sepay" && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">SePay</span>}
-                                {!channel.enabled && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500">Tắt</span>}
-                              </div>
-                              <div className="mt-1 text-xs text-slate-500">
-                                {channel.bank_id || channel.bankId || "-"} · {channel.account_no || channel.accountNo || "-"} · Ví: {wallet?.name || "Chưa chọn ví"}
-                              </div>
-                              {(channel.autoReconcileEnabled || channel.auto_reconcile_enabled) ? (
-                                <div className="mt-1 text-xs font-medium text-emerald-700">Tự động đối soát và sinh phiếu thu khi SePay báo tiền vào.</div>
-                              ) : (
-                                <div className="mt-1 text-xs font-medium text-amber-700">Webhook sẽ được log nhưng không tự ghi nhận nếu chưa bật đối soát.</div>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              <Button variant="outline" onClick={() => handleSetDefaultPaymentChannel(channel)} disabled={savingExtension}>Đặt mặc định</Button>
-                              <Button variant="outline" onClick={() => handleTogglePaymentChannel(channel)} disabled={savingExtension}>{channel.enabled ? "Tạm tắt" : "Bật lại"}</Button>
-                              <Button variant="outline" onClick={() => handleDisablePaymentChannel(channel)} disabled={savingExtension}>Tắt kênh</Button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <Card className="grid gap-4 p-5">
-                    <h4 className="text-sm font-bold uppercase tracking-wide text-slate-500">Tạo kênh SePay</h4>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <Label>Tên kênh</Label>
-                        <Input value={newPaymentChannel.displayName} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, displayName: e.target.value })} />
-                      </div>
-                      <div>
-                        <Label>Ví ghi nhận doanh thu</Label>
-                        <UISelect value={newPaymentChannel.walletId} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, walletId: e.target.value })}>
-                          <option value="">Chọn ví</option>
-                          {wallets.map((wallet) => <option key={wallet.id} value={wallet.id}>{wallet.name}</option>)}
-                        </UISelect>
-                      </div>
-                      <div>
-                        <Label>Ngân hàng</Label>
-                        <UISelect value={newPaymentChannel.bankId} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, bankId: e.target.value })}>
-                          {BANK_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
-                        </UISelect>
-                      </div>
-                      <div>
-                        <Label>Số tài khoản</Label>
-                        <Input value={newPaymentChannel.accountNo} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, accountNo: e.target.value })} />
-                      </div>
-                      <div>
-                        <Label>Tên chủ tài khoản</Label>
-                        <Input value={newPaymentChannel.accountName} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, accountName: e.target.value })} />
-                      </div>
-                      <div className="flex items-end gap-4">
-                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                          <input type="checkbox" checked={newPaymentChannel.autoReconcileEnabled} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, autoReconcileEnabled: e.target.checked })} />
-                          Tự động đối soát SePay
-                        </label>
-                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                          <input type="checkbox" checked={newPaymentChannel.isDefault} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, isDefault: e.target.checked })} />
-                          Mặc định
-                        </label>
-                      </div>
-                    </div>
-                    <div className="flex justify-end">
-                      <Button onClick={handleCreatePaymentChannel} disabled={savingExtension} loading={savingExtension}>Tạo kênh thanh toán</Button>
-                    </div>
-                  </Card>
-                </section>
 
                 {/* 2. Cấu hình Tích hợp SePay (API & Webhook) */}
                 <section className="space-y-4 pt-6 border-t border-slate-100">
                   <div className="flex items-center gap-2">
-                    <Layers size={20} className="text-indigo-600" />
-                    <h3 className="text-lg font-bold text-slate-900">Cấu hình Tích hợp SePay (API & Webhook)</h3>
+                    <Sparkles size={16} className="text-slate-600" />
+                    <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Thông số kỹ thuật SePay.vn</span>
                   </div>
-                  <p className="text-xs text-slate-500">
-                    Cung cấp thông tin xác thực để kết nối API SePay và nhận thông báo chuyển khoản (Webhook) tự động.
-                  </p>
 
-                  <Card className="grid gap-5 p-5 bg-slate-50/40">
+                  <Card className="grid gap-5 p-5 bg-slate-50/50 border border-slate-200/50 rounded-3xl">
                     {/* Webhook URL copy field */}
                     <div>
-                      <Label className="font-bold text-slate-700">Địa chỉ Webhook (Webhook URL)</Label>
-                      <div className="flex gap-2 mt-1">
+                      <Label className="font-bold text-slate-700 text-xs">Địa chỉ Webhook (Webhook URL)</Label>
+                      <div className="flex gap-2 mt-1.5">
                         <input
                           type="text"
                           readOnly
-                          className="flex-1 w-full min-w-0 rounded-xl border border-slate-300 bg-slate-100/80 px-4 py-2.5 text-sm text-slate-600 focus:outline-none"
-                          value={(() => {
-                            try {
-                              const apiUrl = PRODUCTION_API_URL || "https://money-manager-xdem.onrender.com";
-                              return `${apiUrl}/webhooks/sepay`;
-                            } catch {
-                              return "https://money-manager-xdem.onrender.com/webhooks/sepay";
-                            }
-                          })()}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            try {
-                              const apiUrl = PRODUCTION_API_URL || "https://money-manager-xdem.onrender.com";
-                              navigator.clipboard.writeText(`${apiUrl}/webhooks/sepay`);
-                              setCopiedWebhook(true);
-                              setTimeout(() => setCopiedWebhook(false), 2000);
-                            } catch {}
-                          }}
-                          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-white transition-all shadow-md ${
-                            copiedWebhook ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/10" : "bg-slate-900 hover:bg-slate-800 shadow-slate-900/10"
-                          }`}
-                        >
-                          {copiedWebhook ? <Check size={14} /> : <Copy size={14} />}
-                          {copiedWebhook ? "Đã chép!" : "Sao chép"}
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        Hãy sao chép địa chỉ này dán vào cấu hình Webhook trên trang quản trị SePay.vn của bạn.
-                      </p>
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-slate-100">
-                      <div>
-                        <Label>SePay API Key (Token API)</Label>
-                        <input
-                          type="password"
-                          placeholder="Nhập API Token hoặc API Key từ SePay.vn"
-                          className="w-full mt-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all bg-white font-mono"
-                          value={getValue("sepay_api_key", "")}
-                          onChange={(e) => handleChange("sepay_api_key", e.target.value, "string", "payment")}
-                        />
-                      </div>
-                      <div>
-                        <Label>SePay Webhook Secret (Mã xác thực chữ ký)</Label>
-                        <input
-                          type="password"
-                          placeholder="Nhập mã chữ ký xác thực Webhook"
-                          className="w-full mt-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all bg-white font-mono"
-                          value={getValue("sepay_webhook_secret", "")}
-                          onChange={(e) => handleChange("sepay_webhook_secret", e.target.value, "string", "payment")}
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <Label>Cú pháp chuyển khoản (Tiền tố mặc định)</Label>
-                        <Input
-                          type="text"
-                          placeholder="TCINV (Mặc định nếu để trống)"
-                          value={getValue("sepay_payment_prefix", "TCINV")}
-                          onChange={(e) => handleChange("sepay_payment_prefix", e.target.value, "string", "payment")}
-                        />
-                        <p className="text-[10px] text-slate-400 mt-1">
-                          Tiền tố đi kèm mã hóa đơn khi sinh cú pháp chuyển khoản tự động (Ví dụ: TCINV12345).
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                </section>
-              </div>
-            )}
-
-            {activeTab === "sepay-logs" && (
-              <div className="space-y-6">
-                {/* 1. Kênh thanh toán & đối soát SePay */}
-                <section className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Wallet size={20} className="text-blue-600" />
-                    <h3 className="text-lg font-bold text-slate-900">Kênh thanh toán & đối soát SePay</h3>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Kênh thanh toán quyết định QR hóa đơn và ví doanh thu được ghi nhận khi SePay báo tiền vào.
-                  </p>
-
-                  <div className="grid gap-3">
-                    {paymentChannels.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                        Chưa có kênh thanh toán. Tạo một kênh SePay để hóa đơn tự sinh QR và tự đối soát.
-                      </div>
-                    ) : paymentChannels.map((channel) => {
-                      const wallet = wallets.find((item) => String(item.id) === String(channel.wallet_id || channel.walletId));
-                      return (
-                        <div key={channel.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-bold text-slate-900">{channel.displayName || channel.display_name}</span>
-                                {(channel.isDefault || channel.is_default) && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase text-blue-700">Mặc định</span>}
-                                {channel.provider === "sepay" && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">SePay</span>}
-                                {!channel.enabled && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500">Tắt</span>}
-                              </div>
-                              <div className="mt-1 text-xs text-slate-500">
-                                {channel.bank_id || channel.bankId || "-"} · {channel.account_no || channel.accountNo || "-"} · Ví: {wallet?.name || "Chưa chọn ví"}
-                              </div>
-                              {(channel.autoReconcileEnabled || channel.auto_reconcile_enabled) ? (
-                                <div className="mt-1 text-xs font-medium text-emerald-700">Tự động đối soát và sinh phiếu thu khi SePay báo tiền vào.</div>
-                              ) : (
-                                <div className="mt-1 text-xs font-medium text-amber-700">Webhook sẽ được log nhưng không tự ghi nhận nếu chưa bật đối soát.</div>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              <Button variant="outline" onClick={() => handleSetDefaultPaymentChannel(channel)} disabled={savingExtension}>Đặt mặc định</Button>
-                              <Button variant="outline" onClick={() => handleTogglePaymentChannel(channel)} disabled={savingExtension}>{channel.enabled ? "Tạm tắt" : "Bật lại"}</Button>
-                              <Button variant="outline" onClick={() => handleDisablePaymentChannel(channel)} disabled={savingExtension}>Tắt kênh</Button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <Card className="grid gap-4 p-5">
-                    <h4 className="text-sm font-bold uppercase tracking-wide text-slate-500">Tạo kênh SePay</h4>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <Label>Tên kênh</Label>
-                        <Input value={newPaymentChannel.displayName} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, displayName: e.target.value })} />
-                      </div>
-                      <div>
-                        <Label>Ví ghi nhận doanh thu</Label>
-                        <UISelect value={newPaymentChannel.walletId} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, walletId: e.target.value })}>
-                          <option value="">Chọn ví</option>
-                          {wallets.map((wallet) => <option key={wallet.id} value={wallet.id}>{wallet.name}</option>)}
-                        </UISelect>
-                      </div>
-                      <div>
-                        <Label>Ngân hàng</Label>
-                        <UISelect value={newPaymentChannel.bankId} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, bankId: e.target.value })}>
-                          {BANK_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
-                        </UISelect>
-                      </div>
-                      <div>
-                        <Label>Số tài khoản</Label>
-                        <Input value={newPaymentChannel.accountNo} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, accountNo: e.target.value })} />
-                      </div>
-                      <div>
-                        <Label>Tên chủ tài khoản</Label>
-                        <Input value={newPaymentChannel.accountName} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, accountName: e.target.value })} />
-                      </div>
-                      <div className="flex items-end gap-4">
-                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                          <input type="checkbox" checked={newPaymentChannel.autoReconcileEnabled} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, autoReconcileEnabled: e.target.checked })} />
-                          Tự động đối soát SePay
-                        </label>
-                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                          <input type="checkbox" checked={newPaymentChannel.isDefault} onChange={(e) => setNewPaymentChannel({ ...newPaymentChannel, isDefault: e.target.checked })} />
-                          Mặc định
-                        </label>
-                      </div>
-                    </div>
-                    <div className="flex justify-end">
-                      <Button onClick={handleCreatePaymentChannel} disabled={savingExtension} loading={savingExtension}>Tạo kênh thanh toán</Button>
-                    </div>
-                  </Card>
-                </section>
-
-                {/* 2. Cấu hình Tích hợp SePay (API & Webhook) */}
-                <section className="space-y-4 pt-6 border-t border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <Layers size={20} className="text-indigo-600" />
-                    <h3 className="text-lg font-bold text-slate-900">Cấu hình Tích hợp SePay (API & Webhook)</h3>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Cung cấp thông tin xác thực để kết nối API SePay và nhận thông báo chuyển khoản (Webhook) tự động.
-                  </p>
-
-                  <Card className="grid gap-5 p-5 bg-slate-50/40">
-                    {/* Webhook URL copy field */}
-                    <div>
-                      <Label className="font-bold text-slate-700">Địa chỉ Webhook (Webhook URL)</Label>
-                      <div className="flex gap-2 mt-1">
-                        <input
-                          type="text"
-                          readOnly
-                          className="flex-1 w-full min-w-0 rounded-xl border border-slate-300 bg-slate-100/80 px-4 py-2.5 text-sm text-slate-600 focus:outline-none"
+                          className="flex-1 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-100/90 px-4 py-2.5 text-xs text-slate-500 font-mono focus:outline-none"
                           value="https://money-manager-xdem.onrender.com/webhooks/sepay"
                         />
                         <button
@@ -911,7 +945,7 @@ export default function OwnerSettingsPage() {
                               setTimeout(() => setCopiedWebhook(false), 2000);
                             } catch {}
                           }}
-                          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-white transition-all shadow-md ${
+                          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-white transition-all shadow-md shrink-0 ${
                             copiedWebhook ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/10" : "bg-slate-900 hover:bg-slate-800 shadow-slate-900/10"
                           }`}
                         >
@@ -919,41 +953,60 @@ export default function OwnerSettingsPage() {
                           {copiedWebhook ? "Đã chép!" : "Sao chép"}
                         </button>
                       </div>
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        Hãy sao chép địa chỉ này dán vào cấu hình Webhook trên trang quản trị SePay.vn của bạn.
+                      <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                        Sao chép chính xác địa chỉ này dán vào mục Webhook trên trang quản trị SePay.vn của bạn.
                       </p>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-slate-100">
+                    <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-slate-200/70">
                       <div>
-                        <Label>SePay API Key (Token API)</Label>
-                        <input
-                          type="password"
-                          placeholder="Nhập API Token hoặc API Key từ SePay.vn"
-                          className="w-full mt-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all bg-white font-mono"
-                          value={getValue("sepay_api_key", "")}
-                          onChange={(e) => handleChange("sepay_api_key", e.target.value, "string", "payment")}
-                        />
+                        <Label className="font-bold text-slate-700 text-xs">SePay API Key (Token API)</Label>
+                        <div className="relative mt-1.5">
+                          <input
+                            type={showApiKey ? "text" : "password"}
+                            placeholder="Nhập API Token từ SePay.vn..."
+                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all bg-white font-mono text-slate-800 pr-10"
+                            value={getValue("sepay_api_key", "")}
+                            onChange={(e) => handleChange("sepay_api_key", e.target.value, "string", "payment")}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowApiKey(!showApiKey)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
+                          >
+                            {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
                       </div>
                       <div>
-                        <Label>SePay Webhook Secret (Mã xác thực chữ ký)</Label>
-                        <input
-                          type="password"
-                          placeholder="Nhập mã chữ ký xác thực Webhook"
-                          className="w-full mt-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all bg-white font-mono"
-                          value={getValue("sepay_webhook_secret", "")}
-                          onChange={(e) => handleChange("sepay_webhook_secret", e.target.value, "string", "payment")}
-                        />
+                        <Label className="font-bold text-slate-700 text-xs">SePay Webhook Secret (Mã xác thực chữ ký)</Label>
+                        <div className="relative mt-1.5">
+                          <input
+                            type={showWebhookSecret ? "text" : "password"}
+                            placeholder="Nhập mã xác thực Webhook SePay..."
+                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all bg-white font-mono text-slate-800 pr-10"
+                            value={getValue("sepay_webhook_secret", "")}
+                            onChange={(e) => handleChange("sepay_webhook_secret", e.target.value, "string", "payment")}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowWebhookSecret(!showWebhookSecret)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
+                          >
+                            {showWebhookSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
                       </div>
                       <div className="sm:col-span-2">
-                        <Label>Cú pháp chuyển khoản (Tiền tố mặc định)</Label>
+                        <Label className="font-bold text-slate-700 text-xs">Cú pháp chuyển khoản (Tiền tố mặc định)</Label>
                         <Input
                           type="text"
                           placeholder="TCINV (Mặc định nếu để trống)"
                           value={getValue("sepay_payment_prefix", "TCINV")}
                           onChange={(e) => handleChange("sepay_payment_prefix", e.target.value, "string", "payment")}
+                          className="mt-1.5"
                         />
-                        <p className="text-[10px] text-slate-400 mt-1">
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium">
                           Tiền tố đi kèm mã hóa đơn khi sinh cú pháp chuyển khoản tự động (Ví dụ: TCINV12345).
                         </p>
                       </div>
@@ -963,69 +1016,56 @@ export default function OwnerSettingsPage() {
 
                 {/* 3. Nhật ký giao dịch & Webhook SePay */}
                 <section className="space-y-4 pt-6 border-t border-slate-100 font-medium">
-                  <div className="flex items-center justify-between pb-2">
-                    <div className="flex items-center gap-2">
-                      <Layers size={20} className="text-slate-700" />
-                      <h3 className="text-lg font-bold text-slate-900 font-bold">Nhật ký giao dịch & Webhook SePay</h3>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      icon={<RefreshCw size={14} className={loadingSepayEvents ? "animate-spin" : ""} />} 
-                      onClick={fetchSepayEvents}
-                      disabled={loadingSepayEvents}
-                    >
-                      Làm mới
-                    </Button>
+                  <div className="flex items-center gap-2">
+                    <Info size={16} className="text-slate-600" />
+                    <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Nhật ký Webhook liên kết</span>
                   </div>
-                  <p className="text-xs text-slate-500">
-                    Danh sách các thông báo chuyển khoản tự động nhận được từ SePay.vn.
-                  </p>
 
                   {sepayEventsError && (
-                    <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+                    <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700">
                       {sepayEventsError}
                     </div>
                   )}
 
                   {loadingSepayEvents ? (
-                    <div className="py-10 text-center text-slate-500">
-                      <RefreshCw className="animate-spin mx-auto text-blue-500 mb-3" size={28} />
-                      <span>Đang tải nhật ký webhook...</span>
+                    <div className="py-10 text-center text-slate-400">
+                      <RefreshCw className="animate-spin mx-auto text-slate-400 mb-2" size={24} />
+                      <span className="text-xs">Đang tải nhật ký webhook mới...</span>
                     </div>
                   ) : sepayEvents.length === 0 ? (
-                    <Card className="p-8 text-center text-slate-500 border border-dashed border-slate-200 bg-slate-50/20">
-                      <Layers size={40} className="mx-auto text-slate-300 mb-3" />
-                      <p className="font-semibold text-slate-700 text-sm">Chưa có giao dịch SePay nào</p>
-                      <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                        Các sự kiện webhook nhận tiền từ SePay sẽ tự động xuất hiện ở đây sau khi được gửi đến hệ thống.
+                    <Card className="p-8 text-center text-slate-500 border border-dashed border-slate-200 bg-slate-50/20 rounded-2xl">
+                      <Layers size={36} className="mx-auto text-slate-300 mb-3" />
+                      <p className="font-bold text-slate-600 text-xs">Chưa nhận giao dịch nào qua Webhook</p>
+                      <p className="text-[10px] text-slate-400 mt-1 max-w-sm mx-auto">
+                        Các sự kiện chuyển khoản thực tế qua SePay sẽ tự động ghi chép và đối soát hiển thị chi tiết tại đây.
                       </p>
                     </Card>
                   ) : (
-                    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                      <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-                        <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+                      <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
+                        <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500 select-none">
                           <tr>
                             <th className="px-4 py-3">Thời gian</th>
                             <th className="px-4 py-3">Mã giao dịch / Cú pháp</th>
-                            <th className="px-4 py-3 text-right">Số tiền</th>
+                            <th className="px-4 py-3 text-right">Số tiền nhận</th>
                             <th className="px-4 py-3">Trạng thái</th>
                             <th className="px-4 py-3 text-center">Hành động</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                        <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                           {sepayEvents.map((event) => {
                             const isExpanded = expandedEventId === event.id;
                             return (
                               <React.Fragment key={event.id}>
                                 <tr className="hover:bg-slate-50/50 transition-colors">
-                                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">
+                                  <td className="px-4 py-3 text-slate-400 whitespace-nowrap">
                                     {new Date(event.created_at).toLocaleString("vi-VN")}
                                   </td>
                                   <td className="px-4 py-3">
                                     <div className="flex flex-col">
-                                      <span className="font-bold text-slate-900 text-xs font-mono">{event.sepay_transaction_id}</span>
-                                      <span className="text-[10px] text-slate-400 mt-0.5">
-                                        Cú pháp: <span className="font-bold text-slate-600 font-mono">{event.payment_code || "Không có"}</span>
+                                      <span className="font-bold text-slate-900 font-mono">{event.sepay_transaction_id}</span>
+                                      <span className="text-[9px] text-slate-400 mt-0.5">
+                                        Cú pháp: <span className="font-bold text-slate-600 font-mono">{event.payment_code || "Không rõ"}</span>
                                       </span>
                                     </div>
                                   </td>
@@ -1033,58 +1073,124 @@ export default function OwnerSettingsPage() {
                                     +{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(event.transfer_amount)}
                                   </td>
                                   <td className="px-4 py-3 whitespace-nowrap">
-                                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase ${
                                       event.status === "paid" || event.status === "overpaid"
-                                        ? "bg-emerald-100 text-emerald-800"
+                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                                         : event.status === "pending_wallet"
-                                        ? "bg-blue-100 text-blue-800"
+                                        ? "bg-blue-50 text-blue-700 border border-blue-100"
                                         : event.status === "ignored"
-                                        ? "bg-slate-100 text-slate-800"
+                                        ? "bg-slate-100 text-slate-700 border border-slate-200"
                                         : event.status === "unmatched"
-                                        ? "bg-amber-100 text-amber-800"
-                                        : "bg-red-100 text-red-800"
+                                        ? "bg-amber-50 text-amber-700 border border-amber-100"
+                                        : "bg-red-50 text-red-700 border border-red-100"
                                     }`}>
                                       {event.status === "paid"
                                         ? "Thành công"
                                         : event.status === "overpaid"
-                                        ? "Thanh toán thừa"
+                                        ? "Thanh toán dư"
                                         : event.status === "pending_wallet"
-                                        ? "Chờ ví nhận"
+                                        ? "Chờ nạp ví"
                                         : event.status === "ignored"
                                         ? "Bỏ qua"
                                         : event.status === "unmatched"
                                         ? "Không khớp"
-                                        : "Lỗi xử lý"}
+                                        : "Lỗi hệ thống"}
                                     </span>
-                                    {event.error_message && (
-                                      <p className="text-[9px] text-red-500 font-medium mt-0.5 max-w-[150px] truncate" title={event.error_message}>
-                                        {event.error_message}
-                                      </p>
-                                    )}
                                   </td>
                                   <td className="px-4 py-3 text-center whitespace-nowrap">
                                     <button
                                       onClick={() => setExpandedEventId(isExpanded ? null : event.id)}
-                                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-bold"
+                                      className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline font-extrabold"
                                     >
-                                      {isExpanded ? "Thu gọn" : "Chi tiết JSON"}
+                                      {isExpanded ? "Đóng lại" : "Dữ liệu JSON"}
                                     </button>
                                   </td>
                                 </tr>
                                 {isExpanded && (
                                   <tr>
-                                    <td colSpan={5} className="bg-slate-50/50 p-4 border-t border-b border-slate-100">
-                                      <div className="space-y-2">
-                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chi tiết dữ liệu Webhook nhận được:</p>
-                                        <pre className="text-[11px] font-mono bg-slate-900 text-emerald-400 p-3 rounded-lg overflow-x-auto max-h-[300px] leading-relaxed shadow-inner">
-                                          {JSON.stringify(event.raw_payload, null, 2)}
-                                        </pre>
-                                        {event.error_message && (
-                                          <div className="mt-2 text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg p-2.5">
-                                            <span className="font-bold">Lỗi xử lý: </span>
-                                            {event.error_message}
+                                    <td colSpan={5} className="bg-slate-950 text-slate-300 p-6 border-t border-b border-slate-900 select-all rounded-b-2xl">
+                                      <div className="space-y-5">
+                                        {/* Visual Reconcile Timeline */}
+                                        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4">
+                                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block">QUY TRÌNH ĐỐI SOÁT TỰ ĐỘNG</span>
+                                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-2 relative">
+                                            {/* Connecting line */}
+                                            <div className="absolute top-1/2 left-0 right-0 h-[2px] bg-slate-800 -translate-y-1/2 hidden sm:block z-0" />
+                                            
+                                            {/* Step 1: Webhook Received */}
+                                            <div className="flex items-center gap-3 sm:flex-col sm:text-center z-10 w-full sm:w-1/4">
+                                              <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500 flex items-center justify-center text-emerald-400 font-extrabold text-xs shrink-0 shadow-lg shadow-emerald-500/10">✓</div>
+                                              <div className="flex flex-col sm:items-center">
+                                                <span className="text-xs font-bold text-white">Nhận Webhook</span>
+                                                <span className="text-[9px] text-slate-400 mt-0.5">Payload hợp lệ</span>
+                                              </div>
+                                            </div>
+
+                                            {/* Step 2: Invoice Match */}
+                                            <div className="flex items-center gap-3 sm:flex-col sm:text-center z-10 w-full sm:w-1/4">
+                                              {event.invoice_id ? (
+                                                <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500 flex items-center justify-center text-emerald-400 font-extrabold text-xs shrink-0 shadow-lg shadow-emerald-500/10">✓</div>
+                                              ) : event.status === "unmatched" ? (
+                                                <div className="w-8 h-8 rounded-full bg-rose-500/20 border border-rose-500 flex items-center justify-center text-rose-400 font-extrabold text-xs shrink-0 shadow-lg shadow-rose-500/10">✗</div>
+                                              ) : (
+                                                <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-500 flex items-center justify-center text-blue-400 font-extrabold text-xs shrink-0 animate-pulse">⚡</div>
+                                              )}
+                                              <div className="flex flex-col sm:items-center">
+                                                <span className="text-xs font-bold text-white">Khớp hóa đơn</span>
+                                                <span className="text-[9px] text-slate-400 mt-0.5">
+                                                  {event.invoice_id ? "Đã khớp hóa đơn" : event.status === "unmatched" ? "Không tìm thấy" : "Nạp ví thành viên"}
+                                                </span>
+                                              </div>
+                                            </div>
+
+                                            {/* Step 3: Reconcile / Paid */}
+                                            <div className="flex items-center gap-3 sm:flex-col sm:text-center z-10 w-full sm:w-1/4">
+                                              {event.status === "paid" || event.status === "overpaid" ? (
+                                                <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500 flex items-center justify-center text-emerald-400 font-extrabold text-xs shrink-0 shadow-lg shadow-emerald-500/10">✓</div>
+                                              ) : event.status === "ignored" ? (
+                                                <div className="w-8 h-8 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-400 font-extrabold text-xs shrink-0">Ø</div>
+                                              ) : event.status === "pending_wallet" ? (
+                                                <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-500 flex items-center justify-center text-blue-400 font-extrabold text-xs shrink-0">✓</div>
+                                              ) : (
+                                                <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 font-extrabold text-xs shrink-0">3</div>
+                                              )}
+                                              <div className="flex flex-col sm:items-center">
+                                                <span className="text-xs font-bold text-white">Đối soát gạch nợ</span>
+                                                <span className="text-[9px] text-slate-400 mt-0.5">
+                                                  {event.status === "paid" || event.status === "overpaid" ? "Gạch nợ thành công" : event.status === "ignored" ? "Bỏ qua" : event.status === "pending_wallet" ? "Chờ nạp ví" : "Chưa hoàn tất"}
+                                                </span>
+                                              </div>
+                                            </div>
+
+                                            {/* Step 4: Wallet Credited */}
+                                            <div className="flex items-center gap-3 sm:flex-col sm:text-center z-10 w-full sm:w-1/4">
+                                              {event.status === "paid" || event.status === "overpaid" || event.status === "pending_wallet" ? (
+                                                <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500 flex items-center justify-center text-emerald-400 font-extrabold text-xs shrink-0 shadow-lg shadow-emerald-500/10">✓</div>
+                                              ) : (
+                                                <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 font-extrabold text-xs shrink-0">4</div>
+                                              )}
+                                              <div className="flex flex-col sm:items-center">
+                                                <span className="text-xs font-bold text-white">Ghi nhận doanh thu</span>
+                                                <span className="text-[9px] text-slate-400 mt-0.5">
+                                                  {event.status === "paid" || event.status === "overpaid" || event.status === "pending_wallet" ? "Đã ghi nhận Ví" : "Chưa ghi nhận"}
+                                                </span>
+                                              </div>
+                                            </div>
                                           </div>
-                                        )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">PAYLOAD JSON GỐC</span>
+                                          <pre className="text-[10px] font-mono text-emerald-400 leading-relaxed overflow-x-auto max-h-[250px] scrollbar-thin bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                                            {JSON.stringify(event.raw_payload, null, 2)}
+                                          </pre>
+                                          {event.error_message && (
+                                            <div className="mt-2 text-[10px] font-semibold text-red-400 bg-red-950/40 border border-red-900/50 rounded-xl p-2.5">
+                                              <span className="font-black text-red-300 uppercase">LỖI HỆ THỐNG: </span>
+                                              {event.error_message}
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
                                     </td>
                                   </tr>
@@ -1101,229 +1207,306 @@ export default function OwnerSettingsPage() {
             )}
 
             {activeTab === "pricing" && (
-              <div className="space-y-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900">Bảng giá dịch vụ</h3>
-                    <p className="text-sm text-slate-500 mt-1">Quản lý các loại dịch vụ (Điện, Nước, Wifi, Rác...) và đơn giá áp dụng.</p>
+              <div className="space-y-6 animate-in fade-in duration-300">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center border border-amber-100">
+                      <Zap size={20} className="text-amber-600 animate-bounce-slow" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight">Bảng giá dịch vụ</h3>
+                      <p className="text-xs text-slate-500 font-medium">Cấu hình đơn giá định mức dịch vụ điện, nước, tiện ích phòng trọ.</p>
+                    </div>
                   </div>
-                  <button onClick={() => setShowAddService(!showAddService)} className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100">
-                    <Plus size={16} /> Thêm dịch vụ
+                  <button 
+                    onClick={() => setShowAddService(!showAddService)} 
+                    className="flex items-center gap-1.5 rounded-xl bg-slate-900 text-white hover:bg-slate-800 px-4 py-2.5 text-xs font-bold shadow-md shadow-slate-900/10 transition-all"
+                  >
+                    <Plus size={14} /> Thêm dịch vụ mới
                   </button>
                 </div>
 
                 {showAddService && (
-                  <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 shadow-sm">
-                    <h4 className="mb-3 text-sm font-semibold text-slate-900">Thêm dịch vụ mới</h4>
+                  <div className="rounded-2xl border border-blue-100 bg-blue-50/30 p-5 shadow-inner space-y-4 animate-in slide-in-from-top-3">
+                    <span className="text-xs font-extrabold text-blue-900 uppercase tracking-wider block">Thêm dịch vụ phòng trọ mới</span>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-700">Tên dịch vụ *</label>
-                        <input type="text" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={newService.name} onChange={(e) => setNewService({ ...newService, name: e.target.value })} placeholder="VD: Rác sinh hoạt" />
+                        <label className="mb-1 block text-xs font-bold text-slate-700">Tên dịch vụ *</label>
+                        <input type="text" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-blue-500" value={newService.name} onChange={(e) => setNewService({ ...newService, name: e.target.value })} placeholder="VD: Rác sinh hoạt..." />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-700">Loại tính phí</label>
-                        <select className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white" value={newService.type} onChange={(e) => setNewService({ ...newService, type: e.target.value })}>
-                          <option value="metered">Theo số đo (Điện, Nước...)</option>
-                          <option value="per_person">Theo người</option>
-                          <option value="per_room">Theo phòng</option>
-                          <option value="fixed">Cố định</option>
+                        <label className="mb-1 block text-xs font-bold text-slate-700">Loại tính phí</label>
+                        <select className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-blue-500 appearance-none pr-8 relative" value={newService.type} onChange={(e) => setNewService({ ...newService, type: e.target.value })}>
+                          <option value="metered">Theo số đo (Điện, Nước)</option>
+                          <option value="per_person">Theo người (Người/Tháng)</option>
+                          <option value="per_room">Theo phòng (Phòng/Tháng)</option>
+                          <option value="fixed">Cố định tháng</option>
                         </select>
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-700">Đơn giá (VNĐ) *</label>
-                        <input type="number" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={newService.unitPrice} onChange={(e) => setNewService({ ...newService, unitPrice: Number(e.target.value) })} />
+                        <label className="mb-1 block text-xs font-bold text-slate-700">Đơn giá chuẩn *</label>
+                        <input type="number" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-blue-500" value={newService.unitPrice} onChange={(e) => setNewService({ ...newService, unitPrice: Number(e.target.value) })} />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-700">Giá máy lạnh (Tùy chọn)</label>
-                        <input type="number" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={newService.unitPriceAc} onChange={(e) => setNewService({ ...newService, unitPriceAc: Number(e.target.value) })} />
+                        <label className="mb-1 block text-xs font-bold text-slate-700">Đơn giá máy lạnh (nếu có)</label>
+                        <input type="number" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-blue-500" value={newService.unitPriceAc} onChange={(e) => setNewService({ ...newService, unitPriceAc: Number(e.target.value) })} />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-700">Đơn vị (tháng/số/người...)</label>
-                        <input type="text" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={newService.unit} onChange={(e) => setNewService({ ...newService, unit: e.target.value })} placeholder="VD: số" />
+                        <label className="mb-1 block text-xs font-bold text-slate-700">Đơn vị tính</label>
+                        <input type="text" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-blue-500" value={newService.unit} onChange={(e) => setNewService({ ...newService, unit: e.target.value })} placeholder="VD: kWh, khối, người..." />
                       </div>
                     </div>
-                    <div className="mt-3 flex justify-end gap-2">
-                      <button onClick={() => setShowAddService(false)} className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200">Hủy</button>
-                      <button onClick={handleCreateService} disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">Lưu dịch vụ</button>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button onClick={() => setShowAddService(false)} className="text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl px-4 py-2">Hủy</Button>
+                      <Button onClick={handleCreateService} className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl px-4 py-2">Thêm dịch vụ</Button>
                     </div>
                   </div>
                 )}
 
-                <div className="grid gap-3 mt-4">
-                  {services.length === 0 ? (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                      Chưa có dịch vụ nào. Hãy thêm dịch vụ mới.
-                    </div>
-                  ) : (
-                    services.map((service) => (
-                      <div key={service.id} className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                        {editingServiceId === service.id ? (
-                          <div className="space-y-3">
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                              <div>
-                                <label className="mb-1 block text-[10px] font-bold uppercase text-slate-500">Tên dịch vụ</label>
-                                <input type="text" className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm" value={editingService.name} onChange={(e) => setEditingService({ ...editingService, name: e.target.value })} />
-                              </div>
-                              <div>
-                                <label className="mb-1 block text-[10px] font-bold uppercase text-slate-500">Loại tính phí</label>
-                                <select className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm bg-white" value={editingService.type} onChange={(e) => setEditingService({ ...editingService, type: e.target.value })}>
-                                  <option value="metered">Theo số đo</option>
-                                  <option value="per_person">Theo người</option>
-                                  <option value="per_room">Theo phòng</option>
-                                  <option value="fixed">Cố định</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="mb-1 block text-[10px] font-bold uppercase text-slate-500">Đơn giá</label>
-                                <input type="number" className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm" value={editingService.unit_price} onChange={(e) => setEditingService({ ...editingService, unit_price: Number(e.target.value) })} />
-                              </div>
-                              <div>
-                                <label className="mb-1 block text-[10px] font-bold uppercase text-slate-500">Giá máy lạnh</label>
-                                <input type="number" className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm" value={editingService.unit_price_ac} onChange={(e) => setEditingService({ ...editingService, unit_price_ac: Number(e.target.value) })} />
-                              </div>
-                              <div>
-                                <label className="mb-1 block text-[10px] font-bold uppercase text-slate-500">Đơn vị</label>
-                                <input type="text" className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm" value={editingService.unit} onChange={(e) => setEditingService({ ...editingService, unit: e.target.value })} />
-                              </div>
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <button onClick={() => setEditingServiceId(null)} className="rounded px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100">Hủy</button>
-                              <button onClick={handleUpdateService} disabled={saving} className="rounded bg-blue-600 px-3 py-1 text-xs font-bold text-white hover:bg-blue-700">Lưu</button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div>
-                              <div className="font-semibold text-slate-900">{service.name}</div>
-                              <div className="text-xs text-slate-500 mt-0.5">
-                                {service.type === 'metered' || service.type === 'meter' ? 'Theo số đo' : service.type === 'per_person' ? 'Theo người' : service.type === 'per_room' ? 'Theo phòng' : 'Cố định'}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <div className="text-right">
-                                <div className="text-sm font-bold text-slate-700">
-                                  {formatMoney(service.unitPrice)}
-                                </div>
-                              </div>
-                              
-                              <div className="flex items-center gap-2 border-l pl-4">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingServiceId(service.id);
-                                    setEditingService(service);
-                                  }}
-                                  className="rounded-lg p-1.5 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                                  title="Chỉnh sửa dịch vụ"
-                                >
-                                  <Edit2 size={16} />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleServiceStatus(service)}
-                                  className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors ${
-                                    service.active 
-                                      ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' 
-                                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                  }`}
-                                  title={service.active ? 'Đang hoạt động. Nhấn để tạm ngưng.' : 'Đang tạm ngưng. Nhấn để kích hoạt.'}
-                                >
-                                  {service.active ? 'Active' : 'Inactive'}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteService(service.id)}
-                                  className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                                  title="Xoá dịch vụ"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                {/* Edit Service Form */}
+                {editingServiceId && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50/30 p-5 shadow-inner space-y-4 animate-in slide-in-from-top-3">
+                    <span className="text-xs font-extrabold text-amber-900 uppercase tracking-wider block">Sửa cấu hình dịch vụ</span>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <div>
+                        <label className="mb-1 block text-xs font-bold text-slate-700">Tên dịch vụ *</label>
+                        <input type="text" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-amber-500" value={editingService.name || ""} onChange={(e) => setEditingService({ ...editingService, name: e.target.value })} />
                       </div>
-                    ))
-                  )}
+                      <div>
+                        <label className="mb-1 block text-xs font-bold text-slate-700">Loại tính phí</label>
+                        <select className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-amber-500 appearance-none bg-white pr-8" value={editingService.type || "metered"} onChange={(e) => setEditingService({ ...editingService, type: e.target.value })}>
+                          <option value="metered">Theo số đo (Điện, Nước)</option>
+                          <option value="per_person">Theo người (Người/Tháng)</option>
+                          <option value="per_room">Theo phòng (Phòng/Tháng)</option>
+                          <option value="fixed">Cố định tháng</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-bold text-slate-700">Đơn giá chuẩn *</label>
+                        <input type="number" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-amber-500" value={editingService.unit_price ?? 0} onChange={(e) => setEditingService({ ...editingService, unit_price: Number(e.target.value) })} />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-bold text-slate-700">Đơn giá máy lạnh (nếu có)</label>
+                        <input type="number" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-amber-500" value={editingService.unit_price_ac ?? 0} onChange={(e) => setEditingService({ ...editingService, unit_price_ac: Number(e.target.value) })} />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-bold text-slate-700">Đơn vị tính</label>
+                        <input type="text" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-amber-500" value={editingService.unit || ""} onChange={(e) => setEditingService({ ...editingService, unit: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button onClick={() => setEditingServiceId(null)} className="text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl px-4 py-2">Hủy</Button>
+                      <Button onClick={handleUpdateService} className="text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl px-4 py-2">Lưu thay đổi</Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Services List - Premium Grid */}
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {services.map((service) => {
+                    const normalizedName = String(service.name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                    const isElec = normalizedName.includes("dien") || normalizedName.includes("electric");
+                    const isWater = normalizedName.includes("nuoc") || normalizedName.includes("water");
+                    const isTrash = normalizedName.includes("rac") || normalizedName.includes("trash");
+                    
+                    let iconBg = "bg-slate-50 border-slate-100 text-slate-500";
+                    let iconColor = "text-slate-600";
+                    let IconComponent = Settings;
+                    
+                    if (isElec) {
+                      iconBg = "bg-amber-50 border-amber-100/50 text-amber-600";
+                      iconColor = "text-amber-600";
+                      IconComponent = Zap;
+                    } else if (isWater) {
+                      iconBg = "bg-blue-50 border-blue-100/50 text-blue-600";
+                      iconColor = "text-blue-600";
+                      IconComponent = Coins;
+                    } else if (isTrash) {
+                      iconBg = "bg-rose-50 border-rose-100/50 text-rose-600";
+                      iconColor = "text-rose-600";
+                      IconComponent = Trash2;
+                    } else {
+                      iconBg = "bg-emerald-50 border-emerald-100/50 text-emerald-600";
+                      iconColor = "text-emerald-600";
+                      IconComponent = ShieldCheck;
+                    }
+
+                    return (
+                      <div 
+                        key={service.id} 
+                        className={`group relative rounded-3xl border p-5 transition-all duration-300 bg-white ${
+                          service.active 
+                            ? "border-slate-200/80 shadow-sm hover:shadow-md hover:border-slate-300" 
+                            : "border-slate-200/50 bg-slate-50/50 opacity-75"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${iconBg}`}>
+                            <IconComponent size={20} className={service.active && isElec ? "animate-pulse" : ""} />
+                          </div>
+                          
+                          <div className="flex items-center gap-1.5">
+                            <button 
+                              onClick={() => { setEditingServiceId(service.id); setEditingService(service); }} 
+                              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" 
+                              title="Sửa dịch vụ"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteService(service.id)} 
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
+                              title="Xóa dịch vụ"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 space-y-1">
+                          <h4 className="font-bold text-slate-900 text-sm tracking-tight">{service.name}</h4>
+                          <span className="inline-flex items-center rounded-full bg-slate-50 border border-slate-100 px-2 py-0.5 text-[9px] font-black uppercase text-slate-500">
+                            {service.type === "metered" ? "Theo số đo" : 
+                             service.type === "per_person" ? "Theo người" : 
+                             service.type === "per_room" ? "Theo phòng" : "Cố định"}
+                            {service.unit && ` (${service.unit})`}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-end justify-between">
+                          <div className="flex flex-col">
+                            <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Đơn giá chuẩn</span>
+                            <span className="text-base font-black text-slate-900 mt-0.5">{formatMoney(service.unit_price)}</span>
+                          </div>
+
+                          {service.unit_price_ac > 0 && (
+                            <div className="flex flex-col text-right">
+                              <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Đơn giá máy lạnh</span>
+                              <span className="text-xs font-bold text-slate-700 mt-0.5">{formatMoney(service.unit_price_ac)}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Status Toggle overlay at bottom */}
+                        <div className="mt-4 flex items-center justify-between pt-2 border-t border-slate-100/50">
+                          <span className={`text-[10px] font-extrabold uppercase tracking-wide ${service.active ? "text-emerald-600" : "text-slate-400"}`}>
+                            {service.active ? "Đang kích hoạt" : "Tạm dừng"}
+                          </span>
+                          
+                          <button 
+                            onClick={() => handleToggleServiceStatus(service)} 
+                            className={`transition-colors rounded-full p-0.5 focus:outline-none ${
+                              service.active ? "text-emerald-500 hover:text-emerald-600" : "text-slate-300 hover:text-slate-400"
+                            }`}
+                          >
+                            {service.active ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
             {activeTab === "extension" && (
-              <div className="space-y-8">
-                {/* Wallets Section */}
-                <section className="space-y-4">
-                  <div className="flex items-center gap-2">
+              <div className="space-y-8 animate-in fade-in duration-300">
+                {/* Header */}
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center border border-blue-100">
                     <Wallet size={20} className="text-blue-600" />
-                    <h3 className="text-lg font-bold text-slate-900">Quản lý Ví tiền</h3>
                   </div>
-                  
-                  <div className="grid gap-3">
-                    {wallets.length === 0 ? (
-                      <div className="rounded-xl bg-slate-50 p-4 text-center text-sm text-slate-500 italic">Chưa có ví nào được tạo.</div>
-                    ) : (
-                      wallets.map((wallet) => (
-                        <div key={wallet.id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-white p-4 shadow-sm hover:border-blue-200 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold">
-                              {wallet.name.charAt(0)}
-                            </div>
-                            <div>
-                              <div className="font-semibold text-slate-900">{wallet.name}</div>
-                              <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{wallet.type}</div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="text-right">
-                              <div className="text-sm font-bold text-slate-900">{formatMoney(wallet.balance || 0)}</div>
-                            </div>
-                            <button onClick={() => handleDeleteWallet(wallet.id)} className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Mở rộng (Quản lý Ví tiền)</h3>
+                    <p className="text-xs text-slate-500 font-medium">Thiết lập các quỹ doanh thu, ví cá nhân phục vụ ghi nhận thanh toán.</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-3 items-start">
+                  {/* Left panel: Wallets List */}
+                  <div className="md:col-span-2 space-y-4">
+                    <div className="flex justify-between items-center pb-2">
+                      <span className="text-xs font-extrabold uppercase text-slate-400 tracking-wider">Danh sách ví tiền đang hoạt động</span>
+                      {wallets.length === 0 && (
+                        <button onClick={bootstrapWallets} className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1">
+                          <Plus size={10} /> Khởi tạo bộ ví mặc định
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {wallets.length === 0 ? (
+                        <div className="sm:col-span-2 rounded-2xl border border-dashed border-slate-200 p-6 text-center text-slate-500 text-xs font-medium bg-slate-50/50">
+                          Chưa cấu hình ví nhận tiền nào. Hãy khởi tạo mặc định hoặc thêm thủ công.
                         </div>
-                      ))
-                    )}
+                      ) : wallets.map((wallet) => (
+                        <div key={wallet.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex items-center justify-between hover:shadow-md transition-all">
+                          <div>
+                            <span className="font-bold text-slate-900 text-sm block">{wallet.name}</span>
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-black uppercase mt-1.5 ${
+                              wallet.type === "rental" 
+                                ? "bg-indigo-50 text-indigo-700 border border-indigo-100" 
+                                : wallet.type === "trading"
+                                ? "bg-amber-50 text-amber-700 border border-amber-100"
+                                : "bg-slate-50 text-slate-700 border border-slate-200"
+                            }`}>
+                              {wallet.type === "rental" ? "Quỹ phòng trọ" : 
+                               wallet.type === "trading" ? "Ví nhập hàng" : "Ví cá nhân"}
+                            </span>
+                          </div>
+                          <button onClick={() => handleDeleteWallet(wallet.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="Xóa ví">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  <form onSubmit={handleCreateWallet} className="rounded-xl border border-slate-200 p-4 bg-slate-50/50">
-                    <h4 className="text-xs font-bold uppercase text-slate-500 mb-3">Tạo ví mới</h4>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <input
-                        type="text"
-                        placeholder="Tên ví (Ví dụ: Ví cá nhân)"
-                        className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500"
-                        value={newWallet.name}
-                        onChange={(e) => setNewWallet({...newWallet, name: e.target.value})}
-                      />
-                      <select
-                        className="w-full sm:w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"
-                        value={newWallet.type}
-                        onChange={(e) => setNewWallet({...newWallet, type: e.target.value})}
+                  {/* Right panel: Add new wallet Form */}
+                  <div className="bg-slate-50/50 border border-slate-200/50 rounded-3xl p-5 space-y-4">
+                    <span className="text-xs font-extrabold uppercase text-slate-400 tracking-wider block">Thêm ví nhận tiền mới</span>
+                    <form onSubmit={handleCreateWallet} className="space-y-4">
+                      <div>
+                        <Label className="font-semibold text-slate-600 text-xs">Tên ví *</Label>
+                        <input 
+                          type="text" 
+                          placeholder="Tên ví, VD: Quỹ nhà trọ 2..." 
+                          className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all"
+                          value={newWallet.name} 
+                          onChange={(e) => setNewWallet({ ...newWallet, name: e.target.value })} 
+                        />
+                      </div>
+                      <div>
+                        <Label className="font-semibold text-slate-600 text-xs">Phân loại ví</Label>
+                        <div className="relative mt-1.5">
+                          <select 
+                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all appearance-none pr-8 bg-white"
+                            value={newWallet.type} 
+                            onChange={(e) => setNewWallet({ ...newWallet, type: e.target.value })}
+                          >
+                            <option value="personal">Ví cá nhân / Chi tiêu</option>
+                            <option value="rental">Ví thu tiền phòng trọ</option>
+                            <option value="trading">Ví vốn buôn bán / Nhập hàng</option>
+                          </select>
+                          <ChevronDown size={12} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        </div>
+                      </div>
+                      <Button 
+                        type="submit" 
+                        disabled={savingExtension} 
+                        loading={savingExtension}
+                        className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs py-3.5 shadow-md shadow-slate-900/10 transition-all mt-2"
                       >
-                        <option value="personal">Cá nhân</option>
-                        <option value="rental">Nhà trọ</option>
-                        <option value="trading">Kinh doanh</option>
-                      </select>
-                      <button disabled={savingExtension} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
-                        Thêm ví
-                      </button>
-                    </div>
-                    
-                    <div className="pt-2">
-                      <button 
-                        type="button"
-                        onClick={bootstrapWallets}
-                        disabled={savingExtension}
-                        className="text-xs font-bold text-blue-600 hover:text-blue-700 underline underline-offset-4 decoration-blue-200"
-                      >
-                        Khởi tạo bộ ví mặc định (Cá nhân, Nhà trọ, Kinh doanh)
-                      </button>
-                    </div>
-                  </form>
-                </section>
+                        Tạo ví tiền mới
+                      </Button>
+                    </form>
+                  </div>
+                </div>
               </div>
             )}
+              </motion.div>
+            </AnimatePresence>
           </Card>
         </div>
       )}
