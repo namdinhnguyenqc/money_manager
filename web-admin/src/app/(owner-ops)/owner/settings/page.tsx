@@ -118,6 +118,7 @@ export default function OwnerSettingsPage() {
   // UI interactive states
   const [showApiKey, setShowApiKey] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+  const [showZaloSecret, setShowZaloSecret] = useState(false);
   const [zaloConnection, setZaloConnection] = useState<ZaloConnection>({ connected: false });
   const [zaloConfig, setZaloConfig] = useState<ZaloConfig>({
     appId: "",
@@ -1388,15 +1389,28 @@ export default function OwnerSettingsPage() {
                       </div>
                       <div>
                         <Label className="font-bold text-slate-700 text-xs">Secret Key</Label>
-                        <Input
-                          type="password"
-                          value={zaloConfig.appSecret}
-                          onChange={(e) => setZaloConfig({ ...zaloConfig, appSecret: e.target.value })}
-                          placeholder={zaloConfig.hasSecret ? "Đã lưu. Nhập mới nếu cần đổi" : "Nhập Secret Key"}
-                          className="mt-1.5 font-mono text-xs"
-                        />
+                        <div className="relative mt-1.5">
+                          <Input
+                            type={showZaloSecret ? "text" : "password"}
+                            value={zaloConfig.appSecret}
+                            onChange={(e) => setZaloConfig({ ...zaloConfig, appSecret: e.target.value })}
+                            placeholder={zaloConfig.hasSecret ? "Đã lưu. Nhập mới nếu cần đổi" : "Nhập Secret Key"}
+                            className="pr-10 font-mono text-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowZaloSecret((value) => !value)}
+                            className="absolute inset-y-0 right-2 flex items-center rounded-lg px-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                            aria-label={showZaloSecret ? "Ẩn Secret Key đang nhập" : "Hiện Secret Key đang nhập"}
+                            title={showZaloSecret ? "Ẩn Secret Key đang nhập" : "Hiện Secret Key đang nhập"}
+                          >
+                            {showZaloSecret ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
                         {zaloConfig.hasSecret && (
-                          <p className="mt-1.5 text-[10px] font-bold text-emerald-700">Secret Key đã được lưu ở backend và không hiển thị lại.</p>
+                          <p className="mt-1.5 text-[10px] font-bold text-emerald-700">
+                            Secret Key đã được lưu ở backend. Nút mắt chỉ hiện/ẩn Secret Key mới đang nhập.
+                          </p>
                         )}
                       </div>
                       <div className="sm:col-span-2">
