@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, RefreshCw, Send, Trash2, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { RefreshCw, Send, Trash2, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import StatusBadge from "@/components/ops/StatusBadge";
 import { 
   BoardingHouse, 
@@ -14,7 +14,7 @@ import {
   loadPendingBilling,
   normalizeInvoiceStatus 
 } from "@/lib/rentalOps";
-import { apiPost } from "@/utils/apiClient";
+import { apiPost, apiDelete } from "@/utils/apiClient";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
 import DataTable from "@/components/ui/DataTable";
@@ -79,6 +79,47 @@ export default function InvoicesPage() {
 
   const handleAutoGenerate = () => {
     setIsBulkModalOpen(true);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (filter === "Chưa lập HĐ") return;
+    const newSelected: Record<string, boolean> = {};
+    visibleInvoices.forEach((inv) => {
+      newSelected[inv.id] = checked;
+    });
+    setSelected(newSelected);
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Object.entries(selected)
+      .filter(([, v]) => v)
+      .map(([k]) => k);
+    if (ids.length === 0) return;
+    if (!confirm(`Bạn có chắc muốn xóa ${ids.length} hóa đơn đã chọn không?`)) return;
+    setError("");
+    let hasError = false;
+    for (const id of ids) {
+      try {
+        await apiDelete(`/invoices/${id}`);
+      } catch (err: any) {
+        hasError = true;
+        setError(err?.message || "Xóa hóa đơn thất bại.");
+        break;
+      }
+    }
+    setSelected({});
+    if (!hasError) load();
+  };
+
+  const handleDeleteSingle = async (id: string) => {
+    if (!confirm("Bạn có chắc muốn xóa hóa đơn này không?")) return;
+    setError("");
+    try {
+      await apiDelete(`/invoices/${id}`);
+      load();
+    } catch (err: any) {
+      setError(err?.message || "Xóa hóa đơn thất bại.");
+    }
   };
 
   const changePeriod = (delta: number) => {
@@ -154,8 +195,7 @@ export default function InvoicesPage() {
       {selectedCount > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
           <span className="font-semibold">{selectedCount} hóa đơn đã chọn</span>
-          <Button variant="primary" size="sm" icon={<Send size={13} />}>Gửi</Button>
-          <Button variant="danger" size="sm" icon={<Trash2 size={13} />}>Xóa</Button>
+          <Button variant="danger" size="sm" icon={<Trash2 size={13} />} onClick={handleBulkDelete}>Xóa</Button>
         </div>
       )}
 
@@ -163,7 +203,14 @@ export default function InvoicesPage() {
 
       <DataTable
         headers={["Phòng", "Khách thuê", "Tổng cộng", "Đã thu", "Còn lại", "Trạng thái", "Thao tác"]}
-        checkbox={<input type="checkbox" aria-label="Chọn tất cả" />}
+        checkbox={
+          <input
+            type="checkbox"
+            aria-label="Chọn tất cả"
+            checked={visibleInvoices.length > 0 && visibleInvoices.every((inv) => selected[inv.id])}
+            onChange={(e) => handleSelectAll(e.target.checked)}
+          />
+        }
       >
         {loading ? (
           <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Đang tải dữ liệu...</td></tr>
@@ -198,9 +245,17 @@ export default function InvoicesPage() {
               <td className="px-4 py-3 text-red-600 font-semibold whitespace-nowrap">{formatMoney(Math.max(0, invoice.total_amount - (invoice.paid_amount || 0)))}</td>
               <td className="px-4 py-3"><StatusBadge status={status} /></td>
               <td className="px-4 py-3">
-                <div className="flex gap-3">
+                <div className="flex gap-3 items-center">
                   <Link href={`/invoices/${invoice.id}`} className="font-semibold text-blue-700 hover:underline">Xem</Link>
                   {status === "sent" || status === "overdue" || status === "partial" ? <Link href={`/payments/new?invoice_id=${invoice.id}`} className="font-semibold text-blue-700 hover:underline">Thu tiền</Link> : null}
+                  {status !== "paid" && (
+                    <button
+                      onClick={() => handleDeleteSingle(invoice.id)}
+                      className="font-semibold text-red-600 hover:underline text-sm"
+                    >
+                      Xóa
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>

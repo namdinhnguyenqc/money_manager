@@ -111,6 +111,20 @@ export default function OwnerSettingsPage() {
     }
   };
 
+  const [reprocessingId, setReprocessingId] = useState<string | null>(null);
+
+  const handleReprocessEvent = async (eventId: string) => {
+    setReprocessingId(eventId);
+    try {
+      await apiPost(`/owner/sepay/events/${eventId}/reprocess`, {});
+      await fetchSepayEvents();
+    } catch (err: any) {
+      alert(err?.message || "Thử lại đối soát thất bại.");
+    } finally {
+      setReprocessingId(null);
+    }
+  };
+
   const load = async () => {
     setLoading(true);
     setError("");
@@ -1098,12 +1112,23 @@ export default function OwnerSettingsPage() {
                                     </span>
                                   </td>
                                   <td className="px-4 py-3 text-center whitespace-nowrap">
-                                    <button
-                                      onClick={() => setExpandedEventId(isExpanded ? null : event.id)}
-                                      className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline font-extrabold"
-                                    >
-                                      {isExpanded ? "Đóng lại" : "Dữ liệu JSON"}
-                                    </button>
+                                    <div className="flex items-center justify-center gap-3">
+                                      <button
+                                        onClick={() => setExpandedEventId(isExpanded ? null : event.id)}
+                                        className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline font-extrabold"
+                                      >
+                                        {isExpanded ? "Đóng lại" : "Dữ liệu JSON"}
+                                      </button>
+                                      {["pending_wallet", "unmatched", "error"].includes(event.status) && (
+                                        <button
+                                          onClick={() => handleReprocessEvent(event.id)}
+                                          disabled={reprocessingId === event.id}
+                                          className="text-[10px] text-emerald-600 hover:text-emerald-800 hover:underline font-extrabold disabled:opacity-50"
+                                        >
+                                          {reprocessingId === event.id ? "Đang xử lý..." : "Thử lại đối soát"}
+                                        </button>
+                                      )}
+                                    </div>
                                   </td>
                                 </tr>
                                 {isExpanded && (
