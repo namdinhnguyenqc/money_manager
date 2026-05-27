@@ -978,6 +978,20 @@ ownerRoutes.get("/audit-logs", async (c) => {
   });
 });
 
+ownerRoutes.get("/sepay/events", async (c) => {
+  const currentUser = c.get("user");
+  const { data, error } = await c
+    .get("supabase")
+    .from("sepay_webhook_events")
+    .select("*")
+    .eq("user_id", currentUser.id)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ data: data ?? [] });
+});
+
 ownerRoutes.get("/settings", async (c) => {
   const user = c.get("user");
 
