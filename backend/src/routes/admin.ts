@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { supabaseAdmin } from "../lib/supabase.js";
-import { requireAuth, requireAdmin, requireAdminPermission, requireSuperAdmin } from "../middleware/auth.js";
+import { clearAuthCacheForUser, requireAuth, requireAdmin, requireAdminPermission, requireSuperAdmin } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
 
@@ -38,6 +38,74 @@ const toPagination = (page: number, limit: number, total = 0) => ({
 const jsonDbError = (c: any, error: any, fallback: string, status = 500) => {
   console.error(fallback, error);
   return c.json({ error: fallback, detail: error?.message, code: error?.code }, status);
+};
+
+const deleteUserScopedRows = async (table: string, column: string, userId: string) => {
+  const { error } = await supabaseAdmin.from(table).delete().eq(column, userId);
+  if (!error) return null;
+  if (["42P01", "42703", "PGRST204", "PGRST205"].includes(error.code)) return null;
+  if (String(error.message || "").includes("schema cache")) return null;
+  return { table, column, error };
+};
+
+const purgeUserData = async (userId: string) => {
+  const errors: Array<{ table: string; column: string; error: any }> = [];
+  const run = async (table: string, column = "user_id") => {
+    const err = await deleteUserScopedRows(table, column, userId);
+    if (err) errors.push(err);
+  };
+
+  const orderedDeletes: Array<[string, string?]> = [
+    ["zalo_notification_logs", "owner_id"],
+    ["zalo_templates", "owner_id"],
+    ["zalo_connections", "owner_id"],
+    ["payment_webhook_events"],
+    ["payment_channels"],
+    ["deposit_refunds"],
+    ["invoice_payments"],
+    ["invoice_items"],
+    ["meter_readings"],
+    ["contract_services"],
+    ["deposits"],
+    ["invoices"],
+    ["contracts"],
+    ["tenant_accounts"],
+    ["tenant_sessions"],
+    ["tenant_notifications"],
+    ["tenant_devices"],
+    ["tenants"],
+    ["services"],
+    ["rooms"],
+    ["room_types"],
+    ["boarding_houses", "owner_id"],
+    ["rental_messages"],
+    ["rental_conversations"],
+    ["rental_bookings"],
+    ["rental_leads"],
+    ["rental_utility_readings"],
+    ["rental_utility_meters"],
+    ["rental_room_amenities"],
+    ["rental_rooms"],
+    ["rental_buildings", "owner_id"],
+    ["trading_items"],
+    ["trading_categories"],
+    ["transactions"],
+    ["categories"],
+    ["wallets"],
+    ["bank_configs"],
+    ["social_accounts"],
+    ["user_profiles"],
+    ["refresh_tokens"],
+    ["login_logs"],
+    ["fcm_tokens"],
+    ["notifications"],
+  ];
+
+  for (const [table, column] of orderedDeletes) {
+    await run(table, column || "user_id");
+  }
+
+  return errors;
 };
 
 const getMissingSchemaColumn = (error: any) => {
@@ -314,7 +382,7 @@ adminRoutes.patch("/users/:id/role", requireAuth, requireSuperAdmin, async (c) =
   return c.json({ success: true, user: { id: userId, role } });
 });
 
-// DELETE /admin/users/:id - Soft delete user
+// DELETE /admin/users/:id - Purge account data so the same email can sign up again.
 adminRoutes.delete("/users/:id", requireAuth, requireAdmin, async (c) => {
   const userId = c.req.param("id");
   const currentUser = c.get("user");
@@ -343,10 +411,37 @@ adminRoutes.delete("/users/:id", requireAuth, requireAdmin, async (c) => {
     return c.json({ code: "INSUFFICIENT_PERMISSION", message: "Chỉ SUPER_ADMIN mới có thể xóa ADMIN." }, 403);
   }
 
+  const purgeErrors = await purgeUserData(userId);
+  if (purgeErrors.length > 0) {
+    console.error("Failed to purge user data:", purgeErrors.map((item) => ({
+      table: item.table,
+      column: item.column,
+      message: item.error?.message,
+      code: item.error?.code,
+    })));
+    return c.json({
+      error: "Không thể xóa sạch dữ liệu tài khoản.",
+      details: purgeErrors.map((item) => ({
+        table: item.table,
+        column: item.column,
+        message: item.error?.message,
+        code: item.error?.code,
+      })),
+    }, 500);
+  }
+
   await supabaseAdmin
     .from("users")
-    .update({ status: "DELETED", updated_at: new Date().toISOString() })
+    .delete()
     .eq("id", userId);
+
+  try {
+    await supabaseAdmin.auth.admin.deleteUser(userId);
+  } catch (error) {
+    console.warn("Unable to delete auth.users record. Public user data was already purged.", error);
+  }
+
+  clearAuthCacheForUser(userId);
 
   return c.json({ success: true });
 });

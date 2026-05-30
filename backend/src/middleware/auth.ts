@@ -73,6 +73,14 @@ export const revokeAccessToken = (token: string) => {
   cleanupRevokedTokens(now);
 };
 
+export const clearAuthCacheForUser = (userId: string) => {
+  for (const [token, cached] of tokenCache.entries()) {
+    if (cached.userContext?.id === userId) {
+      tokenCache.delete(token);
+    }
+  }
+};
+
 const isAccessTokenRevoked = (token: string, now: number) => {
   const hash = hashAccessToken(token);
   const exp = revokedAccessTokens.get(hash);
