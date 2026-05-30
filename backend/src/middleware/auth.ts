@@ -162,6 +162,9 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
     if (status === "BLOCKED") {
       return c.json({ error: "Account is blocked", code: "ACCOUNT_BLOCKED" }, 403);
     }
+    if (status === "REJECTED") {
+      return c.json({ error: "Account has been rejected", code: "ACCOUNT_REJECTED" }, 403);
+    }
     if (status === "DELETED") {
       return c.json({ error: "Account is deleted", code: "ACCOUNT_DELETED" }, 403);
     }
@@ -273,6 +276,9 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
   if (status === "BLOCKED") {
     return c.json({ error: "Account is blocked", code: "ACCOUNT_BLOCKED" }, 403);
   }
+  if (status === "REJECTED") {
+    return c.json({ error: "Account has been rejected", code: "ACCOUNT_REJECTED" }, 403);
+  }
   if (status === "DELETED") {
     return c.json({ error: "Account is deleted", code: "ACCOUNT_DELETED" }, 403);
   }
@@ -376,6 +382,28 @@ export const requireOwner = createMiddleware<AppEnv>(async (c, next) => {
     return c.json({ error: "Authentication required" }, 401);
   }
   // Relaxed for development: allow everyone who is authenticated
+  await next();
+});
+
+export const requireTenant = createMiddleware<AppEnv>(async (c, next) => {
+  const user = c.get("user");
+  if (!user) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  if (user.role !== "TENANT") {
+    return c.json({ error: "Forbidden: tenant access required" }, 403);
+  }
+  await next();
+});
+
+export const requireTenantOrOwner = createMiddleware<AppEnv>(async (c, next) => {
+  const user = c.get("user");
+  if (!user) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  if (!["TENANT", "OWNER", "ADMIN", "SUPER_ADMIN"].includes(user.role)) {
+    return c.json({ error: "Forbidden: tenant or owner access required" }, 403);
+  }
   await next();
 });
 

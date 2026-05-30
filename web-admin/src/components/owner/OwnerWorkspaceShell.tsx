@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { clearClientSession, getStoredAccessToken, getStoredSessionUser } from "@/utils/session";
+import { authFetch } from "@/utils/authFetch";
 import Logo from "@/components/ui/Logo";
 
 const navSections = [
@@ -98,18 +99,18 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
         return;
       }
       const storedUser = getStoredSessionUser();
+      if (storedUser.status === "PENDING_APPROVAL" || storedUser.approvalStatus === "PENDING_APPROVAL") {
+        router.replace("/pending-approval");
+        return;
+      }
       if (storedUser.role === "OWNER" || storedUser.role === "SUPER_ADMIN") {
         setOwnerName(storedUser.name || "Owner");
         setOwnerEmail(storedUser.email || "");
-        setAuthorized(true);
-        setLoading(false);
-        return;
       }
       try {
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 5000);
-        const res = await fetch(`${API_URL}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const res = await authFetch(`${API_URL}/auth/me`, {
           signal: controller.signal,
           cache: "no-store",
         });
@@ -124,6 +125,12 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
           localStorage.setItem("userRole", "OWNER");
           if (data?.name) localStorage.setItem("userName", data.name);
           if (data?.email) localStorage.setItem("userEmail", data.email);
+          if (data?.status) localStorage.setItem("userStatus", data.status);
+          if (data?.approvalStatus || data?.status) localStorage.setItem("approvalStatus", data.approvalStatus || data.status);
+          if (data?.status === "PENDING_APPROVAL" || data?.approvalStatus === "PENDING_APPROVAL") {
+            router.replace("/pending-approval");
+            return;
+          }
           setOwnerName(data?.name || localStorage.getItem("userName") || "Owner");
           setOwnerEmail(data?.email || localStorage.getItem("userEmail") || "");
           setAuthorized(true);

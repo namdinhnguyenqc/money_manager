@@ -109,6 +109,14 @@ class Query {
       rows = [existing || db[this.table][db[this.table].length - 1]];
     }
 
+    if (this.table === "rooms") {
+      rows = rows.map(r => ({
+        ...r,
+        contracts: db.contracts?.filter(c => c.room_id === r.id) || [],
+        invoices: db.invoices?.filter(i => i.room_id === r.id) || [],
+      }));
+    }
+
     if (this.orderValue) rows.sort((a, b) => {
       const av = a[this.orderValue!.col];
       const bv = b[this.orderValue!.col];

@@ -24,6 +24,7 @@ import {
   roomStatusLabel,
   deleteRoom,
 } from "@/lib/rentalOps";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 const roomFilters = ["Tất cả", "Trống", "Đang thuê", "Bảo trì", "Sắp hết HĐ"];
 const tabIds = ["rooms", "contracts", "invoices", "settings"] as const;
@@ -95,11 +96,7 @@ export default function FacilityDetailPage() {
       setRoomForm({ name: "", price: "", area: "", maxPeople: "2", status: "AVAILABLE", isPublic: false });
       setRoomFormOpen(false);
       setRoomFormError("");
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["rooms"] }),
-        queryClient.invalidateQueries({ queryKey: ["facilities"] }),
-        queryClient.invalidateQueries({ queryKey: ["facility", facilityId] }),
-      ]);
+      await invalidateOwnerOpsQueries(queryClient, { facilityId });
     },
     onError: (err: any) => setRoomFormError(err?.message || "Không tạo được phòng."),
   });
@@ -107,10 +104,7 @@ export default function FacilityDetailPage() {
   const deleteRoomMutation = useMutation({
     mutationFn: (id: string) => deleteRoom(id),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["rooms"] }),
-        queryClient.invalidateQueries({ queryKey: ["facility", facilityId] }),
-      ]);
+      await invalidateOwnerOpsQueries(queryClient, { facilityId });
     },
     onError: (err: any) => alert(err?.message || "Không thể xóa phòng."),
   });

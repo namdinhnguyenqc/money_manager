@@ -20,8 +20,11 @@ export interface AuthUser {
   id: string;
   email: string;
   role: UserRole;
+  status?: string;
+  approvalStatus?: string;
   is_profile_completed?: boolean;
   isProfileCompleted?: boolean;
+  onboardingStep?: 'COMPLETE_PROFILE' | 'PENDING_APPROVAL' | 'DONE';
 }
 
 export interface LoginResponse {
@@ -29,7 +32,7 @@ export interface LoginResponse {
   refreshToken: string;
   user: AuthUser;
   profile?: any;
-  nextStep?: 'COMPLETE_PROFILE' | 'DONE';
+  nextStep?: 'COMPLETE_PROFILE' | 'PENDING_APPROVAL' | 'DONE' | 'DASHBOARD';
 }
 
 export function getProfileCompleted(user?: AuthUser | null, fallback = false): boolean {

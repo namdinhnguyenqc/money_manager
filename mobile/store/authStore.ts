@@ -13,6 +13,7 @@ interface AuthState {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isProfileCompleted: boolean;
+  approvalStatus: string | null;
   isLoading: boolean;
   isHydrated: boolean;
 
@@ -26,13 +27,14 @@ interface AuthState {
   logout: (fcmToken?: string) => Promise<void>;
 
   /** Mark profile as completed after onboarding */
-  markProfileCompleted: () => void;
+  markProfilePendingApproval: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   isProfileCompleted: false,
+  approvalStatus: null,
   isLoading: true,
   isHydrated: false,
 
@@ -41,7 +43,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const token = await getAccessToken();
       if (!token) {
-        set({ user: null, isAuthenticated: false, isProfileCompleted: false, isLoading: false, isHydrated: true });
+        set({ user: null, isAuthenticated: false, isProfileCompleted: false, approvalStatus: null, isLoading: false, isHydrated: true });
         return;
       }
 
@@ -51,16 +53,17 @@ export const useAuthStore = create<AuthState>((set) => ({
           user,
           isAuthenticated: true,
           isProfileCompleted: getProfileCompleted(user),
+          approvalStatus: user.approvalStatus ?? user.status ?? null,
           isLoading: false,
           isHydrated: true,
         });
       } else {
         await clearTokens();
-        set({ user: null, isAuthenticated: false, isProfileCompleted: false, isLoading: false, isHydrated: true });
+        set({ user: null, isAuthenticated: false, isProfileCompleted: false, approvalStatus: null, isLoading: false, isHydrated: true });
       }
     } catch {
       await clearTokens();
-      set({ user: null, isAuthenticated: false, isProfileCompleted: false, isLoading: false, isHydrated: true });
+      set({ user: null, isAuthenticated: false, isProfileCompleted: false, approvalStatus: null, isLoading: false, isHydrated: true });
     }
   },
 
@@ -69,6 +72,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       user,
       isAuthenticated: true,
       isProfileCompleted: isProfileCompleted ?? getProfileCompleted(user),
+      approvalStatus: user.approvalStatus ?? user.status ?? null,
       isLoading: false,
     });
   },
@@ -77,11 +81,15 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await authLogout(fcmToken);
     } finally {
-      set({ user: null, isAuthenticated: false, isProfileCompleted: false });
+      set({ user: null, isAuthenticated: false, isProfileCompleted: false, approvalStatus: null });
     }
   },
 
-  markProfileCompleted: () => {
-    set({ isProfileCompleted: true });
+  markProfilePendingApproval: () => {
+    set((state) => ({
+      isProfileCompleted: true,
+      approvalStatus: 'PENDING_APPROVAL',
+      user: state.user ? { ...state.user, status: 'PENDING_APPROVAL', approvalStatus: 'PENDING_APPROVAL', onboardingStep: 'PENDING_APPROVAL' } : state.user,
+    }));
   },
 }));

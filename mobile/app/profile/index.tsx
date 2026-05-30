@@ -63,13 +63,31 @@ export default function ProfileScreen() {
       Alert.alert('Lỗi', 'Vui lòng nhập họ tên.');
       return;
     }
+
+    const phone = form.phone.trim();
+    if (!/^(0|\+84)\d{9,10}$/.test(phone)) {
+      Alert.alert('Lỗi', 'Vui lòng nhập số điện thoại hợp lệ.');
+      return;
+    }
+
+    const addressLine = form.address.trim();
+    if (addressLine.length < 5) {
+      Alert.alert('Lỗi', 'Vui lòng nhập địa chỉ chi tiết.');
+      return;
+    }
+
     setSaving(true);
     try {
       await updateProfile({
         fullName: form.fullName.trim(),
-        phone: form.phone.trim(),
+        phone,
         idCard: form.idCard.trim(),
-        address: form.address.trim(),
+        address: addressLine,
+        addressLine,
+        provinceCode: profile?.provinceCode || 'mobile',
+        provinceName: profile?.provinceName || 'Chưa cập nhật',
+        districtCode: profile?.districtCode || 'mobile',
+        districtName: profile?.districtName || 'Chưa cập nhật',
       });
       Alert.alert('Thành công', 'Đã cập nhật hồ sơ.');
       setEditing(false);

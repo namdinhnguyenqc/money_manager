@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Building2 } from "lucide-react";
 import { createBoardingHouse } from "@/lib/rentalOps";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 export default function NewFacilityPage() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function NewFacilityPage() {
   const mutation = useMutation({
     mutationFn: createBoardingHouse,
     onSuccess: async (facility) => {
-      await queryClient.invalidateQueries({ queryKey: ["facilities"] });
+      await invalidateOwnerOpsQueries(queryClient, { facilityId: facility.id });
       router.push(`/facilities/${facility.id}`);
     },
     onError: (err: any) => setError(err?.message || "Không tạo được cơ sở."),

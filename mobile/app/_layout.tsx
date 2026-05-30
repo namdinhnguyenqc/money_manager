@@ -31,7 +31,8 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
-  const { isAuthenticated, isProfileCompleted, isLoading, isHydrated, hydrate, logout } = useAuthStore();
+  const { isAuthenticated, isProfileCompleted, approvalStatus, isLoading, isHydrated, hydrate, logout } = useAuthStore();
+  const isPendingApproval = isProfileCompleted && approvalStatus === 'PENDING_APPROVAL';
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -54,6 +55,8 @@ export default function RootLayout() {
         router.replace('/(auth)/login');
       } else if (event === 'profile_required') {
         router.replace('/(auth)/complete-profile');
+      } else if (event === 'pending_approval') {
+        router.replace('/(auth)/pending-approval');
       }
     });
   }, [router, logout]);
@@ -76,10 +79,12 @@ export default function RootLayout() {
       router.replace('/(auth)/login');
     } else if (isAuthenticated && !isProfileCompleted && segs[1] !== 'complete-profile') {
       router.replace('/(auth)/complete-profile');
-    } else if (isAuthenticated && isProfileCompleted && inAuthGroup) {
+    } else if (isAuthenticated && isPendingApproval && segs[1] !== 'pending-approval') {
+      router.replace('/(auth)/pending-approval');
+    } else if (isAuthenticated && isProfileCompleted && !isPendingApproval && inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [isAuthenticated, isProfileCompleted, segments, fontsLoaded, isHydrated, router]);
+  }, [isAuthenticated, isProfileCompleted, isPendingApproval, segments, fontsLoaded, isHydrated, router]);
 
   // Show loading while fonts/auth hydrating
   if (!fontsLoaded || !isHydrated) {

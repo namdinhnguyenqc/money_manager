@@ -10,7 +10,12 @@ const adminRoutes = new Hono<AppEnv>();
 
 
 const userStatusSchema = z.object({
-  status: z.enum(["ACTIVE", "BLOCKED", "DELETED"]),
+  status: z.enum(["ACTIVE", "PENDING_APPROVAL", "REJECTED", "BLOCKED", "DELETED"]),
+});
+
+const ownerApprovalSchema = z.object({
+  action: z.enum(["approve", "reject"]),
+  reason: z.string().trim().optional(),
 });
 
 const userRoleSchema = z.object({
@@ -55,6 +60,8 @@ const purgeUserData = async (userId: string) => {
     if (err) errors.push(err);
   };
 
+  // Child/detail rows first. Many tables have FK cascades, but explicit deletes
+  // keep this route compatible with older schemas that missed ON DELETE CASCADE.
   const orderedDeletes: Array<[string, string?]> = [
     ["zalo_notification_logs", "owner_id"],
     ["zalo_templates", "owner_id"],
@@ -256,6 +263,8 @@ adminRoutes.get("/users", requireAuth, requireAdmin, async (c) => {
       avatar: u.avatar,
       role: u.role,
       status: u.status,
+      is_profile_completed: u.is_profile_completed,
+      onboarding_step: u.onboarding_step,
       provider: u.provider,
       created_at: u.created_at,
       last_login_at: u.last_login_at,
@@ -342,8 +351,108 @@ adminRoutes.patch("/users/:id/status", requireAuth, requireAdmin, async (c) => {
     .from("users")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", userId);
+  clearAuthCacheForUser(userId);
 
   return c.json({ success: true, user: { id: userId, status } });
+});
+
+// GET /admin/owner-approvals - Owners waiting for admin approval
+adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
+  const { status = "PENDING_APPROVAL" } = c.req.query();
+
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .select("id,email,name,avatar,role,status,provider,is_profile_completed,onboarding_step,created_at,updated_at,last_login_at,user_profiles(*)")
+    .eq("role", "OWNER")
+    .eq("status", status)
+    .order("updated_at", { ascending: false });
+
+  if (error) return jsonDbError(c, error, "Failed to fetch owner approvals");
+
+  return c.json({
+    data: (data ?? []).map((user: any) => {
+      const profile = Array.isArray(user.user_profiles) ? user.user_profiles[0] : user.user_profiles;
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatar: user.avatar,
+        role: user.role,
+        status: user.status,
+        provider: user.provider,
+        isProfileCompleted: user.is_profile_completed,
+        onboardingStep: user.onboarding_step,
+        createdAt: user.created_at,
+        updatedAt: user.updated_at,
+        lastLoginAt: user.last_login_at,
+        profile: profile ? {
+          fullName: profile.full_name,
+          phone: profile.phone,
+          fullAddress: profile.full_address,
+          provinceName: profile.province_name,
+          districtName: profile.district_name,
+          addressLine: profile.address_line,
+        } : null,
+      };
+    }),
+  });
+});
+
+// PATCH /admin/owner-approvals/:id - Approve or reject an owner account
+adminRoutes.patch("/owner-approvals/:id", requireAuth, requireAdmin, async (c) => {
+  const userId = c.req.param("id");
+  const currentUser = c.get("user");
+  const parsed = await c.req.json().catch(() => ({}));
+  const validation = ownerApprovalSchema.safeParse(parsed);
+  if (!validation.success) return c.json({ error: "Invalid approval action" }, 400);
+
+  const { data: targetUser, error: findError } = await supabaseAdmin
+    .from("users")
+    .select("id,email,role,status,is_profile_completed")
+    .eq("id", userId)
+    .single();
+
+  if (findError || !targetUser) return c.json({ error: "User not found" }, 404);
+  if (targetUser.role !== "OWNER") return c.json({ error: "Only OWNER accounts require approval" }, 400);
+  if (currentUser.id === userId) return c.json({ error: "Cannot approve/reject yourself" }, 400);
+
+  const nextStatus = validation.data.action === "approve" ? "ACTIVE" : "REJECTED";
+  const payload = {
+    status: nextStatus,
+    is_profile_completed: true,
+    onboarding_step: validation.data.action === "approve" ? "DONE" : "PENDING_APPROVAL",
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: updatedUser, error: updateError } = await supabaseAdmin
+    .from("users")
+    .update(payload)
+    .eq("id", userId)
+    .select("id,email,role,status,is_profile_completed,onboarding_step")
+    .single();
+
+  if (updateError) return jsonDbError(c, updateError, "Failed to update owner approval", 400);
+
+  if (nextStatus === "REJECTED") {
+    await supabaseAdmin
+      .from("refresh_tokens")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .is("revoked_at", null);
+  }
+  clearAuthCacheForUser(userId);
+
+  await writeAudit(c, {
+    action: validation.data.action === "approve" ? "owner_approved" : "owner_rejected",
+    resourceType: "user",
+    resourceId: userId,
+    beforeValue: { status: targetUser.status },
+    afterValue: { status: nextStatus },
+    reason: validation.data.reason || null,
+    riskLevel: validation.data.action === "reject" ? "medium" : "low",
+  });
+
+  return c.json({ success: true, user: updatedUser });
 });
 
 // PATCH /admin/users/:id/role - Update user role
@@ -421,12 +530,7 @@ adminRoutes.delete("/users/:id", requireAuth, requireAdmin, async (c) => {
     })));
     return c.json({
       error: "Không thể xóa sạch dữ liệu tài khoản.",
-      details: purgeErrors.map((item) => ({
-        table: item.table,
-        column: item.column,
-        message: item.error?.message,
-        code: item.error?.code,
-      })),
+      details: purgeErrors.map((item) => ({ table: item.table, column: item.column, message: item.error?.message, code: item.error?.code })),
     }, 500);
   }
 

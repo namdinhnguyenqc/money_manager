@@ -20,7 +20,10 @@ import categoriesRoutes from "./routes/categories.js";
 import bankConfigRoutes from "./routes/bankConfig.js";
 import paymentChannelsRoutes from "./routes/paymentChannels.js";
 import sepayWebhookRoutes from "./routes/sepayWebhook.js";
+import zaloRoutes from "./routes/zalo.js";
 import type { AppEnv } from "./types.js";
+import tenantAuthRoutes from "./routes/tenantAuth.js";
+import tenantApiRoutes from "./routes/tenantApi.js";
 
 import { requireCompletedProfile } from "./middleware/requireCompletedProfile.js";
 
@@ -53,6 +56,7 @@ const privatePathPrefixes = [
   "/trading",
   "/bank-config",
   "/payment-channels",
+  "/tenant",
 ];
 
 app.use("*", async (c, next) => {
@@ -121,6 +125,8 @@ app.route("/locations", locationRoutes);
 app.route("/public", publicRoutes);
 app.route("/webhooks/sepay", sepayWebhookRoutes);
 app.route("/admin", adminRoutes);
+app.route("/tenant-auth", tenantAuthRoutes);
+app.route("/tenant", tenantApiRoutes);
 import { requireAuth } from "./middleware/auth.js";
 
 app.use("/owner/*", requireAuth, requireCompletedProfile);
@@ -139,6 +145,7 @@ app.route("/invoices", invoicesRoutes);
 app.route("/trading", tradingRoutes);
 app.route("/bank-config", bankConfigRoutes);
 app.route("/payment-channels", paymentChannelsRoutes);
+app.route("/api", zaloRoutes);
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
 app.onError((err, c) => {

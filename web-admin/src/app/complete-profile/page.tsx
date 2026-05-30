@@ -32,7 +32,7 @@ export default function CompleteProfilePage() {
       const res = await getMyProfile();
       setProfileState(res);
       if (res.user?.isProfileCompleted) {
-        router.replace("/owner");
+        router.replace(res.user?.approvalStatus === "PENDING_APPROVAL" || res.user?.status === "PENDING_APPROVAL" ? "/pending-approval" : "/owner");
       }
     } catch (err: any) {
       setError(err?.message || "Không tải được hồ sơ. Vui lòng thử lại.");
@@ -62,12 +62,14 @@ export default function CompleteProfilePage() {
           role: res.user.role,
           name: res.user.name,
           email: res.user.email,
+          status: res.user.status,
+          approvalStatus: res.user.approvalStatus,
           isProfileCompleted: true,
-          onboardingStep: "DONE",
+          onboardingStep: res.user.onboardingStep,
         });
       }
-      setToast("Hoàn tất hồ sơ thành công.");
-      router.replace("/owner");
+      setToast("Đã gửi hồ sơ cho admin duyệt.");
+      router.replace("/pending-approval");
     } catch (err: any) {
       if (err instanceof ApiClientError && err.fieldErrors) {
         setServerErrors(Object.fromEntries(Object.entries(err.fieldErrors).map(([key, value]) => [key, value?.[0] || "Dữ liệu không hợp lệ"])));

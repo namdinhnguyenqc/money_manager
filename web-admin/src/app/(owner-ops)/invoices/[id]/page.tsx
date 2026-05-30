@@ -3,10 +3,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, PencilLine, Send, Wallet } from "lucide-react";
+import { ArrowLeft, Check, Copy, PencilLine, Send, ShieldCheck, Wallet } from "lucide-react";
 import StatusBadge from "@/components/ops/StatusBadge";
 import { BankConfig, Invoice, Transaction, buildInvoiceQrUrl, formatMoney, getInvoiceRemainingAmount, loadBankConfig, loadInvoice, normalizeInvoiceStatus, loadTransactions, loadSettingsMap } from "@/lib/rentalOps";
-import { History, CreditCard, QrCode, ArrowRight } from "lucide-react";
+import { History, QrCode, ArrowRight } from "lucide-react";
+import ZaloNotificationSection from "@/components/ZaloNotificationSection";
 
 export default function InvoiceDetailPage() {
   const { id } = useParams();
@@ -16,6 +17,7 @@ export default function InvoiceDetailPage() {
   const [bankConfig, setBankConfig] = useState<BankConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [copiedPaymentField, setCopiedPaymentField] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -71,6 +73,14 @@ export default function InvoiceDetailPage() {
     (paymentBankId && paymentAccountNo
       ? `https://img.vietqr.io/image/${String(paymentBankId).replace(/\s/g, "")}-${String(paymentAccountNo).replace(/\s/g, "")}-compact2.png?amount=${remainingAmount || invoice.total_amount}&addInfo=${encodeURIComponent(paymentCode)}`
       : "");
+  const paymentAmount = remainingAmount || Number(invoice.total_amount || 0);
+  const paymentProvider = paymentChannel?.provider === "sepay" ? "SePay tự động" : "Chuyển khoản";
+  const copyPaymentValue = async (field: string, value: string) => {
+    if (!value) return;
+    await navigator.clipboard.writeText(value);
+    setCopiedPaymentField(field);
+    window.setTimeout(() => setCopiedPaymentField(null), 1500);
+  };
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -141,40 +151,78 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
 
-        {/* Bank Info */}
-        <div className="rounded-[8px] border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500">Thông tin chuyển khoản</h3>
-            <CreditCard size={18} className="text-slate-400" />
+        {/* SePay / Bank Info */}
+        <div className="overflow-hidden rounded-[8px] border border-blue-200 bg-white shadow-sm">
+          <div className="border-b border-blue-100 bg-blue-50/70 px-5 py-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-2.5 py-1 text-[11px] font-bold text-blue-700">
+                  <ShieldCheck size={13} />
+                  {paymentProvider}
+                </div>
+                <h3 className="mt-3 text-base font-bold text-slate-950">Mã thanh toán SePay</h3>
+                <p className="mt-1 text-xs font-medium text-slate-600">Khách cần chuyển đúng số tiền và nội dung bên dưới để hệ thống tự gạch nợ.</p>
+              </div>
+              <QrCode size={22} className="mt-1 text-blue-600" />
+            </div>
           </div>
-          <div className="flex gap-4">
-            <div className="flex-1 space-y-3">
-              <div className="rounded-lg bg-slate-50 p-3 text-sm">
-                <p className="font-bold text-blue-700">{paymentBankId || "Chưa cấu hình ngân hàng"}</p>
-                <p className="mt-1 font-semibold">{paymentAccountNo || "Chưa có số tài khoản"}</p>
-                <p className="text-xs text-slate-500 uppercase">{paymentAccountName || "Cập nhật trong cài đặt"}</p>
+
+          <div className="grid gap-0 md:grid-cols-[1fr_176px]">
+            <div className="space-y-3 p-5">
+              <CopyRow
+                label="Nội dung chuyển khoản"
+                value={paymentCode || "Chưa có mã"}
+                mono
+                highlighted
+                copied={copiedPaymentField === "code"}
+                onCopy={() => copyPaymentValue("code", paymentCode)}
+              />
+              <CopyRow
+                label="Số tiền cần chuyển"
+                value={`${formatMoney(paymentAmount)} đ`}
+                copied={copiedPaymentField === "amount"}
+                onCopy={() => copyPaymentValue("amount", String(Math.round(paymentAmount)))}
+              />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <CopyRow
+                  label="Số tài khoản"
+                  value={paymentAccountNo || "Chưa có số tài khoản"}
+                  mono
+                  copied={copiedPaymentField === "account"}
+                  onCopy={() => copyPaymentValue("account", paymentAccountNo)}
+                />
+                <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-3">
+                  <div className="text-[11px] font-semibold text-slate-500">Ngân hàng / Chủ tài khoản</div>
+                  <div className="mt-1 text-sm font-bold text-slate-950">{paymentBankId || "Chưa cấu hình"}</div>
+                  <div className="mt-0.5 truncate text-xs font-semibold uppercase text-slate-500">{paymentAccountName || "Cập nhật trong cài đặt"}</div>
+                </div>
               </div>
-              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs">
-                <div className="font-semibold text-slate-500">Nội dung chuyển khoản</div>
-                <div className="mt-1 font-mono text-sm font-black text-blue-700">{paymentCode || "Chưa có mã"}</div>
-              </div>
-              <p className="text-[11px] font-bold italic text-red-600 leading-tight">Quét QR hoặc nhập đúng mã trên để hệ thống tự ghi nhận phiếu thu.</p>
               <Link href={`/invoices/${invoice.id}/receipt`} target="_blank" className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline">
                 Xem bản in đầy đủ <ArrowRight size={12} />
               </Link>
             </div>
-            {qrUrl ? (
-              <div className="shrink-0 rounded-xl border border-slate-200 p-2 bg-white shadow-md">
-                <img src={qrUrl} alt="Payment QR" className="w-32 h-32 object-contain" />
-              </div>
-            ) : (
-              <div className="shrink-0 rounded-xl border border-slate-200 p-2 bg-white shadow-md flex h-32 w-32 items-center justify-center text-center text-xs text-slate-400">
-                Chưa cấu hình QR
-              </div>
-            )}
+            <div className="border-t border-slate-100 bg-slate-50 p-5 md:border-l md:border-t-0">
+              {qrUrl ? (
+                <div className="rounded-[8px] border border-slate-200 bg-white p-2 shadow-sm">
+                  <img src={qrUrl} alt="Payment QR" className="aspect-square w-full object-contain" />
+                </div>
+              ) : (
+                <div className="flex aspect-square w-full items-center justify-center rounded-[8px] border border-dashed border-slate-300 bg-white p-4 text-center text-xs font-semibold text-slate-400">
+                  Chưa cấu hình QR
+                </div>
+              )}
+              <p className="mt-3 text-center text-[11px] font-semibold text-slate-500">VietQR tự sinh theo mã hóa đơn</p>
+            </div>
           </div>
         </div>
       </div>
+
+      <ZaloNotificationSection 
+        invoice={invoice} 
+        onStatusChange={() => {
+          loadInvoice(String(id)).then(setInvoice).catch(() => {});
+        }} 
+      />
 
       {(invoice.paid_amount || 0) > 0 ? (
         <div className="mt-5 space-y-4">
@@ -239,4 +287,25 @@ export default function InvoiceDetailPage() {
 
 function Info({ label, value }: { label: string; value: React.ReactNode }) {
   return <div className="rounded-[8px] border border-slate-200 bg-white p-4 shadow-sm"><div className="text-xs font-medium text-slate-500">{label}</div><div className="mt-1 font-semibold text-slate-950">{value}</div></div>;
+}
+
+function CopyRow({ label, value, onCopy, copied, mono = false, highlighted = false }: { label: string; value: string; onCopy: () => void; copied: boolean; mono?: boolean; highlighted?: boolean }) {
+  return (
+    <div className={`rounded-[8px] border p-3 ${highlighted ? "border-blue-200 bg-blue-50" : "border-slate-200 bg-slate-50"}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold text-slate-500">{label}</div>
+          <div className={`mt-1 break-all text-sm font-bold ${highlighted ? "text-blue-700" : "text-slate-950"} ${mono ? "font-mono" : ""}`}>{value}</div>
+        </div>
+        <button
+          type="button"
+          onClick={onCopy}
+          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border text-slate-500 transition-colors ${copied ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white hover:text-blue-700"}`}
+          aria-label={`Sao chép ${label}`}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+        </button>
+      </div>
+    </div>
+  );
 }

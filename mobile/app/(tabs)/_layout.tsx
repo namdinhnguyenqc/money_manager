@@ -5,12 +5,15 @@
  */
 
 import { Tabs } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, Image } from 'react-native';
+import { Platform, Image, TouchableOpacity } from 'react-native';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 
 export default function TabLayout() {
+  const router = useRouter();
+
   return (
     <Tabs
       screenOptions={{
@@ -76,6 +79,15 @@ export default function TabLayout() {
         name="facilities"
         options={{
           title: 'Dãy trọ',
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => router.push('/facility/new')}
+              style={{ width: 36, height: 36, marginRight: 16, alignItems: 'center', justifyContent: 'center' }}
+              activeOpacity={0.72}
+            >
+              <Ionicons name="add-circle" size={24} color={Colors.primary} />
+            </TouchableOpacity>
+          ),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="business-outline" size={size} color={color} />
           ),

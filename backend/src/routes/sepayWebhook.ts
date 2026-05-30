@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { env } from "../config/env.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 import { applyInvoicePayment } from "../services/invoicePayments.js";
-import { extractPaymentCodeFromPayload } from "../utils/paymentCodes.js";
+import { getTenantUserIdByContractId, notifyPaymentSuccess } from "../services/notificationService.js";
 import type { AppEnv } from "../types.js";
 
 const sepayWebhookRoutes = new Hono<AppEnv>();
@@ -22,20 +22,31 @@ const timingSafeEqualText = (left: string, right: string) => {
 const verifySignature = (rawBody: string, signature?: string, timestamp?: string, customSecret?: string | null) => {
   const activeSecret = customSecret || env.SEPAY_WEBHOOK_SECRET;
   if (!activeSecret) return true;
-  if (!signature || !timestamp || !signature.toLowerCase().startsWith("sha256=")) return false;
+  if (!signature) return false;
 
-  const expected = `sha256=${crypto
-    .createHmac("sha256", activeSecret)
-    .update(`${timestamp}.${rawBody}`)
-    .digest("hex")}`;
+  const cleaned = signature.replace(/^sha256=/i, "");
+  const candidates = [
+    crypto.createHmac("sha256", activeSecret).update(`${timestamp || ""}.${rawBody}`).digest("hex"),
+    crypto.createHmac("sha256", activeSecret).update(rawBody).digest("hex"),
+  ];
 
-  return timingSafeEqualText(expected, signature);
+  return candidates.some((candidate) => timingSafeEqualText(candidate, cleaned));
 };
 
 const verifyApiKey = (apiKey?: string, customApiKey?: string | null) => {
   const activeApiKey = customApiKey || env.SEPAY_API_KEY;
   if (!activeApiKey) return true;
   return apiKey === activeApiKey;
+};
+
+const findPaymentCode = (payload: any) => {
+  const prefix = env.SEPAY_PAYMENT_PREFIX || "TCINV";
+  const direct = String(payload.code || "").trim();
+  if (direct.toUpperCase().startsWith(prefix.toUpperCase())) return direct.toUpperCase();
+
+  const content = String(payload.content || payload.description || "");
+  const match = content.toUpperCase().match(new RegExp(`${prefix.toUpperCase()}[A-Z0-9]+`));
+  return match?.[0] || "";
 };
 
 const insertEvent = async (payload: Record<string, unknown>) => {
@@ -60,7 +71,7 @@ sepayWebhookRoutes.post("/", async (c) => {
     return c.json({ success: false, error: "Invalid JSON payload" }, 400);
   }
 
-  const paymentCode = extractPaymentCodeFromPayload(payload);
+  const paymentCode = findPaymentCode(payload);
   let userWebhookSecret: string | null = null;
   let userApiKey: string | null = null;
 
@@ -244,6 +255,53 @@ sepayWebhookRoutes.post("/", async (c) => {
       error_message: paymentRes.error || "Failed to apply payment",
     });
     return jsonOk();
+  }
+
+  // Success path: Trigger FCM notification and create auto expense for tenant
+  try {
+    const tenantUserId = await getTenantUserIdByContractId(invoice.contract_id);
+    if (tenantUserId) {
+      // 1. Notify the tenant
+      await notifyPaymentSuccess(tenantUserId, invoice, transferAmount);
+
+      // 2. Look up the default "Tiền phòng" category for this tenant
+      let categoryId: string | null = null;
+      const { data: cat } = await supabaseAdmin
+        .from("tenant_categories")
+        .select("id")
+        .eq("user_id", tenantUserId)
+        .eq("name", "Tiền phòng")
+        .eq("type", "expense")
+        .maybeSingle();
+
+      if (cat) {
+        categoryId = cat.id;
+      } else {
+        const { data: firstExpense } = await supabaseAdmin
+          .from("tenant_categories")
+          .select("id")
+          .eq("user_id", tenantUserId)
+          .eq("type", "expense")
+          .limit(1)
+          .maybeSingle();
+        categoryId = firstExpense?.id || null;
+      }
+
+      // 3. Create the expense transaction for tenant
+      await supabaseAdmin.from("tenant_transactions").insert({
+        user_id: tenantUserId,
+        category_id: categoryId,
+        type: "expense",
+        amount: transferAmount,
+        description: `Thanh toán hóa đơn phòng trọ ${invoice.month}/${invoice.year} (Tự động)`,
+        date: new Date().toISOString().split("T")[0],
+        source: "auto_invoice",
+        reference_id: invoice.id,
+      });
+      console.log(`Auto expense transaction created for Tenant User ${tenantUserId}`);
+    }
+  } catch (notifyErr: any) {
+    console.error("Non-blocking error during tenant FCM notification or auto expense creation:", notifyErr.message);
   }
 
   const status = paymentRes.data.overpaidAmount > 0 ? "overpaid" : paymentRes.data.status;

@@ -58,6 +58,23 @@ export default function NewDepositScreen() {
     setToast({ message, type });
   };
 
+  const selectedWallet = wallets.find((w) => String(w.id) === String(selectedWalletId));
+  const selectedRoomPrice = Number(selectedRoom?.price || 0);
+  const amountNumber = Number(form.amount || 0);
+  const suggestedAmounts = Array.from(new Set([
+    selectedRoomPrice,
+    Math.round(selectedRoomPrice / 2),
+    amountNumber,
+  ].filter((value) => value > 0)));
+
+  const setAmountDigits = (value: string) => {
+    setForm((prev) => ({ ...prev, amount: value.replace(/\D/g, '') }));
+  };
+
+  const setPhoneDigits = (value: string) => {
+    setForm((prev) => ({ ...prev, tenantPhone: value.replace(/\D/g, '').slice(0, 10) }));
+  };
+
   const formatDate = (date: Date): string => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -83,11 +100,11 @@ export default function NewDepositScreen() {
           if (preselected) {
             setSelectedRoom(preselected);
             // Default cọc amount is usually half or full room price
-            setForm((prev) => ({ ...prev, amount: String(preselected.price ? preselected.price / 2 : '') }));
+            setForm((prev) => ({ ...prev, amount: String(preselected.price ? Math.round(preselected.price / 2) : '') }));
           }
         } else if (vacantRooms.length > 0) {
           setSelectedRoom(vacantRooms[0]);
-          setForm((prev) => ({ ...prev, amount: String(vacantRooms[0].price ? vacantRooms[0].price / 2 : '') }));
+          setForm((prev) => ({ ...prev, amount: String(vacantRooms[0].price ? Math.round(vacantRooms[0].price / 2) : '') }));
         }
 
         setWallets(walletsList);
@@ -147,7 +164,7 @@ export default function NewDepositScreen() {
       });
 
       showToast('Ghi nhận đặt cọc giữ phòng thành công!', 'success');
-      router.back();
+      router.replace('/deposit' as any);
     } catch (e: any) {
       Alert.alert('Lỗi tạo đặt cọc', e?.message || 'Không thể tạo phiếu cọc giữ phòng.');
     } finally {
@@ -176,9 +193,23 @@ export default function NewDepositScreen() {
       />
 
       <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
-        {/* Room Picker */}
+        <View style={styles.heroPanel}>
+          <Text style={styles.eyebrow}>Đặt cọc giữ phòng</Text>
+          <Text style={styles.heroTitle}>Ghi nhận khách đã cọc, phòng tự chuyển sang đã giữ.</Text>
+          <View style={styles.heroMetaRow}>
+            <View style={styles.heroMetaItem}>
+              <Text style={styles.heroMetaLabel}>Phòng</Text>
+              <Text style={styles.heroMetaValue}>{selectedRoom?.name || 'Chưa chọn'}</Text>
+            </View>
+            <View style={styles.heroMetaItem}>
+              <Text style={styles.heroMetaLabel}>Tiền cọc</Text>
+              <Text style={styles.heroMetaValue}>{amountNumber > 0 ? formatMoney(amountNumber) : 'Chưa nhập'}</Text>
+            </View>
+          </View>
+        </View>
+
         <Card style={styles.card}>
-          <Text style={styles.sectionHeader}>1. Chọn phòng nhận cọc giữ</Text>
+          <Text style={styles.sectionHeader}>Phòng nhận cọc</Text>
           {rooms.length === 0 ? (
             <Text style={styles.emptyText}>Không còn phòng trống nào khả dụng để nhận cọc.</Text>
           ) : (
@@ -191,7 +222,7 @@ export default function NewDepositScreen() {
                     style={[styles.pickerItem, isSelected && styles.pickerItemActive]}
                     onPress={() => {
                       setSelectedRoom(r);
-                      setForm((prev) => ({ ...prev, amount: String(r.price ? r.price / 2 : '') }));
+                      setForm((prev) => ({ ...prev, amount: String(r.price ? Math.round(r.price / 2) : '') }));
                     }}
                   >
                     <Text style={[styles.pickerText, isSelected && styles.pickerTextActive]}>
@@ -204,51 +235,72 @@ export default function NewDepositScreen() {
           )}
         </Card>
 
-        {/* Tenant Form */}
         <Card style={styles.card}>
-          <Text style={styles.sectionHeader}>2. Thông tin khách cọc</Text>
+          <Text style={styles.sectionHeader}>Khách đặt cọc</Text>
           <Input
-            label="Họ tên khách hàng *"
+            label="Họ tên khách"
             placeholder="Ví dụ: Nguyễn Văn A"
+            required
             value={form.tenantName}
             onChangeText={(v) => setForm({ ...form, tenantName: v })}
           />
           <View style={{ height: 12 }} />
 
           <Input
-            label="Số điện thoại khách (không bắt buộc)"
+            label="Số điện thoại"
             placeholder="Nhập 10 số"
             keyboardType="phone-pad"
             maxLength={10}
             value={form.tenantPhone}
-            onChangeText={(v) => setForm({ ...form, tenantPhone: v })}
+            onChangeText={setPhoneDigits}
+            hint="Không bắt buộc, nhưng nên nhập để dễ tìm lại khi ký hợp đồng."
           />
         </Card>
 
-        {/* Deposit details */}
         <Card style={styles.card}>
-          <Text style={styles.sectionHeader}>3. Thiết lập tiền đặt cọc</Text>
+          <Text style={styles.sectionHeader}>Tiền và ngày nhận cọc</Text>
 
           <Input
-            label="Số tiền cọc giữ phòng (₫) *"
+            label="Số tiền cọc"
             keyboardType="numeric"
+            required
             value={form.amount}
-            onChangeText={(v) => setForm({ ...form, amount: v })}
+            onChangeText={setAmountDigits}
           />
+          {suggestedAmounts.length > 0 && (
+            <View style={styles.quickAmountRow}>
+              {suggestedAmounts.map((value) => (
+                <TouchableOpacity
+                  key={value}
+                  style={[styles.quickAmount, amountNumber === value && styles.quickAmountActive]}
+                  onPress={() => setAmountDigits(String(value))}
+                >
+                  <Text style={[styles.quickAmountText, amountNumber === value && styles.quickAmountTextActive]}>
+                    {formatMoney(value)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
           <View style={{ height: 12 }} />
 
           <Input
-            label="Ngày nhận cọc (YYYY-MM-DD) *"
+            label="Ngày nhận cọc"
             placeholder="Ví dụ: 2026-05-21"
+            required
             value={form.depositDate}
             onChangeText={(v) => setForm({ ...form, depositDate: v })}
           />
         </Card>
 
-        {/* Wallet Selection */}
-        {wallets.length > 0 && (
-          <Card style={styles.card}>
-            <Text style={styles.sectionHeader}>4. Ví nhận tiền đặt cọc</Text>
+        <Card style={styles.card}>
+          <Text style={styles.sectionHeader}>Ví nhận tiền</Text>
+          {wallets.length === 0 ? (
+            <View style={styles.noticeBox}>
+              <Ionicons name="wallet-outline" size={18} color={Colors.warning} />
+              <Text style={styles.noticeText}>Chưa có ví. Phiếu cọc vẫn được tạo, nhưng chưa ghi vào sổ quỹ.</Text>
+            </View>
+          ) : (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerRow}>
               {wallets.map((w) => {
                 const isSelected = selectedWalletId === w.id;
@@ -265,10 +317,9 @@ export default function NewDepositScreen() {
                 );
               })}
             </ScrollView>
-          </Card>
-        )}
+          )}
+        </Card>
 
-        {/* Internal note */}
         <Card style={styles.card}>
           <Text style={styles.sectionHeader}>Ghi chú nội bộ</Text>
           <Input
@@ -280,12 +331,31 @@ export default function NewDepositScreen() {
           />
         </Card>
 
-        {/* Submit */}
+        <View style={styles.reviewPanel}>
+          <Text style={styles.reviewTitle}>Kiểm tra trước khi ghi nhận</Text>
+          <View style={styles.reviewRow}>
+            <Text style={styles.reviewLabel}>Phòng</Text>
+            <Text style={styles.reviewValue}>{selectedRoom?.name || 'Chưa chọn'}</Text>
+          </View>
+          <View style={styles.reviewRow}>
+            <Text style={styles.reviewLabel}>Khách</Text>
+            <Text style={styles.reviewValue}>{form.tenantName.trim() || 'Chưa nhập'}</Text>
+          </View>
+          <View style={styles.reviewRow}>
+            <Text style={styles.reviewLabel}>Tiền cọc</Text>
+            <Text style={styles.reviewValue}>{amountNumber > 0 ? formatMoney(amountNumber) : 'Chưa nhập'}</Text>
+          </View>
+          <View style={styles.reviewRow}>
+            <Text style={styles.reviewLabel}>Vào ví</Text>
+            <Text style={styles.reviewValue}>{selectedWallet?.name || 'Không ghi sổ quỹ'}</Text>
+          </View>
+        </View>
+
         <Button
-          title={submitting ? 'Đang tạo phiếu đặt cọc...' : 'Ghi nhận đặt cọc'}
+          title={submitting ? 'Đang ghi nhận...' : 'Xác nhận giữ phòng'}
           variant="primary"
           onPress={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || rooms.length === 0}
           style={styles.submitBtn}
           icon={submitting ? <ActivityIndicator size="small" color="#fff" /> : undefined}
         />
@@ -307,6 +377,13 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 40, gap: 14 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
   loadingText: { marginTop: 12, fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  heroPanel: { backgroundColor: Colors.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: Colors.borderLight },
+  eyebrow: { fontSize: 11, fontFamily: Typography.fontFamily.bold, color: Colors.primary, textTransform: 'uppercase', letterSpacing: 0 },
+  heroTitle: { marginTop: 6, fontSize: 20, lineHeight: 26, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary, letterSpacing: 0 },
+  heroMetaRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  heroMetaItem: { flex: 1, padding: 12, borderRadius: 12, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: Colors.borderLight },
+  heroMetaLabel: { fontSize: 11, fontFamily: Typography.fontFamily.medium, color: Colors.textMuted },
+  heroMetaValue: { marginTop: 4, fontSize: 14, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
   card: { padding: 16, backgroundColor: Colors.surface, borderRadius: 16, borderWidth: 1, borderColor: Colors.borderLight },
   sectionHeader: { fontSize: 15, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary, marginBottom: 12, letterSpacing: -0.3 },
   emptyText: { fontSize: 13, fontFamily: Typography.fontFamily.regular, color: Colors.textMuted, textAlign: 'center', paddingVertical: 10 },
@@ -315,5 +392,17 @@ const styles = StyleSheet.create({
   pickerItemActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
   pickerText: { fontSize: 12, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
   pickerTextActive: { color: Colors.primary },
+  quickAmountRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  quickAmount: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: Colors.borderLight },
+  quickAmountActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
+  quickAmountText: { fontSize: 12, fontFamily: Typography.fontFamily.bold, color: Colors.textSecondary },
+  quickAmountTextActive: { color: Colors.primary },
+  noticeBox: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, backgroundColor: Colors.warningLight },
+  noticeText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  reviewPanel: { padding: 16, borderRadius: 16, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: Colors.borderLight },
+  reviewTitle: { fontSize: 14, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary, marginBottom: 10 },
+  reviewRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 5, gap: 12 },
+  reviewLabel: { fontSize: 12, fontFamily: Typography.fontFamily.medium, color: Colors.textMuted },
+  reviewValue: { flex: 1, textAlign: 'right', fontSize: 12, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
   submitBtn: { marginVertical: 10, paddingVertical: 14 },
 });

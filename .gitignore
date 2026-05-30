@@ -38,3 +38,8 @@ money-manager-mobile/backend/.env
 # Local Scratch and Artifacts
 scratch/
 .vercel
+.env*.local
+*.local
+fetch_render_env.ts
+test_passwords.ts
+test_rpc.ts

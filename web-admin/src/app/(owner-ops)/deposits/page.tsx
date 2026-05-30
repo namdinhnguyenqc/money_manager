@@ -23,6 +23,7 @@ import Input, { Label, Select } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 const pageSize = 10;
 
@@ -133,7 +134,7 @@ export default function DepositsPage() {
             <DepositRow
               key={deposit.id}
               deposit={deposit}
-              onCancelled={() => queryClient.invalidateQueries({ queryKey: ["deposits"] })}
+              onCancelled={() => invalidateOwnerOpsQueries(queryClient, { roomId: deposit.room_id })}
             />
           ))
         )}
@@ -146,8 +147,7 @@ export default function DepositsPage() {
           onClose={() => setFormOpen(false)}
           onCreated={() => {
             setFormOpen(false);
-            queryClient.invalidateQueries({ queryKey: ["deposits"] });
-            queryClient.invalidateQueries({ queryKey: ["rooms"] });
+            invalidateOwnerOpsQueries(queryClient);
           }}
         />
       )}

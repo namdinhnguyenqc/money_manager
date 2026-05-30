@@ -98,7 +98,7 @@ ownerRoutes.get("/boarding-houses", cacheMiddleware(30), async (c) => {
   let query = c
     .get("supabase")
     .from("boarding_houses")
-    .select("*", { count: "exact" })
+    .select("*, rooms(id, status)", { count: "exact" })
     .eq("owner_id", currentUser.id);
 
   if (status) {
@@ -117,18 +117,36 @@ ownerRoutes.get("/boarding-houses", cacheMiddleware(30), async (c) => {
   }
 
   return c.json({
-    data: data?.map((bh) => ({
-      id: bh.id,
-      name: bh.name,
-      address: bh.address,
-      description: bh.description,
-      latitude: bh.latitude,
-      longitude: bh.longitude,
-      status: bh.status,
-      isPublic: bh.is_public,
-      ownerId: bh.owner_id,
-      createdAt: bh.created_at,
-    })),
+    data: data?.map((bh) => {
+      const rooms = Array.isArray(bh.rooms) ? bh.rooms : [];
+      const countByStatus = (statuses: string[]) => rooms.filter((room: any) => {
+        const statusValue = String(room.status || "").toLowerCase();
+        return statuses.includes(statusValue);
+      }).length;
+
+      return {
+        id: bh.id,
+        name: bh.name,
+        address: bh.address,
+        description: bh.description,
+        latitude: bh.latitude,
+        longitude: bh.longitude,
+        status: bh.status,
+        isPublic: bh.is_public,
+        ownerId: bh.owner_id,
+        createdAt: bh.created_at,
+        room_count: rooms.length,
+        roomCount: rooms.length,
+        vacant_count: countByStatus(["vacant", "available"]),
+        vacantCount: countByStatus(["vacant", "available"]),
+        occupied_count: countByStatus(["occupied", "occupied_soon"]),
+        occupiedCount: countByStatus(["occupied", "occupied_soon"]),
+        maintenance_count: countByStatus(["maintenance"]),
+        maintenanceCount: countByStatus(["maintenance"]),
+        reserved_count: countByStatus(["reserved"]),
+        reservedCount: countByStatus(["reserved"]),
+      };
+    }),
     pagination: {
       page: pageNum,
       limit: limitNum,
@@ -408,6 +426,9 @@ ownerRoutes.post("/boarding-houses/:id/rooms", async (c) => {
     return c.json({ error: "Failed to create room" }, 500);
   }
 
+  invalidateCache("/owner/boarding-houses", currentUser.id);
+  invalidateCache("/owner/dashboard-init", currentUser.id);
+
   return c.json(
     {
       id: room.id,
@@ -479,6 +500,9 @@ ownerRoutes.patch("/rooms/:id", async (c) => {
     return c.json({ error: "Failed to update room" }, 500);
   }
 
+  invalidateCache("/owner/boarding-houses", currentUser.id);
+  invalidateCache("/owner/dashboard-init", currentUser.id);
+
   return c.json({
     id: data.id,
     name: data.name,
@@ -528,6 +552,9 @@ ownerRoutes.delete("/rooms/:id", async (c) => {
     console.error("Error deleting room:", error);
     return c.json({ error: "Failed to delete room" }, 500);
   }
+
+  invalidateCache("/owner/boarding-houses", currentUser.id);
+  invalidateCache("/owner/dashboard-init", currentUser.id);
 
   return c.json({ success: true });
 });

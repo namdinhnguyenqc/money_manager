@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Package, TrendingUp, TrendingDown, RefreshCw, Tag, Plus, X } from "lucide-react";
 import { apiGet, apiPost, apiPatch } from "@/utils/apiClient";
 import Button from "@/components/ui/Button";
@@ -11,11 +12,13 @@ import Input, { Label } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ops/EmptyState";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0)) + ' ₫';
 
 export default function OwnerTradingPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [wallets, setWallets] = useState<any[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
@@ -221,7 +224,10 @@ export default function OwnerTradingPage() {
           isOpen={isAddModalOpen} 
           onClose={() => setIsAddModalOpen(false)} 
           walletId={selectedWallet.id}
-          onSuccess={() => loadItems(selectedWallet.id)}
+          onSuccess={async () => {
+            await invalidateOwnerOpsQueries(queryClient);
+            await loadItems(selectedWallet.id);
+          }}
         />
       )}
 
@@ -230,7 +236,10 @@ export default function OwnerTradingPage() {
           isOpen={!!sellModalItem}
           onClose={() => setSellModalItem(null)}
           item={sellModalItem}
-          onSuccess={() => loadItems(selectedWallet?.id)}
+          onSuccess={async () => {
+            await invalidateOwnerOpsQueries(queryClient);
+            await loadItems(selectedWallet?.id);
+          }}
         />
       )}
     </div>

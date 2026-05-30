@@ -8,6 +8,7 @@ import { ArrowLeft, Plus, X, Zap, Droplets, Package, CalendarDays } from "lucide
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import { createInvoiceForContract, currentPeriod, describeServiceType, formatMoney, getServiceUnitLabel, loadContract, loadLatestMeterReadings } from "@/lib/rentalOps";
 import { calculateProratedRent } from "@/utils/rentCalc";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 const period = currentPeriod();
 
@@ -138,10 +139,12 @@ export default function NewInvoicePage() {
       });
     },
     onSuccess: async (invoice) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["invoices"] }),
-        queryClient.invalidateQueries({ queryKey: ["contracts", contractId, "invoices"] }),
-      ]);
+      await invalidateOwnerOpsQueries(queryClient, {
+        facilityId: contract?.facility_id,
+        roomId: contract?.room_id,
+        contractId,
+        invoiceId: invoice?.id,
+      });
       router.push(`/invoices/${invoice.id}`);
     },
     onError: (err: any) => setError(err?.message || "Không tạo được hóa đơn."),

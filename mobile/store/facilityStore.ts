@@ -37,9 +37,13 @@ interface Facility {
   status?: string;
   isPublic?: boolean;
   room_count?: number;
+  roomCount?: number;
   vacant_count?: number;
+  vacantCount?: number;
   occupied_count?: number;
+  occupiedCount?: number;
   maintenance_count?: number;
+  maintenanceCount?: number;
 }
 
 interface FacilityDetail {
@@ -137,7 +141,10 @@ export const useFacilityStore = create<FacilityState>()(
           ]);
 
           const facilityData = facRes?.data ?? facRes;
-          const roomsData = roomsRes?.data ?? [];
+          const roomsData = (roomsRes?.data ?? []).filter((room: any) => {
+            const roomFacilityId = room.boarding_house_id ?? room.boardingHouseId ?? room.building_id ?? room.facility_id;
+            return String(roomFacilityId) === String(facilityId);
+          });
 
           const detailedFacility = {
             ...facilityData,
@@ -184,7 +191,7 @@ export const useFacilityStore = create<FacilityState>()(
       },
     }),
     {
-      name: 'trocare_facility_cache',
+      name: 'trocare_facility_cache_v2',
       storage: createJSONStorage(() => secureStorage),
     }
   )

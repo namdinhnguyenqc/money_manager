@@ -26,6 +26,7 @@ import {
   Transaction
 } from "@/lib/rentalOps";
 import { calculateProratedRent } from "@/utils/rentCalc";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 export default function ContractDetailPage() {
   const { id } = useParams();
@@ -233,11 +234,11 @@ export default function ContractDetailPage() {
           onClose={() => setRefundModalOpen(false)}
           onConfirm={async (data) => {
             await terminateContract(contract, data);
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ["contracts"] }),
-              queryClient.invalidateQueries({ queryKey: ["rooms"] }),
-              queryClient.invalidateQueries({ queryKey: ["contracts", id] }),
-            ]);
+            await invalidateOwnerOpsQueries(queryClient, {
+              facilityId: contract.facility_id,
+              roomId: contract.room_id,
+              contractId: String(id),
+            });
             setRefundModalOpen(false);
           }}
         />
@@ -249,7 +250,11 @@ export default function ContractDetailPage() {
           onClose={() => setEditOpen(false)} 
           onSaved={() => {
             setEditOpen(false);
-            contractQuery.refetch();
+            invalidateOwnerOpsQueries(queryClient, {
+              facilityId: contract.facility_id,
+              roomId: contract.room_id,
+              contractId: String(id),
+            });
           }} 
         />
       )}

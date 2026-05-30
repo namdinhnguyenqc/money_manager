@@ -30,6 +30,7 @@ import Input from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
 import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 const pageSize = 10;
 const currentMonthRange = () => {
@@ -94,8 +95,7 @@ export default function OwnerTransactionsPage() {
     setDeletingId(id);
     try {
       await deleteTransaction(id);
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["wallets"] });
+      await invalidateOwnerOpsQueries(queryClient);
     } catch (err: any) {
       alert(err?.message || "Lỗi khi xóa giao dịch.");
     } finally {
@@ -250,8 +250,7 @@ export default function OwnerTransactionsPage() {
           onClose={() => setFormOpen(false)}
           onSaved={() => {
             setFormOpen(false);
-            queryClient.invalidateQueries({ queryKey: ["transactions"] });
-            queryClient.invalidateQueries({ queryKey: ["wallets"] });
+            invalidateOwnerOpsQueries(queryClient);
           }}
         />
       ) : null}

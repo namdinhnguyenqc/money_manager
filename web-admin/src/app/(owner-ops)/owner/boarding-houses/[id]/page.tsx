@@ -43,6 +43,7 @@ import {
   describeServiceType,
   getServiceUnitLabel,
 } from "@/lib/rentalOps";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 
 const tabs = [
@@ -185,6 +186,7 @@ export default function BoardingHouseOverviewPage() {
   }, [contractRows, contractFilter]);
 
   const refreshWithToast = async (message: string) => {
+    await invalidateOwnerOpsQueries(queryClient, { facilityId: buildingId });
     await load();
     setToast(message);
     window.setTimeout(() => setToast(""), 2500);
@@ -201,7 +203,6 @@ export default function BoardingHouseOverviewPage() {
     try {
       await bulkCollectPayments(selectedInvoices, walletId);
       setSelectedInvoices([]);
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       await refreshWithToast(`Đã thanh toán hàng loạt ${selectedInvoices.length} hóa đơn.`);
     } catch (err: any) {
       setError(err?.message || "Lỗi khi thanh toán hàng loạt.");

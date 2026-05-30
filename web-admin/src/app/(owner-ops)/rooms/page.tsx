@@ -17,7 +17,7 @@ import {
   currentPeriod,
   createOwnerRoom,
 } from "@/lib/rentalOps";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
@@ -25,11 +25,13 @@ import Input, { Label, Select } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
 import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 const roomFilters = ["Tất cả", "Trống", "Đang thuê", "Bảo trì", "Sắp hết HĐ", "Đã cọc"];
 const pageSize = 10;
 
 export default function AllRoomsPage() {
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const facilityIdFilter = searchParams.get("facility_id") || "";
   const [roomFilter, setRoomFilter] = useState("Tất cả");
@@ -80,7 +82,10 @@ export default function AllRoomsPage() {
     if (!window.confirm(`Xóa phòng ${room.name}? Hành động này không thể hoàn tác.`)) return;
     try {
       await deleteRoom(room.id);
-      await roomsQuery.refetch();
+      await invalidateOwnerOpsQueries(queryClient, {
+        facilityId: getFacilityId(room),
+        roomId: room.id,
+      });
       showToast("Đã xóa phòng.");
     } catch (err: any) {
       setError(err?.message || "Không xóa được phòng.");
@@ -222,7 +227,9 @@ export default function AllRoomsPage() {
           onClose={() => setIsAddModalOpen(false)} 
           onSaved={() => {
             setIsAddModalOpen(false);
-            roomsQuery.refetch();
+            invalidateOwnerOpsQueries(queryClient, {
+              facilityId: facilityIdFilter || undefined,
+            });
             showToast("Đã thêm phòng mới thành công!");
           }}
         />
