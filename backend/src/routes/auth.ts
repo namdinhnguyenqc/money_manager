@@ -56,6 +56,67 @@ const getCookieValue = (cookieHeader: string | undefined, name: string): string 
   return decodeURIComponent(cookie.slice(name.length + 1));
 };
 
+const deleteUserScopedRows = async (table: string, column: string, userId: string) => {
+  const { error } = await supabaseAdmin.from(table).delete().eq(column, userId);
+  if (!error) return null;
+  if (["42P01", "42703", "PGRST204", "PGRST205"].includes(error.code)) return null;
+  if (String(error.message || "").includes("schema cache")) return null;
+  return error;
+};
+
+const purgeDeletedUserForSignup = async (userId: string) => {
+  const orderedDeletes: Array<[string, string?]> = [
+    ["zalo_notification_logs", "owner_id"],
+    ["zalo_templates", "owner_id"],
+    ["zalo_connections", "owner_id"],
+    ["payment_webhook_events"],
+    ["payment_channels"],
+    ["deposit_refunds"],
+    ["invoice_payments"],
+    ["invoice_items"],
+    ["meter_readings"],
+    ["contract_services"],
+    ["deposits"],
+    ["invoices"],
+    ["contracts"],
+    ["tenant_accounts"],
+    ["tenant_sessions"],
+    ["tenant_notifications"],
+    ["tenant_devices"],
+    ["tenants"],
+    ["services"],
+    ["rooms"],
+    ["room_types"],
+    ["boarding_houses", "owner_id"],
+    ["trading_items"],
+    ["trading_categories"],
+    ["transactions"],
+    ["categories"],
+    ["wallets"],
+    ["bank_configs"],
+    ["social_accounts"],
+    ["user_profiles"],
+    ["refresh_tokens"],
+    ["login_logs"],
+    ["fcm_tokens"],
+    ["notifications"],
+  ];
+
+  for (const [table, column] of orderedDeletes) {
+    const error = await deleteUserScopedRows(table, column || "user_id", userId);
+    if (error) throw error;
+  }
+
+  const { error } = await supabaseAdmin.from("users").delete().eq("id", userId);
+  if (error) throw error;
+
+  try {
+    await supabaseAdmin.auth.admin.deleteUser(userId);
+  } catch (error) {
+    console.warn("Unable to delete legacy auth.users record during signup reset.", error);
+  }
+};
+
 const googleAuthSchema = z.object({
   idToken: z.string().min(10),
 });
@@ -459,9 +520,20 @@ async function upsertOwnerGoogleUser(input: {
     existingUser = userByEmail;
   }
 
-  const preFetchedProfile = existingUser?.user_profiles
+  let preFetchedProfile = existingUser?.user_profiles
     ? (Array.isArray(existingUser.user_profiles) ? existingUser.user_profiles[0] : existingUser.user_profiles)
     : null;
+
+  if (existingUser?.status === "DELETED") {
+    try {
+      await purgeDeletedUserForSignup(existingUser.id);
+      existingUser = null;
+      preFetchedProfile = null;
+    } catch (error) {
+      console.error("Failed to purge deleted owner before signup:", safeSupabaseError(error));
+      return { error: { code: "SERVER_ERROR", message: "Không thể làm mới tài khoản đã xóa. Vui lòng thử lại." }, status: 500 };
+    }
+  }
 
   if (!existingUser) {
     // Automatically allow any email to be an owner when logging in via this portal
@@ -509,10 +581,6 @@ async function upsertOwnerGoogleUser(input: {
     if (existingUser.status === "BLOCKED") {
       return { error: { code: "ACCOUNT_BLOCKED", message: "Tài khoản owner đã bị khóa." }, status: 403 };
     }
-    if (existingUser.status === "DELETED") {
-      return { error: { code: "ACCOUNT_DELETED", message: "Tài khoản owner đã bị xóa." }, status: 403 };
-    }
-
     // Check if user info actually changed
     const needsUpdate = 
       existingUser.google_id !== googleId ||
