@@ -8,6 +8,7 @@ import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import StatusBadge from "@/components/ops/StatusBadge";
 import { Invoice, formatMoney, loadInvoice, loadWallets, normalizeInvoiceStatus, recordPayment } from "@/lib/rentalOps";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 const today = new Date().toISOString().slice(0, 10);
 const methods = ["Tiền mặt", "Chuyển khoản", "Ví điện tử"] as const;
@@ -68,12 +69,11 @@ export default function NewPaymentPage() {
       });
     },
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["invoices"] }),
-        queryClient.invalidateQueries({ queryKey: ["payments"] }),
-        queryClient.invalidateQueries({ queryKey: ["invoices", invoiceId] }),
-        queryClient.invalidateQueries({ queryKey: ["transactions"] }),
-      ]);
+      await invalidateOwnerOpsQueries(queryClient, {
+        invoiceId,
+        contractId: invoice?.contract_id,
+        roomId: invoice?.room_id,
+      });
       setSuccess("Thu tiền thành công.");
       window.setTimeout(() => router.push(`/invoices/${invoiceId}`), 700);
     },

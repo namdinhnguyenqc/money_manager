@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { RefreshCw, Send, Trash2, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import StatusBadge from "@/components/ops/StatusBadge";
 import { 
   BoardingHouse, 
@@ -14,13 +15,14 @@ import {
   loadPendingBilling,
   normalizeInvoiceStatus 
 } from "@/lib/rentalOps";
-import { apiPost, apiDelete } from "@/utils/apiClient";
+import { apiGet, apiPost, apiDelete } from "@/utils/apiClient";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 import BulkInvoiceModal from "@/components/ops/BulkInvoiceModal";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 const statusTabs = ["Tất cả", "Chưa lập HĐ", "Chưa gửi", "Đã gửi", "Quá hạn", "Đã thanh toán"];
 const pageSize = 10;
@@ -36,6 +38,7 @@ const matchesStatus = (invoice: Invoice, filter: string) => {
 };
 
 export default function InvoicesPage() {
+  const queryClient = useQueryClient();
   const [houses, setHouses] = useState<BoardingHouse[]>([]);
   const [selectedHouse, setSelectedHouse] = useState("all");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -47,6 +50,13 @@ export default function InvoicesPage() {
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
+
+  // Zalo states
+  const [zaloLogs, setZaloLogs] = useState<any[]>([]);
+  const [missingPhoneInvoices, setMissingPhoneInvoices] = useState<any[]>([]);
+  const [showPhonePromptModal, setShowPhonePromptModal] = useState(false);
+  const [phonesInput, setPhonesInput] = useState<Record<string, string>>({});
+  const [sendingZalo, setSendingZalo] = useState(false);
   
   const [period, setPeriod] = useState(() => {
     const now = new Date();
@@ -58,14 +68,18 @@ export default function InvoicesPage() {
     setError("");
     try {
       const hId = selectedHouse === "all" ? undefined : selectedHouse;
-      const [nextHouses, nextInvoices, nextPending] = await Promise.all([
+      const [nextHouses, nextInvoices, nextPending, zaloStatusRes] = await Promise.all([
         loadBoardingHouses(), 
         loadInvoices(hId),
-        loadPendingBilling(period.month, period.year, hId)
+        loadPendingBilling(period.month, period.year, hId),
+        apiGet<any>("/api/integrations/zalo-oa/status").catch(() => null)
       ]);
       setHouses(nextHouses);
       setInvoices(nextInvoices.filter(i => i.month === period.month && i.year === period.year));
       setPendingRooms(nextPending);
+      if (zaloStatusRes && zaloStatusRes.logs) {
+        setZaloLogs(zaloStatusRes.logs);
+      }
     } catch (err: any) {
       setError(err?.message || "Không tải được dữ liệu.");
     } finally {
@@ -108,7 +122,12 @@ export default function InvoicesPage() {
       }
     }
     setSelected({});
-    if (!hasError) load();
+    if (!hasError) {
+      await invalidateOwnerOpsQueries(queryClient, {
+        facilityId: selectedHouse === "all" ? undefined : selectedHouse,
+      });
+      await load();
+    }
   };
 
   const handleDeleteSingle = async (id: string) => {
@@ -116,7 +135,11 @@ export default function InvoicesPage() {
     setError("");
     try {
       await apiDelete(`/invoices/${id}`);
-      load();
+      await invalidateOwnerOpsQueries(queryClient, {
+        facilityId: selectedHouse === "all" ? undefined : selectedHouse,
+        invoiceId: id,
+      });
+      await load();
     } catch (err: any) {
       setError(err?.message || "Xóa hóa đơn thất bại.");
     }
@@ -137,6 +160,85 @@ export default function InvoicesPage() {
   const visibleInvoices = useMemo(() => filteredInvoices.slice((page - 1) * pageSize, page * pageSize), [filteredInvoices, page]);
   const visiblePendingRooms = useMemo(() => pendingRooms.slice((page - 1) * pageSize, page * pageSize), [pendingRooms, page]);
   const selectedCount = Object.values(selected).filter(Boolean).length;
+
+  const zaloStatusMap = useMemo(() => {
+    const map: Record<string, { status: string; error?: string }> = {};
+    [...zaloLogs].reverse().forEach((log) => {
+      if (log.invoiceId) {
+        map[log.invoiceId] = { status: log.status, error: log.error };
+      }
+    });
+    return map;
+  }, [zaloLogs]);
+
+  const handleBulkSendZalo = async () => {
+    const selectedInvoiceIds = Object.entries(selected)
+      .filter(([, v]) => v)
+      .map(([k]) => k);
+    
+    if (selectedInvoiceIds.length === 0) return;
+    
+    const selectedInvs = invoices.filter((i) => selectedInvoiceIds.includes(i.id));
+    const draftInvoices = selectedInvs.filter((i) => normalizeInvoiceStatus(i) === "draft");
+    if (draftInvoices.length > 0) {
+      alert("Hóa đơn ở trạng thái Bản thảo (draft) chưa chốt nên không thể gửi Zalo. Vui lòng bỏ chọn hoặc chốt các hóa đơn này.");
+      return;
+    }
+    
+    const missing = selectedInvs.filter((i) => !i.tenant_phone);
+    
+    if (missing.length > 0) {
+      const initialPhones: Record<string, string> = {};
+      missing.forEach((inv) => {
+        initialPhones[inv.id] = "";
+      });
+      setPhonesInput(initialPhones);
+      setMissingPhoneInvoices(missing);
+      setShowPhonePromptModal(true);
+    } else {
+      await executeBulkSend(selectedInvoiceIds, {});
+    }
+  };
+
+  const handleSavePhonesAndSend = async () => {
+    const missingKeys = Object.keys(phonesInput);
+    const incomplete = missingKeys.some((k) => !phonesInput[k] || phonesInput[k].trim().length < 9);
+    
+    if (incomplete) {
+      alert("Vui lòng điền đầy đủ và chính xác số điện thoại cho các khách thuê còn thiếu (tối thiểu 9 số).");
+      return;
+    }
+    
+    setShowPhonePromptModal(false);
+    
+    const selectedInvoiceIds = Object.entries(selected)
+      .filter(([, v]) => v)
+      .map(([k]) => k);
+      
+    await executeBulkSend(selectedInvoiceIds, phonesInput);
+  };
+
+  const executeBulkSend = async (invoiceIds: string[], phonesMap: Record<string, string>) => {
+    setSendingZalo(true);
+    setError("");
+    try {
+      const res = await apiPost<any>("/api/invoices/send-zalo-bulk", {
+        invoiceIds,
+        phonesMap
+      });
+      
+      alert(`Đã hoàn tất gửi Zalo hàng loạt!\nThành công: ${res.successCount}/${res.totalSent}\nThất bại: ${res.failedCount}`);
+      setSelected({});
+      await invalidateOwnerOpsQueries(queryClient, {
+        facilityId: selectedHouse === "all" ? undefined : selectedHouse,
+      });
+      await load();
+    } catch (err: any) {
+      setError(err?.message || "Gửi Zalo hàng loạt thất bại.");
+    } finally {
+      setSendingZalo(false);
+    }
+  };
 
   useEffect(() => setPage(1), [filter, selectedHouse, period]);
 
@@ -196,13 +298,24 @@ export default function InvoicesPage() {
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
           <span className="font-semibold">{selectedCount} hóa đơn đã chọn</span>
           <Button variant="danger" size="sm" icon={<Trash2 size={13} />} onClick={handleBulkDelete}>Xóa</Button>
+          <Button 
+            variant="primary" 
+            size="sm" 
+            icon={<Send size={13} />} 
+            onClick={handleBulkSendZalo}
+            disabled={sendingZalo}
+            loading={sendingZalo}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white border-none shadow-sm"
+          >
+            Gửi Zalo hàng loạt
+          </Button>
         </div>
       )}
 
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       <DataTable
-        headers={["Phòng", "Khách thuê", "Tổng cộng", "Đã thu", "Còn lại", "Trạng thái", "Thao tác"]}
+        headers={["Phòng", "Khách thuê", "Tổng cộng", "Đã thu", "Còn lại", "Trạng thái", "Zalo Status", "Thao tác"]}
         checkbox={
           <input
             type="checkbox"
@@ -213,10 +326,10 @@ export default function InvoicesPage() {
         }
       >
         {loading ? (
-          <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Đang tải dữ liệu...</td></tr>
+          <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Đang tải dữ liệu...</td></tr>
         ) : filter === "Chưa lập HĐ" ? (
           pendingRooms.length === 0 ? (
-            <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Tất cả các phòng đã được lập hóa đơn cho kỳ này.</td></tr>
+            <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Tất cả các phòng đã được lập hóa đơn cho kỳ này.</td></tr>
           ) : visiblePendingRooms.map((room) => (
             <tr key={room.id} className="hover:bg-slate-50 transition-colors">
               <td className="px-4 py-3"><input type="checkbox" disabled /></td>
@@ -226,13 +339,14 @@ export default function InvoicesPage() {
               <td className="px-4 py-3 text-slate-500">-</td>
               <td className="px-4 py-3 text-slate-500">-</td>
               <td className="px-4 py-3"><span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 border border-amber-200">Chưa lập</span></td>
+              <td className="px-4 py-3">-</td>
               <td className="px-4 py-3">
                 <Link href={`/invoices/new?contract_id=${room.contract_id}`} className="font-semibold text-blue-700 hover:underline">Lập hóa đơn</Link>
               </td>
             </tr>
           ))
         ) : filteredInvoices.length === 0 ? (
-          <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Chưa có hóa đơn phù hợp cho kỳ T{period.month}/{period.year}.</td></tr>
+          <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Chưa có hóa đơn phù hợp cho kỳ T{period.month}/{period.year}.</td></tr>
         ) : visibleInvoices.map((invoice) => {
           const status = normalizeInvoiceStatus(invoice);
           return (
@@ -244,6 +358,23 @@ export default function InvoicesPage() {
               <td className="px-4 py-3 text-green-700 font-medium whitespace-nowrap">{invoice.paid_amount ? formatMoney(invoice.paid_amount) : "0 ₫"}</td>
               <td className="px-4 py-3 text-red-600 font-semibold whitespace-nowrap">{formatMoney(Math.max(0, invoice.total_amount - (invoice.paid_amount || 0)))}</td>
               <td className="px-4 py-3"><StatusBadge status={status} /></td>
+              <td className="px-4 py-3">
+                {zaloStatusMap[invoice.id] ? (
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border ${
+                    zaloStatusMap[invoice.id].status === "SENT"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : zaloStatusMap[invoice.id].status === "PENDING"
+                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                      : "bg-red-50 text-red-700 border-red-200"
+                  }`} title={zaloStatusMap[invoice.id].error}>
+                    {zaloStatusMap[invoice.id].status === "SENT" ? "Đã gửi" : zaloStatusMap[invoice.id].status === "PENDING" ? "Chờ gửi" : "Gửi lỗi"}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-500 border border-slate-200">
+                    Chưa gửi
+                  </span>
+                )}
+              </td>
               <td className="px-4 py-3">
                 <div className="flex gap-3 items-center">
                   <Link href={`/invoices/${invoice.id}`} className="font-semibold text-blue-700 hover:underline">Xem</Link>
@@ -269,11 +400,59 @@ export default function InvoicesPage() {
         onClose={() => setIsBulkModalOpen(false)}
         onSuccess={() => {
           alert("Đã lập hóa đơn thành công cho các phòng đã chọn.");
-          load();
+          invalidateOwnerOpsQueries(queryClient, {
+            facilityId: selectedHouse === "all" ? undefined : selectedHouse,
+          }).then(load);
         }}
         pendingRooms={pendingRooms}
         period={period}
       />
+
+      {showPhonePromptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
+          <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 md:p-8 animate-in zoom-in-95 duration-300">
+            <h3 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <span className="w-2 h-6 bg-blue-600 rounded-full" />
+              Điền số điện thoại khách thuê
+            </h3>
+            <p className="text-xs text-slate-500 mt-1 font-semibold">
+              Một số phòng được chọn chưa cấu hình số điện thoại khách thuê. Vui lòng nhập số điện thoại để tiếp tục gửi Zalo OA.
+            </p>
+            
+            <div className="mt-5 space-y-4 max-h-60 overflow-y-auto pr-1">
+              {missingPhoneInvoices.map((inv) => (
+                <div key={inv.id} className="bg-slate-50 rounded-2xl p-4 border border-slate-200/50 flex flex-col gap-2">
+                  <div className="flex justify-between items-center text-xs font-bold">
+                    <span className="text-slate-800">Phòng {inv.room_name}</span>
+                    <span className="text-slate-500">Khách: {inv.tenant_name}</span>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Nhập số điện thoại (VD: 0912345678)..."
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-blue-500"
+                    value={phonesInput[inv.id] || ""}
+                    onChange={(e) => setPhonesInput((prev) => ({ ...prev, [inv.id]: e.target.value }))}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2.5 pt-4 border-t border-slate-100">
+              <Button variant="outline" onClick={() => setShowPhonePromptModal(false)}>
+                Hủy bỏ
+              </Button>
+              <Button 
+                variant="primary" 
+                onClick={handleSavePhonesAndSend}
+                disabled={sendingZalo}
+                loading={sendingZalo}
+              >
+                Xác nhận và Gửi
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import Colors from '@/constants/Colors';
 import { useAuthStore } from '@/store/authStore';
 
 export default function IndexRoute() {
-  const { isAuthenticated, isProfileCompleted, isHydrated } = useAuthStore();
+  const { isAuthenticated, isProfileCompleted, approvalStatus, isHydrated } = useAuthStore();
 
   if (!isHydrated) {
     return (
@@ -18,7 +18,9 @@ export default function IndexRoute() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  return <Redirect href={isProfileCompleted ? '/(tabs)' : '/(auth)/complete-profile'} />;
+  if (!isProfileCompleted) return <Redirect href="/(auth)/complete-profile" />;
+  if (approvalStatus === 'PENDING_APPROVAL') return <Redirect href="/(auth)/pending-approval" />;
+  return <Redirect href="/(tabs)" />;
 }
 
 const styles = StyleSheet.create({

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { 
   Save, 
   RefreshCw, 
@@ -33,12 +33,14 @@ import {
   TrendingUp,
   Sliders,
   Sparkles,
-  MessageSquare,
+  Webhook,
   KeyRound,
-  ExternalLink
+  Receipt,
+  ServerCog
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { apiGet, apiPost, apiPatch, apiDelete, apiPut } from "@/utils/apiClient";
+import { apiGet, apiPost, apiPatch, apiDelete, apiPut, toURL } from "@/utils/apiClient";
+import { getStoredAccessToken } from "@/utils/session";
 import { PRODUCTION_API_URL } from "@/lib/apiUrl";
 import {
   PaymentChannel,
@@ -53,28 +55,13 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input, { Label, Select as UISelect } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 type SettingItem = { key: string; value: any; type: string; category: string };
-type ZaloConnection = {
-  connected: boolean;
-  zaloId?: string;
-  displayName?: string | null;
-  avatarUrl?: string | null;
-  status?: string;
-  connectedAt?: string;
-};
-type ZaloConfig = {
-  appId: string;
-  appSecret: string;
-  hasSecret: boolean;
-  redirectUri: string;
-};
-
-const DEFAULT_ZALO_REDIRECT_URI = "https://money-manager-xdem.onrender.com/api/auth/zalo/callback";
 
 export default function OwnerSettingsPage() {
-  const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "general");
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("general");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<Record<string, SettingItem>>({});
@@ -85,6 +72,13 @@ export default function OwnerSettingsPage() {
   const [editingService, setEditingService] = useState<any>({});
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Zalo states
+  const [zaloStatus, setZaloStatus] = useState<any>(null);
+  const [loadingZalo, setLoadingZalo] = useState(false);
+  const [zaloError, setZaloError] = useState("");
+  const [testPhone, setTestPhone] = useState("");
+  const [sendingTest, setSendingTest] = useState(false);
 
   // Extension states (Wallets & Bank)
   const [wallets, setWallets] = useState<any[]>([]);
@@ -118,14 +112,6 @@ export default function OwnerSettingsPage() {
   // UI interactive states
   const [showApiKey, setShowApiKey] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
-  const [showZaloSecret, setShowZaloSecret] = useState(false);
-  const [zaloConnection, setZaloConnection] = useState<ZaloConnection>({ connected: false });
-  const [zaloConfig, setZaloConfig] = useState<ZaloConfig>({
-    appId: "",
-    appSecret: "",
-    hasSecret: false,
-    redirectUri: DEFAULT_ZALO_REDIRECT_URI,
-  });
 
   const fetchSepayEvents = async () => {
     setLoadingSepayEvents(true);
@@ -181,19 +167,6 @@ export default function OwnerSettingsPage() {
           qr_uri: bankRes.data.qr_uri || "",
         });
       }
-      const [zaloStatusRes, zaloConfigRes] = await Promise.all([
-        apiGet<any>("/auth/zalo/status").catch(() => null),
-        apiGet<any>("/auth/zalo/config").catch(() => null),
-      ]);
-      setZaloConnection(zaloStatusRes?.data || { connected: false });
-      if (zaloConfigRes?.data) {
-        setZaloConfig({
-          appId: zaloConfigRes.data.appId || "",
-          appSecret: "",
-          hasSecret: Boolean(zaloConfigRes.data.hasSecret),
-          redirectUri: zaloConfigRes.data.redirectUri || DEFAULT_ZALO_REDIRECT_URI,
-        });
-      }
     } catch (err: any) {
       setError(err?.message || "Lỗi tải cài đặt hệ thống.");
     } finally {
@@ -201,22 +174,110 @@ export default function OwnerSettingsPage() {
     }
   };
 
-  useEffect(() => {
-    load();
-  }, []);
+  const fetchZaloStatus = async () => {
+    setLoadingZalo(true);
+    setZaloError("");
+    try {
+      const res = await apiGet<any>("/api/integrations/zalo-oa/status");
+      setZaloStatus(res);
+    } catch (err: any) {
+      setZaloError(err?.message || "Không thể tải cấu hình Zalo.");
+    } finally {
+      setLoadingZalo(false);
+    }
+  };
+
+  const handleDisconnectZaloLogin = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn ngắt kết nối tài khoản Zalo Login cá nhân?")) return;
+    setLoadingZalo(true);
+    try {
+      await apiPost("/api/auth/zalo/disconnect", {});
+      setSuccess("Đã hủy liên kết đăng nhập Zalo.");
+      fetchZaloStatus();
+    } catch (err: any) {
+      setZaloError(err?.message || "Không thể ngắt kết nối Zalo Login.");
+    } finally {
+      setLoadingZalo(false);
+    }
+  };
+
+  const handleDisconnectZaloOA = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn ngắt kết nối Zalo Official Account?")) return;
+    setLoadingZalo(true);
+    try {
+      await apiPost("/api/integrations/zalo-oa/disconnect", {});
+      setSuccess("Đã ngắt kết nối Zalo Official Account.");
+      fetchZaloStatus();
+    } catch (err: any) {
+      setZaloError(err?.message || "Không thể ngắt kết nối Zalo OA.");
+    } finally {
+      setLoadingZalo(false);
+    }
+  };
+
+  const handleSendZaloTest = async () => {
+    if (!testPhone) {
+      setZaloError("Vui lòng nhập số điện thoại nhận tin nhắn thử nghiệm.");
+      return;
+    }
+    
+    setSendingTest(true);
+    setZaloError("");
+    setSuccess("");
+    
+    try {
+      const invoicesRes = await apiGet<any>("/invoices?limit=10");
+      const activeInvoice = (invoicesRes?.data || []).find((inv: any) => inv.status !== "draft");
+      
+      if (!activeInvoice) {
+        throw new Error("Không tìm thấy hóa đơn nào đã chốt (không ở trạng thái Bản thảo) để gửi thử nghiệm. Vui lòng tạo/chốt một hóa đơn trước.");
+      }
+      
+      await apiPost(`/api/invoices/${activeInvoice.id}/send-zalo`, {
+        phoneNumber: testPhone
+      });
+      
+      setSuccess(`Đã gửi tin nhắn hóa đơn thử nghiệm (Mã hóa đơn: ${activeInvoice.payment_code || activeInvoice.id}) đến số ${testPhone} thành công!`);
+      fetchZaloStatus();
+    } catch (err: any) {
+      setZaloError(err?.message || "Gửi tin nhắn thử nghiệm thất bại.");
+    } finally {
+      setSendingTest(false);
+    }
+  };
 
   useEffect(() => {
-    const tab = searchParams.get("tab");
-    const zalo = searchParams.get("zalo");
-    const message = searchParams.get("message");
-    if (tab) setActiveTab(tab);
-    if (zalo === "connected") setSuccess("Đã kết nối Zalo cá nhân.");
-    if (zalo === "error") setError(message ? `Không kết nối được Zalo: ${message}` : "Không kết nối được Zalo.");
-  }, [searchParams]);
+    load();
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      if (tabParam) {
+        setActiveTab(tabParam);
+      }
+      
+      const loginSuccess = params.get("zalo_login_success");
+      const nameParam = params.get("name");
+      if (loginSuccess === "true" && nameParam) {
+        setSuccess(`Đăng nhập Zalo thành công! Tài khoản: ${decodeURIComponent(nameParam)}`);
+        const newUrl = window.location.pathname + (tabParam ? `?tab=${tabParam}` : "");
+        window.history.replaceState({}, "", newUrl);
+      }
+      
+      const oaSuccess = params.get("zalo_oa_success");
+      const oaNameParam = params.get("oa_name");
+      if (oaSuccess === "true" && oaNameParam) {
+        setSuccess(`Liên kết Zalo OA thành công! Trang: ${decodeURIComponent(oaNameParam)}`);
+        const newUrl = window.location.pathname + (tabParam ? `?tab=${tabParam}` : "");
+        window.history.replaceState({}, "", newUrl);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (activeTab === "sepay-logs") {
       fetchSepayEvents();
+    } else if (activeTab === "zalo") {
+      fetchZaloStatus();
     }
   }, [activeTab]);
 
@@ -237,6 +298,7 @@ export default function OwnerSettingsPage() {
     setSuccess("");
     try {
       await apiPost<any>("/owner/settings", { settings: Object.values(settings) });
+      await invalidateOwnerOpsQueries(queryClient);
       setSuccess("Đã lưu cấu hình thành công!");
       setTimeout(() => setSuccess(""), 3000);
     } catch (err: any) {
@@ -270,6 +332,7 @@ export default function OwnerSettingsPage() {
       await apiPatch(`/rental/services/${service.id}`, { active: !service.active });
       setSuccess(`Đã ${!service.active ? 'kích hoạt' : 'tạm ngưng'} dịch vụ ${service.name}.`);
       setTimeout(() => setSuccess(""), 3000);
+      await invalidateOwnerOpsQueries(queryClient);
       load();
     } catch (err: any) {
       setError(err?.message || "Lỗi cập nhật trạng thái dịch vụ.");
@@ -282,6 +345,7 @@ export default function OwnerSettingsPage() {
       await apiDelete(`/rental/services/${serviceId}`);
       setSuccess("Đã xoá dịch vụ.");
       setTimeout(() => setSuccess(""), 3000);
+      await invalidateOwnerOpsQueries(queryClient);
       load();
     } catch (err: any) {
       setError(err?.message || "Không thể xoá dịch vụ.");
@@ -303,6 +367,7 @@ export default function OwnerSettingsPage() {
       setTimeout(() => setSuccess(""), 3000);
       setShowAddService(false);
       setNewService({ name: "", type: "metered", unitPrice: 0, unitPriceAc: 0, unit: "" });
+      await invalidateOwnerOpsQueries(queryClient);
       load();
     } catch (err: any) {
       setError(err?.message || "Lỗi khi thêm dịch vụ.");
@@ -326,6 +391,7 @@ export default function OwnerSettingsPage() {
       setSuccess("Đã cập nhật dịch vụ.");
       setTimeout(() => setSuccess(""), 3000);
       setEditingServiceId(null);
+      await invalidateOwnerOpsQueries(queryClient);
       load();
     } catch (err: any) {
       setError(err?.message || "Lỗi khi cập nhật dịch vụ.");
@@ -343,6 +409,7 @@ export default function OwnerSettingsPage() {
       await apiPost("/wallets", newWallet);
       setNewWallet({ name: "", type: "personal" });
       setSuccess("Đã tạo ví mới.");
+      await invalidateOwnerOpsQueries(queryClient);
       load();
     } catch (err: any) {
       setError(err.message || "Không tạo được ví.");
@@ -357,6 +424,7 @@ export default function OwnerSettingsPage() {
       setSavingExtension(true);
       await apiDelete(`/wallets/${id}`);
       setSuccess("Đã xoá ví.");
+      await invalidateOwnerOpsQueries(queryClient);
       load();
     } catch (err: any) {
       setError(err.message || "Không xoá được ví.");
@@ -380,6 +448,7 @@ export default function OwnerSettingsPage() {
         await apiPost('/wallets', wallet);
       }
       setSuccess('Đã khởi tạo bộ ví mặc định.');
+      await invalidateOwnerOpsQueries(queryClient);
       load();
     } catch (err: any) {
       setError(err.message || 'Không tạo được bộ ví mặc định.');
@@ -396,6 +465,7 @@ export default function OwnerSettingsPage() {
         ...bankConfig,
         qr_uri: bankConfig.qr_uri || null,
       });
+      await invalidateOwnerOpsQueries(queryClient);
       setSuccess("Đã lưu cấu hình ngân hàng.");
     } catch (err: any) {
       setError(err.message || "Không lưu được cấu hình ngân hàng.");
@@ -424,6 +494,7 @@ export default function OwnerSettingsPage() {
       });
       setSuccess("Đã tạo kênh thanh toán.");
       setNewPaymentChannel((prev) => ({ ...prev, accountNo: "", accountName: "" }));
+      await invalidateOwnerOpsQueries(queryClient);
       load();
     } catch (err: any) {
       setError(err.message || "Không tạo được kênh thanh toán.");
@@ -440,6 +511,7 @@ export default function OwnerSettingsPage() {
         displayName: channel.displayName || channel.display_name || "Kênh thanh toán",
       });
       setSuccess("Đã cập nhật kênh thanh toán.");
+      await invalidateOwnerOpsQueries(queryClient);
       load();
     } catch (err: any) {
       setError(err.message || "Không cập nhật được kênh thanh toán.");
@@ -456,6 +528,7 @@ export default function OwnerSettingsPage() {
         isDefault: true,
       });
       setSuccess("Đã đặt kênh thanh toán mặc định.");
+      await invalidateOwnerOpsQueries(queryClient);
       load();
     } catch (err: any) {
       setError(err.message || "Không cập nhật được kênh thanh toán.");
@@ -470,72 +543,10 @@ export default function OwnerSettingsPage() {
       setSavingExtension(true);
       await disablePaymentChannel(channel.id);
       setSuccess("Đã tắt kênh thanh toán.");
+      await invalidateOwnerOpsQueries(queryClient);
       load();
     } catch (err: any) {
       setError(err.message || "Không tắt được kênh thanh toán.");
-    } finally {
-      setSavingExtension(false);
-    }
-  };
-
-  const handleSaveZaloConfig = async () => {
-    const appId = zaloConfig.appId.trim();
-    const appSecret = zaloConfig.appSecret.trim();
-    const redirectUri = zaloConfig.redirectUri.trim() || DEFAULT_ZALO_REDIRECT_URI;
-
-    if (!appId) {
-      setError("Vui lòng nhập Zalo App ID.");
-      return;
-    }
-    if (!appSecret && !zaloConfig.hasSecret) {
-      setError("Vui lòng nhập Zalo Secret Key.");
-      return;
-    }
-
-    try {
-      setSavingExtension(true);
-      setError("");
-      setSuccess("");
-      const res = await apiPut<any>("/auth/zalo/config", { appId, appSecret, redirectUri });
-      setZaloConfig({
-        appId: res?.data?.appId || appId,
-        appSecret: "",
-        hasSecret: true,
-        redirectUri: res?.data?.redirectUri || redirectUri,
-      });
-      setSuccess("Đã lưu cấu hình Zalo Login.");
-    } catch (err: any) {
-      setError(err?.message || "Không lưu được cấu hình Zalo.");
-    } finally {
-      setSavingExtension(false);
-    }
-  };
-
-  const handleConnectZalo = async () => {
-    try {
-      setSavingExtension(true);
-      setError("");
-      setSuccess("");
-      const res = await apiGet<any>("/auth/zalo/connect");
-      const url = res?.data?.url;
-      if (!url) throw new Error("Không tạo được đường dẫn Zalo Login.");
-      window.location.href = url;
-    } catch (err: any) {
-      setError(err?.message || "Không mở được Zalo Login. Hãy kiểm tra App ID, Secret Key và Redirect URI.");
-    } finally {
-      setSavingExtension(false);
-    }
-  };
-
-  const handleDisconnectZalo = async () => {
-    if (!window.confirm("Ngắt kết nối tài khoản Zalo cá nhân?")) return;
-    try {
-      setSavingExtension(true);
-      await apiDelete("/auth/zalo/disconnect");
-      setZaloConnection({ connected: false });
-      setSuccess("Đã ngắt kết nối Zalo.");
-    } catch (err: any) {
-      setError(err?.message || "Không ngắt được kết nối Zalo.");
     } finally {
       setSavingExtension(false);
     }
@@ -555,6 +566,19 @@ export default function OwnerSettingsPage() {
     return BANK_OPTIONS.find(opt => opt.id === id)?.label || "Ngân hàng";
   };
 
+  const sepayWebhookUrl = `${PRODUCTION_API_URL}/webhooks/sepay`;
+  const sepayChannels = paymentChannels.filter((channel) => channel.provider === "sepay");
+  const autoReconcileCount = sepayChannels.filter((channel) => channel.autoReconcileEnabled || channel.auto_reconcile_enabled).length;
+  const unresolvedSepayEvents = sepayEvents.filter((event) => ["pending_wallet", "unmatched", "error"].includes(event.status)).length;
+  const websiteApiRows = [
+    { method: "POST", path: "/webhooks/sepay", desc: "Webhook nhận giao dịch từ SePay" },
+    { method: "GET", path: "/payment-channels", desc: "Danh sách kênh thanh toán của chủ trọ" },
+    { method: "POST", path: "/payment-channels", desc: "Tạo kênh SePay hoặc chuyển khoản" },
+    { method: "PATCH", path: "/payment-channels/:id", desc: "Cập nhật ví, mặc định, tự đối soát" },
+    { method: "GET", path: "/owner/sepay/events", desc: "Nhật ký webhook và trạng thái đối soát" },
+    { method: "POST", path: "/owner/sepay/events/:id/reprocess", desc: "Thử lại đối soát sự kiện lỗi" },
+  ];
+
   const formatCardNumber = (num: string) => {
     const clean = num.replace(/\s?/g, "");
     const groups = clean.match(/.{1,4}/g);
@@ -565,9 +589,9 @@ export default function OwnerSettingsPage() {
     { id: "general", label: "Chung", icon: Settings, desc: "Cấu hình thông tin cơ bản & hiển thị" },
     { id: "payment", label: "Thanh toán", icon: CreditCard, desc: "Cài đặt chu kỳ thanh toán & Ngân hàng tĩnh" },
     { id: "sepay-logs", label: "Kết nối SePay", icon: Layers, desc: "Tích hợp API, Kênh thanh toán & Webhook logs" },
-    { id: "zalo", label: "Zalo Login", icon: MessageSquare, desc: "Kết nối tài khoản Zalo cá nhân bằng QR chính thức" },
     { id: "pricing", label: "Bảng giá", icon: Zap, desc: "Đơn giá các dịch vụ điện, nước, tiện ích" },
     { id: "extension", label: "Mở rộng", icon: Wallet, desc: "Quản lý dòng tiền, Ví lưu trữ và đối soát" },
+    { id: "zalo", label: "Tích hợp Zalo", icon: Sparkles, desc: "Zalo Login & gửi tin nhắn qua Zalo OA" },
   ];
 
   return (
@@ -924,14 +948,14 @@ export default function OwnerSettingsPage() {
             {activeTab === "sepay-logs" && (
               <div className="space-y-8 animate-in fade-in duration-300">
                 {/* Header */}
-                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center border border-emerald-100">
-                      <Layers size={20} className="text-emerald-600 animate-pulse" />
+                <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50">
+                      <Webhook size={20} className="text-emerald-600" />
                     </div>
-                    <div>
-                      <h3 className="text-lg font-black text-slate-900 tracking-tight">Cổng tích hợp & Đối soát SePay</h3>
-                      <p className="text-xs text-slate-500 font-medium">Đối soát tự động chuyển khoản, tự động gạch nợ và sinh phiếu thu tự động.</p>
+                    <div className="min-w-0">
+                      <h3 className="text-lg font-black tracking-tight text-slate-900">SePay, mã thanh toán và API đối soát</h3>
+                      <p className="mt-1 max-w-2xl text-xs font-medium leading-5 text-slate-500">Quản lý tài khoản nhận tiền, webhook SePay, token xác thực và nhật ký tự động gạch nợ hóa đơn.</p>
                     </div>
                   </div>
                   <Button 
@@ -945,6 +969,63 @@ export default function OwnerSettingsPage() {
                   </Button>
                 </div>
 
+                <div className="grid gap-3 md:grid-cols-4">
+                  <SepayMetric icon={<Wallet size={16} />} label="Kênh SePay" value={`${sepayChannels.length}`} tone="blue" />
+                  <SepayMetric icon={<ShieldCheck size={16} />} label="Tự đối soát" value={`${autoReconcileCount}`} tone="emerald" />
+                  <SepayMetric icon={<Receipt size={16} />} label="Webhook đã nhận" value={`${sepayEvents.length}`} tone="slate" />
+                  <SepayMetric icon={<Info size={16} />} label="Cần xử lý" value={`${unresolvedSepayEvents}`} tone={unresolvedSepayEvents ? "amber" : "emerald"} />
+                </div>
+
+                <section className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+                  <Card className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <Webhook size={16} className="text-blue-600" />
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-700">Webhook website đang dùng</span>
+                    </div>
+                    <div className="mt-4 flex gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        className="min-w-0 flex-1 rounded-[8px] border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-xs font-semibold text-slate-600 outline-none"
+                        value={sepayWebhookUrl}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          try {
+                            navigator.clipboard.writeText(sepayWebhookUrl);
+                            setCopiedWebhook(true);
+                            setTimeout(() => setCopiedWebhook(false), 2000);
+                          } catch {}
+                        }}
+                        className={`inline-flex shrink-0 items-center gap-2 rounded-[8px] px-3 py-2.5 text-xs font-bold text-white transition-colors ${copiedWebhook ? "bg-emerald-600" : "bg-slate-900 hover:bg-slate-800"}`}
+                      >
+                        {copiedWebhook ? <Check size={14} /> : <Copy size={14} />}
+                        {copiedWebhook ? "Đã chép" : "Copy"}
+                      </button>
+                    </div>
+                    <p className="mt-3 text-xs font-medium leading-5 text-slate-500">Dán URL này vào SePay.vn. Backend sẽ đọc mã chuyển khoản dạng <span className="font-mono font-bold text-slate-700">{getValue("sepay_payment_prefix", "TCINV")}...</span> để khớp hóa đơn.</p>
+                  </Card>
+
+                  <Card className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <ServerCog size={16} className="text-slate-700" />
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-700">API website hiện có</span>
+                    </div>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                      {websiteApiRows.map((item) => (
+                        <div key={`${item.method}-${item.path}`} className="rounded-[8px] border border-slate-200 bg-slate-50 p-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`rounded px-1.5 py-0.5 text-[10px] font-black ${item.method === "GET" ? "bg-blue-50 text-blue-700" : item.method === "POST" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{item.method}</span>
+                            <span className="truncate font-mono text-[11px] font-bold text-slate-900">{item.path}</span>
+                          </div>
+                          <p className="mt-1 text-[11px] font-medium text-slate-500">{item.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                </section>
+
                 {/* 1. Kênh thanh toán & đối soát SePay */}
                 <section className="space-y-4 bg-slate-50/40 rounded-3xl border border-slate-200/50 p-5">
                   <div className="flex items-center gap-2">
@@ -953,11 +1034,11 @@ export default function OwnerSettingsPage() {
                   </div>
 
                   <div className="grid gap-3">
-                    {paymentChannels.length === 0 ? (
+                    {sepayChannels.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-slate-500 text-xs font-medium">
                         Chưa có kênh đối soát SePay nào. Vui lòng thêm tài khoản đối soát phía dưới.
                       </div>
-                    ) : paymentChannels.map((channel) => {
+                    ) : sepayChannels.map((channel) => {
                       const wallet = wallets.find((item) => String(item.id) === String(channel.wallet_id || channel.walletId));
                       return (
                         <div key={channel.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-all">
@@ -1050,11 +1131,11 @@ export default function OwnerSettingsPage() {
                 {/* 2. Cấu hình Tích hợp SePay (API & Webhook) */}
                 <section className="space-y-4 pt-6 border-t border-slate-100">
                   <div className="flex items-center gap-2">
-                    <Sparkles size={16} className="text-slate-600" />
+                    <KeyRound size={16} className="text-slate-600" />
                     <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Thông số kỹ thuật SePay.vn</span>
                   </div>
 
-                  <Card className="grid gap-5 p-5 bg-slate-50/50 border border-slate-200/50 rounded-3xl">
+                  <Card className="grid gap-5 p-5 bg-slate-50/50 border border-slate-200/50 rounded-[8px]">
                     {/* Webhook URL copy field */}
                     <div>
                       <Label className="font-bold text-slate-700 text-xs">Địa chỉ Webhook (Webhook URL)</Label>
@@ -1063,13 +1144,13 @@ export default function OwnerSettingsPage() {
                           type="text"
                           readOnly
                           className="flex-1 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-100/90 px-4 py-2.5 text-xs text-slate-500 font-mono focus:outline-none"
-                          value="https://money-manager-xdem.onrender.com/webhooks/sepay"
+                          value={sepayWebhookUrl}
                         />
                         <button
                           type="button"
                           onClick={() => {
                             try {
-                              navigator.clipboard.writeText("https://money-manager-xdem.onrender.com/webhooks/sepay");
+                              navigator.clipboard.writeText(sepayWebhookUrl);
                               setCopiedWebhook(true);
                               setTimeout(() => setCopiedWebhook(false), 2000);
                             } catch {}
@@ -1083,7 +1164,7 @@ export default function OwnerSettingsPage() {
                         </button>
                       </div>
                       <p className="text-[10px] text-slate-400 mt-1 font-medium">
-                        Sao chép chính xác địa chỉ này dán vào mục Webhook trên trang quản trị SePay.vn của bạn.
+                        Sao chép chính xác địa chỉ này dán vào mục Webhook trên trang quản trị SePay.vn. Website đang dùng API production từ cấu hình hiện tại.
                       </p>
                     </div>
 
@@ -1343,166 +1424,6 @@ export default function OwnerSettingsPage() {
                     </div>
                   )}
                 </section>
-              </div>
-            )}
-
-            {activeTab === "zalo" && (
-              <div className="space-y-7 animate-in fade-in duration-300">
-                <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-100 bg-blue-50">
-                      <MessageSquare size={20} className="text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-black tracking-tight text-slate-900">Zalo Login</h3>
-                      <p className="mt-1 max-w-2xl text-xs font-medium leading-relaxed text-slate-500">
-                        Lưu App ID và Secret Key trong backend, sau đó mở trang đăng nhập Zalo chính thức để quét QR bằng tài khoản cá nhân.
-                      </p>
-                    </div>
-                  </div>
-                  <span className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-wide ${
-                    zaloConnection.connected
-                      ? "border-emerald-100 bg-emerald-50 text-emerald-700"
-                      : "border-slate-200 bg-slate-50 text-slate-500"
-                  }`}>
-                    <span className={`h-2 w-2 rounded-full ${zaloConnection.connected ? "bg-emerald-500" : "bg-slate-300"}`} />
-                    {zaloConnection.connected ? "Đang liên kết" : "Chưa liên kết"}
-                  </span>
-                </div>
-
-                <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.15fr)_minmax(380px,0.85fr)]">
-                  <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <KeyRound size={16} className="text-slate-600" />
-                      <span className="text-xs font-black uppercase tracking-wider text-slate-700">Cấu hình Zalo Developer App</span>
-                    </div>
-
-                    <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <Label className="font-bold text-slate-700 text-xs">Zalo App ID</Label>
-                        <Input
-                          value={zaloConfig.appId}
-                          onChange={(e) => setZaloConfig({ ...zaloConfig, appId: e.target.value })}
-                          placeholder="179158901382369691"
-                          className="mt-1.5 font-mono text-xs"
-                        />
-                      </div>
-                      <div>
-                        <Label className="font-bold text-slate-700 text-xs">Secret Key</Label>
-                        <div className="relative mt-1.5">
-                          <Input
-                            type={showZaloSecret ? "text" : "password"}
-                            value={zaloConfig.appSecret}
-                            onChange={(e) => setZaloConfig({ ...zaloConfig, appSecret: e.target.value })}
-                            placeholder={zaloConfig.hasSecret ? "Đã lưu. Nhập mới nếu cần đổi" : "Nhập Secret Key"}
-                            className="pr-10 font-mono text-xs"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowZaloSecret((value) => !value)}
-                            className="absolute inset-y-0 right-2 flex items-center rounded-lg px-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                            aria-label={showZaloSecret ? "Ẩn Secret Key đang nhập" : "Hiện Secret Key đang nhập"}
-                            title={showZaloSecret ? "Ẩn Secret Key đang nhập" : "Hiện Secret Key đang nhập"}
-                          >
-                            {showZaloSecret ? <EyeOff size={15} /> : <Eye size={15} />}
-                          </button>
-                        </div>
-                        {zaloConfig.hasSecret && (
-                          <p className="mt-1.5 text-[10px] font-bold text-emerald-700">
-                            Secret Key đã được lưu ở backend. Nút mắt chỉ hiện/ẩn Secret Key mới đang nhập.
-                          </p>
-                        )}
-                      </div>
-                      <div className="sm:col-span-2">
-                        <Label className="font-bold text-slate-700 text-xs">Redirect URI</Label>
-                        <Input
-                          value={zaloConfig.redirectUri}
-                          onChange={(e) => setZaloConfig({ ...zaloConfig, redirectUri: e.target.value })}
-                          className="mt-1.5 font-mono text-xs"
-                        />
-                        <p className="mt-1.5 text-[10px] font-medium text-slate-500">
-                          Copy đúng URI này vào mục Zalo Login trong Zalo Developer Console.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="max-w-2xl text-xs font-medium leading-relaxed text-slate-600">
-                        QR đăng nhập sẽ do Zalo hiển thị trên trang OAuth chính thức, hệ thống mình chỉ mở đúng đường dẫn đã ký state.
-                      </div>
-                      <Button
-                        onClick={handleSaveZaloConfig}
-                        disabled={savingExtension}
-                        loading={savingExtension}
-                        icon={<Save size={14} />}
-                        className="w-full rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 lg:w-auto"
-                      >
-                        Lưu cấu hình
-                      </Button>
-                    </div>
-                  </section>
-
-                  <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <div className="flex items-start gap-4">
-                        {zaloConnection.avatarUrl ? (
-                          <img src={zaloConnection.avatarUrl} alt="Zalo avatar" className="h-12 w-12 rounded-2xl border border-slate-200 object-cover" />
-                        ) : (
-                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                            <MessageSquare size={22} />
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-black text-slate-900">
-                            {zaloConnection.connected ? (zaloConnection.displayName || "Tài khoản Zalo đã liên kết") : "Chưa có tài khoản Zalo"}
-                          </div>
-                          <p className="mt-1 text-xs font-medium leading-relaxed text-slate-500">
-                            {zaloConnection.connected
-                              ? "Backend đã lưu Zalo ID cho owner hiện tại."
-                              : "Lưu cấu hình trước, sau đó mở Zalo Login để quét QR."}
-                          </p>
-                          {zaloConnection.zaloId && (
-                            <div className="mt-2 rounded-xl bg-slate-100 px-3 py-2 text-[10px] font-bold text-slate-600">
-                              Zalo ID: <span className="font-mono">{zaloConnection.zaloId}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-5 grid gap-2">
-                        <Button
-                          onClick={handleConnectZalo}
-                          disabled={savingExtension}
-                          loading={savingExtension}
-                          icon={<ExternalLink size={14} />}
-                          className="w-full rounded-xl bg-blue-600 py-3 text-xs font-black text-white hover:bg-blue-700"
-                        >
-                          Mở QR Zalo để quét
-                        </Button>
-                        {zaloConnection.connected && (
-                          <Button
-                            variant="outline"
-                            onClick={handleDisconnectZalo}
-                            disabled={savingExtension}
-                            className="w-full rounded-xl border-slate-200 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                          >
-                            Ngắt kết nối
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className={`mt-4 rounded-2xl border p-4 text-xs font-semibold leading-relaxed ${
-                      zaloConfig.appId && zaloConfig.hasSecret
-                        ? "border-emerald-100 bg-emerald-50 text-emerald-800"
-                        : "border-amber-100 bg-amber-50 text-amber-800"
-                    }`}>
-                      {zaloConfig.appId && zaloConfig.hasSecret
-                        ? "Cấu hình đã sẵn sàng. Nếu Zalo vẫn không mở QR, kiểm tra Redirect URI trong Developer Console."
-                        : "Chưa đủ cấu hình. Cần App ID, Secret Key và Redirect URI được whitelist trước khi mở QR."}
-                    </div>
-                  </section>
-                </div>
               </div>
             )}
 
@@ -1805,11 +1726,281 @@ export default function OwnerSettingsPage() {
                 </div>
               </div>
             )}
-              </motion.div>
-            </AnimatePresence>
-          </Card>
-        </div>
-      )}
+
+            {activeTab === "zalo" && (
+              <div className="space-y-8 animate-in fade-in duration-300">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center border border-blue-100">
+                      <Sparkles size={20} className="text-blue-600 animate-pulse" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight">Tích hợp Zalo Business Services</h3>
+                      <p className="text-xs text-slate-500 font-medium">Kết nối tài khoản Zalo & Zalo Official Account (OA) để gửi hóa đơn tự động bằng ZBS Template Messages.</p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    icon={<RefreshCw size={12} className={loadingZalo ? "animate-spin text-blue-500" : ""} />} 
+                    onClick={fetchZaloStatus}
+                    disabled={loadingZalo}
+                    className="border-slate-200 text-slate-700 text-xs font-semibold rounded-xl"
+                  >
+                    Làm mới Trạng thái
+                  </Button>
+                </div>
+
+                {zaloError && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700 flex items-center gap-2">
+                    <Info size={14} className="shrink-0 text-red-500" />
+                    <span>{zaloError}</span>
+                  </div>
+                )}
+
+                {loadingZalo && !zaloStatus ? (
+                  <div className="py-16 text-center text-slate-400">
+                    <RefreshCw className="animate-spin mx-auto text-slate-400 mb-2" size={28} />
+                    <span className="text-xs font-medium">Đang tải cấu hình kết nối Zalo...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    {/* 1. Connection Status Cards */}
+                    <div className="grid gap-6 md:grid-cols-2 max-w-4xl mx-auto w-full">
+                      {/* Zalo Login (Cá nhân) Card */}
+                      <div className={`rounded-3xl border p-6 flex flex-col justify-between shadow-sm transition-all duration-300 ${
+                        zaloStatus?.connectedUser 
+                          ? "bg-gradient-to-br from-blue-50/20 to-cyan-50/20 border-blue-100" 
+                          : "bg-slate-50/30 border-slate-200/60"
+                      }`}>
+                        <div>
+                          <div className="flex justify-between items-start mb-4">
+                            <span className="text-xs font-black uppercase text-slate-400 tracking-widest font-mono">ZALO LOGIN CÁ NHÂN</span>
+                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase ${
+                              zaloStatus?.connectedUser 
+                                ? "bg-blue-50 text-blue-700 border border-blue-100" 
+                                : "bg-slate-100 text-slate-500 border border-slate-200"
+                            }`}>
+                              {zaloStatus?.connectedUser ? "Đang kết nối" : "Chưa kết nối"}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-3.5 my-3">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${
+                              zaloStatus?.connectedUser ? "bg-blue-50 border-blue-100 text-blue-600" : "bg-slate-100 border-slate-200 text-slate-400"
+                            }`}>
+                              <ShieldCheck size={22} />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-slate-900 text-sm">Zalo Cá nhân</h4>
+                              <p className="text-[11px] text-slate-500 font-semibold mt-0.5 leading-relaxed">
+                                Xác thực tài khoản chủ trọ cá nhân và quản lý cấu hình hệ thống.
+                              </p>
+                            </div>
+                          </div>
+
+                          {zaloStatus?.connectedUser && (
+                            <div className="mt-4 bg-white/70 border border-slate-200/50 rounded-2xl p-3.5 text-xs text-slate-600 space-y-1 font-semibold">
+                              <div>Trạng thái: <span className="font-bold text-emerald-600">Đã liên kết</span></div>
+                              <div>Zalo ID: <span className="font-bold text-slate-800 font-mono">{zaloStatus.connectedUser.zaloUserId}</span></div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-6 pt-4 border-t border-slate-100">
+                          {zaloStatus?.connectedUser ? (
+                            <Button 
+                              variant="outline" 
+                              onClick={handleDisconnectZaloLogin}
+                              className="w-full text-xs font-bold text-red-600 border-red-100 hover:bg-red-50 hover:border-red-200 py-3 rounded-xl transition-all"
+                            >
+                              Hủy kết nối Zalo Cá nhân
+                            </Button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                const token = getStoredAccessToken();
+                                if (!token) {
+                                  setZaloError("Bạn cần đăng nhập hệ thống để thực hiện liên kết.");
+                                  return;
+                                }
+                                window.location.href = `${toURL("/api/auth/zalo/login")}?token=${token}`;
+                              }}
+                              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3.5 rounded-xl shadow-lg shadow-blue-600/10 transition-all flex items-center justify-center gap-2"
+                            >
+                              <ShieldCheck size={14} /> Kết nối Zalo cá nhân
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Zalo Official Account (OA) Card — Coming Soon */}
+                      <div className="rounded-3xl border border-slate-200/60 bg-slate-100/50 p-6 flex flex-col justify-between shadow-sm relative overflow-hidden select-none">
+                        {/* Overlay Coming Soon */}
+                        <div className="absolute inset-0 bg-slate-900/5 backdrop-blur-[0.5px] z-10 flex flex-col items-center justify-center pointer-events-none">
+                          <span className="bg-slate-900/90 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-md">
+                            Sắp ra mắt
+                          </span>
+                        </div>
+
+                        <div className="opacity-60">
+                          <div className="flex justify-between items-start mb-4">
+                            <span className="text-xs font-black uppercase text-slate-400 tracking-widest font-mono">KẾT NỐI OA GỬI TIN</span>
+                            <span className="bg-slate-200 text-slate-400 border border-slate-300 inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase">
+                              Chưa hỗ trợ
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-3.5 my-3">
+                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center border bg-slate-200 border-slate-300 text-slate-400">
+                              <Home size={22} />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-slate-900 text-sm">Zalo Official Account (OA)</h4>
+                              <p className="text-[11px] text-slate-400 font-semibold mt-0.5 leading-relaxed">
+                                Cổng OA doanh nghiệp dùng để gửi tin ZBS Template Messages đến số khách thuê.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-6 pt-4 border-t border-slate-200 opacity-60">
+                          <button
+                            disabled
+                            className="w-full bg-slate-300 text-slate-500 font-bold text-xs py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 cursor-not-allowed"
+                          >
+                            <Home size={14} /> Gửi tin nhắn qua OA (Coming Soon)
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. Synced Templates (OA Dependent - Coming Soon) */}
+                    <div className="space-y-4 pt-4 border-t border-slate-100 opacity-60">
+                      <div className="flex items-center gap-2">
+                        <Layers size={16} className="text-slate-600" />
+                        <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Mẫu Tin Nhắn Hóa Đơn Đồng Bộ (ZBS Templates)</span>
+                        <span className="bg-slate-200 text-slate-500 border border-slate-300 rounded-full px-2 py-0.5 text-[8px] font-black uppercase font-mono">Sắp ra mắt</span>
+                      </div>
+
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/20 p-6 text-center text-slate-400 text-xs font-semibold">
+                        Tính năng đồng bộ mẫu tin nhắn (ZBS Templates) sẽ tự động kích hoạt sau khi Zalo Official Account (OA) được ra mắt và kết nối thành công.
+                      </div>
+                    </div>
+
+                    {/* 3. Send Test Notification Panel (OA Dependent - Coming Soon) */}
+                    <div className="space-y-4 pt-4 border-t border-slate-100 opacity-60">
+                      <div className="flex items-center gap-2">
+                        <Layers size={16} className="text-slate-600" />
+                        <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Kiểm tra kết nối gửi thử</span>
+                        <span className="bg-slate-200 text-slate-500 border border-slate-300 rounded-full px-2 py-0.5 text-[8px] font-black uppercase font-mono">Sắp ra mắt</span>
+                      </div>
+
+                      <Card className="p-5 bg-slate-50/40 border border-slate-200 rounded-3xl space-y-4">
+                        <p className="text-[11px] text-slate-400 font-semibold leading-relaxed">
+                          Tính năng gửi tin nhắn hóa đơn thử nghiệm đến số điện thoại qua ZBS sẽ hoạt động khi Zalo OA được phát triển và kết nối.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <input 
+                            disabled
+                            type="text" 
+                            placeholder="Nhập số điện thoại nhận tin..." 
+                            className="flex-1 rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-xs font-semibold text-slate-400 shadow-sm cursor-not-allowed"
+                            value={testPhone} 
+                            onChange={(e) => setTestPhone(e.target.value)} 
+                          />
+                          <Button 
+                            disabled
+                            className="bg-slate-300 text-slate-500 font-bold rounded-xl text-xs px-5 py-3 shadow-md shrink-0 cursor-not-allowed"
+                          >
+                            Gửi thử tin nhắn Zalo
+                          </Button>
+                        </div>
+                      </Card>
+                    </div>
+
+                    {/* 4. Audit Log Panel */}
+                    <div className="space-y-4 pt-4 border-t border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <Info size={16} className="text-slate-600" />
+                        <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Nhật ký sự kiện gửi tin nhắn Zalo</span>
+                      </div>
+
+                      {!zaloStatus?.logs || zaloStatus.logs.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/20 p-8 text-center text-slate-500 text-xs font-medium">
+                          Chưa có nhật ký gửi tin nhắn nào được ghi nhận.
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm font-semibold">
+                          <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
+                            <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500 select-none">
+                              <tr>
+                                <th className="px-4 py-3">Thời gian</th>
+                                <th className="px-4 py-3">Số điện thoại</th>
+                                <th className="px-4 py-3">Hóa đơn</th>
+                                <th className="px-4 py-3">Mẫu tin</th>
+                                <th className="px-4 py-3">Trạng thái</th>
+                                <th className="px-4 py-3">Chi tiết lỗi</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-slate-700">
+                              {zaloStatus.logs.map((log: any) => (
+                                <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                                  <td className="px-4 py-3 text-slate-400 whitespace-nowrap">
+                                    {new Date(log.sentAt).toLocaleString("vi-VN")}
+                                  </td>
+                                  <td className="px-4 py-3 font-mono">{log.phone}</td>
+                                  <td className="px-4 py-3 font-mono text-slate-900">{log.paymentCode}</td>
+                                  <td className="px-4 py-3 text-slate-500 font-mono text-[10px]">{log.template}</td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase ${
+                                      log.status === "SENT"
+                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                                        : log.status === "PENDING"
+                                        ? "bg-blue-50 text-blue-700 border border-blue-100"
+                                        : "bg-red-50 text-red-700 border border-red-100"
+                                    }`}>
+                                      {log.status === "SENT" ? "Thành công" : log.status === "PENDING" ? "Chờ gửi" : "Lỗi"}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-red-600 max-w-xs truncate" title={log.error}>
+                                    {log.error || "-"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </Card>
+    </div>
+  )}
+</div>
+  );
+}
+
+function SepayMetric({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone: "blue" | "emerald" | "amber" | "slate" }) {
+  const toneClass = {
+    blue: "border-blue-100 bg-blue-50 text-blue-700",
+    emerald: "border-emerald-100 bg-emerald-50 text-emerald-700",
+    amber: "border-amber-100 bg-amber-50 text-amber-700",
+    slate: "border-slate-200 bg-slate-50 text-slate-700",
+  }[tone];
+
+  return (
+    <div className="rounded-[8px] border border-slate-200 bg-white p-4 shadow-sm">
+      <div className={`inline-flex h-8 w-8 items-center justify-center rounded-[8px] border ${toneClass}`}>
+        {icon}
+      </div>
+      <div className="mt-3 text-2xl font-semibold text-slate-950">{value}</div>
+      <div className="mt-1 text-xs font-semibold text-slate-500">{label}</div>
     </div>
   );
 }

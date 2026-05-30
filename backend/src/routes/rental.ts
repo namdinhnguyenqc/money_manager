@@ -208,12 +208,18 @@ rentalRoutes.delete("/room-types/:id", async (c) => {
 
 rentalRoutes.get("/rooms", async (c) => {
   const user = c.get("user");
+  const buildingId = c.req.query("buildingId") || c.req.query("facilityId") || c.req.query("boardingHouseId");
 
 
   const db = c.get("supabase");
 
+  let roomsQuery = db.from("rooms").select("*").eq("user_id", user.id);
+  if (buildingId) {
+    roomsQuery = roomsQuery.eq("boarding_house_id", buildingId);
+  }
+
   const [roomsRes, contractsRes, tenantsRes] = await Promise.all([
-    db.from("rooms").select("*").eq("user_id", user.id),
+    roomsQuery,
     db.from("contracts").select("*").eq("user_id", user.id).eq("status", "active"),
     db.from("tenants").select("*").eq("user_id", user.id),
   ]);
@@ -369,7 +375,44 @@ rentalRoutes.post("/deposits", async (c) => {
 
   const db = c.get("supabase");
 
-  // 1. Create deposit record
+  const { data: room, error: roomError } = await db
+    .from("rooms")
+    .select("id,name,status")
+    .eq("id", parsed.data.roomId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (roomError) return c.json({ error: roomError.message }, 500);
+  if (!room) return c.json({ error: "Không tìm thấy phòng hoặc phòng không thuộc tài khoản của bạn." }, 404);
+
+  const roomStatus = String(room.status || "").toLowerCase();
+  if (!["vacant", "available"].includes(roomStatus)) {
+    return c.json({ error: "Chỉ có thể nhận cọc cho phòng đang trống." }, 400);
+  }
+
+  const { data: existingDeposit, error: existingDepositError } = await db
+    .from("deposits")
+    .select("id")
+    .eq("room_id", parsed.data.roomId)
+    .eq("status", "active")
+    .eq("type", "reservation")
+    .maybeSingle();
+
+  if (existingDepositError) return c.json({ error: existingDepositError.message }, 500);
+  if (existingDeposit) return c.json({ error: "Phòng này đã có cọc giữ chỗ đang hiệu lực." }, 400);
+
+  if (parsed.data.walletId) {
+    const { data: wallet, error: walletError } = await db
+      .from("wallets")
+      .select("id")
+      .eq("id", parsed.data.walletId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (walletError) return c.json({ error: walletError.message }, 500);
+    if (!wallet) return c.json({ error: "Ví nhận tiền cọc không tồn tại hoặc không thuộc tài khoản của bạn." }, 400);
+  }
+
   const { data: deposit, error: depError } = await insertDeposit(db, {
     user_id: user.id,
     room_id: parsed.data.roomId,
@@ -378,29 +421,41 @@ rentalRoutes.post("/deposits", async (c) => {
     amount: parsed.data.amount,
     type: "reservation",
     status: "active",
-    payment_method: parsed.data.paymentMethod || "cash",
     recorded_at: parsed.data.depositDate,
     note: parsed.data.note || "Đặt cọc giữ chỗ",
   });
 
   if (depError) return c.json({ error: depError.message }, 400);
 
-  // 2. Update room status to 'reserved'
-  await db.from("rooms").update({ status: "reserved" }).eq("id", parsed.data.roomId).eq("user_id", user.id);
+  const { error: roomUpdateError } = await db
+    .from("rooms")
+    .update({ status: "reserved" })
+    .eq("id", parsed.data.roomId)
+    .eq("user_id", user.id);
 
-  // 3. Create transaction for the deposit income
+  if (roomUpdateError) {
+    await db.from("deposits").delete().eq("id", deposit.id).eq("user_id", user.id);
+    return c.json({ error: `Không thể chuyển phòng sang trạng thái đã cọc: ${roomUpdateError.message}` }, 400);
+  }
+
   if (parsed.data.amount > 0 && parsed.data.walletId) {
-    await db.from("transactions").insert({
+    const { error: txError } = await db.from("transactions").insert({
       user_id: user.id,
       wallet_id: parsed.data.walletId,
       type: "income",
       amount: parsed.data.amount,
-      description: `Thu tiền cọc giữ chỗ - Phòng ${parsed.data.roomId} - ${parsed.data.tenantName}${parsed.data.note ? ` (${parsed.data.note})` : ""}`,
+      description: `Thu tiền cọc giữ chỗ - Phòng ${room.name} - ${parsed.data.tenantName}${parsed.data.note ? ` (${parsed.data.note})` : ""}`,
       date: parsed.data.depositDate,
       category_id: null,
       image_uri: null,
     });
-    // Cập nhật số dư ví
+
+    if (txError) {
+      await db.from("deposits").delete().eq("id", deposit.id).eq("user_id", user.id);
+      await db.from("rooms").update({ status: room.status }).eq("id", parsed.data.roomId).eq("user_id", user.id);
+      return c.json({ error: `Không thể tạo phiếu thu tiền cọc: ${txError.message}` }, 400);
+    }
+
     await updateWalletBalance(db, parsed.data.walletId, parsed.data.amount, 'income');
   }
 
@@ -562,7 +617,13 @@ rentalRoutes.get("/tenants", async (c) => {
 
   if (error) return c.json({ error: error.message }, 500);
 
-  const formatted = (data ?? []).map(t => ({ ...t, idCard: t.id_card }));
+  const formatted = (data ?? []).map(t => ({
+    ...t,
+    idCard: t.id_card,
+    inviteCode: t.invite_code,
+    inviteStatus: t.invite_status,
+    inviteCodeExpiresAt: t.invite_code_expires_at
+  }));
   return c.json({ data: formatted });
 });
 
@@ -583,9 +644,20 @@ rentalRoutes.post("/tenants", async (c) => {
       .maybeSingle();
     
     if (existing) {
-      return c.json({ data: { ...existing, idCard: existing.id_card } }, 200);
+      return c.json({
+        data: {
+          ...existing,
+          idCard: existing.id_card,
+          inviteCode: existing.invite_code,
+          inviteStatus: existing.invite_status,
+          inviteCodeExpiresAt: existing.invite_code_expires_at
+        }
+      }, 200);
     }
   }
+
+  const inviteCode = crypto.randomBytes(4).toString("hex").toUpperCase();
+  const inviteCodeExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const { data, error } = await db.from("tenants").insert({
     user_id: user.id,
@@ -593,10 +665,21 @@ rentalRoutes.post("/tenants", async (c) => {
     phone: parsed.data.phone ?? "",
     id_card: parsed.data.idCard ?? "",
     address: parsed.data.address ?? "",
+    invite_code: inviteCode,
+    invite_status: "pending",
+    invite_code_expires_at: inviteCodeExpiresAt,
   }).select("*").single();
 
   if (error) return c.json({ error: error.message }, 400);
-  return c.json({ data: { ...data, idCard: data.id_card } }, 201);
+  return c.json({
+    data: {
+      ...data,
+      idCard: data.id_card,
+      inviteCode: data.invite_code,
+      inviteStatus: data.invite_status,
+      inviteCodeExpiresAt: data.invite_code_expires_at
+    }
+  }, 201);
 });
 
 rentalRoutes.patch("/tenants/:id", async (c) => {
@@ -620,7 +703,15 @@ rentalRoutes.patch("/tenants/:id", async (c) => {
   const { data, error } = await db.from("tenants").update(payload).eq("id", id).eq("user_id", user.id).select("*").single();
 
   if (error) return c.json({ error: error.message }, 400);
-  return c.json({ data });
+  return c.json({
+    data: {
+      ...data,
+      idCard: data.id_card,
+      inviteCode: data.invite_code,
+      inviteStatus: data.invite_status,
+      inviteCodeExpiresAt: data.invite_code_expires_at
+    }
+  });
 });
 
 rentalRoutes.delete("/tenants/:id", async (c) => {

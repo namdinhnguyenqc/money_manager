@@ -23,7 +23,6 @@ import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
 import Toast from '@/components/ui/Toast';
 import {
   loadBoardingHouses,
@@ -37,6 +36,7 @@ import {
   RentalRoom,
   ContractView,
 } from '@/lib/rentalOps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface RoomBillingState {
   room: RentalRoom;
@@ -52,6 +52,7 @@ interface RoomBillingState {
 
 export default function BulkInvoiceScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ month?: string; year?: string }>();
 
   // Period State (Defaults to params or current date)
@@ -159,6 +160,14 @@ export default function BulkInvoiceScreen() {
     setRefreshing(true);
     initData();
   };
+
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(tabs)/settings' as any);
+  }, [router]);
 
   // Handle billing inputs
   const handleInputChange = (roomId: string, field: 'elecNew' | 'waterNew', value: string) => {
@@ -375,7 +384,7 @@ export default function BulkInvoiceScreen() {
 
       setToast({ message: `Lập thành công ${payloads.length} hóa đơn!`, type: 'success' });
       setTimeout(() => {
-        router.back();
+        handleBack();
       }, 1500);
     } catch (e: any) {
       Alert.alert('Lỗi lập hàng loạt', e?.message || 'Có lỗi xảy ra trong quá trình lập hóa đơn.');
@@ -441,38 +450,33 @@ export default function BulkInvoiceScreen() {
           headerShown: true,
           title: 'Lập hóa đơn hàng loạt',
           headerBackTitle: 'Quay lại',
+          headerLeft: () => (
+            <TouchableOpacity style={styles.headerBackButton} onPress={handleBack} hitSlop={10} activeOpacity={0.72}>
+              <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
+            </TouchableOpacity>
+          ),
           headerStyle: { backgroundColor: Colors.background },
           headerTitleStyle: { fontFamily: Typography.fontFamily.bold, fontSize: 16 },
         }}
       />
 
-      {/* Date Period Select Bar */}
-      <View style={styles.periodPicker}>
-        <TouchableOpacity style={styles.periodArrow} onPress={handlePrevMonth}>
-          <Ionicons name="chevron-back" size={18} color={Colors.primary} />
-        </TouchableOpacity>
-        <View style={styles.periodTextContainer}>
-          <Ionicons name="calendar-outline" size={16} color={Colors.primary} style={{ marginRight: 6 }} />
-          <Text style={styles.periodText}>
-            Tháng {period.month}, {period.year}
-          </Text>
+      <View style={styles.commandPanel}>
+        <View style={styles.periodPicker}>
+          <TouchableOpacity style={styles.periodArrow} onPress={handlePrevMonth}>
+            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+          </TouchableOpacity>
+          <View style={styles.periodTextContainer}>
+            <Text style={styles.selectLabel}>Kỳ hóa đơn</Text>
+            <Text style={styles.periodText}>Tháng {period.month}/{period.year}</Text>
+          </View>
+          <TouchableOpacity style={styles.periodArrow} onPress={handleNextMonth}>
+            <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.periodArrow} onPress={handleNextMonth}>
-          <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
-        </TouchableOpacity>
-      </View>
 
-      {/* Boarding House Horizontal Selector */}
-      <View style={styles.facilitySelectorContainer}>
-        <Text style={styles.selectLabel}>Chọn dãy trọ:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerRow}>
-          <TouchableOpacity
-            style={[styles.pickerItem, selectedBhId === 'all' && styles.pickerItemActive]}
-            onPress={() => setSelectedBhId('all')}
-          >
-            <Text style={[styles.pickerText, selectedBhId === 'all' && styles.pickerTextActive]}>
-              Tất cả dãy
-            </Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pickerRow}>
+          <TouchableOpacity style={[styles.pickerItem, selectedBhId === 'all' && styles.pickerItemActive]} onPress={() => setSelectedBhId('all')}>
+            <Text style={[styles.pickerText, selectedBhId === 'all' && styles.pickerTextActive]}>Tất cả dãy</Text>
           </TouchableOpacity>
           {boardingHouses.map((bh) => (
             <TouchableOpacity
@@ -508,15 +512,15 @@ export default function BulkInvoiceScreen() {
       {/* Main Billing Rooms Form */}
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 112 + insets.bottom }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       >
         {filteredStates.length === 0 ? (
           <View style={styles.emptyBox}>
             <Ionicons name="receipt-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.emptyTitle}>Tất cả hóa đơn đã được lập!</Text>
+            <Text style={styles.emptyTitle}>Không còn phòng cần lập</Text>
             <Text style={styles.emptyDesc}>
-              Không có phòng occupied nào chưa lập hóa đơn trong tháng {period.month}/{period.year}.
+              Các phòng có hợp đồng trong tháng {period.month}/{period.year} đã có hóa đơn hoặc chưa đủ dữ liệu.
             </Text>
           </View>
         ) : (
@@ -530,9 +534,8 @@ export default function BulkInvoiceScreen() {
               <View
                 key={state.room.id}
                 style={[
-                  styles.porcelainCard,
-                  isChecked && styles.porcelainCardActive,
-                  { shadowColor: isChecked ? Colors.primary : '#94A3B8' },
+                  styles.roomCard,
+                  isChecked && styles.roomCardActive,
                 ]}
               >
                 {/* Header detail */}
@@ -545,10 +548,10 @@ export default function BulkInvoiceScreen() {
                     <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
                       {isChecked && <Ionicons name="checkmark" size={14} color="#fff" />}
                     </View>
-                    <View>
+                    <View style={styles.roomIdentity}>
                       <Text style={styles.roomName}>{state.room.name}</Text>
                       <Text style={styles.tenantName}>
-                        👤 {state.room.tenant_name || 'Không rõ khách'}
+                        {state.room.tenant_name || 'Không rõ khách'}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -571,15 +574,18 @@ export default function BulkInvoiceScreen() {
 
                     {/* Quick Info */}
                     <View style={styles.baseDetails}>
-                      <Text style={styles.detailItemText}>
-                        🏠 Tiền phòng: <Text style={styles.boldText}>{formatMoney(state.roomFee)}</Text>
-                      </Text>
-                      <Text style={styles.detailItemText}>
-                        ⚙️ Dịch vụ khác:{' '}
-                        <Text style={styles.boldText}>
-                          {formatMoney(calculateTotal(state) - state.roomFee)}
+                      <View style={styles.detailPill}>
+                        <Ionicons name="home-outline" size={13} color={Colors.textSecondary} />
+                        <Text style={styles.detailItemText}>
+                          Tiền phòng <Text style={styles.boldText}>{formatMoney(state.roomFee)}</Text>
                         </Text>
-                      </Text>
+                      </View>
+                      <View style={styles.detailPill}>
+                        <Ionicons name="construct-outline" size={13} color={Colors.textSecondary} />
+                        <Text style={styles.detailItemText}>
+                          Dịch vụ <Text style={styles.boldText}>{formatMoney(calculateTotal(state) - state.roomFee)}</Text>
+                        </Text>
+                      </View>
                     </View>
 
                     {/* Inputs Row for Electric and Water */}
@@ -628,17 +634,18 @@ export default function BulkInvoiceScreen() {
 
       {/* Sticky Bottom Generator Action Bar */}
       {filteredStates.length > 0 && (
-        <View style={styles.bottomBar}>
+        <View style={[styles.bottomBar, { paddingBottom: 14 + insets.bottom }]}>
           <View style={styles.bottomBarSummary}>
             <Text style={styles.bottomSummaryLabel}>Đang lập</Text>
             <Text style={styles.bottomSummaryValue}>{visibleSelectedCount} phòng</Text>
           </View>
           <Button
-            title="Lập hóa đơn hàng loạt"
+            title="Tạo hóa đơn"
             variant="primary"
             onPress={handleBulkSubmit}
             disabled={submitting || visibleSelectedCount === 0}
             style={styles.submitButton}
+            textStyle={styles.submitButtonText}
             icon={submitting ? <ActivityIndicator size="small" color="#fff" /> : undefined}
           />
         </View>
@@ -666,54 +673,57 @@ export default function BulkInvoiceScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F4F4F6' },
+  safe: { flex: 1, backgroundColor: Colors.background },
   container: { flex: 1 },
-  scroll: { padding: 16, gap: 14, paddingBottom: 110 },
-  stateContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F4F6', gap: 12 },
-  stateText: { fontSize: 13, fontFamily: Typography.fontFamily.medium, color: '#64748B' },
+  scroll: { padding: 16, gap: 12 },
+  stateContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background, gap: 12 },
+  stateText: { fontSize: 13, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  headerBackButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 36,
+    height: 36,
+    marginLeft: 2,
+    borderRadius: 10,
+  },
 
+  commandPanel: {
+    margin: 16,
+    marginBottom: 10,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 12,
+  },
   periodPicker: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EAEAEF',
   },
   periodArrow: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F4F4F6',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  periodTextContainer: { flexDirection: 'row', alignItems: 'center' },
-  periodText: { fontSize: 14, fontFamily: Typography.fontFamily.bold, color: '#0F172A' },
-
-  facilitySelectorContainer: {
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EAEAEF',
-    paddingLeft: 16,
-    gap: 8,
-  },
-  selectLabel: { fontSize: 11, fontFamily: Typography.fontFamily.bold, color: '#94A3B8', textTransform: 'uppercase' },
-  pickerRow: { flexDirection: 'row' },
+  periodTextContainer: { alignItems: 'center' },
+  periodText: { marginTop: 2, fontSize: 18, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  selectLabel: { fontSize: 11, fontFamily: Typography.fontFamily.semibold, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  pickerRow: { gap: 8 },
   pickerItem: {
     paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#F4F4F6',
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: Colors.background,
     borderWidth: 1,
-    borderColor: 'transparent',
-    marginRight: 8,
+    borderColor: Colors.border,
   },
-  pickerItemActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
-  pickerText: { fontSize: 12, fontFamily: Typography.fontFamily.medium, color: '#64748B' },
+  pickerItemActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primaryAlpha50 },
+  pickerText: { fontSize: 12, fontFamily: Typography.fontFamily.semibold, color: Colors.textSecondary },
   pickerTextActive: { color: Colors.primary, fontFamily: Typography.fontFamily.bold },
 
   selectAllRow: {
@@ -722,79 +732,102 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#EAEAEF',
+    backgroundColor: Colors.surface,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Colors.border,
+    gap: 10,
   },
-  selectAllText: { fontSize: 12, fontFamily: Typography.fontFamily.bold, color: '#475569' },
-  selectedCount: { fontSize: 11, fontFamily: Typography.fontFamily.semibold, color: '#64748B' },
+  selectAllText: { fontSize: 12, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  selectedCount: {
+    flexShrink: 0,
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.semibold,
+    color: Colors.textSecondary,
+  },
 
-  /* 3D Porcelain Cards Styles */
-  porcelainCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: '#EAEAEF',
-    padding: 16,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
+  roomCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 14,
   },
-  porcelainCardActive: {
-    borderColor: 'rgba(138, 63, 252, 0.25)',
+  roomCardActive: {
+    borderColor: Colors.primaryAlpha50,
+    backgroundColor: '#FCFDFF',
   },
   cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 12,
   },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     flex: 1,
+    minWidth: 0,
   },
   checkbox: {
     width: 20,
     height: 20,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: Colors.surface,
   },
   checkboxChecked: {
     backgroundColor: Colors.primary,
     borderColor: Colors.primary,
   },
-  roomName: { fontSize: 16, fontFamily: Typography.fontFamily.bold, color: '#0F172A', letterSpacing: -0.4 },
-  tenantName: { fontSize: 11, fontFamily: Typography.fontFamily.medium, color: '#64748B', marginTop: 2 },
+  roomIdentity: { flex: 1, minWidth: 0 },
+  roomName: { fontSize: 16, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  tenantName: { fontSize: 12, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary, marginTop: 2 },
 
-  totalBlock: { alignItems: 'flex-end' },
-  totalLabel: { fontSize: 9, fontFamily: Typography.fontFamily.bold, color: '#94A3B8', textTransform: 'uppercase' },
-  totalValue: { fontSize: 15, fontFamily: Typography.fontFamily.bold, color: Colors.primary, marginTop: 1 },
+  totalBlock: {
+    borderRadius: 10,
+    backgroundColor: Colors.primaryLight,
+    borderWidth: 1,
+    borderColor: Colors.primaryAlpha20,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  totalLabel: { fontSize: 11, fontFamily: Typography.fontFamily.semibold, color: Colors.textSecondary },
+  totalValue: { fontSize: 17, fontFamily: Typography.fontFamily.bold, color: Colors.primary, marginTop: 3 },
 
-  divider: { height: 1, backgroundColor: '#F4F4F6', marginVertical: 12 },
+  divider: { height: 1, backgroundColor: Colors.borderLight, marginVertical: 12 },
   cardLoading: { paddingVertical: 16, alignItems: 'center' },
 
-  baseDetails: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  detailItemText: { fontSize: 11, fontFamily: Typography.fontFamily.medium, color: '#64748B' },
-  boldText: { fontFamily: Typography.fontFamily.bold, color: '#334155' },
+  baseDetails: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  detailPill: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 10,
+    backgroundColor: Colors.background,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  detailItemText: { flex: 1, fontSize: 11, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  boldText: { fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
 
-  inputsContainer: { flexDirection: 'row', gap: 12 },
+  inputsContainer: { flexDirection: 'row', gap: 10 },
   inputCol: { flex: 1, gap: 6 },
   inputLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  inputFieldLabel: { fontSize: 10, fontFamily: Typography.fontFamily.bold, color: '#64748B' },
+  inputFieldLabel: { fontSize: 10, fontFamily: Typography.fontFamily.bold, color: Colors.textSecondary },
   textInput: {
-    height: 38,
+    height: 42,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: Colors.border,
     borderRadius: 10,
-    paddingHorizontal: 10,
-    fontSize: 12,
+    paddingHorizontal: 12,
+    fontSize: 14,
     fontFamily: Typography.fontFamily.bold,
-    backgroundColor: '#F8FAFC',
-    color: '#0F172A',
+    backgroundColor: Colors.background,
+    color: Colors.textPrimary,
   },
 
   bottomBar: {
@@ -802,23 +835,26 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#EAEAEF',
-    padding: 16,
+    borderTopColor: Colors.border,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: Colors.textPrimary,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
   },
-  bottomBarSummary: { flex: 1 },
-  bottomSummaryLabel: { fontSize: 11, fontFamily: Typography.fontFamily.medium, color: '#94A3B8' },
+  bottomBarSummary: { flexShrink: 0, minWidth: 82 },
+  bottomSummaryLabel: { fontSize: 11, fontFamily: Typography.fontFamily.medium, color: Colors.textMuted },
   bottomSummaryValue: { fontSize: 16, fontFamily: Typography.fontFamily.bold, color: Colors.primary, marginTop: 2 },
-  submitButton: { minWidth: 160 },
+  submitButton: { flex: 1, minWidth: 0, paddingHorizontal: 14 },
+  submitButtonText: { fontSize: 14 },
 
   emptyBox: {
     padding: 40,
@@ -827,8 +863,8 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 60,
   },
-  emptyTitle: { fontSize: 16, fontFamily: Typography.fontFamily.bold, color: '#0F172A' },
-  emptyDesc: { fontSize: 12, fontFamily: Typography.fontFamily.regular, color: '#64748B', textAlign: 'center', lineHeight: 18 },
+  emptyTitle: { fontSize: 16, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  emptyDesc: { fontSize: 12, fontFamily: Typography.fontFamily.regular, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18 },
 
   modalOverlay: {
     flex: 1,
@@ -838,19 +874,19 @@ const styles = StyleSheet.create({
   },
   progressCard: {
     width: 280,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
     padding: 24,
     alignItems: 'center',
     gap: 12,
     borderWidth: 1,
-    borderColor: '#EAEAEF',
-    shadowColor: '#000',
+    borderColor: Colors.border,
+    shadowColor: Colors.textPrimary,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.15,
     shadowRadius: 16,
     elevation: 10,
   },
-  progressTitle: { fontSize: 15, fontFamily: Typography.fontFamily.bold, color: '#0F172A' },
-  progressSub: { fontSize: 12, fontFamily: Typography.fontFamily.medium, color: '#64748B', textAlign: 'center' },
+  progressTitle: { fontSize: 15, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  progressSub: { fontSize: 12, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary, textAlign: 'center' },
 });

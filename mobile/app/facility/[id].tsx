@@ -41,7 +41,10 @@ export default function FacilityDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const facility = cachedDetail;
-  const rooms = cachedDetail?.rooms ?? [];
+  const rooms = (cachedDetail?.rooms ?? []).filter((room: any) => {
+    const roomFacilityId = room.boarding_house_id ?? room.boardingHouseId ?? room.building_id ?? room.facility_id;
+    return !id || String(roomFacilityId) === String(id);
+  });
 
   const fetchData = useCallback(async (force = false) => {
     if (!id) return;

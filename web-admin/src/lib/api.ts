@@ -28,6 +28,11 @@ export async function apiClient<T>(
       window.location.href = "/complete-profile";
       throw new Error(data?.message || "Profile required");
     }
+    if (res.status === 403 && data?.code === "ACCOUNT_PENDING_APPROVAL") {
+      sessionStorage.setItem("pendingApprovalMessage", data?.message || "Hồ sơ của bạn đang chờ admin duyệt.");
+      window.location.href = "/pending-approval";
+      throw new Error(data?.message || "Account pending approval");
+    }
     throw new Error(data.error || data.message || "API Error");
   }
 
@@ -55,6 +60,8 @@ export async function login(email: string, password: string) {
       role: data?.user?.role,
       name: data?.user?.name,
       email: data?.user?.email,
+      status: data?.user?.status,
+      approvalStatus: data?.user?.approvalStatus,
       isProfileCompleted: data?.user?.isProfileCompleted,
       onboardingStep: data?.user?.onboardingStep,
     });

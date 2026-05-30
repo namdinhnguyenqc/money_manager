@@ -13,6 +13,7 @@ import { Platform } from 'react-native';
 import Config from '@/constants/Config';
 
 const API_URL = Config.API_URL;
+const REQUEST_TIMEOUT_MS = 15000;
 
 // ─── Token Storage Keys ───
 const ACCESS_TOKEN_KEY = 'trocare_access_token';
@@ -57,8 +58,62 @@ export class ApiClientError extends Error {
   }
 }
 
+function getTimeoutMessage(url: string): string {
+  return `Request timed out after ${REQUEST_TIMEOUT_MS}ms: ${url}`;
+}
+
+function getUrlCandidates(url: string): string[] {
+  if (!url.startsWith(API_URL)) return [url];
+
+  return Array.from(new Set([
+    url,
+    ...Config.API_FALLBACK_URLS.map((baseUrl) => `${baseUrl}${url.slice(API_URL.length)}`),
+  ]));
+}
+
+async function fetchSingleUrlWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new ApiClientError(getTimeoutMessage(url), 0, { code: 'NETWORK_TIMEOUT' });
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const candidates = getUrlCandidates(url);
+  let lastError: any = null;
+
+  for (const candidateUrl of candidates) {
+    try {
+      return await fetchSingleUrlWithTimeout(candidateUrl, init);
+    } catch (err: any) {
+      lastError = err;
+      const canRetry =
+        err?.status === 0 ||
+        err?.name === 'TypeError' ||
+        /network request failed|failed to fetch|failed to connect/i.test(String(err?.message || ''));
+
+      if (!canRetry) throw err;
+      console.warn('[API] Network request failed, trying fallback URL if available:', candidateUrl, err?.message);
+    }
+  }
+
+  throw lastError;
+}
+
 // ─── Event for auth state changes ───
-type AuthEventListener = (event: 'logout' | 'profile_required') => void;
+type AuthEventListener = (event: 'logout' | 'profile_required' | 'pending_approval') => void;
 let authEventListener: AuthEventListener | null = null;
 
 export function setAuthEventListener(listener: AuthEventListener) {
@@ -83,7 +138,7 @@ async function tryRefreshToken(): Promise<boolean> {
         return false;
       }
 
-      const res = await fetch(`${API_URL}/auth/refresh`, {
+      const res = await fetchWithTimeout(`${API_URL}/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -150,7 +205,7 @@ async function request<T>(path: string, method: HttpMethod, body?: any, retry = 
     headers['Content-Type'] = 'application/json';
   }
 
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method,
     headers,
     body: body !== undefined && body !== null ? JSON.stringify(body) : undefined,
@@ -162,6 +217,11 @@ async function request<T>(path: string, method: HttpMethod, body?: any, retry = 
   if (res.status === 403 && data?.code === 'PROFILE_REQUIRED') {
     authEventListener?.('profile_required');
     throw new ApiClientError(data?.message || 'Profile required', res.status, { ...data, code: data?.code });
+  }
+
+  if (res.status === 403 && data?.code === 'ACCOUNT_PENDING_APPROVAL') {
+    authEventListener?.('pending_approval');
+    throw new ApiClientError(data?.message || 'Account pending approval', res.status, { ...data, code: data?.code });
   }
 
   // Handle 401 — try token refresh once
@@ -177,6 +237,11 @@ async function request<T>(path: string, method: HttpMethod, body?: any, retry = 
   if (res.status === 401) {
     authEventListener?.('logout');
     throw new ApiClientError('Unauthorized', res.status);
+  }
+
+  if (res.status === 403 && ['ACCOUNT_REJECTED', 'ACCOUNT_BLOCKED', 'ACCOUNT_DELETED'].includes(String(data?.code || ''))) {
+    authEventListener?.('logout');
+    throw new ApiClientError(data?.message || data?.error || 'Account is not active', res.status, { ...data, code: data?.code });
   }
 
   if (!res.ok) {

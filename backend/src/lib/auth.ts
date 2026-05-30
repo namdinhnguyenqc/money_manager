@@ -21,8 +21,8 @@ export interface User {
   email: string;
   name: string | null;
   avatarUrl: string | null;
-  role: "USER" | "OWNER" | "ADMIN" | "SUPER_ADMIN";
-  status: "ACTIVE" | "BLOCKED" | "DELETED";
+  role: "USER" | "OWNER" | "ADMIN" | "SUPER_ADMIN" | "TENANT";
+  status: "ACTIVE" | "PENDING_APPROVAL" | "REJECTED" | "BLOCKED" | "DELETED";
   provider: string;
   last_login_at: string | null;
   created_at: string;
@@ -39,7 +39,7 @@ export interface JwtPayload {
   avatarUrl?: string | null;
   provider?: string | null;
   isProfileCompleted?: boolean;
-  onboardingStep?: "COMPLETE_PROFILE" | "DONE";
+  onboardingStep?: "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "DONE";
   iat: number;
   exp: number;
 }
@@ -51,7 +51,7 @@ export async function generateAccessToken(
     avatarUrl?: string | null;
     provider?: string | null;
     isProfileCompleted?: boolean;
-    onboardingStep?: "COMPLETE_PROFILE" | "DONE";
+    onboardingStep?: "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "DONE";
   }
 ): Promise<string> {
   const { SignJWT } = await import("jose");

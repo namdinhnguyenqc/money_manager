@@ -1,28 +1,98 @@
-/**
- * TrọCare Mobile — Premium Settings Screen (Redesigned & Consolidated)
- * Designed in compliance with Ethereal Alabaster & Porcelain standard guidelines.
- * Ultra-soft card configurations (borderRadius: 24), amethyst highlights,
- * beautifully grouped compartments, and a luxurious profile header.
- */
-
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import {
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
-import Card from '@/components/ui/Card';
 import { useAuthStore } from '@/store/authStore';
-import { loadProfile } from '@/lib/profile';
+import { loadProfile, type OwnerProfile } from '@/lib/profile';
+
+type RoutePath = Parameters<ReturnType<typeof useRouter>['push']>[0];
+
+const sections: Array<{
+  title: string;
+  items: Array<{
+    icon: keyof typeof Ionicons.glyphMap;
+    label: string;
+    detail?: string;
+    route?: RoutePath;
+    tone?: 'default' | 'success' | 'warning' | 'danger';
+    action?: 'security' | 'support' | 'logout';
+  }>;
+}> = [
+  {
+    title: 'Vận hành phòng trọ',
+    items: [
+      { icon: 'people-outline', label: 'Khách thuê', detail: 'Hồ sơ, liên hệ, tình trạng thuê', route: '/tenants' as any },
+      { icon: 'receipt-outline', label: 'Hóa đơn', detail: 'Danh sách hóa đơn và thanh toán', route: '/invoices' as any },
+      { icon: 'copy-outline', label: 'Lập hóa đơn hàng loạt', detail: 'Tạo nhanh theo kỳ thu tiền', route: '/invoice/bulk' as any },
+      { icon: 'list-outline', label: 'Bảng giá dịch vụ', detail: 'Điện, nước, rác, wifi và phụ phí', route: '/services' as any },
+      { icon: 'cash-outline', label: 'Tiền cọc giữ phòng', detail: 'Nhận cọc, hoàn cọc, chuyển hợp đồng', route: '/deposit' as any, tone: 'success' },
+    ],
+  },
+  {
+    title: 'Thanh toán và đối soát',
+    items: [
+      { icon: 'wallet-outline', label: 'Ví và tài khoản', detail: 'Nguồn tiền, số dư, giao dịch', route: '/wallets' as any },
+      { icon: 'shield-checkmark-outline', label: 'SePay', detail: 'QR ACB, webhook, mã thanh toán', route: '/sepay' as any },
+      { icon: 'trending-up-outline', label: 'Kinh doanh hàng hóa', detail: 'Thu bán thêm dịch vụ, vật tư', route: '/trading' as any },
+      { icon: 'document-text-outline', label: 'Nhật ký thao tác', detail: 'Lịch sử thay đổi trên hệ thống', route: '/audit-logs' as any },
+    ],
+  },
+  {
+    title: 'Kênh khách thuê',
+    items: [
+      { icon: 'search-outline', label: 'Marketplace phòng trống', detail: 'Tin đăng và phòng khả dụng', route: '/marketplace' as any },
+      { icon: 'chatbubbles-outline', label: 'Tin nhắn', detail: 'Trao đổi với khách thuê', route: '/messages' as any },
+      { icon: 'calendar-outline', label: 'Lịch xem phòng', detail: 'Yêu cầu đặt lịch và xác nhận', route: '/bookings' as any },
+      { icon: 'notifications-outline', label: 'Thông báo', detail: 'Nhắc hạn, cập nhật hệ thống', route: '/notifications' as any, tone: 'warning' },
+    ],
+  },
+  {
+    title: 'Tài khoản',
+    items: [
+      { icon: 'lock-closed-outline', label: 'Bảo mật tài khoản', detail: 'Mật khẩu và xác thực', action: 'security' },
+      { icon: 'help-circle-outline', label: 'Trung tâm hỗ trợ', detail: 'Liên hệ hỗ trợ vận hành', action: 'support' },
+      { icon: 'log-out-outline', label: 'Đăng xuất', detail: 'Thoát khỏi tài khoản hiện tại', action: 'logout', tone: 'danger' },
+    ],
+  },
+];
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<OwnerProfile | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadProfile().then(setProfile).catch(() => {});
+  const fetchProfile = useCallback(async () => {
+    try {
+      const nextProfile = await loadProfile();
+      setProfile(nextProfile);
+    } catch {
+      setProfile(null);
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfile();
+    }, [fetchProfile])
+  );
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchProfile();
+  };
 
   const handleLogout = () => {
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất?', [
@@ -38,207 +108,269 @@ export default function SettingsScreen() {
     ]);
   };
 
+  const handleItemPress = (item: (typeof sections)[number]['items'][number]) => {
+    if (item.route) {
+      router.push(item.route);
+      return;
+    }
+    if (item.action === 'logout') {
+      handleLogout();
+      return;
+    }
+    if (item.action === 'security') {
+      Alert.alert('Bảo mật', 'Tính năng đổi mật khẩu và xác thực 2 lớp đang được phát triển.');
+      return;
+    }
+    if (item.action === 'support') {
+      Alert.alert('Hỗ trợ', 'Vui lòng liên hệ support@trocare.vn hoặc hotline 1900 xxxx.');
+    }
+  };
+
+  const displayName = profile?.fullName || user?.email || 'Chủ trọ';
+  const displayPhone = profile?.phone || 'Chưa cập nhật số điện thoại';
+  const completionText = profile?.isProfileCompleted || profile?.is_profile_completed ? 'Hồ sơ đã hoàn tất' : 'Cần cập nhật hồ sơ';
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
-      {/* 👑 Premium Profile Card */}
-      <View style={[styles.porcelainCard, styles.profileCard, { shadowColor: '#8A3FFC' }]}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scroll}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+    >
+      <View style={styles.profilePanel}>
         <View style={styles.avatar}>
-          <Ionicons name="person-outline" size={24} color="#fff" />
+          <Ionicons name="person" size={23} color={Colors.textWhite} />
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.profileName}>{profile?.fullName || user?.email || 'Chủ trọ TrọCare'}</Text>
-          <Text style={styles.profileEmail}>{user?.email}</Text>
-          {profile?.phone && <Text style={styles.profilePhone}>📱 {profile.phone}</Text>}
+        <View style={styles.profileText}>
+          <Text style={styles.profileName} numberOfLines={1}>{displayName}</Text>
+          <Text style={styles.profileMeta} numberOfLines={1}>{user?.email || displayPhone}</Text>
+          <View style={styles.profileStatus}>
+            <View style={[styles.statusDot, profile?.isProfileCompleted || profile?.is_profile_completed ? styles.statusDotOk : styles.statusDotWarn]} />
+            <Text style={styles.statusText}>{completionText}</Text>
+          </View>
         </View>
-        <TouchableOpacity
-          style={styles.editBtn}
-          onPress={() => router.push('/profile' as any)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="pencil" size={16} color="#8A3FFC" />
+        <TouchableOpacity style={styles.editProfileButton} onPress={() => router.push('/profile' as any)}>
+          <Ionicons name="create-outline" size={17} color={Colors.primary} />
         </TouchableOpacity>
       </View>
 
-      {/* 🏢 Section 1: Operations Suite */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Quản lý vận hành trọ</Text>
-        <View style={[styles.porcelainCard, styles.menuGroup]}>
-          <MenuItem icon="people-outline" label="Khách thuê phòng" color="#8A3FFC" bg="rgba(138, 63, 252, 0.08)" onPress={() => router.push('/tenants' as any)} />
-          <View style={styles.divider} />
-          <MenuItem icon="wallet-outline" label="Ví & Tài khoản thanh toán" color="#0D9488" bg="rgba(13, 148, 136, 0.08)" onPress={() => router.push('/wallets' as any)} />
-          <View style={styles.divider} />
-          <MenuItem icon="receipt-outline" label="Quản lý hóa đơn" color="#EAB308" bg="rgba(234, 179, 8, 0.08)" onPress={() => router.push('/invoices' as any)} />
-          <View style={styles.divider} />
-          <MenuItem icon="copy-outline" label="Lập hóa đơn hàng loạt" color="#8A3FFC" bg="rgba(138, 63, 252, 0.08)" onPress={() => router.push('/invoice/bulk' as any)} />
-          <View style={styles.divider} />
-          <MenuItem icon="list-outline" label="Bảng giá dịch vụ trọ" color="#06B6D4" bg="rgba(6, 182, 212, 0.08)" onPress={() => router.push('/services' as any)} />
-          <View style={styles.divider} />
-          <MenuItem icon="cash-outline" label="Tiền đặt cọc phòng" color="#0D9488" bg="rgba(13, 148, 136, 0.08)" onPress={() => router.push('/deposit' as any)} />
-        </View>
+      <View style={styles.quickGrid}>
+        <QuickAction icon="person-outline" label="Hồ sơ" onPress={() => router.push('/profile' as any)} />
+        <QuickAction icon="cash-outline" label="Nhận cọc" onPress={() => router.push('/deposit/new' as any)} />
+        <QuickAction icon="qr-code-outline" label="SePay" onPress={() => router.push('/sepay' as any)} />
       </View>
 
-      {/* 📈 Section 2: Business Ledger */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Kinh doanh & Nhật ký</Text>
-        <View style={[styles.porcelainCard, styles.menuGroup]}>
-          <MenuItem icon="trending-up-outline" label="Kinh doanh hàng hóa/dịch vụ" color="#C084FC" bg="rgba(192, 132, 252, 0.08)" onPress={() => router.push('/trading' as any)} />
-          <View style={styles.divider} />
-          <MenuItem icon="document-text-outline" label="Nhật ký thao tác hệ thống" color="#94A3B8" bg="rgba(148, 163, 184, 0.08)" onPress={() => router.push('/audit-logs' as any)} />
+      {sections.map((section) => (
+        <View key={section.title} style={styles.section}>
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+          <View style={styles.menuGroup}>
+            {section.items.map((item, index) => (
+              <React.Fragment key={item.label}>
+                <SettingsItem item={item} onPress={() => handleItemPress(item)} />
+                {index < section.items.length - 1 ? <View style={styles.divider} /> : null}
+              </React.Fragment>
+            ))}
+          </View>
         </View>
-      </View>
-
-      {/* 🔍 Section 3: Utilities */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Khám phá dịch vụ</Text>
-        <View style={[styles.porcelainCard, styles.menuGroup]}>
-          <MenuItem icon="search-outline" label="Marketplace phòng trống" color="#3b82f6" bg="rgba(59, 130, 246, 0.08)" onPress={() => router.push('/marketplace' as any)} />
-          <View style={styles.divider} />
-          <MenuItem icon="chatbubbles-outline" label="Hộp thư tin nhắn" color="#10b981" bg="rgba(16, 185, 129, 0.08)" onPress={() => router.push('/messages' as any)} />
-          <View style={styles.divider} />
-          <MenuItem icon="calendar-outline" label="Đặt lịch xem phòng" color="#f43f5e" bg="rgba(244, 63, 94, 0.08)" onPress={() => router.push('/bookings' as any)} />
-          <View style={styles.divider} />
-          <MenuItem icon="notifications-outline" label="Thông báo hệ thống" color="#EAB308" bg="rgba(234, 179, 8, 0.08)" onPress={() => router.push('/notifications' as any)} />
-        </View>
-      </View>
-
-      {/* ⚙️ Section 4: Accounts */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Cấu hình & Bảo mật</Text>
-        <View style={[styles.porcelainCard, styles.menuGroup]}>
-          <MenuItem icon="shield-checkmark-outline" label="Bảo mật tài khoản" color="#64748B" bg="rgba(100, 116, 139, 0.08)" onPress={() => Alert.alert('Bảo mật', 'Tính năng đổi mật khẩu & cấu hình 2FA đang được phát triển.')} />
-          <View style={styles.divider} />
-          <MenuItem icon="help-circle-outline" label="Trung tâm hỗ trợ" color="#64748B" bg="rgba(100, 116, 139, 0.08)" onPress={() => Alert.alert('Hỗ trợ', 'Vui lòng liên hệ support@trocare.vn hoặc gọi hotline 1900 xxxx.')} />
-          <View style={styles.divider} />
-          <MenuItem icon="log-out-outline" label="Đăng xuất khỏi hệ thống" color="#F43F5E" bg="rgba(244, 63, 94, 0.08)" onPress={handleLogout} danger />
-        </View>
-      </View>
+      ))}
     </ScrollView>
   );
 }
 
-function MenuItem({
-  icon, label, color, bg, onPress, danger = false,
+function QuickAction({
+  icon,
+  label,
+  onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
-  color: string;
-  bg: string;
   onPress: () => void;
-  danger?: boolean;
 }) {
   return (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.6}>
-      <View style={[styles.menuIcon, { backgroundColor: bg }]}>
-        <Ionicons name={icon} size={18} color={color} />
+    <TouchableOpacity style={styles.quickAction} onPress={onPress} activeOpacity={0.72}>
+      <Ionicons name={icon} size={18} color={Colors.primary} />
+      <Text style={styles.quickLabel} numberOfLines={1}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function SettingsItem({
+  item,
+  onPress,
+}: {
+  item: (typeof sections)[number]['items'][number];
+  onPress: () => void;
+}) {
+  const toneColor = item.tone === 'danger'
+    ? Colors.danger
+    : item.tone === 'success'
+      ? Colors.success
+      : item.tone === 'warning'
+        ? Colors.warning
+        : Colors.primary;
+
+  return (
+    <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.72}>
+      <View style={[styles.menuIcon, { backgroundColor: `${toneColor}14` }]}>
+        <Ionicons name={item.icon} size={18} color={toneColor} />
       </View>
-      <Text style={[styles.menuLabel, danger && { color: '#F43F5E', fontFamily: Typography.fontFamily.bold }]}>{label}</Text>
-      <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
+      <View style={styles.menuContent}>
+        <Text style={[styles.menuLabel, item.tone === 'danger' && styles.dangerText]} numberOfLines={1}>
+          {item.label}
+        </Text>
+        {item.detail ? <Text style={styles.menuDetail} numberOfLines={1}>{item.detail}</Text> : null}
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F4F6' },
-  scroll: { padding: 16, paddingBottom: 110, gap: 16 },
-
-  /* Premium Alabaster Porcelain Cards */
-  porcelainCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24, // Ultra-soft rounded corners
-    borderWidth: 1,
-    borderColor: '#EAEAEF',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 2,
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
   },
-  
-  profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 18,
+  scroll: {
+    padding: 16,
+    paddingBottom: 112,
     gap: 14,
   },
+  profilePanel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: '#8A3FFC', // Brand purple
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#8A3FFC',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: Colors.primary,
+  },
+  profileText: {
+    flex: 1,
+    minWidth: 0,
   },
   profileName: {
     fontSize: 16,
     fontFamily: Typography.fontFamily.bold,
-    color: '#0F172A',
-    letterSpacing: -0.3,
+    color: Colors.textPrimary,
   },
-  profileEmail: {
+  profileMeta: {
+    marginTop: 2,
     fontSize: 12,
     fontFamily: Typography.fontFamily.regular,
-    color: '#64748B',
-    marginTop: 1,
+    color: Colors.textSecondary,
   },
-  profilePhone: {
+  profileStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  statusDotOk: {
+    backgroundColor: Colors.success,
+  },
+  statusDotWarn: {
+    backgroundColor: Colors.warning,
+  },
+  statusText: {
     fontSize: 11,
     fontFamily: Typography.fontFamily.medium,
-    color: '#475569',
-    marginTop: 2,
+    color: Colors.textMuted,
   },
-  editBtn: {
-    width: 32,
-    height: 32,
+  editProfileButton: {
+    width: 36,
+    height: 36,
     borderRadius: 10,
-    backgroundColor: '#F3E8FF',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Colors.primaryLight,
   },
-
+  quickGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  quickAction: {
+    flex: 1,
+    minHeight: 70,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  quickLabel: {
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.semibold,
+    color: Colors.textPrimary,
+  },
   section: {
-    gap: 6,
+    gap: 8,
   },
-  sectionLabel: {
-    fontSize: 10,
+  sectionTitle: {
+    paddingHorizontal: 2,
+    fontSize: 12,
     fontFamily: Typography.fontFamily.bold,
-    color: '#94A3B8',
+    color: Colors.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    paddingHorizontal: 6,
-    marginBottom: 2,
+    letterSpacing: 0.6,
   },
   menuGroup: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    minHeight: 62,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   menuIcon: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  menuLabel: {
+  menuContent: {
     flex: 1,
+    minWidth: 0,
+  },
+  menuLabel: {
     fontSize: 14,
-    fontFamily: Typography.fontFamily.medium,
-    color: '#334155',
-    letterSpacing: -0.2,
+    fontFamily: Typography.fontFamily.semibold,
+    color: Colors.textPrimary,
+  },
+  menuDetail: {
+    marginTop: 3,
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.regular,
+    color: Colors.textMuted,
+  },
+  dangerText: {
+    color: Colors.danger,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F4F4F6',
-    marginHorizontal: 8,
+    backgroundColor: Colors.borderLight,
+    marginLeft: 60,
   },
 });

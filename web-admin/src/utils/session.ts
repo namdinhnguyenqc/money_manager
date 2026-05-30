@@ -5,6 +5,8 @@ type SessionPayload = {
   role?: string | null;
   name?: string | null;
   email?: string | null;
+  status?: string | null;
+  approvalStatus?: string | null;
   isProfileCompleted?: boolean | null;
   onboardingStep?: string | null;
 };
@@ -65,6 +67,14 @@ export function setClientSession(payload: SessionPayload) {
   if (payload.email) {
     localStorage.setItem("userEmail", payload.email);
   }
+  if (payload.status) {
+    localStorage.setItem("userStatus", payload.status);
+    setCookie("userStatus", payload.status);
+  }
+  if (payload.approvalStatus) {
+    localStorage.setItem("approvalStatus", payload.approvalStatus);
+    setCookie("approvalStatus", payload.approvalStatus);
+  }
   if (payload.isProfileCompleted !== undefined && payload.isProfileCompleted !== null) {
     localStorage.setItem("isProfileCompleted", String(payload.isProfileCompleted));
     setCookie("isProfileCompleted", String(payload.isProfileCompleted));
@@ -88,6 +98,8 @@ export function clearClientSession(options: ClearSessionOptions = {}) {
   localStorage.removeItem("userRole");
   localStorage.removeItem("userName");
   localStorage.removeItem("userEmail");
+  localStorage.removeItem("userStatus");
+  localStorage.removeItem("approvalStatus");
   localStorage.removeItem("isProfileCompleted");
   localStorage.removeItem("onboardingStep");
   clearSupabaseAuthStorage();
@@ -95,6 +107,8 @@ export function clearClientSession(options: ClearSessionOptions = {}) {
   clearCookie("accessToken");
   clearCookie("refreshToken");
   clearCookie("userRole");
+  clearCookie("userStatus");
+  clearCookie("approvalStatus");
   clearCookie("isProfileCompleted");
   clearCookie("onboardingStep");
   
@@ -112,11 +126,13 @@ export function getStoredAccessToken() {
 }
 
 export function getStoredSessionUser() {
-  if (typeof window === "undefined") return { role: null, name: null, email: null };
+  if (typeof window === "undefined") return { role: null, name: null, email: null, status: null, approvalStatus: null };
   return {
     role: localStorage.getItem("userRole"),
     name: localStorage.getItem("userName"),
     email: localStorage.getItem("userEmail"),
+    status: localStorage.getItem("userStatus"),
+    approvalStatus: localStorage.getItem("approvalStatus"),
   };
 }
 

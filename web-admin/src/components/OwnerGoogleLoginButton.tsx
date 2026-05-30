@@ -45,18 +45,21 @@ export default function OwnerGoogleLoginButton() {
       const role = authData?.user?.role || "OWNER";
       const isProfileCompleted = authData?.user?.isProfileCompleted ?? false;
       const onboardingStep = authData?.user?.onboardingStep ?? "COMPLETE_PROFILE";
+      const approvalStatus = authData?.user?.approvalStatus || authData?.user?.status;
 
       setClientSession({
         accessToken,
         role,
         name: authData?.user?.name,
         email: authData?.user?.email,
+        status: authData?.user?.status,
+        approvalStatus,
         isProfileCompleted,
         onboardingStep,
       });
 
       // Use client-side router.replace to prevent saving login page in browser history
-      router.replace(isProfileCompleted ? "/owner/dashboard" : "/complete-profile");
+      router.replace(!isProfileCompleted ? "/complete-profile" : approvalStatus === "PENDING_APPROVAL" ? "/pending-approval" : "/owner/dashboard");
     } catch (err: any) {
       console.error("Login error:", err);
       setError(err?.message ?? "Đăng nhập owner thất bại.");

@@ -2,7 +2,7 @@ import { env } from "../config/env.js";
 
 import { supabaseAdmin } from "./supabase.js";
 
-export type OnboardingStep = "COMPLETE_PROFILE" | "DONE";
+export type OnboardingStep = "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "DONE";
 
 export type UserProfileInput = {
   fullName: string;
@@ -102,7 +102,8 @@ export async function upsertUserProfile(userId: string, input: UserProfileInput)
     name: input.fullName,
     avatar: input.avatarUrl ?? undefined,
     is_profile_completed: true,
-    onboarding_step: "DONE",
+    onboarding_step: "PENDING_APPROVAL",
+    status: "PENDING_APPROVAL",
   };
 
   const { error: userUpdateError } = await supabaseAdmin
@@ -160,13 +161,19 @@ export async function buildProfileAuthMeta(user: any, preFetchedProfile?: any) {
   if (profile && !profile.fullName && profile.full_name) {
     profile = toProfileResponse(profile);
   }
-  const isProfileCompleted = Boolean(profile || user.is_profile_completed === true || user.onboarding_step === "DONE");
-  const onboardingStep: OnboardingStep = isProfileCompleted ? "DONE" : "COMPLETE_PROFILE";
+  const status = String(user.status || "").toUpperCase();
+  const isProfileCompleted = Boolean(profile || user.is_profile_completed === true || user.onboarding_step === "DONE" || user.onboarding_step === "PENDING_APPROVAL");
+  const onboardingStep: OnboardingStep = !isProfileCompleted
+    ? "COMPLETE_PROFILE"
+    : status === "ACTIVE" || user.onboarding_step === "DONE"
+      ? "DONE"
+      : "PENDING_APPROVAL";
 
   return {
     profile,
     isProfileCompleted,
     onboardingStep,
-    nextStep: onboardingStep === "DONE" ? "DASHBOARD" : "COMPLETE_PROFILE",
+    approvalStatus: status || "ACTIVE",
+    nextStep: onboardingStep === "DONE" ? "DASHBOARD" : onboardingStep,
   };
 }

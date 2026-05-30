@@ -2,15 +2,47 @@
  * TrọCare Mobile — App Configuration
  */
 
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-const defaultApiUrl = Platform.OS === 'android'
+function normalizeHost(value?: string | null) {
+  if (!value) return null;
+  return value
+    .replace(/^https?:\/\//, '')
+    .replace(/^exp:\/\//, '')
+    .split('/')[0]
+    .split(':')[0];
+}
+
+const metroHost = normalizeHost(
+  Constants.expoConfig?.hostUri ||
+  Constants.manifest2?.extra?.expoGo?.debuggerHost ||
+  (Constants as any).manifest?.debuggerHost
+);
+
+const apiUrlFromMetroHost = metroHost && !['localhost', '127.0.0.1', '10.0.2.2'].includes(metroHost)
+  ? `http://${metroHost}:8787`
+  : null;
+
+const envApiUrl = process.env.EXPO_PUBLIC_API_URL;
+const isEmulatorOnlyEnvUrl = envApiUrl?.includes('10.0.2.2');
+
+const defaultApiUrl = apiUrlFromMetroHost || (Platform.OS === 'android'
   ? 'http://10.0.2.2:8787'
-  : 'http://localhost:8787';
+  : 'http://localhost:8787');
+
+const apiFallbackUrls = Array.from(new Set([
+  defaultApiUrl,
+  Platform.OS === 'android' ? 'http://10.0.2.2:8787' : 'http://localhost:8787',
+  apiUrlFromMetroHost,
+].filter(Boolean) as string[]));
 
 const Config = {
   /** Backend API base URL */
-  API_URL: process.env.EXPO_PUBLIC_API_URL || defaultApiUrl,
+  API_URL: isEmulatorOnlyEnvUrl && apiUrlFromMetroHost ? apiUrlFromMetroHost : (envApiUrl || defaultApiUrl),
+
+  /** Retry candidates for local dev when Android cannot reach the configured LAN host. */
+  API_FALLBACK_URLS: apiFallbackUrls,
 
   /** Google OAuth client IDs. Client IDs are public identifiers. */
   GOOGLE_WEB_CLIENT_ID:

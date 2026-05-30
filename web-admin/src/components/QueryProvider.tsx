@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { API_URL } from "@/lib/apiUrl";
 import { clearClientSession, createAuthBroadcastChannel, getLoginPath, getStoredAccessToken } from "@/utils/session";
+import { authFetch } from "@/utils/authFetch";
 
 const privatePrefixes = [
   "/owner",
@@ -22,9 +23,23 @@ const CACHE_SYNC_KEY = "trocare-cache-sync";
 const syncedQueryKeys = [
   ["contracts"],
   ["rooms"],
+  ["room"],
   ["facility"],
+  ["facilities"],
+  ["boardinghouses"],
+  ["invoices"],
+  ["payments"],
   ["deposits"],
   ["transactions"],
+  ["wallets"],
+  ["services"],
+  ["settings"],
+  ["payment-channels"],
+  ["bank-config"],
+  ["owner", "boarding-houses"],
+  ["owner", "rooms"],
+  ["owner", "wallets"],
+  ["owner", "settings"],
   ["owner", "dashboard-init"],
 ] as const;
 
@@ -84,8 +99,7 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
 
       verifying = true;
       try {
-        const res = await fetch(`${API_URL}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const res = await authFetch(`${API_URL}/auth/me`, {
           cache: "no-store",
         });
         if (!res.ok) redirectToLogin();

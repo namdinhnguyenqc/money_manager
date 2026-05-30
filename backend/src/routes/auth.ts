@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { OAuth2Client } from "google-auth-library";
-import crypto from "crypto";
 import { supabaseAdmin } from "../lib/supabase.js";
 import {
   generateAccessToken,
@@ -11,7 +10,7 @@ import {
   User,
 } from "../lib/auth.js";
 import { parseJson } from "../utils/validation.js";
-import { requireAuth, requireOwner, getClientIp, getDeviceInfo, revokeAccessToken } from "../middleware/auth.js";
+import { requireAuth, getClientIp, getDeviceInfo, revokeAccessToken } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
 import { buildProfileAuthMeta, getUserProfile } from "../lib/profileStore.js";
@@ -140,131 +139,6 @@ const adminLoginSchema = z.object({
 });
 
 let googleOAuth2Client: OAuth2Client | null = null;
-
-const getZaloRedirectUri = (c: any) => {
-  if (env.ZALO_REDIRECT_URI) return env.ZALO_REDIRECT_URI;
-  const origin = new URL(c.req.url).origin;
-  return `${origin}/api/auth/zalo/callback`;
-};
-
-const getStoredZaloConfig = async (userId: string) => {
-  const { data, error } = await supabaseAdmin
-    .from("system_settings")
-    .select("key,value")
-    .eq("user_id", userId)
-    .eq("category", "zalo");
-  if (error) throw error;
-  const map = new Map<string, any>();
-  for (const item of data || []) {
-    map.set(item.key, item.value);
-  }
-  return {
-    appId: String(map.get("app_id") || env.ZALO_APP_ID || ""),
-    appSecret: String(map.get("app_secret") || env.ZALO_APP_SECRET || ""),
-    redirectUri: String(map.get("redirect_uri") || env.ZALO_REDIRECT_URI || ""),
-  };
-};
-
-const resolveZaloRedirectUri = (c: any, config: { redirectUri?: string | null }) => {
-  if (config.redirectUri) return config.redirectUri;
-  return getZaloRedirectUri(c);
-};
-
-const getZaloReturnUrl = (status: "connected" | "error", message?: string) => {
-  const url = new URL("/owner/settings", env.WEB_ADMIN_URL);
-  url.searchParams.set("tab", "zalo");
-  url.searchParams.set("zalo", status);
-  if (message) url.searchParams.set("message", message);
-  return url.toString();
-};
-
-const createZaloCodeVerifier = () => crypto.randomBytes(32).toString("base64url");
-
-const createZaloCodeChallenge = (codeVerifier: string) =>
-  crypto.createHash("sha256").update(codeVerifier).digest("base64url");
-
-const signZaloState = (userId: string, codeVerifier: string) => {
-  const payload = {
-    userId,
-    codeVerifier,
-    nonce: crypto.randomBytes(12).toString("hex"),
-    exp: Date.now() + 10 * 60 * 1000,
-  };
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const sig = crypto.createHmac("sha256", env.JWT_SECRET).update(body).digest("base64url");
-  return `${body}.${sig}`;
-};
-
-const verifyZaloState = (state?: string | null) => {
-  if (!state || !state.includes(".")) return null;
-  const [body, sig] = state.split(".");
-  const expected = crypto.createHmac("sha256", env.JWT_SECRET).update(body).digest("base64url");
-  const left = Buffer.from(sig || "");
-  const right = Buffer.from(expected);
-  if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) return null;
-  try {
-    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
-    if (!payload?.userId || Number(payload.exp || 0) < Date.now()) return null;
-    if (!payload?.codeVerifier) return null;
-    return payload as { userId: string; codeVerifier: string; nonce: string; exp: number };
-  } catch {
-    return null;
-  }
-};
-
-const normalizeZaloPicture = (picture: any) => {
-  if (!picture) return null;
-  if (typeof picture === "string") return picture;
-  return picture?.data?.url || picture?.url || null;
-};
-
-const exchangeZaloCode = async (
-  config: { appId: string; appSecret: string },
-  code: string,
-  redirectUri: string,
-  codeVerifier: string,
-) => {
-  const body = new URLSearchParams({
-    app_id: config.appId,
-    code,
-    code_verifier: codeVerifier,
-    grant_type: "authorization_code",
-    redirect_uri: redirectUri,
-  });
-  const res = await fetch("https://oauth.zaloapp.com/v4/access_token", {
-    method: "POST",
-    headers: {
-      "content-type": "application/x-www-form-urlencoded",
-      secret_key: config.appSecret,
-    },
-    body,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.error) {
-    throw new Error(data.error_description || data.message || data.error || "Không lấy được Zalo access token.");
-  }
-  return data as {
-    access_token: string;
-    refresh_token?: string;
-    expires_in?: number;
-    scope?: string;
-  };
-};
-
-const fetchZaloProfile = async (accessToken: string) => {
-  const url = "https://graph.zalo.me/v2.0/me?fields=id,name,picture";
-  const res = await fetch(url, {
-    headers: {
-      access_token: accessToken,
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.error) {
-    throw new Error(data.error_description || data.message || data.error || "Không lấy được thông tin Zalo.");
-  }
-  return data;
-};
 
 
 
@@ -430,6 +304,11 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
       return { error: { code: "ACCOUNT_BLOCKED", message: "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên." }, status: 403 };
     }
 
+    if (existingUser.status === "REJECTED") {
+      await logLoginAttempt(existingUser.id, false, "ACCOUNT_REJECTED");
+      return { error: { code: "ACCOUNT_REJECTED", message: "Tài khoản của bạn chưa được duyệt hoặc đã bị từ chối." }, status: 403 };
+    }
+
     if (existingUser.status === "DELETED") {
       await logLoginAttempt(existingUser.id, false, "ACCOUNT_DELETED");
       return { error: { code: "ACCOUNT_DELETED", message: "Tài khoản đã bị xóa." }, status: 403 };
@@ -581,6 +460,9 @@ async function upsertOwnerGoogleUser(input: {
     if (existingUser.status === "BLOCKED") {
       return { error: { code: "ACCOUNT_BLOCKED", message: "Tài khoản owner đã bị khóa." }, status: 403 };
     }
+    if (existingUser.status === "REJECTED") {
+      return { error: { code: "ACCOUNT_REJECTED", message: "Tài khoản owner chưa được duyệt hoặc đã bị từ chối." }, status: 403 };
+    }
     // Check if user info actually changed
     const needsUpdate = 
       existingUser.google_id !== googleId ||
@@ -710,6 +592,7 @@ async function createAuthResponse(user: any, isNewUser: boolean, preFetchedProfi
       isNewUser,
       isProfileCompleted: profileMeta.isProfileCompleted,
       onboardingStep: profileMeta.onboardingStep,
+      approvalStatus: profileMeta.approvalStatus,
     },
     profile: profileMeta.profile,
     nextStep: profileMeta.nextStep,
@@ -796,151 +679,6 @@ authRoutes.post("/owner-google", async (c) => {
   return c.json(result);
 });
 
-authRoutes.get("/zalo/status", requireAuth, async (c) => {
-  const user = c.get("user");
-  const { data, error } = await supabaseAdmin
-    .from("zalo_connections")
-    .select("id,zalo_id,display_name,avatar_url,status,connected_at,updated_at,token_expires_at")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (error) return c.json({ error: error.message }, 500);
-  return c.json({
-    data: data ? {
-      connected: data.status === "connected",
-      id: data.id,
-      zaloId: data.zalo_id,
-      displayName: data.display_name,
-      avatarUrl: data.avatar_url,
-      status: data.status,
-      connectedAt: data.connected_at,
-      updatedAt: data.updated_at,
-      tokenExpiresAt: data.token_expires_at,
-    } : { connected: false },
-  });
-});
-
-authRoutes.get("/zalo/config", requireAuth, requireOwner, async (c) => {
-  const user = c.get("user");
-  const config = await getStoredZaloConfig(user.id);
-  return c.json({
-    data: {
-      appId: config.appId,
-      hasSecret: Boolean(config.appSecret),
-      redirectUri: resolveZaloRedirectUri(c, config),
-    },
-  });
-});
-
-authRoutes.put("/zalo/config", requireAuth, requireOwner, async (c) => {
-  const user = c.get("user");
-  const body = await c.req.json().catch(() => ({}));
-  const existing = await getStoredZaloConfig(user.id);
-  const appId = String(body?.appId || "").trim();
-  const appSecret = String(body?.appSecret || "").trim() || existing.appSecret;
-  const redirectUri = String(body?.redirectUri || getZaloRedirectUri(c)).trim();
-
-  if (!appId || !appSecret) {
-    return c.json({
-      code: "ZALO_CONFIG_REQUIRED",
-      message: "Vui lòng nhập App ID và Secret Key của Zalo.",
-    }, 400);
-  }
-
-  const rows = [
-    { user_id: user.id, category: "zalo", key: "app_id", value: appId, type: "string" },
-    { user_id: user.id, category: "zalo", key: "app_secret", value: appSecret, type: "secret" },
-    { user_id: user.id, category: "zalo", key: "redirect_uri", value: redirectUri, type: "string" },
-  ];
-
-  const { error } = await supabaseAdmin
-    .from("system_settings")
-    .upsert(rows, { onConflict: "user_id,category,key" });
-  if (error) return c.json({ error: error.message }, 500);
-
-  return c.json({
-    data: {
-      appId,
-      hasSecret: true,
-      redirectUri,
-    },
-  });
-});
-
-authRoutes.get("/zalo/connect", requireAuth, async (c) => {
-  const user = c.get("user");
-  const config = await getStoredZaloConfig(user.id);
-  if (!config.appId || !config.appSecret) {
-    return c.json({
-      code: "ZALO_OAUTH_NOT_CONFIGURED",
-      message: "Chưa cấu hình Zalo Login. Vui lòng nhập App ID và Secret Key trong Cài đặt hệ thống > Zalo.",
-    }, 503);
-  }
-
-  const redirectUri = resolveZaloRedirectUri(c, config);
-  const codeVerifier = createZaloCodeVerifier();
-  const url = new URL("https://oauth.zaloapp.com/v4/permission");
-  url.searchParams.set("app_id", config.appId);
-  url.searchParams.set("redirect_uri", redirectUri);
-  url.searchParams.set("code_challenge", createZaloCodeChallenge(codeVerifier));
-  url.searchParams.set("state", signZaloState(user.id, codeVerifier));
-  return c.json({ data: { url: url.toString(), redirectUri } });
-});
-
-authRoutes.get("/zalo/callback", async (c) => {
-  const code = c.req.query("code");
-  const state = c.req.query("state");
-  const error = c.req.query("error") || c.req.query("error_reason");
-  if (error) return c.redirect(getZaloReturnUrl("error", String(error)));
-  if (!code) return c.redirect(getZaloReturnUrl("error", "missing_code"));
-
-  const verifiedState = verifyZaloState(state);
-  if (!verifiedState) return c.redirect(getZaloReturnUrl("error", "invalid_state"));
-
-  try {
-    const config = await getStoredZaloConfig(verifiedState.userId);
-    if (!config.appId || !config.appSecret) throw new Error("Chưa cấu hình Zalo Login.");
-    const token = await exchangeZaloCode(config, code, resolveZaloRedirectUri(c, config), verifiedState.codeVerifier);
-    const profile = await fetchZaloProfile(token.access_token);
-    const zaloId = String(profile.id || "");
-    if (!zaloId) throw new Error("Zalo không trả về user id.");
-
-    const expiresAt = token.expires_in ? new Date(Date.now() + Number(token.expires_in) * 1000).toISOString() : null;
-    const { error: upsertError } = await supabaseAdmin
-      .from("zalo_connections")
-      .upsert({
-        user_id: verifiedState.userId,
-        zalo_id: zaloId,
-        display_name: profile.name || null,
-        avatar_url: normalizeZaloPicture(profile.picture),
-        access_token: token.access_token,
-        refresh_token: token.refresh_token || null,
-        token_expires_at: expiresAt,
-        scopes: token.scope || null,
-        status: "connected",
-        raw_profile: profile,
-        connected_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id" });
-
-    if (upsertError) throw new Error(upsertError.message);
-    return c.redirect(getZaloReturnUrl("connected"));
-  } catch (err: any) {
-    console.error("Zalo callback failed", err);
-    return c.redirect(getZaloReturnUrl("error", err?.message || "zalo_callback_failed"));
-  }
-});
-
-authRoutes.delete("/zalo/disconnect", requireAuth, async (c) => {
-  const user = c.get("user");
-  const { error } = await supabaseAdmin
-    .from("zalo_connections")
-    .update({ status: "disconnected", updated_at: new Date().toISOString() })
-    .eq("user_id", user.id);
-  if (error) return c.json({ error: error.message }, 400);
-  return c.json({ ok: true });
-});
-
 // POST /auth/refresh
 authRoutes.post("/refresh", async (c) => {
   const body = await c.req.json().catch(() => ({}));
@@ -1003,10 +741,24 @@ authRoutes.post("/refresh", async (c) => {
   }
 
   const user = tokenRecord.users;
+  if (user.status === "REJECTED" || user.status === "BLOCKED" || user.status === "DELETED") {
+    await supabaseAdmin
+      .from("refresh_tokens")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("user_id", tokenRecord.user_id)
+      .is("revoked_at", null);
+    return c.json({
+      code: user.status === "REJECTED" ? "ACCOUNT_REJECTED" : user.status === "BLOCKED" ? "ACCOUNT_BLOCKED" : "ACCOUNT_DELETED",
+      message: user.status === "REJECTED" ? "Tài khoản chưa được duyệt hoặc đã bị từ chối." : "Tài khoản không còn hoạt động.",
+    }, 403);
+  }
+  const profileMeta = await buildProfileAuthMeta(user);
   const nextSessionId = crypto.randomUUID();
   const authUser = {
     ...user,
     sessionId: nextSessionId,
+    isProfileCompleted: profileMeta.isProfileCompleted,
+    onboardingStep: profileMeta.onboardingStep,
   };
   const accessToken = await generateAccessToken(authUser);
   const nextRefreshToken = await generateRefreshToken();
@@ -1063,7 +815,11 @@ authRoutes.post("/refresh", async (c) => {
       avatarUrl: user.avatarUrl,
       role: user.role,
       status: user.status,
+      isProfileCompleted: profileMeta.isProfileCompleted,
+      onboardingStep: profileMeta.onboardingStep,
+      approvalStatus: profileMeta.approvalStatus,
     },
+    nextStep: profileMeta.nextStep,
   };
 
   if (c.req.header("x-client-platform")) {
@@ -1150,6 +906,7 @@ authRoutes.get("/me", requireAuth, async (c) => {
       authProvider: user.authProvider || null,
       isProfileCompleted,
       onboardingStep,
+      approvalStatus: user.status || "ACTIVE",
     };
     return c.json({ ...responseUser, user: responseUser });
   }
@@ -1164,6 +921,7 @@ authRoutes.get("/me", requireAuth, async (c) => {
     avatarUrl: user.avatarUrl,
     role: user.role,
     status: user.status || "ACTIVE",
+    approvalStatus: user.status || "ACTIVE",
     // DÃ¹ng header Cache-Control Ä‘á»ƒ trÃ¬nh duyá»‡t/CDN cÃ³ thá»ƒ cache session check
     isProfileCompleted: user.isProfileCompleted ?? true,
     onboardingStep: user.onboardingStep ?? "DONE",

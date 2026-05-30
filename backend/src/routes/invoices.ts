@@ -1,10 +1,12 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import crypto from "crypto";
 import { requireAuth } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { parseJson, toId } from "../utils/validation.js";
+import { env } from "../config/env.js";
 import { applyInvoicePayment } from "../services/invoicePayments.js";
-import { generatePaymentCode } from "../utils/paymentCodes.js";
+import { getTenantUserIdByContractId, notifyInvoiceCreated } from "../services/notificationService.js";
 
 
 const invoicesRoutes = new Hono<AppEnv>();
@@ -80,6 +82,9 @@ const bulkCollectPaymentSchema = z.object({
   walletId: z.string().min(1),
 });
 
+const generatePaymentCode = () =>
+  `${env.SEPAY_PAYMENT_PREFIX || "TCINV"}${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
+
 const loadDefaultPaymentChannel = async (db: any, userId: string) => {
   const { data } = await db
     .from("payment_channels")
@@ -91,6 +96,27 @@ const loadDefaultPaymentChannel = async (db: any, userId: string) => {
     .limit(1)
     .maybeSingle();
   return data || null;
+};
+
+const ensureInvoicePaymentFields = async (db: any, invoice: any, userId: string) => {
+  if (invoice.payment_code && invoice.payment_channel_id) return invoice;
+
+  const defaultChannel = invoice.payment_channel_id ? null : await loadDefaultPaymentChannel(db, userId);
+  const payload: Record<string, unknown> = {};
+  if (!invoice.payment_code) payload.payment_code = generatePaymentCode();
+  if (!invoice.payment_channel_id && defaultChannel?.id) payload.payment_channel_id = defaultChannel.id;
+
+  if (Object.keys(payload).length === 0) return invoice;
+
+  const { data } = await db
+    .from("invoices")
+    .update(payload)
+    .eq("id", invoice.id)
+    .eq("user_id", userId)
+    .select("*")
+    .maybeSingle();
+
+  return data || { ...invoice, ...payload };
 };
 
 const enrichPaymentFields = (invoice: any, channel?: any | null) => {
@@ -122,11 +148,6 @@ const enrichPaymentFields = (invoice: any, channel?: any | null) => {
     remainingAmount: remaining,
     remaining_amount: remaining,
   };
-};
-
-const isPaymentCodeCollision = (error: any) => {
-  const message = String(error?.message || error?.details || "").toLowerCase();
-  return error?.code === "23505" && message.includes("payment_code");
 };
 
 invoicesRoutes.get("/", async (c) => {
@@ -404,11 +425,9 @@ invoicesRoutes.post("/", async (c) => {
     ? (await db.from("payment_channels").select("*").eq("id", parsed.data.paymentChannelId).eq("user_id", user.id).maybeSingle()).data
     : await loadDefaultPaymentChannel(db, user.id);
 
-  let invRes: any = { data: null, error: null };
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    invRes = await db
-      .from("invoices")
-      .insert({
+  const invRes = await db
+    .from("invoices")
+    .insert({
       user_id: user.id,
       room_id: roomId,
       contract_id: contractId,
@@ -425,11 +444,8 @@ invoicesRoutes.post("/", async (c) => {
       payment_code: generatePaymentCode(),
       payment_channel_id: paymentChannel?.id || null,
     })
-      .select("*")
-      .single();
-
-    if (!isPaymentCodeCollision(invRes.error)) break;
-  }
+    .select("*")
+    .single();
 
   if (invRes.error) return c.json({ error: invRes.error.message }, 400);
 
@@ -454,6 +470,17 @@ invoicesRoutes.post("/", async (c) => {
     const itemRes = await db.from("invoice_items").insert(rows);
     if (itemRes.error) return c.json({ error: itemRes.error.message }, 400);
   }
+
+  // Notify tenant asynchronously (non-blocking)
+  getTenantUserIdByContractId(contractId).then((tenantUserId) => {
+    if (tenantUserId) {
+      notifyInvoiceCreated(tenantUserId, invRes.data).catch((err) => {
+        console.error("Failed to send invoice notification to tenant:", err);
+      });
+    }
+  }).catch((err) => {
+    console.error("Failed to fetch tenant user ID for invoice notification:", err);
+  });
 
   return c.json({ data: enrichPaymentFields(invRes.data, paymentChannel) }, 201);
 });
@@ -593,7 +620,7 @@ invoicesRoutes.get("/:id", async (c) => {
   const invRes = await db.from("invoices").select("*").eq("id", id).eq("user_id", user.id).single();
   if (invRes.error) return c.json({ error: invRes.error.message }, 404);
 
-  const invoice = invRes.data;
+  const invoice = await ensureInvoicePaymentFields(db, invRes.data, user.id);
 
   const [itemsRes, roomRes, contractRes] = await Promise.all([
     db.from("invoice_items").select("*").eq("invoice_id", id).eq("user_id", user.id),
@@ -820,14 +847,14 @@ invoicesRoutes.delete("/:id", async (c) => {
 
   if (invRes.error) return c.json({ error: invRes.error.message }, 404);
 
-  const paidAmount = Number(invRes.data.paid_amount || 0);
-  if (paidAmount > 0 || invRes.data.transaction_id) {
-    return c.json({ error: "Chỉ có thể xóa hóa đơn chưa ghi nhận thanh toán." }, 400);
-  }
-
+  const transactionId = invRes.data.transaction_id;
   await db.from("invoice_items").delete().eq("invoice_id", id).eq("user_id", user.id);
   const delInv = await db.from("invoices").delete().eq("id", id).eq("user_id", user.id);
   if (delInv.error) return c.json({ error: delInv.error.message }, 400);
+
+  if (transactionId) {
+    await db.from("transactions").delete().eq("id", transactionId).eq("user_id", user.id);
+  }
 
   return c.json({ ok: true });
 });
@@ -959,6 +986,23 @@ invoicesRoutes.post("/auto-generate", async (c) => {
 
       if (!invRes.error && invRes.data) {
         const invoiceId = invRes.data.id;
+        
+        // Notify tenant asynchronously
+        getTenantUserIdByContractId(contractId).then((tenantUserId) => {
+          if (tenantUserId) {
+            notifyInvoiceCreated(tenantUserId, {
+              id: invoiceId,
+              month,
+              year,
+              total_amount: total,
+            }).catch((err) => {
+              console.error("Failed to send invoice notification to tenant in bulk path:", err);
+            });
+          }
+        }).catch((err) => {
+          console.error("Failed to fetch tenant user ID for invoice notification in bulk path:", err);
+        });
+
         if (items.length > 0) {
           const rows = items.map((item) => ({
             user_id: user.id,
@@ -995,6 +1039,7 @@ invoicesRoutes.post("/bulk-create", async (c) => {
 
   const db = c.get("supabase");
   const results = [];
+  const defaultPaymentChannel = await loadDefaultPaymentChannel(db, user.id);
 
   for (const invData of invoices) {
     try {
@@ -1013,7 +1058,9 @@ invoicesRoutes.post("/bulk-create", async (c) => {
         water_old: invData.waterOld,
         water_new: invData.waterNew,
         note: invData.note || "Lập hàng loạt",
-        status: "unpaid"
+        status: "unpaid",
+        payment_code: generatePaymentCode(),
+        payment_channel_id: invData.paymentChannelId || defaultPaymentChannel?.id || null,
       };
 
       const res = await db.from("invoices").insert(payload).select("id").single();

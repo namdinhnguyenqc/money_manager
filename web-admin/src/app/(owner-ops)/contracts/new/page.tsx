@@ -9,6 +9,7 @@ import { z } from "zod";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import { createContract, createTenant, describeServiceType, formatMoney, getFloorFromRoomName, getRoomArea, getServiceCategory, getServiceUnitLabel, loadRentalRooms, loadRoom, loadServiceConfigs, normalizeRoomStatus, onlyDigits, loadDeposits, loadWallets, Wallet } from "@/lib/rentalOps";
 import StatusBadge from "@/components/ops/StatusBadge";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 const tenantSchema = z.object({
   full_name: z.string().min(1, "Vui lòng nhập họ tên."),
@@ -161,15 +162,11 @@ export default function NewContractPage() {
     },
     onSuccess: async (created) => {
       setSuccess(true);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["contracts"], refetchType: "all" }),
-        queryClient.invalidateQueries({ queryKey: ["rooms"], refetchType: "all" }),
-        queryClient.invalidateQueries({ queryKey: ["facility"], refetchType: "all" }),
-        queryClient.invalidateQueries({ queryKey: ["deposits"], refetchType: "all" }),
-        queryClient.invalidateQueries({ queryKey: ["transactions"], refetchType: "all" }),
-        queryClient.invalidateQueries({ queryKey: ["owner", "dashboard-init"], refetchType: "all" }),
-      ]);
-      localStorage.setItem("trocare-cache-sync", String(Date.now()));
+      await invalidateOwnerOpsQueries(queryClient, {
+        facilityId,
+        roomId,
+        contractId: created?.id,
+      });
       router.push(`/contracts/${created.id}`);
     },
     onError: (err: any) => {

@@ -2,15 +2,18 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { Building2, Edit2, MapPin, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { apiPost } from "@/utils/apiClient";
 import { BoardingHouse, loadBoardingHouses, loadOwnerRooms, deleteBoardingHouse, updateBoardingHouse } from "@/lib/rentalOps";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 type Summary = { total: number; available: number; occupied: number; maintenance: number };
 
 const emptySummary: Summary = { total: 0, available: 0, occupied: 0, maintenance: 0 };
 
 export default function OwnerBoardingHousesPage() {
+  const queryClient = useQueryClient();
   const [houses, setHouses] = useState<BoardingHouse[]>([]);
   const [summaries, setSummaries] = useState<Record<string, Summary>>({});
   const [loading, setLoading] = useState(true);
@@ -87,6 +90,7 @@ export default function OwnerBoardingHousesPage() {
       });
       setForm({ name: "", address: "", description: "" });
       setFormOpen(false);
+      await invalidateOwnerOpsQueries(queryClient);
       await load();
     } catch (err: any) {
       setError(err?.message || "Không tạo được cơ sở.");
@@ -101,6 +105,7 @@ export default function OwnerBoardingHousesPage() {
     if (!window.confirm("Bạn có chắc chắn muốn xóa cơ sở này? Thao tác này sẽ xóa toàn bộ phòng thuộc cơ sở.")) return;
     try {
       await deleteBoardingHouse(id);
+      await invalidateOwnerOpsQueries(queryClient, { facilityId: id });
       await load();
     } catch (err: any) {
       setError(err?.message || "Không xóa được cơ sở.");
@@ -114,6 +119,7 @@ export default function OwnerBoardingHousesPage() {
     if (!newName || newName.trim() === house.name) return;
     try {
       await updateBoardingHouse(house.id, { name: newName.trim() });
+      await invalidateOwnerOpsQueries(queryClient, { facilityId: house.id });
       await load();
     } catch (err: any) {
       setError(err?.message || "Không cập nhật được cơ sở.");

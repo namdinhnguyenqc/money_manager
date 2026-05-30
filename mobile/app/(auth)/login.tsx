@@ -71,7 +71,8 @@ export default function LoginScreen() {
         data.profile?.isProfileCompleted ??
         data.nextStep === 'DONE';
       setUser(data.user, profileCompleted);
-      router.replace(profileCompleted ? '/(tabs)' : '/(auth)/complete-profile');
+      const pendingApproval = data.nextStep === 'PENDING_APPROVAL' || data.user?.status === 'PENDING_APPROVAL' || data.user?.approvalStatus === 'PENDING_APPROVAL';
+      router.replace(!profileCompleted ? '/(auth)/complete-profile' : pendingApproval ? '/(auth)/pending-approval' : '/(tabs)');
     } catch (error: any) {
       Alert.alert('Lỗi đăng nhập', error?.message || 'Không thể đăng nhập bằng Google. Vui lòng thử lại.');
       setLoading(false);
@@ -89,7 +90,8 @@ export default function LoginScreen() {
         data.profile?.isProfileCompleted ??
         data.nextStep === 'DONE';
       setUser(data.user, profileCompleted);
-      router.replace(profileCompleted ? '/(tabs)' : '/(auth)/complete-profile');
+      const pendingApproval = data.nextStep === 'PENDING_APPROVAL' || data.user?.status === 'PENDING_APPROVAL' || data.user?.approvalStatus === 'PENDING_APPROVAL';
+      router.replace(!profileCompleted ? '/(auth)/complete-profile' : pendingApproval ? '/(auth)/pending-approval' : '/(tabs)');
     } catch (error: any) {
       Alert.alert('Lỗi đăng nhập', error?.message || 'Không thể đăng nhập bằng tài khoản test.');
       setLoading(false);
@@ -371,4 +373,3 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.semibold,
   },
 });
-

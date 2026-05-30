@@ -67,11 +67,14 @@ const buildUserPayload = async (user: any) => {
       name: meta.profile?.fullName || user.name || null,
       avatarUrl: meta.profile?.avatarUrl || user.avatar || null,
       role: user.role,
+      status: user.status,
       authProvider: user.authProvider || "google",
       isProfileCompleted: meta.isProfileCompleted,
       onboardingStep: meta.onboardingStep,
+      approvalStatus: meta.approvalStatus,
     },
     profile: meta.profile,
+    nextStep: meta.nextStep,
   };
 };
 
@@ -101,12 +104,14 @@ profileRoutes.post("/profile/complete", async (c) => {
       name: profile.fullName,
       avatarUrl: profile.avatarUrl ?? user.avatarUrl ?? null,
       role: user.role,
+      status: "PENDING_APPROVAL",
       authProvider: user.authProvider || "google",
       isProfileCompleted: true,
-      onboardingStep: "DONE",
+      onboardingStep: "PENDING_APPROVAL",
+      approvalStatus: "PENDING_APPROVAL",
     },
     profile,
-    nextStep: "DASHBOARD",
+    nextStep: "PENDING_APPROVAL",
   });
 });
 
@@ -129,9 +134,11 @@ profileRoutes.put("/profile", async (c) => {
       name: profile.fullName,
       avatarUrl: profile.avatarUrl ?? user.avatarUrl ?? null,
       role: user.role,
+      status: user.status,
       authProvider: user.authProvider || "google",
       isProfileCompleted: true,
-      onboardingStep: "DONE",
+      onboardingStep: user.status === "ACTIVE" ? "DONE" : "PENDING_APPROVAL",
+      approvalStatus: user.status,
     },
     profile,
   });

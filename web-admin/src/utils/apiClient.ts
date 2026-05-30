@@ -47,12 +47,20 @@ async function request<T>(path: string, method: HttpMethod, body?: any): Promise
     }
     throw new ApiClientError(data?.message || 'Profile required', res.status, { ...data, code: data?.code })
   }
+  if (res.status === 403 && data?.code === 'ACCOUNT_PENDING_APPROVAL') {
+    if (typeof window !== 'undefined' && window.location.pathname !== '/pending-approval') {
+      sessionStorage.setItem('pendingApprovalMessage', data?.message || 'Hồ sơ của bạn đang chờ admin duyệt.')
+      window.location.href = '/pending-approval'
+    }
+    throw new ApiClientError(data?.message || 'Account pending approval', res.status, { ...data, code: data?.code })
+  }
 
   const shouldEndSession =
     res.status === 401 ||
     data?.code === 'TOKEN_REVOKED' ||
     data?.code === 'SESSION_REVOKED' ||
     data?.code === 'ACCOUNT_BLOCKED' ||
+    data?.code === 'ACCOUNT_REJECTED' ||
     data?.code === 'ACCOUNT_DELETED'
 
   if (shouldEndSession) {

@@ -3,7 +3,7 @@
  * View all reservation deposits, filter by status, change statuses (cancel/refund/transfer), and create new deposits.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
@@ -47,7 +47,7 @@ export default function DepositsScreen() {
     setToast({ message, type });
   };
 
-  const fetchDeposits = async (isRef = false) => {
+  const fetchDeposits = useCallback(async (isRef = false) => {
     try {
       if (isRef) setRefreshing(true);
       else setLoading(true);
@@ -60,11 +60,17 @@ export default function DepositsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDeposits();
-  }, []);
+  }, [fetchDeposits]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchDeposits(true);
+    }, [fetchDeposits])
+  );
 
   const handleOpenAction = (deposit: any, status: DepositStatus) => {
     setSelectedDeposit(deposit);

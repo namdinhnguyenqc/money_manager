@@ -3,10 +3,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Building2, PencilLine, Receipt, Wallet } from "lucide-react";
 import RoomEditModal, { Room } from "@/components/RoomEditModal";
 import RBACGuard from "@/components/RBACGuard";
 import { apiGet, apiPatch, apiPost } from "@/utils/apiClient";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 type ExtendedRoom = Room & {
   tenantName?: string | null;
@@ -58,6 +60,7 @@ const billingMeta = (room: ExtendedRoom) => {
 };
 
 export default function BoardingHouseRoomsPage() {
+  const queryClient = useQueryClient();
   const { id } = useParams();
   const searchParams = useSearchParams();
   const bhId = id as string;
@@ -121,6 +124,7 @@ export default function BoardingHouseRoomsPage() {
     if (!selected) return;
     try {
       await apiPatch(`/owner/rooms/${selected.id}`, payload);
+      await invalidateOwnerOpsQueries(queryClient, { facilityId: bhId, roomId: String(selected.id) });
       await loadRooms();
       setEditOpen(false);
     } catch (e: any) {
@@ -144,6 +148,7 @@ export default function BoardingHouseRoomsPage() {
         isPublic: Boolean(newRoom.isPublic),
       });
       setNewRoom({ name: "", price: 0, status: "AVAILABLE", isPublic: false });
+      await invalidateOwnerOpsQueries(queryClient, { facilityId: bhId });
       await loadRooms();
     } catch (e: any) {
       setError(e?.message ?? "Create room error");

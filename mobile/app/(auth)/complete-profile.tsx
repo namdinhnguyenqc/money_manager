@@ -28,7 +28,7 @@ import type { Province, District } from '@/lib/profile';
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
-  const { user, markProfileCompleted } = useAuthStore();
+  const { user, markProfilePendingApproval } = useAuthStore();
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -88,8 +88,8 @@ export default function CompleteProfileScreen() {
         districtCode,
         districtName: district?.name || '',
       });
-      markProfileCompleted();
-      router.replace('/(tabs)');
+      markProfilePendingApproval();
+      router.replace('/(auth)/pending-approval');
     } catch (error: any) {
       // Handle field errors (e.g., duplicate phone) — preserve all inputs
       if (error?.fieldErrors) {

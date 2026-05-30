@@ -6,7 +6,7 @@ type Props = {
   value: React.ReactNode
   suffix?: string
   color?: string
-  delta?: string
+  delta?: React.ReactNode
 }
 
 export default function KPICard({ title, value, suffix, color = 'bg-white', delta }: Props) {

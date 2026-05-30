@@ -6,6 +6,7 @@ import Image from "next/image";
 import Logo from "@/components/ui/Logo";
 import OwnerGoogleLoginButton from "@/components/OwnerGoogleLoginButton";
 import { getStoredAccessToken } from "@/utils/session";
+import { API_URL } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,7 +18,8 @@ export default function LoginPage() {
     const token = getStoredAccessToken();
     if (token) {
       const isProfileCompleted = localStorage.getItem("isProfileCompleted") === "true";
-      router.replace(isProfileCompleted ? "/owner/dashboard" : "/complete-profile");
+      const approvalStatus = localStorage.getItem("approvalStatus") || localStorage.getItem("userStatus");
+      router.replace(!isProfileCompleted ? "/complete-profile" : approvalStatus === "PENDING_APPROVAL" ? "/pending-approval" : "/owner/dashboard");
     }
   }, [router]);
 
@@ -153,8 +155,10 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <div className="relative z-20">
+          <div className="relative z-20 space-y-4">
             <OwnerGoogleLoginButton />
+            
+
           </div>
 
           <div className="mt-8 mb-6 relative flex justify-center items-center h-20">

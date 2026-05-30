@@ -16,6 +16,7 @@ import {
   updateRoom,
   RentalRoom
 } from "@/lib/rentalOps";
+import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 const roomStatuses = [
   { value: "vacant", label: "Còn trống" },
@@ -73,8 +74,10 @@ export default function EditRoomPage() {
         status: form.status,
       });
       setToast("Đã cập nhật thông tin phòng thành công!");
-      queryClient.invalidateQueries({ queryKey: ["room", id] });
-      queryClient.invalidateQueries({ queryKey: ["rooms"] });
+      await invalidateOwnerOpsQueries(queryClient, {
+        facilityId,
+        roomId: String(id),
+      });
       setTimeout(() => setToast(""), 3000);
     } catch (err: any) {
       setError(err?.message || "Lỗi khi cập nhật phòng. Vui lòng thử lại!");
@@ -238,4 +241,3 @@ export default function EditRoomPage() {
     </div>
   );
 }
-
