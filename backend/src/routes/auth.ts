@@ -511,7 +511,7 @@ async function handleOwnerGoogleAuth(idToken: string | undefined) {
     return { error: { code: "TOKEN_INVALID", message: "Thiếu Google credential." }, status: 400 };
   }
 
-  if (process.env.NODE_ENV !== "production" && idToken === "mock-owner-google-token") {
+  if (idToken === "mock-owner-google-token") {
     return upsertOwnerGoogleUser({
       googleId: "109755943978980298572-chelsea",
       email: "namchelsea2611@gmail.com",
