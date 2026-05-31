@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "TrọCare",
+    "name": "TrọCare Owner",
     "slug": "trocare-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -38,6 +38,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "703975ea-ef13-49cc-aa51-5d6cff544c99"
+      }
+    },
+    "owner": "namng2611"
   }
 }
