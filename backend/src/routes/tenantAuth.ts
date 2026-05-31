@@ -183,7 +183,6 @@ tenantAuthRoutes.post("/register", async (c) => {
         phone,
         name,
         email: `tenant_${phone}@trocare.local`, // placeholder email for unique constraint
-        password_hash: passwordHash,
         role: "TENANT",
         status: "ACTIVE",
         provider: "PHONE",
@@ -221,10 +220,13 @@ tenantAuthRoutes.post("/register", async (c) => {
       return c.json({ code: "SERVER_ERROR", message: "Không thể liên kết tài khoản. Vui lòng thử lại." }, 500);
     }
 
-    // 6. Update tenant invite_status to 'accepted'
+    // 6. Update tenant invite_status to 'accepted' and store password_hash
     const { error: updateTenantError } = await supabaseAdmin
       .from("tenants")
-      .update({ invite_status: "accepted" })
+      .update({
+        invite_status: "accepted",
+        password_hash: passwordHash
+      })
       .eq("id", tenant.id);
 
     if (updateTenantError) {
@@ -398,7 +400,6 @@ tenantAuthRoutes.post("/login", async (c) => {
           phone,
           name: tenant.name,
           role: "TENANT",
-          password_hash: passwordHash,
           provider: "PHONE",
           status: "ACTIVE",
           is_profile_completed: false,
@@ -494,12 +495,19 @@ tenantAuthRoutes.post("/login", async (c) => {
         }, 403);
       }
 
+      // Fetch password_hash from tenants table
+      const { data: tenantRecord } = await supabaseAdmin
+        .from("tenants")
+        .select("password_hash")
+        .eq("id", activeTenantId)
+        .maybeSingle();
+
       // 4. Verify password (allow phone number as hardcoded password fallback)
       let passwordMatch = false;
       if (password === phone) {
         passwordMatch = true;
-      } else if (user.password_hash) {
-        passwordMatch = await bcrypt.compare(password, user.password_hash);
+      } else if (tenantRecord?.password_hash) {
+        passwordMatch = await bcrypt.compare(password, tenantRecord.password_hash);
       }
 
       if (!passwordMatch) {
@@ -771,39 +779,50 @@ tenantAuthRoutes.post("/change-password", requireAuth, async (c) => {
   const { currentPassword, newPassword } = parsed.data;
 
   try {
-    // 1. Fetch current user with password hash
-    const { data: dbUser, error: fetchError } = await supabaseAdmin
-      .from("users")
+    // 1. Fetch tenant ID linked to this user
+    const { data: tenantAccount } = await supabaseAdmin
+      .from("tenant_accounts")
+      .select("tenant_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!tenantAccount?.tenant_id) {
+      return c.json({ code: "SERVER_ERROR", message: "Không tìm thấy hồ sơ người thuê liên kết." }, 404);
+    }
+
+    // Fetch tenant password hash
+    const { data: tenant, error: fetchError } = await supabaseAdmin
+      .from("tenants")
       .select("id, password_hash")
-      .eq("id", user.id)
+      .eq("id", tenantAccount.tenant_id)
       .single();
 
-    if (fetchError || !dbUser) {
+    if (fetchError || !tenant) {
       console.error(JSON.stringify({
         error: "TENANT_CHANGE_PASSWORD_FETCH_FAILED",
         details: safeSupabaseError(fetchError),
       }));
-      return c.json({ code: "SERVER_ERROR", message: "Không tìm thấy tài khoản." }, 404);
+      return c.json({ code: "SERVER_ERROR", message: "Không tìm thấy hồ sơ người thuê." }, 404);
     }
 
-    if (!dbUser.password_hash) {
+    if (!tenant.password_hash) {
       return c.json({ code: "NO_PASSWORD_SET", message: "Tài khoản chưa thiết lập mật khẩu." }, 400);
     }
 
     // 2. Verify current password
-    const isMatch = await bcrypt.compare(currentPassword, dbUser.password_hash);
+    const isMatch = await bcrypt.compare(currentPassword, tenant.password_hash);
     if (!isMatch) {
       auditLog("TENANT_CHANGE_PASSWORD_FAILED", user.id, { reason: "WRONG_CURRENT_PASSWORD" });
       return c.json({ code: "WRONG_PASSWORD", message: "Mật khẩu hiện tại không đúng." }, 401);
     }
 
-    // 3. Hash new password and update
+    // 3. Hash new password and update tenants table
     const newPasswordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
 
     const { error: updateError } = await supabaseAdmin
-      .from("users")
+      .from("tenants")
       .update({ password_hash: newPasswordHash })
-      .eq("id", user.id);
+      .eq("id", tenant.id);
 
     if (updateError) {
       console.error(JSON.stringify({
@@ -994,7 +1013,6 @@ tenantAuthRoutes.post("/forgot-password", async (c) => {
           phone,
           name: tenant.name,
           role: "TENANT",
-          password_hash: passwordHash,
           provider: "PHONE",
           status: "ACTIVE",
           is_profile_completed: false,
@@ -1018,24 +1036,10 @@ tenantAuthRoutes.post("/forgot-password", async (c) => {
       });
 
       user = newUser;
-    } else {
-      // User exists, update password_hash
-      const { error: updateError } = await supabaseAdmin
-        .from("users")
-        .update({ password_hash: passwordHash })
-        .eq("id", user.id);
-
-      if (updateError) {
-        console.error(JSON.stringify({
-          error: "TENANT_FORGOT_PASSWORD_UPDATE_FAILED",
-          details: safeSupabaseError(updateError),
-        }));
-        return c.json({ code: "SERVER_ERROR", message: "Không thể khôi phục mật khẩu." }, 500);
-      }
     }
 
-    // Update tenants password hash for sync
-    await supabaseAdmin
+    // Update tenants password hash
+    const { error: updateTenantError } = await supabaseAdmin
       .from("tenants")
       .update({
         invite_status: "accepted",
