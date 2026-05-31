@@ -38,8 +38,7 @@ const apiFallbackUrls = Array.from(new Set([
 ].filter(Boolean) as string[]));
 
 const Config = {
-  /** Backend API base URL */
-  API_URL: isEmulatorOnlyEnvUrl && apiUrlFromMetroHost ? apiUrlFromMetroHost : (envApiUrl || defaultApiUrl),
+  API_URL: isEmulatorOnlyEnvUrl && apiUrlFromMetroHost && Constants.isDevice ? apiUrlFromMetroHost : (envApiUrl || defaultApiUrl),
 
   /** Retry candidates for local dev when Android cannot reach the configured LAN host. */
   API_FALLBACK_URLS: apiFallbackUrls,

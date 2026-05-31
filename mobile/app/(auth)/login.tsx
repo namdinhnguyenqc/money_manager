@@ -12,7 +12,12 @@ import { View, Text, StyleSheet, Image, Alert, Platform, TouchableOpacity } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+let GoogleSignin: any = null;
+try {
+  GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
+} catch (e) {
+  console.warn("Google Sign-In native module not available.");
+}
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Config from '@/constants/Config';
@@ -26,14 +31,28 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    GoogleSignin.configure({
-      webClientId: Config.GOOGLE_WEB_CLIENT_ID,
-      offlineAccess: false,
-      scopes: ['profile', 'email'],
-    });
+    if (GoogleSignin) {
+      try {
+        GoogleSignin.configure({
+          webClientId: Config.GOOGLE_WEB_CLIENT_ID,
+          offlineAccess: false,
+          scopes: ['profile', 'email'],
+        });
+      } catch (e) {
+        console.warn("Google Sign-in configure failed:", e);
+      }
+    }
   }, []);
 
   const handleGoogleLogin = async () => {
+    if (!GoogleSignin) {
+      Alert.alert(
+        'Không hỗ trợ Google Sign-In',
+        'Native Google Sign-In không khả dụng trên Expo Go. Vui lòng bấm nút "Đăng nhập nhanh Chủ trọ (Test Bypass)" bên dưới để đăng nhập bằng tài khoản test.'
+      );
+      return;
+    }
+
     const missingAndroidClient = Platform.OS === 'android' && !Config.GOOGLE_ANDROID_CLIENT_ID;
     const missingIosClient = Platform.OS === 'ios' && !Config.GOOGLE_IOS_CLIENT_ID;
 

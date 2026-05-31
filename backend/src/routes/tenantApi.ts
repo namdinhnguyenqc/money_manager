@@ -43,10 +43,39 @@ tenantApiRoutes.get("/me", async (c) => {
   const user = c.get("user");
 
   try {
-    // 1. Fetch tenant_accounts and tenants join
+    // Fetch tenant account, tenants profile, active contract, room, and boarding house in a single optimized query
     const { data: tenantAccount, error: taError } = await supabaseAdmin
       .from("tenant_accounts")
-      .select("*, tenants(*)")
+      .select(`
+        linked_at,
+        tenants (
+          id,
+          name,
+          phone,
+          id_card,
+          address,
+          contracts (
+            id,
+            start_date,
+            end_date,
+            deposit,
+            rent_amount,
+            status,
+            applied_services_snapshot,
+            rooms (
+              id,
+              name,
+              price,
+              has_ac,
+              boarding_houses (
+                id,
+                name,
+                address
+              )
+            )
+          )
+        )
+      `)
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -55,17 +84,10 @@ tenantApiRoutes.get("/me", async (c) => {
       return c.json({ error: "Không tìm thấy hồ sơ người thuê liên kết." }, 404);
     }
 
-    const tenant = tenantAccount.tenants;
-
-    // 2. Fetch active contract and room details
-    const { data: contract, error: cError } = await supabaseAdmin
-      .from("contracts")
-      .select("*, rooms(*, boarding_houses(*))")
-      .eq("tenant_id", tenant.id)
-      .eq("status", "active")
-      .maybeSingle();
-
-    if (cError) return c.json({ error: cError.message }, 500);
+    const tenant = tenantAccount.tenants as any;
+    
+    // Extract the active contract if it exists
+    const activeContract = tenant.contracts?.find((ctr: any) => ctr.status === "active") || null;
 
     return c.json({
       data: {
@@ -76,23 +98,23 @@ tenantApiRoutes.get("/me", async (c) => {
         idCard: tenant.id_card,
         address: tenant.address,
         linkedAt: tenantAccount.linked_at,
-        contract: contract ? {
-          id: contract.id,
-          startDate: contract.start_date,
-          endDate: contract.end_date,
-          deposit: contract.deposit,
-          rentAmount: contract.rent_amount,
-          status: contract.status,
-          appliedServices: contract.applied_services_snapshot,
-          room: contract.rooms ? {
-            id: contract.rooms.id,
-            name: contract.rooms.name,
-            price: contract.rooms.price,
-            hasAc: contract.rooms.has_ac,
-            boardingHouse: contract.rooms.boarding_houses ? {
-              id: contract.rooms.boarding_houses.id,
-              name: contract.rooms.boarding_houses.name,
-              address: contract.rooms.boarding_houses.address,
+        contract: activeContract ? {
+          id: activeContract.id,
+          startDate: activeContract.start_date,
+          endDate: activeContract.end_date,
+          deposit: activeContract.deposit,
+          rentAmount: activeContract.rent_amount,
+          status: activeContract.status,
+          appliedServices: activeContract.applied_services_snapshot,
+          room: activeContract.rooms ? {
+            id: activeContract.rooms.id,
+            name: activeContract.rooms.name,
+            price: activeContract.rooms.price,
+            hasAc: activeContract.rooms.has_ac,
+            boardingHouse: activeContract.rooms.boarding_houses ? {
+              id: activeContract.rooms.boarding_houses.id,
+              name: activeContract.rooms.boarding_houses.name,
+              address: activeContract.rooms.boarding_houses.address,
             } : null,
           } : null,
         } : null,
