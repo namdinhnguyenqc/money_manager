@@ -9,7 +9,7 @@ const seed = () => ({
     { id: "owner-1", email: "owner@trocare.test", name: "Owner A", role: "OWNER", status: "ACTIVE", created_at: "2026-05-02T00:00:00Z" },
   ],
   tenants: [
-    { id: "tenant-1", user_id: "owner-1", name: "Tenant A", phone: "0901234567", status: "active", invite_code: "INVITE12", invite_status: "pending", invite_code_expires_at: "2026-06-30T00:00:00Z" }
+    { id: "tenant-1", user_id: "owner-1", name: "Tenant A", phone: "0901234567", status: "active", invite_code: "INVITE12", invite_status: "pending", invite_code_expires_at: "2026-06-30T00:00:00Z", password_hash: "password123" }
   ],
   tenant_accounts: [
     { id: "account-1", user_id: "tenant-user-1", tenant_id: "tenant-1", linked_by: "owner-1", linked_at: "2026-05-05T00:00:00Z", status: "active" }
@@ -108,10 +108,33 @@ class Query {
 
     // Embed joins
     if (this.table === "tenant_accounts") {
-      rows = rows.map(ta => ({
-        ...ta,
-        tenants: db.tenants?.find(t => t.id === ta.tenant_id) || null
-      }));
+      rows = rows.map(ta => {
+        const tenant = db.tenants?.find(t => t.id === ta.tenant_id) || null;
+        if (tenant) {
+          const tenantContracts = db.contracts?.filter(c => c.tenant_id === tenant.id).map(c => {
+            const room = db.rooms?.find(r => r.id === c.room_id) || null;
+            const mappedRoom = room ? {
+              ...room,
+              boarding_houses: db.boarding_houses?.find(bh => bh.id === room.boarding_house_id) || null
+            } : null;
+            return {
+              ...c,
+              rooms: mappedRoom
+            };
+          }) || [];
+          return {
+            ...ta,
+            tenants: {
+              ...tenant,
+              contracts: tenantContracts
+            }
+          };
+        }
+        return {
+          ...ta,
+          tenants: null
+        };
+      });
     }
 
     if (this.table === "contracts") {
