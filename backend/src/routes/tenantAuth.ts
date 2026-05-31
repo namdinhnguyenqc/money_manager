@@ -330,24 +330,47 @@ tenantAuthRoutes.post("/login", async (c) => {
 
     // 2. If user doesn't exist, check tenants table for active lease contract
     if (!user) {
-      const { data: tenant } = await supabaseAdmin
+      const { data: tenants, error: tenantsError } = await supabaseAdmin
         .from("tenants")
         .select("*")
-        .eq("phone", phone)
-        .maybeSingle();
+        .eq("phone", phone);
 
-      if (!tenant) {
+      if (tenantsError) {
+        console.error(JSON.stringify({
+          error: "TENANT_LOGIN_TENANTS_LOOKUP_FAILED",
+          details: safeSupabaseError(tenantsError),
+        }));
+        return c.json({ code: "SERVER_ERROR", message: "Lỗi hệ thống. Vui lòng thử lại." }, 500);
+      }
+
+      if (!tenants || tenants.length === 0) {
         auditLog("TENANT_LOGIN_FAILED", null, { phone, reason: "TENANT_NOT_FOUND" });
         return c.json({ code: "INVALID_CREDENTIALS", message: "Số điện thoại hoặc mật khẩu không đúng." }, 401);
       }
 
-      // Check if this tenant has an active contract
-      const { data: activeContract } = await supabaseAdmin
-        .from("contracts")
-        .select("id")
-        .eq("tenant_id", tenant.id)
-        .eq("status", "active")
-        .maybeSingle();
+      // Find the tenant that has an active contract
+      let tenant = null;
+      let activeContract = null;
+
+      for (const t of tenants) {
+        const { data: contract } = await supabaseAdmin
+          .from("contracts")
+          .select("id")
+          .eq("tenant_id", t.id)
+          .eq("status", "active")
+          .maybeSingle();
+
+        if (contract) {
+          tenant = t;
+          activeContract = contract;
+          break;
+        }
+      }
+
+      // Fallback to first one if no active contract found (it will fail at the contract check anyway)
+      if (!tenant) {
+        tenant = tenants[0];
+      }
 
       if (!activeContract) {
         auditLog("TENANT_LOGIN_FAILED", null, { phone, reason: "NO_ACTIVE_CONTRACT" });
@@ -356,6 +379,7 @@ tenantAuthRoutes.post("/login", async (c) => {
           message: "Hợp đồng đã thanh lý hoặc chưa được ký. Bạn không có quyền truy cập ứng dụng."
         }, 403);
       }
+
 
       // Automatically register user using phone number as password
       if (password !== phone) {
@@ -416,14 +440,29 @@ tenantAuthRoutes.post("/login", async (c) => {
 
       if (!activeTenantId) {
         // Fallback: look up by phone if not linked
-        const { data: tenant } = await supabaseAdmin
+        const { data: tenants } = await supabaseAdmin
           .from("tenants")
           .select("*")
-          .eq("phone", phone)
-          .maybeSingle();
+          .eq("phone", phone);
 
-        if (tenant) {
+        if (tenants && tenants.length > 0) {
+          // Find the tenant with active contract
+          let matchedTenant = null;
+          for (const t of tenants) {
+            const { data: contract } = await supabaseAdmin
+              .from("contracts")
+              .select("id")
+              .eq("tenant_id", t.id)
+              .eq("status", "active")
+              .maybeSingle();
+            if (contract) {
+              matchedTenant = t;
+              break;
+            }
+          }
+          const tenant = matchedTenant || tenants[0];
           activeTenantId = tenant.id;
+
           // Link them now
           await supabaseAdmin.from("tenant_accounts").insert({
             user_id: user.id,
@@ -432,6 +471,7 @@ tenantAuthRoutes.post("/login", async (c) => {
           });
         }
       }
+
 
       if (!activeTenantId) {
         auditLog("TENANT_LOGIN_FAILED", user.id, { reason: "UNLINKED_ACCOUNT" });
@@ -857,11 +897,10 @@ tenantAuthRoutes.post("/forgot-password", async (c) => {
 
   try {
     // 1. Find tenant by phone
-    const { data: tenant, error: tenantError } = await supabaseAdmin
+    const { data: tenants, error: tenantError } = await supabaseAdmin
       .from("tenants")
       .select("*")
-      .eq("phone", phone)
-      .maybeSingle();
+      .eq("phone", phone);
 
     if (tenantError) {
       console.error(JSON.stringify({
@@ -871,9 +910,30 @@ tenantAuthRoutes.post("/forgot-password", async (c) => {
       return c.json({ code: "SERVER_ERROR", message: "Lỗi hệ thống. Vui lòng thử lại sau." }, 500);
     }
 
-    if (!tenant) {
+    if (!tenants || tenants.length === 0) {
       return c.json({ code: "TENANT_NOT_FOUND", message: "Số điện thoại này chưa được đăng ký trên hợp đồng." }, 404);
     }
+
+    // Find the tenant that has an active contract
+    let tenant = null;
+    for (const t of tenants) {
+      const { data: contract } = await supabaseAdmin
+        .from("contracts")
+        .select("id")
+        .eq("tenant_id", t.id)
+        .eq("status", "active")
+        .maybeSingle();
+      if (contract) {
+        tenant = t;
+        break;
+      }
+    }
+
+    // Fallback to first one
+    if (!tenant) {
+      tenant = tenants[0];
+    }
+
 
     // 2. Verify contract email
     if (!tenant.email || tenant.email.trim() === "") {
