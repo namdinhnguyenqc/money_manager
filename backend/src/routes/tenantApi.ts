@@ -86,8 +86,11 @@ tenantApiRoutes.get("/me", async (c) => {
 
     const tenant = tenantAccount.tenants as any;
     
-    // Extract the active contract if it exists
-    const activeContract = tenant.contracts?.find((ctr: any) => ctr.status === "active") || null;
+    // Extract the active contract — prefer the one with highest rent_amount if multiple exist
+    const activeContracts = (tenant.contracts || []).filter((ctr: any) => ctr.status === "active");
+    const activeContract = activeContracts.sort((a: any, b: any) => 
+      Number(b.rent_amount || 0) - Number(a.rent_amount || 0)
+    )[0] || null;
 
     return c.json({
       data: {
@@ -98,6 +101,7 @@ tenantApiRoutes.get("/me", async (c) => {
         idCard: tenant.id_card,
         address: tenant.address,
         linkedAt: tenantAccount.linked_at,
+        activeContractsCount: activeContracts.length,
         contract: activeContract ? {
           id: activeContract.id,
           startDate: activeContract.start_date,
@@ -121,6 +125,7 @@ tenantApiRoutes.get("/me", async (c) => {
       },
     });
   } catch (err: any) {
+    console.error("[/tenant/me] Error:", err.message, err);
     return c.json({ error: err.message }, 500);
   }
 });
@@ -145,42 +150,45 @@ tenantApiRoutes.get("/dashboard", async (c) => {
 
     const tenantId = tenantAccount.tenant_id;
 
-    // 1. Fetch active contract and invoice metrics
-    const { data: contract } = await supabaseAdmin
+    // 1. Fetch ALL active contracts for tenant
+    const { data: allContracts } = await supabaseAdmin
       .from("contracts")
-      .select("id, room_id")
+      .select("id, room_id, rent_amount")
       .eq("tenant_id", tenantId)
-      .eq("status", "active")
-      .maybeSingle();
+      .eq("status", "active");
 
     let unpaidInvoiceCount = 0;
     let unpaidInvoiceAmount = 0;
     let latestInvoice = null;
 
-    if (contract) {
-      const { data: invoices } = await supabaseAdmin
-        .from("invoices")
-        .select("*")
-        .eq("contract_id", contract.id)
-        .neq("status", "paid")
-        .order("year", { ascending: false })
-        .order("month", { ascending: false });
+    if (allContracts && allContracts.length > 0) {
+      const allContractIds = allContracts.map((c) => c.id);
 
-      if (invoices) {
-        unpaidInvoiceCount = invoices.length;
-        unpaidInvoiceAmount = invoices.reduce((sum, inv) => sum + (Number(inv.total_amount || 0) - Number(inv.paid_amount || 0)), 0);
+      // Fetch all unpaid invoices across all contracts
+      const { data: unpaidInvoices } = await supabaseAdmin
+        .from("invoices")
+        .select("id, total_amount, paid_amount, month, year, contract_id")
+        .in("contract_id", allContractIds)
+        .neq("status", "paid");
+
+      if (unpaidInvoices) {
+        unpaidInvoiceCount = unpaidInvoices.length;
+        unpaidInvoiceAmount = unpaidInvoices.reduce(
+          (sum, inv) => sum + (Number(inv.total_amount || 0) - Number(inv.paid_amount || 0)),
+          0
+        );
       }
 
-      // Fetch latest invoice (paid or unpaid)
+      // Fetch latest invoice across all contracts (for dashboard preview)
       const { data: latest } = await supabaseAdmin
         .from("invoices")
         .select("*, rooms(name)")
-        .eq("contract_id", contract.id)
+        .in("contract_id", allContractIds)
         .order("year", { ascending: false })
         .order("month", { ascending: false })
         .limit(1)
         .maybeSingle();
-      
+
       latestInvoice = latest || null;
     }
 
@@ -204,6 +212,7 @@ tenantApiRoutes.get("/dashboard", async (c) => {
         unpaidInvoiceAmount,
         monthlyPersonalExpense,
         latestInvoice,
+        activeContractsCount: allContracts?.length || 0,
       },
     });
   } catch (err: any) {
@@ -226,20 +235,19 @@ tenantApiRoutes.get("/invoices", async (c) => {
 
     if (!tenantAccount) return c.json({ data: [] });
 
-    // Fetch contracts for tenant
-    const { data: contracts } = await supabaseAdmin
-      .from("contracts")
-      .select("id")
-      .eq("tenant_id", tenantAccount.tenant_id);
-
-    if (!contracts || contracts.length === 0) return c.json({ data: [] });
-
-    const contractIds = contracts.map((c) => c.id);
-
     const { data: invoices, error } = await supabaseAdmin
       .from("invoices")
-      .select("*, rooms(name)")
-      .in("contract_id", contractIds)
+      .select(`
+        id, month, year, status, total_amount, paid_amount,
+        room_fee, previous_debt,
+        payment_code, payment_channel_id, due_date,
+        elec_old, elec_new, water_old, water_new,
+        created_at, updated_at, contract_id,
+        contracts!inner ( tenant_id ),
+        rooms ( id, name, boarding_houses ( name, address ) ),
+        invoice_items ( id, name, amount, quantity, unit_price )
+      `)
+      .eq("contracts.tenant_id", tenantAccount.tenant_id)
       .order("year", { ascending: false })
       .order("month", { ascending: false });
 
@@ -267,7 +275,7 @@ tenantApiRoutes.get("/invoices/:id", async (c) => {
 
     const { data: invoice, error } = await supabaseAdmin
       .from("invoices")
-      .select("*, rooms(*, boarding_houses(*)), contracts(*)")
+      .select("*, rooms(*, boarding_houses(*)), contracts(*, tenants(*))")
       .eq("id", id)
       .single();
 
