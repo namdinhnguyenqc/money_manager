@@ -396,12 +396,13 @@ tenantAuthRoutes.post("/login", async (c) => {
         .insert({
           email,
           phone,
-          full_name: tenant.name,
+          name: tenant.name,
           role: "TENANT",
           password_hash: passwordHash,
-          is_active: true,
-          auth_provider: "PHONE",
-          status: "ACTIVE"
+          provider: "PHONE",
+          status: "ACTIVE",
+          is_profile_completed: false,
+          onboarding_step: "COMPLETE_PROFILE"
         })
         .select("*")
         .single();
@@ -991,12 +992,13 @@ tenantAuthRoutes.post("/forgot-password", async (c) => {
         .insert({
           email: emailPlaceholder,
           phone,
-          full_name: tenant.name,
+          name: tenant.name,
           role: "TENANT",
           password_hash: passwordHash,
-          is_active: true,
-          auth_provider: "PHONE",
-          status: "ACTIVE"
+          provider: "PHONE",
+          status: "ACTIVE",
+          is_profile_completed: false,
+          onboarding_step: "COMPLETE_PROFILE"
         })
         .select("*")
         .single();
