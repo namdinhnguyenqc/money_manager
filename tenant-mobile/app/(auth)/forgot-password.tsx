@@ -1,5 +1,5 @@
 /**
- * TrọCare Tenant Mobile — Premium Login Screen
+ * TrọCare Tenant Mobile — Premium Forgot Password Screen
  */
 
 import React, { useState } from 'react';
@@ -11,39 +11,42 @@ import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
-import { useAuthStore } from '@/store/authStore';
-import { loginWithPhone } from '@/lib/auth';
+import { forgotPassword } from '@/lib/auth';
 
-export default function LoginScreen() {
+export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const { setUser } = useAuthStore();
   
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = async () => {
-    if (!phone.trim() || !password.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập số điện thoại và mật khẩu.');
+  const handleForgotPassword = async () => {
+    if (!phone.trim() || !email.trim()) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng nhập số điện thoại và địa chỉ email hợp đồng.');
       return;
     }
 
     setLoading(true);
     try {
-      const data = await loginWithPhone(phone.trim(), password.trim());
-      setUser(data.user);
-      router.replace('/(tabs)');
+      const data = await forgotPassword(phone.trim(), email.trim());
+      Alert.alert(
+        'Khôi phục thành công',
+        data.message || 'Mật khẩu đã được khôi phục về email của bạn. Vui lòng đăng nhập lại.',
+        [
+          {
+            text: 'Đăng nhập ngay',
+            onPress: () => router.replace('/(auth)/login'),
+          }
+        ]
+      );
     } catch (error: any) {
-      Alert.alert('Đăng nhập thất bại', error?.message || 'Số điện thoại hoặc mật khẩu không chính xác.');
+      Alert.alert(
+        'Thất bại',
+        error?.message || 'Khôi phục mật khẩu không thành công. Vui lòng kiểm tra lại thông tin.'
+      );
+    } finally {
       setLoading(false);
     }
-  };
-
-  const handleMockLogin = async () => {
-    setPhone('0987654321');
-    setPassword('123456');
-    Alert.alert('Thông tin test', 'Đã điền thông tin tài khoản dùng thử. Hãy nhấn Đăng nhập.');
   };
 
   return (
@@ -58,21 +61,31 @@ export default function LoginScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           
-          {/* Header Section */}
+          {/* Header & Back Button */}
           <View style={styles.headerSection}>
+            <TouchableOpacity 
+              onPress={() => router.back()} 
+              style={styles.backButton}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-back-outline" size={24} color="#0F172A" />
+            </TouchableOpacity>
+
             <View style={styles.logoBadge}>
-              <Ionicons name="home" size={32} color={Colors.primary} />
+              <Ionicons name="key-outline" size={32} color={Colors.primary} />
             </View>
             <Text style={styles.appName}>
-              TrọCare <Text style={{ color: Colors.primary }}>Tenant</Text>
+              Quên mật khẩu?
             </Text>
-            <Text style={styles.tagline}>Ứng dụng dành cho Người thuê phòng trọ</Text>
+            <Text style={styles.tagline}>Khôi phục mật khẩu mặc định qua thông tin hợp đồng</Text>
           </View>
 
           {/* Form Card */}
           <View style={styles.formCard}>
-            <Text style={styles.cardTitle}>Đăng nhập</Text>
-            <Text style={styles.cardSubtitle}>Vui lòng điền thông tin để quản lý phòng trọ của bạn</Text>
+            <Text style={styles.cardTitle}>Khôi phục mật khẩu</Text>
+            <Text style={styles.cardSubtitle}>
+              Điền số điện thoại và email chính xác trên hợp đồng thuê phòng của bạn. Hệ thống sẽ đặt lại mật khẩu mặc định chính là địa chỉ email hợp đồng của bạn.
+            </Text>
 
             <Input
               label="Số điện thoại"
@@ -84,40 +97,22 @@ export default function LoginScreen() {
               leftIcon={<Ionicons name="phone-portrait-outline" size={18} color="#64748B" />}
             />
 
-            <View style={{ position: 'relative', marginTop: 12 }}>
+            <View style={{ marginTop: 12 }}>
               <Input
-                label="Mật khẩu"
-                placeholder="Nhập mật khẩu"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoComplete="password"
-                leftIcon={<Ionicons name="lock-closed-outline" size={18} color="#64748B" />}
-                rightIcon={
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    <Ionicons
-                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                      size={18}
-                      color="#64748B"
-                    />
-                  </TouchableOpacity>
-                }
+                label="Email hợp đồng"
+                placeholder="Nhập địa chỉ email trên hợp đồng"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                leftIcon={<Ionicons name="mail-outline" size={18} color="#64748B" />}
               />
             </View>
 
-            <TouchableOpacity
-              onPress={() => router.push('/(auth)/forgot-password')}
-              style={{ alignSelf: 'flex-end', marginTop: 8 }}
-              activeOpacity={0.7}
-            >
-              <Text style={{ fontSize: 13, fontFamily: Typography.fontFamily.semibold, color: Colors.primary }}>
-                Quên mật khẩu?
-              </Text>
-            </TouchableOpacity>
-
             <Button
-              title="Đăng nhập"
-              onPress={handleLogin}
+              title="Yêu cầu đặt lại mật khẩu"
+              onPress={handleForgotPassword}
               loading={loading}
               style={{ marginTop: 24 }}
             />
@@ -125,22 +120,16 @@ export default function LoginScreen() {
 
           {/* Footer Section */}
           <View style={styles.footerSection}>
+            <TouchableOpacity 
+              onPress={() => router.replace('/(auth)/login')}
+              style={styles.backToLogin}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.backToLoginText}>Quay lại màn hình đăng nhập</Text>
+            </TouchableOpacity>
 
-
-            {__DEV__ && (
-              <TouchableOpacity
-                style={styles.btnMock}
-                onPress={handleMockLogin}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.btnMockText}>Điền nhanh tài khoản Test (Bypass)</Text>
-              </TouchableOpacity>
-            )}
-
-            <Text style={styles.terms}>
-              Bằng việc đăng nhập, bạn đồng ý với{' '}
-              <Text style={styles.termsLink}>Điều khoản dịch vụ</Text> &{' '}
-              <Text style={styles.termsLink}>Chính sách bảo mật</Text>
+            <Text style={styles.helpText}>
+              Lưu ý: Nếu chưa thiết lập email trên hợp đồng, bạn phải liên hệ chủ nhà (owner) để cập nhật thông tin email trước khi thực hiện đặt lại mật khẩu.
             </Text>
           </View>
 
@@ -162,7 +151,7 @@ const styles = StyleSheet.create({
     width: 320,
     height: 320,
     borderRadius: 160,
-    backgroundColor: 'rgba(0, 113, 227, 0.09)', // Glowing brand blue
+    backgroundColor: 'rgba(239, 68, 68, 0.05)', // Faint red/warm glow for recovery
   },
   glowBottomLeft: {
     position: 'absolute',
@@ -177,12 +166,24 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 24,
     justifyContent: 'space-between',
-    paddingTop: 40,
+    paddingTop: 20,
     paddingBottom: 24,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EAEAEF',
+    marginBottom: 16,
   },
   headerSection: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   logoBadge: {
     width: 64,
@@ -201,7 +202,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   appName: {
-    fontSize: 26,
+    fontSize: 24,
     fontFamily: Typography.fontFamily.extrabold,
     color: '#0F172A',
     letterSpacing: -0.5,
@@ -212,6 +213,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 6,
     textAlign: 'center',
+    paddingHorizontal: 12,
   },
   formCard: {
     backgroundColor: '#FFFFFF',
@@ -226,7 +228,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: Typography.fontFamily.bold,
     color: '#0F172A',
     letterSpacing: -0.3,
@@ -235,51 +237,30 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontFamily: Typography.fontFamily.medium,
     color: '#64748B',
-    marginTop: 4,
+    marginTop: 6,
     marginBottom: 20,
     lineHeight: 18,
   },
   footerSection: {
     alignItems: 'center',
-    marginTop: 32,
+    marginTop: 24,
     gap: 16,
   },
-  registerPrompt: {
-    alignItems: 'center',
-    gap: 6,
+  backToLogin: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
   },
-  promptText: {
-    fontSize: 13,
-    fontFamily: Typography.fontFamily.medium,
-    color: '#64748B',
-  },
-  registerLink: {
+  backToLoginText: {
     fontSize: 14,
     fontFamily: Typography.fontFamily.bold,
     color: Colors.primary,
   },
-  btnMock: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 113, 227, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnMockText: {
-    fontSize: 12.5,
-    fontFamily: Typography.fontFamily.semibold,
-    color: Colors.primary,
-  },
-  terms: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.regular,
+  helpText: {
+    fontSize: 11.5,
+    fontFamily: Typography.fontFamily.medium,
     color: '#94A3B8',
     textAlign: 'center',
     lineHeight: 16,
-  },
-  termsLink: {
-    color: Colors.primary,
-    fontFamily: Typography.fontFamily.semibold,
+    paddingHorizontal: 8,
   },
 });
