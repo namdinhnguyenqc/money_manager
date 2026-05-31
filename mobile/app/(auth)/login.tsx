@@ -209,15 +209,13 @@ export default function LoginScreen() {
             <Text style={styles.btnGoogleText}>Tiếp tục với Google</Text>
           </TouchableOpacity>
 
-          {__DEV__ && (
-            <TouchableOpacity
-              style={styles.btnMock}
-              onPress={handleMockLogin}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.btnMockText}>Đăng nhập nhanh Chủ trọ (Test Bypass)</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.btnMock}
+            onPress={handleMockLogin}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.btnMockText}>Đăng nhập nhanh Chủ trọ (Test Bypass)</Text>
+          </TouchableOpacity>
 
           <Text style={styles.terms}>
             Bằng việc đăng nhập, bạn đồng ý với{' '}

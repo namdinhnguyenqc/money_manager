@@ -130,16 +130,13 @@ export default function LoginScreen() {
           {/* Footer Section */}
           <View style={styles.footerSection}>
 
-
-            {__DEV__ && (
-              <TouchableOpacity
-                style={styles.btnMock}
-                onPress={handleMockLogin}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.btnMockText}>Điền nhanh tài khoản Test (Bypass)</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.btnMock}
+              onPress={handleMockLogin}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.btnMockText}>Điền nhanh tài khoản Test (Bypass)</Text>
+            </TouchableOpacity>
 
             <Text style={styles.terms}>
               Bằng việc đăng nhập, bạn đồng ý với{' '}
