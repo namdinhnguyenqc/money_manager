@@ -134,7 +134,7 @@ export default function LoginScreen() {
             />
           </View>
           <Text style={styles.appName}>
-            TrọCare<Text style={{ color: Colors.primary }}>.</Text>
+            TrọCare <Text style={{ color: Colors.primary }}>Owner</Text>
           </Text>
           <Text style={styles.tagline}>Nền tảng quản lý phòng trọ thế hệ mới</Text>
         </View>
