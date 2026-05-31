@@ -3,7 +3,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, ScrollView, Platform, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, ScrollView, Platform, Alert, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -61,7 +61,11 @@ export default function LoginScreen() {
           {/* Header Section */}
           <View style={styles.headerSection}>
             <View style={styles.logoBadge}>
-              <Ionicons name="home" size={32} color={Colors.primary} />
+              <Image 
+                source={require('../../assets/brand/transparent/trocare-symbol-tc-transparent-256.png')} 
+                style={styles.logoImage} 
+                resizeMode="contain"
+              />
             </View>
             <Text style={styles.appName}>
               TrọCare <Text style={{ color: Colors.primary }}>Tenant</Text>
@@ -199,6 +203,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
     marginBottom: 16,
+  },
+  logoImage: {
+    width: 48,
+    height: 48,
   },
   appName: {
     fontSize: 26,

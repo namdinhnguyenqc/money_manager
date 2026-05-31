@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api";
-import type { BoardingHouse, RentalRoom, Transaction, Wallet } from "@/lib/rentalOps";
+import type { BoardingHouse, RentalRoom, Transaction, Wallet, Invoice } from "@/lib/rentalOps";
 
 export type OwnerDashboardInit = {
   boardingHouses: BoardingHouse[];
   rooms: RentalRoom[];
   wallets: Wallet[];
   transactions: Transaction[];
+  invoices: Invoice[];
   settings: Record<string, unknown>;
 };
 

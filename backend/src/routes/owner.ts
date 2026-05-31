@@ -22,7 +22,7 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5, 1);
   sixMonthsAgo.setHours(0, 0, 0, 0);
 
-  const [bhRes, roomsRes, walletsRes, settingsRes, transactionsRes] = await Promise.all([
+  const [bhRes, roomsRes, walletsRes, settingsRes, transactionsRes, invoicesRes] = await Promise.all([
     supabase.from("boarding_houses").select(`
       id, name, address, status, is_public, created_at,
       rooms(id, status)
@@ -37,6 +37,17 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
       .gte("date", sixMonthsAgo.toISOString().slice(0, 10))
       .order("date", { ascending: false })
       .limit(200),
+    supabase
+      .from("invoices")
+      .select(`
+        id, room_id, contract_id, month, year, room_fee, total_amount, paid_amount, status,
+        elec_old, elec_new, water_old, water_new, created_at,
+        items:invoice_items(id, name, amount, quantity, unit_price)
+      `)
+      .eq("user_id", currentUser.id)
+      .order("year", { ascending: false })
+      .order("month", { ascending: false })
+      .limit(200),
   ]);
 
   return c.json({
@@ -44,6 +55,7 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
     rooms: roomsRes.data || [],
     wallets: walletsRes.data || [],
     transactions: transactionsRes.data || [],
+    invoices: invoicesRes.data || [],
     settings: settingsRes.data || {}
   });
 });

@@ -722,13 +722,20 @@ authRoutes.post("/refresh", async (c) => {
       });
     }
 
-    await supabaseAdmin
-      .from("refresh_tokens")
-      .update({ revoked_at: new Date().toISOString() })
-      .eq("user_id", tokenRecord.user_id)
-      .is("revoked_at", null);
-    auditLog("REFRESH_FAILED_REUSED", tokenRecord.user_id, { tokenHash });
-    return c.json({ code: "REFRESH_TOKEN_REUSED", message: "Phiên đăng nhập không còn hợp lệ." }, 401);
+    // Check DB grace period for distributed environment (e.g. concurrent requests hitting different processes/instances)
+    const timeSinceRevocationMs = Date.now() - new Date(tokenRecord.revoked_at).getTime();
+    if (timeSinceRevocationMs < 15_000) {
+      auditLog("REFRESH_DB_GRACE", tokenRecord.user_id, { tokenHash, timeSinceRevocationMs });
+      // Proceed to rotate the token normally instead of blocking and logging out
+    } else {
+      await supabaseAdmin
+        .from("refresh_tokens")
+        .update({ revoked_at: new Date().toISOString() })
+        .eq("user_id", tokenRecord.user_id)
+        .is("revoked_at", null);
+      auditLog("REFRESH_FAILED_REUSED", tokenRecord.user_id, { tokenHash });
+      return c.json({ code: "REFRESH_TOKEN_REUSED", message: "Phiên đăng nhập không còn hợp lệ." }, 401);
+    }
   }
 
   if (new Date(tokenRecord.expires_at) < new Date()) {

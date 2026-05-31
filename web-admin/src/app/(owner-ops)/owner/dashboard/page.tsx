@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { 
   BarChart, 
@@ -30,7 +30,9 @@ import {
   ArrowRight,
   Plus,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Zap,
+  Droplet
 } from 'lucide-react';
 import { 
   formatMoney, 
@@ -105,6 +107,115 @@ export default function OwnerDashboard() {
       .filter(r => normalizeRoomStatus(r) === 'vacant')
       .slice(0, 4);
   }, [rooms]);
+
+  const [activeUtilityTab, setActiveUtilityTab] = useState<'usage' | 'cost'>('usage');
+  const invoices = dashboardQuery.data?.invoices ?? [];
+
+  const utilityStats = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1; // 1-indexed (1-12)
+    const currentYear = now.getFullYear();
+
+    const thisMonthInvoices = invoices.filter(inv => inv.month === currentMonth && inv.year === currentYear);
+
+    const isElectric = (name: string) => {
+      const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
+      return n.includes("dien") || n.includes("electric");
+    };
+    const isWater = (name: string) => {
+      const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
+      return n.includes("nuoc") || n.includes("water");
+    };
+
+    let elecUsage = 0;
+    let elecCost = 0;
+    let elecRooms = 0;
+
+    let waterUsage = 0;
+    let waterCost = 0;
+    let waterRooms = 0;
+
+    thisMonthInvoices.forEach(inv => {
+      let hasElec = false;
+      let hasWater = false;
+
+      const eUsage = (inv.elec_new ?? 0) - (inv.elec_old ?? 0);
+      if (eUsage > 0 || inv.elec_new != null) {
+        elecUsage += eUsage;
+        hasElec = true;
+      }
+
+      const wUsage = (inv.water_new ?? 0) - (inv.water_old ?? 0);
+      if (wUsage > 0 || inv.water_new != null) {
+        waterUsage += wUsage;
+        hasWater = true;
+      }
+
+      inv.items?.forEach(item => {
+        if (isElectric(item.name)) {
+          elecCost += item.amount;
+          hasElec = true;
+        } else if (isWater(item.name)) {
+          waterCost += item.amount;
+          hasWater = true;
+        }
+      });
+
+      if (hasElec) elecRooms++;
+      if (hasWater) waterRooms++;
+    });
+
+    const chartData = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const m = d.getMonth() + 1; // 1-indexed
+      const y = d.getFullYear();
+      const monthLabel = `T${m}`;
+
+      const monthInvoices = invoices.filter(inv => inv.month === m && inv.year === y);
+
+      let mElecUsage = 0;
+      let mElecCost = 0;
+      let mWaterUsage = 0;
+      let mWaterCost = 0;
+
+      monthInvoices.forEach(inv => {
+        mElecUsage += Math.max(0, (inv.elec_new ?? 0) - (inv.elec_old ?? 0));
+        mWaterUsage += Math.max(0, (inv.water_new ?? 0) - (inv.water_old ?? 0));
+
+        inv.items?.forEach(item => {
+          if (isElectric(item.name)) {
+            mElecCost += item.amount;
+          } else if (isWater(item.name)) {
+            mWaterCost += item.amount;
+          }
+        });
+      });
+
+      chartData.push({
+        name: monthLabel,
+        month: m,
+        year: y,
+        elecUsage: mElecUsage,
+        elecCost: mElecCost,
+        waterUsage: mWaterUsage,
+        waterCost: mWaterCost,
+      });
+    }
+
+    return {
+      thisMonth: {
+        elecUsage,
+        elecCost,
+        elecRooms,
+        waterUsage,
+        waterCost,
+        waterRooms,
+        totalRooms: rooms.length,
+      },
+      chartData,
+    };
+  }, [invoices, rooms]);
 
   const isLoading = dashboardQuery.isLoading;
   const safeStats = stats ?? { total: 0, occupied: 0, vacant: 0, reserved: 0, maintenance: 0, occupancyRate: 0 };
@@ -282,6 +393,163 @@ export default function OwnerDashboard() {
               <Legend color="#10b981" label="Trống" value={safeStats.vacant} />
               <Legend color="#f59e0b" label="Đặt cọc" value={safeStats.reserved} />
               <Legend color="#ef4444" label="Bảo trì" value={safeStats.maintenance} />
+            </div>
+          </div>
+        </div>
+
+        {/* Section: Quản lý Điện & Nước */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-50 text-amber-600 border border-amber-100">
+              <Zap size={12} className="animate-pulse" />
+            </span>
+            <span className="text-xs font-black uppercase tracking-widest text-amber-600">Quản lý dịch vụ</span>
+          </div>
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div>
+              <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">Quản lý Điện & Nước</h2>
+              <p className="mt-1 text-sm text-slate-500 font-medium">Theo dõi lượng tiêu thụ và chi phí dịch vụ thực tế của các phòng.</p>
+            </div>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-3">
+            {/* Cột 1: Chỉ số tháng này */}
+            <div className="flex flex-col gap-6 lg:col-span-1">
+              {/* Thẻ Điện */}
+              <div className="relative group overflow-hidden rounded-[32px] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-100/50 transition-all hover:-translate-y-1 hover:shadow-2xl">
+                <div className="absolute top-0 right-0 h-24 w-24 translate-x-8 -translate-y-8 rounded-full bg-amber-50/50 group-hover:bg-amber-50 transition-colors"></div>
+                <div className="relative flex items-center justify-between mb-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-lg shadow-amber-100">
+                    <Zap size={20} />
+                  </div>
+                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase text-amber-600 border border-amber-100">
+                    Điện Tháng {new Date().getMonth() + 1}
+                  </span>
+                </div>
+                <div className="relative space-y-1">
+                  <div className="text-sm font-extrabold uppercase tracking-widest text-slate-400">Tiêu thụ hệ thống</div>
+                  <div className="text-3xl font-black text-slate-950 tracking-tight">
+                    {utilityStats.thisMonth.elecUsage.toLocaleString('vi-VN')} <span className="text-lg font-bold text-slate-400">kWh</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                    <span className="h-2 w-2 rounded-full bg-amber-400"></span>
+                    Đã ghi nhận {utilityStats.thisMonth.elecRooms}/{utilityStats.thisMonth.totalRooms} phòng
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">
+                  <span className="text-xs font-bold text-slate-400">Ước tính chi phí</span>
+                  <span className="text-sm font-black text-amber-600">{formatMoney(utilityStats.thisMonth.elecCost)}</span>
+                </div>
+              </div>
+
+              {/* Thẻ Nước */}
+              <div className="relative group overflow-hidden rounded-[32px] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-100/50 transition-all hover:-translate-y-1 hover:shadow-2xl">
+                <div className="absolute top-0 right-0 h-24 w-24 translate-x-8 -translate-y-8 rounded-full bg-blue-50/50 group-hover:bg-blue-50 transition-colors"></div>
+                <div className="relative flex items-center justify-between mb-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-400 to-blue-500 text-white shadow-lg shadow-blue-100">
+                    <Droplet size={20} />
+                  </div>
+                  <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase text-blue-600 border border-blue-100">
+                    Nước Tháng {new Date().getMonth() + 1}
+                  </span>
+                </div>
+                <div className="relative space-y-1">
+                  <div className="text-sm font-extrabold uppercase tracking-widest text-slate-400">Tiêu thụ hệ thống</div>
+                  <div className="text-3xl font-black text-slate-950 tracking-tight">
+                    {utilityStats.thisMonth.waterUsage.toLocaleString('vi-VN')} <span className="text-lg font-bold text-slate-400">m³</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                    <span className="h-2 w-2 rounded-full bg-blue-400"></span>
+                    Đã ghi nhận {utilityStats.thisMonth.waterRooms}/{utilityStats.thisMonth.totalRooms} phòng
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">
+                  <span className="text-xs font-bold text-slate-400">Ước tính chi phí</span>
+                  <span className="text-sm font-black text-blue-600">{formatMoney(utilityStats.thisMonth.waterCost)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Cột 2 & 3: Biểu đồ xu hướng */}
+            <div className="flex flex-col rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40 lg:col-span-2">
+              <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-xl font-extrabold text-slate-900">Biến động tiêu thụ điện nước</h3>
+                  <p className="text-xs text-slate-500 font-medium">Số liệu thống kê trong 6 tháng gần nhất</p>
+                </div>
+                <div className="flex rounded-xl bg-slate-100 p-1 self-start sm:self-auto">
+                  <button
+                    onClick={() => setActiveUtilityTab('usage')}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-black transition-all ${
+                      activeUtilityTab === 'usage'
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    Tiêu thụ (kWh / m³)
+                  </button>
+                  <button
+                    onClick={() => setActiveUtilityTab('cost')}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-black transition-all ${
+                      activeUtilityTab === 'cost'
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    Chi phí (₫)
+                  </button>
+                </div>
+              </div>
+
+              <div className="h-[280px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={utilityStats.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 700}}
+                      dy={10}
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 700}}
+                      tickFormatter={(v) => activeUtilityTab === 'cost' ? `${v/1000}k` : v}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        borderRadius: '20px', 
+                        border: '1px solid rgba(226, 232, 240, 0.8)', 
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.05)', 
+                        padding: '16px'
+                      }}
+                      itemStyle={{fontWeight: 'bold', fontSize: '13px'}}
+                      labelStyle={{fontWeight: '900', color: '#0f172a', marginBottom: '8px'}}
+                      formatter={(value, name) => {
+                        if (activeUtilityTab === 'cost') {
+                          return [formatMoney(Number(value)), name === 'elecCost' ? 'Tiền Điện' : 'Tiền Nước'];
+                        }
+                        return [`${Number(value).toLocaleString('vi-VN')} ${name === 'elecUsage' ? 'kWh' : 'm³'}`, name === 'elecUsage' ? 'Điện tiêu thụ' : 'Nước tiêu thụ'];
+                      }}
+                    />
+                    {activeUtilityTab === 'usage' ? (
+                      <>
+                        <Bar dataKey="elecUsage" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Điện tiêu thụ" />
+                        <Bar dataKey="waterUsage" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Nước tiêu thụ" />
+                      </>
+                    ) : (
+                      <>
+                        <Bar dataKey="elecCost" fill="#eab308" radius={[4, 4, 0, 0]} name="Tiền Điện" />
+                        <Bar dataKey="waterCost" fill="#2563eb" radius={[4, 4, 0, 0]} name="Tiền Nước" />
+                      </>
+                    )}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
         </div>
