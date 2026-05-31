@@ -1,23 +1,44 @@
 /**
- * TrọCare Tenant Mobile — Invoice Details & Payment QR Screen
+ * TrọCare Tenant Mobile — Invoice Details & Payment Screen
+ * Replicates the owner's paper-invoice aesthetic while keeping tenant actions.
  */
 
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, Image, TouchableOpacity, Share } from 'react-native';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 import * as Clipboard from 'expo-clipboard';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
-import StatusBadge from '@/components/ui/StatusBadge';
+import Button from '@/components/ui/Button';
+import { CardSkeleton } from '@/components/ui/Skeleton';
 import { apiGet } from '@/lib/api';
 
+const formatMoney = (v?: number | null) => `${new Intl.NumberFormat('vi-VN').format(Math.round(Number(v || 0)))} ₫`;
+
+const BANK_LABELS: Record<string, string> = {
+  '970416': 'ACB',
+  'ACB': 'ACB',
+  '970436': 'Vietcombank',
+  '970418': 'BIDV',
+  '970422': 'MB Bank',
+  '970407': 'Techcombank',
+  '970415': 'VietinBank',
+  '970423': 'TPBank',
+};
+
+const getBankLabel = (bankId?: string) => BANK_LABELS[String(bankId || '').trim()] || bankId || '';
+
 export default function InvoiceDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { id } = useLocalSearchParams();
-  const [loading, setLoading] = useState(true);
+  const invoiceCardRef = useRef<View>(null);
   const [invoice, setInvoice] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [sharingInvoice, setSharingInvoice] = useState(false);
 
   const fetchInvoiceDetails = async () => {
     try {
@@ -35,440 +56,317 @@ export default function InvoiceDetailScreen() {
     if (id) fetchInvoiceDetails();
   }, [id]);
 
-  const formatMoney = (amount?: number) => {
-    if (amount === undefined || amount === null) return '0đ';
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })
-      .format(amount)
-      .replace(/\s/g, '');
-  };
+  if (loading) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: true, title: 'Hóa đơn' }} />
+        <View style={styles.container}>
+          <CardSkeleton />
+          <CardSkeleton />
+        </View>
+      </>
+    );
+  }
+
+  if (!invoice) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: true, title: 'Hóa đơn' }} />
+        <View style={styles.container}>
+          <Text style={styles.notFoundText}>Không tìm thấy hóa đơn.</Text>
+        </View>
+      </>
+    );
+  }
+
+  const total = Number(invoice.total_amount || 0);
+  const paid = Number(invoice.paid_amount || 0);
+  const outstanding = Math.max(0, total - paid);
+  const status = paid >= total && total > 0 ? 'paid' : paid > 0 ? 'partial' : 'sent';
+  const items = invoice.items || [];
+  const paymentCode = invoice.payment_code || '';
+  const channel = invoice.paymentChannel || invoice.payment_channel;
+  const bankId = channel?.bank_id || channel?.bankId || '';
+  const bankLabel = getBankLabel(bankId);
+  const accountNo = channel?.account_no || channel?.accountNo || '';
+  const accountName = channel?.account_name || channel?.accountName || '';
+  const previousDebt = Number(invoice.previous_debt || 0);
+  const currentPayable = Math.max(0, total - previousDebt);
+  const depositReturn = 0;
+
+  // VietQR generation parameters
+  const qrUrl = channel
+    ? `https://img.vietqr.io/image/${bankId.toLowerCase()}-${accountNo}-compact2.png?amount=${outstanding}&addInfo=${paymentCode}&accountName=${encodeURIComponent(accountName)}`
+    : null;
+
+  const invoiceRows = [
+    {
+      name: 'Phòng',
+      detail: '',
+      amount: Number(invoice.room_fee || 0),
+    },
+    ...items.map((item: any) => ({
+      name: item.name || 'Khoản phí',
+      detail: item.detail || '',
+      amount: Number(item.amount || 0),
+    })),
+  ];
 
   const copyToClipboard = async (text: string, label: string) => {
+    if (!text) return;
     await Clipboard.setStringAsync(text);
     Alert.alert('Đã sao chép 📋', `Đã sao chép ${label} vào bộ nhớ tạm.`);
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
-  }
+  const shareInvoiceImage = async () => {
+    try {
+      if (!invoiceCardRef.current) return;
+      setSharingInvoice(true);
+      const uri = await captureRef(invoiceCardRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      });
 
-  if (!invoice) return null;
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert('Không thể chia sẻ ảnh', 'Thiết bị chưa hỗ trợ chia sẻ file ảnh.');
+        return;
+      }
 
-  const room = invoice.rooms;
-  const channel = invoice.paymentChannel;
-  const items = invoice.items || [];
-  const isUnpaid = invoice.status !== 'paid';
-  const remainingAmount = Math.max(0, Number(invoice.total_amount) - Number(invoice.paid_amount));
+      await Sharing.shareAsync(uri, {
+        mimeType: 'image/png',
+        dialogTitle: `Hóa đơn phòng ${invoice.rooms?.name || ''} T${invoice.month}/${invoice.year}`,
+      });
+    } catch {
+      Alert.alert('Không thể chia sẻ ảnh', 'Vui lòng thử lại sau khi hóa đơn hiển thị đầy đủ.');
+    } finally {
+      setSharingInvoice(false);
+    }
+  };
 
-  // VietQR generation parameters
-  const vietQrUrl = channel
-    ? `https://img.vietqr.io/image/${channel.bank_id || channel.bankId || 'vietcombank'}-${channel.account_no || channel.accountNo || ''}-compact2.png?amount=${remainingAmount}&addInfo=${invoice.payment_code || ''}&accountName=${encodeURIComponent(channel.account_name || channel.accountName || '')}`
-    : null;
+  const tenantName = invoice.contracts?.tenants?.name || 'Khách thuê';
+  const tenantPhone = invoice.contracts?.tenants?.phone || '-';
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.btnBack} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#0F172A" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chi tiết hóa đơn</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: `Hóa đơn T${invoice.month}/${invoice.year}`,
+          headerBackTitle: 'Quay lại',
+        }}
+      />
+      <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
+        <View ref={invoiceCardRef} collapsable={false}>
+          <Card style={styles.paperCard}>
+            <Text style={styles.noticeTitle}>THÔNG BÁO TIỀN PHÒNG TRỌ T{invoice.month}</Text>
 
-      {/* Invoice Overview */}
-      <Card style={styles.overviewCard}>
-        <View style={styles.rowBetween}>
-          <Text style={styles.invoiceMonth}>Hóa đơn tháng {invoice.month}/{invoice.year}</Text>
-          <StatusBadge status={invoice.status} type="invoice" />
-        </View>
-        <Text style={styles.roomLabel}>Phòng: {room?.name || 'Phòng trọ'}</Text>
-        <Text style={styles.houseLabel}>{room?.boarding_houses?.name || 'Nhà trọ'}</Text>
-      </Card>
-
-      {/* Invoice Items Table */}
-      <Card style={styles.itemsCard}>
-        <Text style={styles.cardTitle}>Chi tiết các khoản mục</Text>
-
-        {/* Room Fee Row */}
-        <View style={styles.itemRow}>
-          <View style={styles.itemLeft}>
-            <Ionicons name="home-outline" size={16} color="#64748B" />
-            <Text style={styles.itemName}>Tiền phòng</Text>
-          </View>
-          <Text style={styles.itemPrice}>{formatMoney(invoice.room_fee)}</Text>
-        </View>
-
-        {/* Dynamic Items */}
-        {items.map((item: any) => {
-          const detailIcon = item.name.toLowerCase().includes('dien')
-            ? 'flash-outline'
-            : item.name.toLowerCase().includes('nuoc')
-            ? 'water-outline'
-            : item.name.toLowerCase().includes('wifi') || item.name.toLowerCase().includes('internet')
-            ? 'wifi-outline'
-            : 'cube-outline';
-
-          return (
-            <View key={item.id}>
-              <View style={styles.itemDivider} />
-              <View style={styles.itemRow}>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.itemLeft}>
-                    <Ionicons name={detailIcon} size={16} color="#64748B" />
-                    <Text style={styles.itemName}>{item.name}</Text>
-                  </View>
-                  {item.detail && <Text style={styles.itemDetail}>{item.detail}</Text>}
+            <View style={styles.recipientGrid}>
+              <View style={styles.recipientCell}>
+                <Text style={styles.recipientLabel}>Kính gửi:</Text>
+                <Text style={styles.recipientValue}>{tenantName}</Text>
+              </View>
+              <View style={styles.recipientCell}>
+                <Text style={styles.recipientLabel}>Số điện thoại:</Text>
+                <Text style={styles.recipientMuted}>{tenantPhone}</Text>
+              </View>
+              <View style={styles.recipientCell}>
+                <Text style={styles.recipientLabel}>Ở phòng số:</Text>
+                <View style={styles.roomChip}>
+                  <Text style={styles.roomChipText}>{invoice.rooms?.name || 'Phòng'}</Text>
+                  <Ionicons name="chevron-down" size={12} color="#166534" />
                 </View>
-                <Text style={styles.itemPrice}>{formatMoney(item.amount)}</Text>
+              </View>
+              <View style={styles.recipientCell}>
+                <Text style={styles.recipientLabel}>Trạng thái:</Text>
+                <Text style={[styles.statusText, status === 'paid' && styles.statusPaid]}>
+                  {status === 'paid' ? 'Đã thanh toán' : status === 'partial' ? 'Còn thiếu' : 'Chưa thanh toán'}
+                </Text>
               </View>
             </View>
-          );
-        })}
 
-        {/* Total details */}
-        <View style={[styles.itemDivider, { backgroundColor: '#CBD5E1', height: 1.5 }]} />
-        
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Tổng cộng</Text>
-          <Text style={styles.totalPrice}>{formatMoney(invoice.total_amount)}</Text>
-        </View>
-
-        <View style={styles.totalRow}>
-          <Text style={styles.paidLabel}>Đã thanh toán</Text>
-          <Text style={styles.paidPrice}>{formatMoney(invoice.paid_amount)}</Text>
-        </View>
-
-        {isUnpaid && (
-          <View style={[styles.totalRow, { marginTop: 4 }]}>
-            <Text style={styles.dueLabel}>Còn thiếu</Text>
-            <Text style={styles.duePrice}>{formatMoney(remainingAmount)}</Text>
-          </View>
-        )}
-      </Card>
-
-      {/* 💳 VietQR Payment Section */}
-      {isUnpaid && channel && vietQrUrl && (
-        <View style={styles.qrSection}>
-          <Text style={styles.sectionTitle}>Quét mã QR để chuyển khoản</Text>
-          
-          <Card style={styles.qrCard}>
-            <Image
-              source={{ uri: vietQrUrl }}
-              style={styles.qrImage}
-              resizeMode="contain"
-            />
-            
-            <View style={styles.qrInfoContainer}>
-              <Text style={styles.qrWarning}>Chuyển khoản chính xác số tiền và nội dung dưới đây để hệ thống tự động kích hoạt xác nhận ngay lập tức.</Text>
-
-              <View style={styles.qrFieldRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldTitle}>Ngân hàng</Text>
-                  <Text style={styles.fieldVal}>{channel.display_name || channel.bank_id.toUpperCase()}</Text>
+            <View style={styles.invoiceTable}>
+              <View style={[styles.tableRow, styles.tableHead]}>
+                <Text style={[styles.thText, styles.sttCell]}>STT</Text>
+                <Text style={[styles.thText, styles.itemCell]}>Khoản</Text>
+                <Text style={[styles.thText, styles.detailCell]}>Chi tiết</Text>
+                <Text style={[styles.thText, styles.amountCell]}>Thành Tiền</Text>
+              </View>
+              {invoiceRows.map((row, index) => (
+                <View key={`${row.name}-${index}`} style={styles.tableRow}>
+                  <Text style={[styles.tdText, styles.sttCell]}>{index + 1}</Text>
+                  <Text style={[styles.tdText, styles.itemCell]}>{row.name}</Text>
+                  <Text style={[styles.tdText, styles.detailCell]} numberOfLines={2}>{row.detail || ''}</Text>
+                  <Text style={[styles.tdText, styles.amountCell]}>{formatMoney(row.amount)}</Text>
                 </View>
+              ))}
+              <View style={[styles.tableRow, styles.totalTableRow]}>
+                <Text style={[styles.tdText, styles.sttCell]}>{invoiceRows.length + 1}</Text>
+                <Text style={[styles.tdText, styles.itemCell]} />
+                <Text style={[styles.totalText, styles.detailCell]}>Cộng:</Text>
+                <Text style={[styles.totalText, styles.amountCell]}>{formatMoney(total)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.paymentSection}>
+              <View style={styles.paymentLeft}>
+                <Text style={styles.paymentTitle}>Phần Thanh toán:</Text>
+                <PaymentLine label="Số tiền còn nợ tháng trước:" value={formatMoney(previousDebt)} />
+                <PaymentLine label="Phải trả tháng này:" value={formatMoney(currentPayable)} />
+                <PaymentLine label="Trả cọc:" value={formatMoney(depositReturn)} />
+                <View style={styles.payableLine}>
+                  <Text style={styles.payableLabel}>Thành tiền phải trả:</Text>
+                  <Text style={styles.payableValue}>{formatMoney(outstanding)}</Text>
+                </View>
+
+                {channel ? (
+                  <View style={styles.bankLines}>
+                    <TouchableOpacity onPress={() => copyToClipboard(paymentCode, 'mã QR chuyển khoản')}>
+                      <Text style={styles.bankText}>Mã QR Code: <Text style={styles.bankStrong}>{paymentCode || '-'}</Text></Text>
+                    </TouchableOpacity>
+                    <Text style={styles.bankText}>Ngân hàng: <Text style={styles.bankStrong}>{bankLabel || '-'}</Text></Text>
+                    <TouchableOpacity onPress={() => copyToClipboard(accountNo, 'số tài khoản')}>
+                      <Text style={styles.bankText}>Số tài khoản: <Text style={styles.bankStrong}>{accountNo || '-'}</Text></Text>
+                    </TouchableOpacity>
+                    <Text style={styles.bankText}>Người thụ hưởng: <Text style={styles.bankStrong}>{accountName || '-'}</Text></Text>
+                  </View>
+                ) : (
+                  <Text style={styles.noPaymentNotice}>Vui lòng thanh toán trực tiếp cho chủ trọ do chưa cấu hình tài khoản tự động.</Text>
+                )}
               </View>
 
-              <View style={styles.qrFieldRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldTitle}>Số tài khoản</Text>
-                  <Text style={styles.fieldVal}>{channel.account_no}</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.btnCopy}
-                  onPress={() => copyToClipboard(channel.account_no, 'số tài khoản')}
-                >
-                  <Ionicons name="copy-outline" size={16} color={Colors.primary} />
-                  <Text style={styles.btnCopyText}>Copy</Text>
-                </TouchableOpacity>
+              <View style={styles.qrReceiptBox}>
+                {qrUrl ? (
+                  <Image source={{ uri: qrUrl }} style={styles.receiptQr} resizeMode="contain" />
+                ) : (
+                  <View style={styles.receiptQrPlaceholder}>
+                    <Ionicons name="qr-code-outline" size={30} color={Colors.textMuted} />
+                    <Text style={styles.qrPlaceholderText}>Chưa có QR</Text>
+                  </View>
+                )}
               </View>
-
-              <View style={styles.qrFieldRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldTitle}>Tên tài khoản</Text>
-                  <Text style={styles.fieldVal}>{channel.account_name}</Text>
-                </View>
-              </View>
-
-              <View style={styles.qrFieldRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldTitle}>Số tiền chuyển</Text>
-                  <Text style={[styles.fieldVal, { color: Colors.danger, fontFamily: Typography.fontFamily.bold }]}>
-                    {formatMoney(remainingAmount)}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.btnCopy}
-                  onPress={() => copyToClipboard(remainingAmount.toString(), 'số tiền')}
-                >
-                  <Ionicons name="copy-outline" size={16} color={Colors.primary} />
-                  <Text style={styles.btnCopyText}>Copy</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.qrFieldRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldTitle}>Nội dung chuyển khoản (Bắt buộc)</Text>
-                  <Text style={[styles.fieldVal, { color: Colors.primary, fontFamily: Typography.fontFamily.extrabold }]}>
-                    {invoice.payment_code}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.btnCopy}
-                  onPress={() => copyToClipboard(invoice.payment_code, 'nội dung chuyển khoản')}
-                >
-                  <Ionicons name="copy-outline" size={16} color={Colors.primary} />
-                  <Text style={styles.btnCopyText}>Copy</Text>
-                </TouchableOpacity>
-              </View>
-
             </View>
           </Card>
         </View>
-      )}
 
-      {isUnpaid && !channel && (
-        <Card style={styles.noPaymentChannelCard}>
-          <Ionicons name="alert-circle-outline" size={32} color={Colors.warning} />
-          <Text style={styles.noPaymentText}>Chủ trọ hiện chưa thiết lập kênh thanh toán ngân hàng tự động cho hóa đơn này. Vui lòng liên hệ trực tiếp chủ trọ để thanh toán.</Text>
-        </Card>
-      )}
+        {/* Actions */}
+        <View style={styles.actions}>
+          <Button
+            title="Chia sẻ hóa đơn"
+            variant="outline"
+            size="lg"
+            fullWidth
+            onPress={shareInvoiceImage}
+            loading={sharingInvoice}
+            disabled={sharingInvoice}
+            icon={<Ionicons name="share-social-outline" size={18} color={Colors.textPrimary} />}
+          />
+        </View>
+      </ScrollView>
+    </>
+  );
+}
 
-    </ScrollView>
+function PaymentLine({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.paymentLine}>
+      <Text style={styles.paymentLineLabel}>- {label}</Text>
+      <Text style={styles.paymentLineValue}>{value}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F4F4F6',
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F4F4F6',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    width: '100%',
-  },
-  btnBack: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#EAEAEF',
-  },
-  headerTitle: {
-    fontSize: 16.5,
-    fontFamily: Typography.fontFamily.bold,
-    color: '#0F172A',
-  },
-  overviewCard: {
-    padding: 16,
-    marginBottom: 16,
-  },
-  rowBetween: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  invoiceMonth: {
+  container: { flex: 1, backgroundColor: Colors.background },
+  scroll: { padding: 12, paddingBottom: 40, gap: 12 },
+  paperCard: { padding: 14, borderRadius: 8, backgroundColor: '#FFFEFB' },
+  notFoundText: { textAlign: 'center', marginTop: 24, fontSize: 14, fontFamily: Typography.fontFamily.medium },
+  noticeTitle: {
+    textAlign: 'center',
     fontSize: 15,
-    fontFamily: Typography.fontFamily.bold,
-    color: '#0F172A',
-  },
-  roomLabel: {
-    fontSize: 12.5,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.primary,
-    marginTop: 8,
-  },
-  houseLabel: {
-    fontSize: 11.5,
-    fontFamily: Typography.fontFamily.medium,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  itemsCard: {
-    padding: 16,
-    marginBottom: 16,
-  },
-  cardTitle: {
-    fontSize: 13.5,
-    fontFamily: Typography.fontFamily.bold,
-    color: '#475569',
+    lineHeight: 20,
+    fontFamily: Typography.fontFamily.extrabold,
+    color: '#111827',
     textTransform: 'uppercase',
-    letterSpacing: 0.2,
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  itemRow: {
+  recipientGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  recipientCell: { width: '48%', minHeight: 38 },
+  recipientLabel: { fontSize: 11, fontFamily: Typography.fontFamily.semibold, color: '#111827' },
+  recipientValue: { marginTop: 3, fontSize: 12, fontFamily: Typography.fontFamily.bold, color: '#111827' },
+  recipientMuted: { marginTop: 3, fontSize: 12, fontFamily: Typography.fontFamily.medium, color: '#374151' },
+  roomChip: {
+    alignSelf: 'flex-start',
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    gap: 3,
+    marginTop: 3,
+    borderRadius: 2,
+    backgroundColor: '#BBF7D0',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
   },
-  itemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  itemName: {
-    fontSize: 13,
-    fontFamily: Typography.fontFamily.bold,
-    color: '#334155',
-  },
-  itemDetail: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.regular,
-    color: '#64748B',
-    marginTop: 2,
-    paddingLeft: 24,
-  },
-  itemPrice: {
-    fontSize: 13,
-    fontFamily: Typography.fontFamily.bold,
-    color: '#0F172A',
-  },
-  itemDivider: {
-    height: 0.8,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 4,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  roomChipText: { fontSize: 12, fontFamily: Typography.fontFamily.bold, color: '#166534' },
+  statusText: { marginTop: 3, fontSize: 12, fontFamily: Typography.fontFamily.bold, color: '#B45309' },
+  statusPaid: { color: Colors.success },
+  invoiceTable: { borderWidth: 1, borderColor: '#111827', marginBottom: 18 },
+  tableRow: { flexDirection: 'row', minHeight: 28, borderBottomWidth: 1, borderBottomColor: '#111827' },
+  tableHead: { backgroundColor: '#F8FAFC' },
+  totalTableRow: { borderBottomWidth: 0, backgroundColor: '#FFFEFB' },
+  sttCell: { width: 34, borderRightWidth: 1, borderRightColor: '#111827' },
+  itemCell: { width: 64, borderRightWidth: 1, borderRightColor: '#111827' },
+  detailCell: { flex: 1, borderRightWidth: 1, borderRightColor: '#111827' },
+  amountCell: { width: 86 },
+  thText: {
+    paddingHorizontal: 4,
     paddingVertical: 6,
-  },
-  totalLabel: {
-    fontSize: 13.5,
-    fontFamily: Typography.fontFamily.bold,
-    color: '#0F172A',
-  },
-  totalPrice: {
-    fontSize: 15,
+    textAlign: 'center',
+    fontSize: 10,
     fontFamily: Typography.fontFamily.extrabold,
-    color: '#0F172A',
+    color: '#111827',
   },
-  paidLabel: {
-    fontSize: 12,
+  tdText: {
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+    textAlign: 'center',
+    fontSize: 10,
+    lineHeight: 14,
     fontFamily: Typography.fontFamily.medium,
-    color: Colors.success,
+    color: '#111827',
   },
-  paidPrice: {
-    fontSize: 13.5,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.success,
-  },
-  dueLabel: {
-    fontSize: 12.5,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.danger,
-  },
-  duePrice: {
-    fontSize: 14.5,
+  totalText: {
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+    textAlign: 'right',
+    fontSize: 10,
     fontFamily: Typography.fontFamily.extrabold,
-    color: Colors.danger,
+    color: '#111827',
   },
-  qrSection: {
-    marginTop: 8,
-  },
-  sectionTitle: {
-    fontSize: 13.5,
-    fontFamily: Typography.fontFamily.bold,
-    color: '#475569',
-    textTransform: 'uppercase',
-    letterSpacing: 0.2,
-    marginBottom: 12,
-    paddingLeft: 4,
-  },
-  qrCard: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  qrImage: {
-    width: 200,
-    height: 200,
-    marginBottom: 16,
-    backgroundColor: '#FFFFFF',
+  paymentSection: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  paymentLeft: { flex: 1, minWidth: 0 },
+  paymentTitle: { fontSize: 12, fontFamily: Typography.fontFamily.extrabold, color: '#111827', textDecorationLine: 'underline', marginBottom: 5 },
+  paymentLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 2 },
+  paymentLineLabel: { flex: 1, fontSize: 10, lineHeight: 14, fontFamily: Typography.fontFamily.medium, color: '#111827' },
+  paymentLineValue: { minWidth: 70, textAlign: 'right', fontSize: 10, lineHeight: 14, fontFamily: Typography.fontFamily.medium, color: '#111827' },
+  payableLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginTop: 3, marginBottom: 12 },
+  payableLabel: { flex: 1, fontSize: 10, lineHeight: 14, fontFamily: Typography.fontFamily.extrabold, color: '#111827' },
+  payableValue: { minWidth: 78, textAlign: 'right', fontSize: 11, lineHeight: 14, fontFamily: Typography.fontFamily.extrabold, color: '#111827' },
+  bankLines: { gap: 6, marginTop: 4 },
+  bankText: { fontSize: 10, lineHeight: 14, fontFamily: Typography.fontFamily.medium, color: '#111827' },
+  bankStrong: { fontFamily: Typography.fontFamily.bold },
+  noPaymentNotice: { fontSize: 10.5, fontFamily: Typography.fontFamily.medium, color: '#D97706', lineHeight: 14, marginTop: 4 },
+  qrReceiptBox: { width: 132, alignItems: 'center', justifyContent: 'center' },
+  receiptQr: { width: 126, height: 126, backgroundColor: '#fff' },
+  receiptQrPlaceholder: {
+    width: 126,
+    height: 126,
     borderWidth: 1,
-    borderColor: '#EAEAEF',
-    borderRadius: 12,
-  },
-  qrInfoContainer: {
-    width: '100%',
-    gap: 12,
-  },
-  qrWarning: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.medium,
-    color: Colors.danger,
-    lineHeight: 16,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  qrFieldRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    borderColor: Colors.border,
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
-    paddingBottom: 8,
-    borderBottomWidth: 0.8,
-    borderBottomColor: '#EAEAEF',
+    justifyContent: 'center',
+    padding: 8,
   },
-  fieldTitle: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.medium,
-    color: '#94A3B8',
-    textTransform: 'uppercase',
-  },
-  fieldVal: {
-    fontSize: 13,
-    fontFamily: Typography.fontFamily.bold,
-    color: '#0F172A',
-    marginTop: 2,
-  },
-  btnCopy: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(0, 113, 227, 0.08)',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-  },
-  btnCopyText: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.primary,
-  },
-  noPaymentChannelCard: {
-    padding: 20,
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 12,
-  },
-  noPaymentText: {
-    fontSize: 12.5,
-    fontFamily: Typography.fontFamily.medium,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
+  qrPlaceholderText: { textAlign: 'center', fontSize: 11, fontFamily: Typography.fontFamily.medium, color: Colors.textMuted },
+  actions: { gap: 10, marginTop: 4 },
 });

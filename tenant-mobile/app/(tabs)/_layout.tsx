@@ -6,9 +6,27 @@
 import { Tabs } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, Image, TouchableOpacity, View } from 'react-native';
+import { Platform, Image, TouchableOpacity, View, Text } from 'react-native';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
+
+// Shared brand logo component for all tab headers
+function HeaderBrandLogo() {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 16 }}>
+      <Image
+        source={require('@/assets/brand/transparent/trocare-symbol-tc-transparent-128.png')}
+        style={{ width: 28, height: 28 }}
+        resizeMode="contain"
+      />
+      <Image
+        source={require('@/assets/brand/transparent/trocare-wordmark-transparent-1600.png')}
+        style={{ width: 80, height: 20 }}
+        resizeMode="contain"
+      />
+    </View>
+  );
+}
 
 export default function TabLayout() {
   const router = useRouter();
@@ -33,7 +51,7 @@ export default function TabLayout() {
         headerLeft: () => (
           <Image
             source={require('@/assets/brand/transparent/trocare-symbol-tc-transparent-128.png')}
-            style={{ width: 22, height: 22, marginLeft: 16 }}
+            style={{ width: 24, height: 24, marginLeft: 16 }}
             resizeMode="contain"
           />
         ),
@@ -68,7 +86,9 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Dashboard',
-          headerTitle: 'Bảng điều khiển',
+          // Dashboard tab: show TrọCare wordmark as the header title
+          headerLeft: () => <HeaderBrandLogo />,
+          headerTitle: '',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="apps-outline" size={size} color={color} />
           ),

@@ -1043,6 +1043,27 @@ invoicesRoutes.post("/bulk-create", async (c) => {
 
   for (const invData of invoices) {
     try {
+      // Check if invoice already exists for this room and billing period
+      const { data: existing, error: checkError } = await db
+        .from("invoices")
+        .select("id")
+        .eq("room_id", invData.roomId)
+        .eq("contract_id", invData.contractId)
+        .eq("month", invData.month)
+        .eq("year", invData.year)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (checkError) {
+        results.push({ roomId: invData.roomId, error: checkError.message });
+        continue;
+      }
+
+      if (existing) {
+        results.push({ roomId: invData.roomId, error: "Hóa đơn đã tồn tại cho phòng này trong kỳ thanh toán." });
+        continue;
+      }
+
       // Logic tương tự như route POST / nhưng dành cho bulk
       const payload = {
         user_id: user.id,

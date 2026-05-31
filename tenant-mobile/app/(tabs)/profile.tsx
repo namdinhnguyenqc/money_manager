@@ -3,7 +3,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity, RefreshControl, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity, RefreshControl, Modal, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Colors from '@/constants/Colors';
@@ -166,6 +166,15 @@ export default function ProfileTab() {
               <Text style={styles.infoValue}>{room?.boardingHouse?.name || 'N/A'}</Text>
             </View>
 
+            {room?.boardingHouse?.address && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Địa chỉ</Text>
+                <Text style={[styles.infoValue, { flex: 1, textAlign: 'right', marginLeft: 12 }]} numberOfLines={2}>
+                  {room.boardingHouse.address}
+                </Text>
+              </View>
+            )}
+
             <View style={styles.separator} />
 
             <View style={styles.infoRow}>
@@ -192,6 +201,32 @@ export default function ProfileTab() {
               <Text style={styles.infoValue}>{contract.endDate || 'Vô thời hạn'}</Text>
             </View>
 
+            {/* Contract file action button */}
+            {contract.fileUrl ? (
+              <View style={styles.contractFileSection}>
+                <TouchableOpacity
+                  style={styles.viewContractBtn}
+                  onPress={() => {
+                    if (contract.fileUrl) {
+                      Linking.openURL(contract.fileUrl).catch(() =>
+                        Alert.alert('Lỗi', 'Không thể mở file hợp đồng. Vui lòng thử lại.')
+                      );
+                    }
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="document-attach-outline" size={18} color="#FFFFFF" />
+                  <Text style={styles.viewContractBtnText}>Xem file hợp đồng</Text>
+                  <Ionicons name="open-outline" size={14} color="rgba(255,255,255,0.8)" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.noFileNote}>
+                <Ionicons name="document-outline" size={14} color="#94A3B8" />
+                <Text style={styles.noFileText}>Chủ trọ chưa đính kèm file hợp đồng</Text>
+              </View>
+            )}
+
           </Card>
         </View>
       ) : (
@@ -199,6 +234,40 @@ export default function ProfileTab() {
           <Ionicons name="document-text-outline" size={32} color={Colors.textMuted} />
           <Text style={styles.emptyText}>Bạn hiện chưa có hợp đồng thuê phòng trọ nào được kích hoạt.</Text>
         </Card>
+      )}
+
+      {/* 👤 Tenant Basic Info */}
+      {(profileData?.idCard || profileData?.address || profileData?.linkedAt) && (
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
+          <Card style={styles.contractCard}>
+            {profileData?.idCard && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Số CMND/CCCD</Text>
+                <Text style={styles.infoValue}>{profileData.idCard}</Text>
+              </View>
+            )}
+            {profileData?.address && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Địa chỉ thường trú</Text>
+                <Text style={[styles.infoValue, { flex: 1, textAlign: 'right', marginLeft: 12 }]} numberOfLines={2}>
+                  {profileData.address}
+                </Text>
+              </View>
+            )}
+            {profileData?.linkedAt && (
+              <>
+                {(profileData?.idCard || profileData?.address) && <View style={styles.separator} />}
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Ngày liên kết tài khoản</Text>
+                  <Text style={styles.infoValue}>
+                    {new Date(profileData.linkedAt).toLocaleDateString('vi-VN')}
+                  </Text>
+                </View>
+              </>
+            )}
+          </Card>
+        </View>
       )}
 
       {/* 🛠️ Applied Services List */}
@@ -452,6 +521,44 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.medium,
     color: '#64748B',
     textAlign: 'center',
+  },
+  contractFileSection: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 0.8,
+    borderTopColor: '#EAEAEF',
+  },
+  viewContractBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  viewContractBtnText: {
+    fontSize: 13,
+    fontFamily: Typography.fontFamily.bold,
+    color: '#FFFFFF',
+    flex: 1,
+    textAlign: 'center',
+  },
+  noFileNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 0.8,
+    borderTopColor: '#EAEAEF',
+  },
+  noFileText: {
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.medium,
+    color: '#94A3B8',
+    fontStyle: 'italic',
   },
   servicesCard: {
     paddingHorizontal: 16,

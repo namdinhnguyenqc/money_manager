@@ -355,16 +355,16 @@ tenantAuthRoutes.post("/login", async (c) => {
       let activeContract = null;
 
       for (const t of tenants) {
-        const { data: contract } = await supabaseAdmin
+        const { data: contracts } = await supabaseAdmin
           .from("contracts")
           .select("id")
           .eq("tenant_id", t.id)
           .eq("status", "active")
-          .maybeSingle();
+          .limit(1);
 
-        if (contract) {
+        if (contracts && contracts.length > 0) {
           tenant = t;
-          activeContract = contract;
+          activeContract = contracts[0];
           break;
         }
       }
@@ -450,19 +450,26 @@ tenantAuthRoutes.post("/login", async (c) => {
         if (tenants && tenants.length > 0) {
           // Find the tenant with active contract
           let matchedTenant = null;
-          for (const t of tenants) {
-            const { data: contract } = await supabaseAdmin
+          // Prioritize accepted invite status to link to registered profile
+          const sortedTenants = [...tenants].sort((a, b) => {
+            if (a.invite_status === 'accepted' && b.invite_status !== 'accepted') return -1;
+            if (a.invite_status !== 'accepted' && b.invite_status === 'accepted') return 1;
+            return 0;
+          });
+
+          for (const t of sortedTenants) {
+            const { data: contracts } = await supabaseAdmin
               .from("contracts")
               .select("id")
               .eq("tenant_id", t.id)
               .eq("status", "active")
-              .maybeSingle();
-            if (contract) {
+              .limit(1);
+            if (contracts && contracts.length > 0) {
               matchedTenant = t;
               break;
             }
           }
-          const tenant = matchedTenant || tenants[0];
+          const tenant = matchedTenant || sortedTenants[0];
           activeTenantId = tenant.id;
 
           // Link them now
@@ -480,12 +487,14 @@ tenantAuthRoutes.post("/login", async (c) => {
         return c.json({ code: "NO_ACTIVE_CONTRACT", message: "Tài khoản của bạn chưa được liên kết với hợp đồng phòng." }, 403);
       }
 
-      const { data: activeContract } = await supabaseAdmin
+      const { data: contracts } = await supabaseAdmin
         .from("contracts")
         .select("id")
         .eq("tenant_id", activeTenantId)
         .eq("status", "active")
-        .maybeSingle();
+        .limit(1);
+
+      const activeContract = contracts && contracts.length > 0 ? contracts[0] : null;
 
       if (!activeContract) {
         auditLog("TENANT_LOGIN_FAILED", user.id, { reason: "NO_ACTIVE_CONTRACT" });
@@ -937,13 +946,13 @@ tenantAuthRoutes.post("/forgot-password", async (c) => {
     // Find the tenant that has an active contract
     let tenant = null;
     for (const t of tenants) {
-      const { data: contract } = await supabaseAdmin
+      const { data: contracts } = await supabaseAdmin
         .from("contracts")
         .select("id")
         .eq("tenant_id", t.id)
         .eq("status", "active")
-        .maybeSingle();
-      if (contract) {
+        .limit(1);
+      if (contracts && contracts.length > 0) {
         tenant = t;
         break;
       }
@@ -991,12 +1000,14 @@ tenantAuthRoutes.post("/forgot-password", async (c) => {
 
     if (!user) {
       // If user doesn't exist yet but has active contract, register them now with the email as password!
-      const { data: activeContract } = await supabaseAdmin
+      const { data: contracts } = await supabaseAdmin
         .from("contracts")
         .select("id")
         .eq("tenant_id", tenant.id)
         .eq("status", "active")
-        .maybeSingle();
+        .limit(1);
+
+      const activeContract = contracts && contracts.length > 0 ? contracts[0] : null;
 
       if (!activeContract) {
         return c.json({

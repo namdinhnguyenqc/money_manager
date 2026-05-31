@@ -42,7 +42,15 @@ const seed = () => ({
 let db: Record<string, Row[]> = seed();
 
 const applyFilter = (rows: Row[], filter: any) => {
-  if (filter.op === "eq") return rows.filter((x) => x[filter.col] === filter.value);
+  if (filter.op === "eq") {
+    return rows.filter((x) => {
+      if (filter.col === "contracts.tenant_id") {
+        const contract = db.contracts?.find((c) => c.id === x.contract_id);
+        return contract?.tenant_id === filter.value;
+      }
+      return x[filter.col] === filter.value;
+    });
+  }
   if (filter.op === "neq") return rows.filter((x) => x[filter.col] !== filter.value);
   if (filter.op === "in") return rows.filter((x) => filter.value.includes(x[filter.col]));
   if (filter.op === "gte") return rows.filter((x) => x[filter.col] >= filter.value);
