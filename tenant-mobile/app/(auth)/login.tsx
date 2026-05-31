@@ -62,7 +62,7 @@ export default function LoginScreen() {
           <View style={styles.headerSection}>
             <View style={styles.logoBadge}>
               <Image 
-                source={require('../../assets/brand/transparent/trocare-symbol-tc-transparent-256.png')} 
+                source={require('@/assets/brand/transparent/trocare-symbol-tc-transparent-256.png')} 
                 style={styles.logoImage} 
                 resizeMode="contain"
               />
