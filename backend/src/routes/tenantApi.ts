@@ -43,54 +43,80 @@ tenantApiRoutes.get("/me", async (c) => {
   const user = c.get("user");
 
   try {
-    // Fetch tenant account, tenants profile, active contract, room, and boarding house in a single optimized query
+    // 1. Fetch tenant_accounts first using indexed user_id (extremely fast lookup)
     const { data: tenantAccount, error: taError } = await supabaseAdmin
       .from("tenant_accounts")
-      .select(`
-        linked_at,
-        tenants (
-          id,
-          name,
-          phone,
-          id_card,
-          address,
-          contracts (
-            id,
-            start_date,
-            end_date,
-            deposit,
-            rent_amount,
-            status,
-            applied_services_snapshot,
-            rooms (
-              id,
-              name,
-              price,
-              has_ac,
-              boarding_houses (
-                id,
-                name,
-                address
-              )
-            )
-          )
-        )
-      `)
+      .select("tenant_id, linked_at")
       .eq("user_id", user.id)
       .maybeSingle();
 
     if (taError) return c.json({ error: taError.message }, 500);
-    if (!tenantAccount || !tenantAccount.tenants) {
+    if (!tenantAccount) {
       return c.json({ error: "Không tìm thấy hồ sơ người thuê liên kết." }, 404);
     }
 
-    const tenant = tenantAccount.tenants as any;
+    const tenantId = tenantAccount.tenant_id;
+
+    // 2. Fetch tenant profile and contracts in parallel for maximum performance
+    const [tenantRes, contractsRes] = await Promise.all([
+      supabaseAdmin
+        .from("tenants")
+        .select("id, name, phone, id_card, address")
+        .eq("id", tenantId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("contracts")
+        .select("id, start_date, end_date, deposit, rent_amount, status, applied_services_snapshot, room_id")
+        .eq("tenant_id", tenantId)
+    ]);
+
+    if (tenantRes.error) return c.json({ error: tenantRes.error.message }, 500);
+    if (!tenantRes.data) {
+      return c.json({ error: "Không tìm thấy hồ sơ người thuê." }, 404);
+    }
+
+    const tenant = tenantRes.data;
+    const allContracts = contractsRes.data || [];
+    const activeContracts = allContracts.filter((ctr: any) => ctr.status === "active");
     
-    // Extract the active contract — prefer the one with highest rent_amount if multiple exist
-    const activeContracts = (tenant.contracts || []).filter((ctr: any) => ctr.status === "active");
+    // Sort and get the primary active contract (prefer the one with highest rent_amount if multiple exist)
     const activeContract = activeContracts.sort((a: any, b: any) => 
       Number(b.rent_amount || 0) - Number(a.rent_amount || 0)
     )[0] || null;
+
+    let roomWithBh = null;
+    if (activeContract && activeContract.room_id) {
+      // 3. Fetch room and boarding house details using primary keys (fastest possible query)
+      const { data: room, error: roomError } = await supabaseAdmin
+        .from("rooms")
+        .select("id, name, price, has_ac, boarding_house_id")
+        .eq("id", activeContract.room_id)
+        .maybeSingle();
+
+      if (roomError) return c.json({ error: roomError.message }, 500);
+
+      if (room) {
+        let boardingHouse = null;
+        if (room.boarding_house_id) {
+          const { data: bh, error: bhError } = await supabaseAdmin
+            .from("boarding_houses")
+            .select("id, name, address")
+            .eq("id", room.boarding_house_id)
+            .maybeSingle();
+
+          if (bhError) return c.json({ error: bhError.message }, 500);
+          boardingHouse = bh;
+        }
+
+        roomWithBh = {
+          id: room.id,
+          name: room.name,
+          price: room.price,
+          has_ac: room.has_ac,
+          boarding_houses: boardingHouse,
+        };
+      }
+    }
 
     return c.json({
       data: {
@@ -110,15 +136,15 @@ tenantApiRoutes.get("/me", async (c) => {
           rentAmount: activeContract.rent_amount,
           status: activeContract.status,
           appliedServices: activeContract.applied_services_snapshot,
-          room: activeContract.rooms ? {
-            id: activeContract.rooms.id,
-            name: activeContract.rooms.name,
-            price: activeContract.rooms.price,
-            hasAc: activeContract.rooms.has_ac,
-            boardingHouse: activeContract.rooms.boarding_houses ? {
-              id: activeContract.rooms.boarding_houses.id,
-              name: activeContract.rooms.boarding_houses.name,
-              address: activeContract.rooms.boarding_houses.address,
+          room: roomWithBh ? {
+            id: roomWithBh.id,
+            name: roomWithBh.name,
+            price: roomWithBh.price,
+            hasAc: roomWithBh.has_ac,
+            boardingHouse: roomWithBh.boarding_houses ? {
+              id: roomWithBh.boarding_houses.id,
+              name: roomWithBh.boarding_houses.name,
+              address: roomWithBh.boarding_houses.address,
             } : null,
           } : null,
         } : null,

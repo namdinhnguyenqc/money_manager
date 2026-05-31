@@ -148,7 +148,7 @@ export default function LoginPage() {
 
           <div className="relative text-center mb-8">
             <h2 className="text-[28px] leading-tight font-extrabold tracking-[-0.055em] font-['Plus_Jakarta_Sans'] text-[#0F172A]">
-              Đăng nhập vào TroCare
+              Đăng nhập vào TroCare Owner
             </h2>
             <p className="mt-3 text-slate-500 text-sm font-semibold">
               Quản lý trọ thông minh, vận hành an tâm
