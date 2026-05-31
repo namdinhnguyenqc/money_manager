@@ -16,6 +16,8 @@ interface InputProps extends Omit<TextInputProps, 'style'> {
   disabled?: boolean;
   containerStyle?: ViewStyle;
   icon?: React.ReactNode;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
 }
 
 export default function Input({
@@ -26,9 +28,12 @@ export default function Input({
   disabled = false,
   containerStyle,
   icon,
+  leftIcon,
+  rightIcon,
   ...inputProps
 }: InputProps) {
   const [isFocused, setIsFocused] = useState(false);
+  const activeLeftIcon = leftIcon || icon;
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -46,7 +51,7 @@ export default function Input({
           disabled && styles.inputDisabled,
         ]}
       >
-        {icon && <View style={styles.icon}>{icon}</View>}
+        {activeLeftIcon && <View style={styles.leftIcon}>{activeLeftIcon}</View>}
         <TextInput
           style={[styles.input, disabled && styles.textDisabled]}
           placeholderTextColor={Colors.textMuted}
@@ -55,6 +60,7 @@ export default function Input({
           onBlur={() => setIsFocused(false)}
           {...inputProps}
         />
+        {rightIcon && <View style={styles.rightIcon}>{rightIcon}</View>}
       </View>
       {error && <Text style={styles.error}>{error}</Text>}
       {hint && !error && <Text style={styles.hint}>{hint}</Text>}
@@ -104,8 +110,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f5f9',
     borderColor: '#e2e8f0',
   },
-  icon: {
+  leftIcon: {
     paddingLeft: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rightIcon: {
+    paddingRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   input: {
     flex: 1,
