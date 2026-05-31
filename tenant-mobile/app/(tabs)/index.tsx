@@ -88,26 +88,44 @@ export default function TenantDashboard() {
           <Text style={styles.greeting}>Xin chào, 👋</Text>
           <Text style={styles.tenantName}>{profileData?.name || user?.name || 'Khách thuê'}</Text>
         </View>
-        <View style={styles.roomTag}>
+        <TouchableOpacity
+          style={styles.roomTag}
+          onPress={() => router.push('/(tabs)/profile')}
+          activeOpacity={0.7}
+        >
           <Text style={styles.roomTagText}>
             {roomInfo ? `Phòng ${roomInfo.name}` : 'Chưa liên kết phòng'}
           </Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
-      {/* House Info Card */}
-      {houseInfo && (
-        <Card style={styles.houseCard}>
-          <View style={styles.houseRow}>
-            <View style={styles.houseIconBox}>
-              <Ionicons name="location" size={20} color={Colors.primary} />
+      {/* 🏡 Clickable Room & Contract Card */}
+      {roomInfo && (
+        <TouchableOpacity
+          onPress={() => router.push('/(tabs)/profile')}
+          activeOpacity={0.85}
+          style={{ marginBottom: 16 }}
+        >
+          <Card style={styles.houseCard}>
+            <View style={styles.houseRow}>
+              <View style={styles.houseIconBox}>
+                <Ionicons name="document-text-outline" size={20} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.houseName}>Hợp đồng phòng {roomInfo.name}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                    <Text style={{ fontSize: 11.5, color: Colors.primary, fontFamily: Typography.fontFamily.semibold }}>Xem chi tiết</Text>
+                    <Ionicons name="chevron-forward" size={12} color={Colors.primary} />
+                  </View>
+                </View>
+                <Text style={styles.houseAddress}>
+                  {houseInfo?.name || 'N/A'} • {houseInfo?.address || 'N/A'}
+                </Text>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.houseName}>{houseInfo.name}</Text>
-              <Text style={styles.houseAddress}>{houseInfo.address}</Text>
-            </View>
-          </View>
-        </Card>
+          </Card>
+        </TouchableOpacity>
       )}
 
       {/* 📊 KPI Cards Bento Grid */}
