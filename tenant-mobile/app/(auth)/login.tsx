@@ -105,6 +105,16 @@ export default function LoginScreen() {
               />
             </View>
 
+            <TouchableOpacity
+              onPress={() => router.push('/(auth)/forgot-password')}
+              style={{ alignSelf: 'flex-end', marginTop: 8 }}
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: 13, fontFamily: Typography.fontFamily.semibold, color: Colors.primary }}>
+                Quên mật khẩu?
+              </Text>
+            </TouchableOpacity>
+
             <Button
               title="Đăng nhập"
               onPress={handleLogin}
@@ -113,14 +123,9 @@ export default function LoginScreen() {
             />
           </View>
 
-          {/* Sign Up Redirect */}
+          {/* Footer Section */}
           <View style={styles.footerSection}>
-            <View style={styles.registerPrompt}>
-              <Text style={styles.promptText}>Bạn là khách thuê mới và có mã mời?</Text>
-              <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
-                <Text style={styles.registerLink}>Đăng ký liên kết ngay</Text>
-              </TouchableOpacity>
-            </View>
+
 
             {__DEV__ && (
               <TouchableOpacity

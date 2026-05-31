@@ -75,6 +75,7 @@ class Query {
   gte(col: string, value: any) { this.filters.push({ op: "gte", col, value }); return this; }
   in(col: string, value: any[]) { this.filters.push({ op: "in", col, value }); return this; }
   or(expr: string) { this.filters.push({ op: "or", parts: expr.split(",") }); return this; }
+  is(col: string, value: any) { this.filters.push({ op: "eq", col, value }); return this; }
   order(_col: string, _opts?: any) { return this; }
   limit(_n: number) { return this; }
   single() { this.wantsSingle = true; return this; }
@@ -285,7 +286,44 @@ describe("Tenant Mobile App APIs", () => {
       expect(body.code).toBe("NO_ACTIVE_CONTRACT");
       expect(body.message).toContain("thanh lý");
     });
+
+    it("POST /tenant-auth/forgot-password resets password to contract email", async () => {
+      const app = await buildApp();
+      // Setup a tenant with an active contract and an email
+      db.tenants.push({
+        id: "tenant-forgot",
+        user_id: "owner-1",
+        name: "Forgot Tenant",
+        phone: "0999999999",
+        status: "active",
+        email: "forgot@trocare.test"
+      });
+      db.contracts.push({
+        id: "contract-forgot",
+        user_id: "owner-1",
+        room_id: "room-1",
+        tenant_id: "tenant-forgot",
+        status: "active"
+      });
+
+      // Request forgot password
+      const res = await app.request("/tenant-auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ phone: "0999999999", email: "forgot@trocare.test" }),
+        headers: { "content-type": "application/json" }
+      });
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.message).toContain("forgot@trocare.test");
+
+      // Verify that the user was automatically created
+      const createdUser = db.users.find(u => u.phone === "0999999999");
+      expect(createdUser).toBeDefined();
+    });
   });
+
 
   describe("Tenant Data API", () => {
     it("GET /tenant/me returns lease contract information", async () => {

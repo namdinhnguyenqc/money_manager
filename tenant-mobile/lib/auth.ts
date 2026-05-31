@@ -118,3 +118,22 @@ export async function logoutTenant(fcmToken?: string): Promise<void> {
     await clearTokens();
   }
 }
+
+/**
+ * Request forgot password.
+ */
+export async function forgotPassword(phone: string, email: string): Promise<{ success: boolean; message: string }> {
+  const res = await apiPost<any>('/tenant-auth/forgot-password', { phone, email });
+  const data = res?.data ?? res;
+  return data;
+}
+
+/**
+ * Change account password.
+ */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+  const res = await apiPost<any>('/tenant-auth/change-password', { currentPassword, newPassword });
+  const data = res?.data ?? res;
+  return data;
+}
+

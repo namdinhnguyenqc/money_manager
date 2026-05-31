@@ -3,15 +3,18 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity, RefreshControl, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
 import StatusBadge from '@/components/ui/StatusBadge';
+import Input from '@/components/ui/Input';
+import Button from '@/components/ui/Button';
 import { apiGet } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { changePassword } from '@/lib/auth';
 
 export default function ProfileTab() {
   const router = useRouter();
@@ -19,6 +22,16 @@ export default function ProfileTab() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [profileData, setProfileData] = useState<any>(null);
+
+  // Change password states
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showPass1, setShowPass1] = useState(false);
+  const [showPass2, setShowPass2] = useState(false);
+  const [showPass3, setShowPass3] = useState(false);
 
   const fetchProfile = async () => {
     try {
@@ -53,6 +66,39 @@ export default function ProfileTab() {
         },
       },
     ]);
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng điền đầy đủ các trường mật khẩu.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      Alert.alert('Lỗi mật khẩu', 'Mật khẩu mới phải có ít nhất 6 ký tự.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Mật khẩu không khớp', 'Mật khẩu xác nhận mới không trùng khớp.');
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      await changePassword(currentPassword.trim(), newPassword.trim());
+      setShowPasswordModal(false);
+      Alert.alert('Thành công', 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.', [
+        {
+          text: 'Đồng ý',
+          onPress: async () => {
+            await logout();
+            router.replace('/(auth)/login');
+          }
+        }
+      ]);
+    } catch (err: any) {
+      Alert.alert('Thất bại', err.message || 'Mật khẩu hiện tại không chính xác.');
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   const formatMoney = (amount?: number) => {
@@ -185,11 +231,114 @@ export default function ProfileTab() {
         </View>
       )}
 
+      {/* ⚙️ Security Settings */}
+      <View style={styles.sectionContainer}>
+        <Text style={styles.sectionTitle}>Bảo mật tài khoản</Text>
+        <TouchableOpacity 
+          style={styles.btnChangePassword} 
+          onPress={() => {
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+            setShowPasswordModal(true);
+          }} 
+          activeOpacity={0.8}
+        >
+          <Ionicons name="key-outline" size={20} color={Colors.primary} />
+          <Text style={styles.btnChangePasswordText}>Thay đổi mật khẩu đăng nhập</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* 🔴 Control Button */}
       <TouchableOpacity style={styles.btnLogout} onPress={handleLogout} activeOpacity={0.8}>
         <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
         <Text style={styles.btnLogoutText}>Đăng xuất khỏi tài khoản</Text>
       </TouchableOpacity>
+
+      {/* 🔒 Change Password Sliding Modal */}
+      <Modal
+        visible={showPasswordModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPasswordModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Đổi mật khẩu</Text>
+              <TouchableOpacity onPress={() => setShowPasswordModal(false)} style={styles.modalClose}>
+                <Ionicons name="close-outline" size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalForm} keyboardShouldPersistTaps="handled">
+              <Text style={styles.modalDescription}>
+                Vui lòng điền đầy đủ các thông tin bên dưới để cập nhật mật khẩu đăng nhập mới.
+              </Text>
+
+              <View style={{ gap: 16, marginTop: 12 }}>
+                <View style={{ position: 'relative' }}>
+                  <Input
+                    label="Mật khẩu hiện tại"
+                    placeholder="Nhập mật khẩu hiện tại"
+                    value={currentPassword}
+                    onChangeText={setCurrentPassword}
+                    secureTextEntry={!showPass1}
+                    leftIcon={<Ionicons name="lock-closed-outline" size={18} color="#64748B" />}
+                    rightIcon={
+                      <TouchableOpacity onPress={() => setShowPass1(!showPass1)}>
+                        <Ionicons name={showPass1 ? 'eye-off-outline' : 'eye-outline'} size={18} color="#64748B" />
+                      </TouchableOpacity>
+                    }
+                  />
+                </View>
+
+                <View style={{ position: 'relative' }}>
+                  <Input
+                    label="Mật khẩu mới"
+                    placeholder="Tối thiểu 6 ký tự"
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    secureTextEntry={!showPass2}
+                    leftIcon={<Ionicons name="shield-checkmark-outline" size={18} color="#64748B" />}
+                    rightIcon={
+                      <TouchableOpacity onPress={() => setShowPass2(!showPass2)}>
+                        <Ionicons name={showPass2 ? 'eye-off-outline' : 'eye-outline'} size={18} color="#64748B" />
+                      </TouchableOpacity>
+                    }
+                  />
+                </View>
+
+                <View style={{ position: 'relative' }}>
+                  <Input
+                    label="Xác nhận mật khẩu mới"
+                    placeholder="Nhập lại mật khẩu mới"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showPass3}
+                    leftIcon={<Ionicons name="checkmark-circle-outline" size={18} color="#64748B" />}
+                    rightIcon={
+                      <TouchableOpacity onPress={() => setShowPass3(!showPass3)}>
+                        <Ionicons name={showPass3 ? 'eye-off-outline' : 'eye-outline'} size={18} color="#64748B" />
+                      </TouchableOpacity>
+                    }
+                  />
+                </View>
+              </View>
+
+              <Button
+                title="Cập nhật mật khẩu"
+                onPress={handleChangePassword}
+                loading={passwordLoading}
+                style={{ marginTop: 28, marginBottom: 20 }}
+              />
+
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
     </ScrollView>
   );
@@ -285,7 +434,7 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: 13.5,
     fontFamily: Typography.fontFamily.semibold,
-    color: '#0F17 slate',
+    color: '#0F172A',
   },
   separator: {
     height: 0.8,
@@ -335,6 +484,27 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.bold,
     color: '#334155',
   },
+  btnChangePassword: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 113, 227, 0.15)',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  btnChangePasswordText: {
+    fontSize: 13.5,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.primary,
+  },
   btnLogout: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -357,5 +527,51 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontFamily: Typography.fontFamily.bold,
     color: Colors.danger,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.3)', // translucent slate overlay
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 20,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderColor: '#EAEAEF',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: Typography.fontFamily.bold,
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  modalClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F4F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalForm: {
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
+  modalDescription: {
+    fontSize: 12.5,
+    fontFamily: Typography.fontFamily.medium,
+    color: '#64748B',
+    lineHeight: 18,
+    marginBottom: 12,
   },
 });

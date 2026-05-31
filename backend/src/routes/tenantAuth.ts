@@ -109,6 +109,12 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(6, "Mật khẩu mới phải có ít nhất 6 ký tự"),
 });
 
+const forgotPasswordSchema = z.object({
+  phone: z.string().min(1, "Vui lòng nhập số điện thoại"),
+  email: z.string().email("Định dạng email không hợp lệ"),
+});
+
+
 // ─────────────────────────────────────────────────────────
 // POST /register — Tenant registration via invite code
 // ─────────────────────────────────────────────────────────
@@ -837,6 +843,163 @@ tenantAuthRoutes.get("/invite/:code", async (c) => {
       message: err instanceof Error ? err.message : String(err),
     }));
     return c.json({ valid: false, message: "Lỗi hệ thống." }, 500);
+  }
+});
+
+// ─────────────────────────────────────────────────────────
+// POST /forgot-password — Public forgot password request
+// ─────────────────────────────────────────────────────────
+tenantAuthRoutes.post("/forgot-password", async (c) => {
+  const parsed = await parseJson(c, forgotPasswordSchema);
+  if (!parsed.ok) return parsed.response;
+
+  const { phone, email } = parsed.data;
+
+  try {
+    // 1. Find tenant by phone
+    const { data: tenant, error: tenantError } = await supabaseAdmin
+      .from("tenants")
+      .select("*")
+      .eq("phone", phone)
+      .maybeSingle();
+
+    if (tenantError) {
+      console.error(JSON.stringify({
+        error: "TENANT_FORGOT_PASSWORD_LOOKUP_FAILED",
+        details: safeSupabaseError(tenantError),
+      }));
+      return c.json({ code: "SERVER_ERROR", message: "Lỗi hệ thống. Vui lòng thử lại sau." }, 500);
+    }
+
+    if (!tenant) {
+      return c.json({ code: "TENANT_NOT_FOUND", message: "Số điện thoại này chưa được đăng ký trên hợp đồng." }, 404);
+    }
+
+    // 2. Verify contract email
+    if (!tenant.email || tenant.email.trim() === "") {
+      return c.json({
+        code: "NO_EMAIL_SET",
+        message: "Hợp đồng chưa thiết lập địa chỉ email. Vui lòng liên hệ chủ nhà (owner) để bổ sung email hợp đồng."
+      }, 400);
+    }
+
+    if (tenant.email.trim().toLowerCase() !== email.trim().toLowerCase()) {
+      return c.json({
+        code: "EMAIL_MISMATCH",
+        message: "Địa chỉ email không khớp với email được khai báo trên hợp đồng của bạn."
+      }, 400);
+    }
+
+    // 3. Find if user account already exists
+    let { data: user, error: findUserError } = await supabaseAdmin
+      .from("users")
+      .select("*")
+      .eq("phone", phone)
+      .eq("role", "TENANT")
+      .maybeSingle();
+
+    if (findUserError) {
+      console.error(JSON.stringify({
+        error: "TENANT_FORGOT_PASSWORD_USER_LOOKUP_FAILED",
+        details: safeSupabaseError(findUserError),
+      }));
+      return c.json({ code: "SERVER_ERROR", message: "Lỗi hệ thống. Vui lòng thử lại sau." }, 500);
+    }
+
+    const tempPassword = tenant.email.trim();
+    const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
+
+    if (!user) {
+      // If user doesn't exist yet but has active contract, register them now with the email as password!
+      const { data: activeContract } = await supabaseAdmin
+        .from("contracts")
+        .select("id")
+        .eq("tenant_id", tenant.id)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (!activeContract) {
+        return c.json({
+          code: "NO_ACTIVE_CONTRACT",
+          message: "Hợp đồng đã thanh lý hoặc chưa được ký. Bạn không có quyền truy cập ứng dụng."
+        }, 403);
+      }
+
+      const emailPlaceholder = `tenant-${tenant.id}@trocare.local`;
+      const { data: newUser, error: createErr } = await supabaseAdmin
+        .from("users")
+        .insert({
+          email: emailPlaceholder,
+          phone,
+          full_name: tenant.name,
+          role: "TENANT",
+          password_hash: passwordHash,
+          is_active: true,
+          auth_provider: "PHONE",
+          status: "ACTIVE"
+        })
+        .select("*")
+        .single();
+
+      if (createErr || !newUser) {
+        console.error(JSON.stringify({
+          error: "TENANT_FORGOT_PASSWORD_AUTO_REGISTER_FAILED",
+          details: safeSupabaseError(createErr),
+        }));
+        return c.json({ code: "SERVER_ERROR", message: "Không thể khởi tạo tài khoản mới." }, 500);
+      }
+
+      await supabaseAdmin.from("tenant_accounts").insert({
+        user_id: newUser.id,
+        tenant_id: tenant.id,
+        status: "active"
+      });
+
+      user = newUser;
+    } else {
+      // User exists, update password_hash
+      const { error: updateError } = await supabaseAdmin
+        .from("users")
+        .update({ password_hash: passwordHash })
+        .eq("id", user.id);
+
+      if (updateError) {
+        console.error(JSON.stringify({
+          error: "TENANT_FORGOT_PASSWORD_UPDATE_FAILED",
+          details: safeSupabaseError(updateError),
+        }));
+        return c.json({ code: "SERVER_ERROR", message: "Không thể khôi phục mật khẩu." }, 500);
+      }
+    }
+
+    // Update tenants password hash for sync
+    await supabaseAdmin
+      .from("tenants")
+      .update({
+        invite_status: "accepted",
+        password_hash: passwordHash
+      })
+      .eq("id", tenant.id);
+
+    // Revoke refresh tokens
+    await supabaseAdmin
+      .from("refresh_tokens")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("user_id", user.id)
+      .is("revoked_at", null);
+
+    auditLog("TENANT_FORGOT_PASSWORD_SUCCESS", user.id, { phone, email });
+
+    return c.json({
+      success: true,
+      message: `Khôi phục mật khẩu thành công! Mật khẩu mặc định mới của bạn chính là địa chỉ email hợp đồng của bạn: ${tempPassword}. Vui lòng đăng nhập lại bằng mật khẩu này và thực hiện đổi mật khẩu ngay sau đó.`,
+    });
+  } catch (err) {
+    console.error(JSON.stringify({
+      error: "TENANT_FORGOT_PASSWORD_UNEXPECTED",
+      message: err instanceof Error ? err.message : String(err),
+    }));
+    return c.json({ code: "SERVER_ERROR", message: "Lỗi hệ thống. Vui lòng thử lại sau." }, 500);
   }
 });
 
