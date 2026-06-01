@@ -43,3 +43,5 @@ scratch/
 fetch_render_env.ts
 test_passwords.ts
 test_rpc.ts
+*.apk
+

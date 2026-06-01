@@ -13,7 +13,7 @@ import { Platform } from 'react-native';
 import Config from '@/constants/Config';
 
 const API_URL = Config.API_URL;
-const REQUEST_TIMEOUT_MS = 15000;
+const REQUEST_TIMEOUT_MS = 30000; // 30s to handle Render.com cold starts
 
 // ─── Token Storage Keys ───
 const ACCESS_TOKEN_KEY = 'trocare_access_token';
@@ -64,6 +64,10 @@ function getTimeoutMessage(url: string): string {
 
 function getUrlCandidates(url: string): string[] {
   if (!url.startsWith(API_URL)) return [url];
+
+  // In production (HTTPS), don't fall back to local emulator addresses
+  const isProduction = API_URL.startsWith('https://');
+  if (isProduction) return [url];
 
   return Array.from(new Set([
     url,

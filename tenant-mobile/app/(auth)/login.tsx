@@ -1,9 +1,13 @@
 /**
- * TrọCare Tenant Mobile — Premium Login Screen
+ * TrọCare Tenant Mobile — Login Screen
+ * Phone + password authentication.
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, ScrollView, Platform, Alert, TouchableOpacity, Image } from 'react-native';
+import {
+  View, Text, StyleSheet, KeyboardAvoidingView, ScrollView,
+  Platform, Alert, TouchableOpacity, Image, ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +21,7 @@ import { loginWithPhone } from '@/lib/auth';
 export default function LoginScreen() {
   const router = useRouter();
   const { setUser } = useAuthStore();
-  
+
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,20 +39,25 @@ export default function LoginScreen() {
       setUser(data.user);
       router.replace('/(tabs)');
     } catch (error: any) {
-      Alert.alert('Đăng nhập thất bại', error?.message || 'Số điện thoại hoặc mật khẩu không chính xác.');
+      const isNetwork =
+        /network request failed|failed to fetch|timeout/i.test(String(error?.message || ''));
+
+      if (isNetwork) {
+        Alert.alert(
+          'Không thể kết nối',
+          'Máy chủ đang khởi động lại (thường mất 30–60 giây). Vui lòng chờ một chút rồi thử lại.',
+          [{ text: 'Thử lại', onPress: handleLogin }, { text: 'Hủy', style: 'cancel' }],
+        );
+      } else {
+        Alert.alert('Đăng nhập thất bại', error?.message || 'Số điện thoại hoặc mật khẩu không chính xác.');
+      }
       setLoading(false);
     }
   };
 
-  const handleMockLogin = async () => {
-    setPhone('0987654321');
-    setPassword('123456');
-    Alert.alert('Thông tin test', 'Đã điền thông tin tài khoản dùng thử. Hãy nhấn Đăng nhập.');
-  };
-
   return (
     <SafeAreaView style={styles.container}>
-      {/* 🌌 Premium Ambient Blue Blur Orbs */}
+      {/* Ambient glow orbs */}
       <View style={styles.glowTopRight} />
       <View style={styles.glowBottomLeft} />
 
@@ -56,14 +65,16 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          
-          {/* Header Section */}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header */}
           <View style={styles.headerSection}>
             <View style={styles.logoBadge}>
-              <Image 
-                source={require('@/assets/brand/transparent/trocare-symbol-tc-transparent-256.png')} 
-                style={styles.logoImage} 
+              <Image
+                source={require('@/assets/brand/transparent/trocare-symbol-tc-transparent-256.png')}
+                style={styles.logoImage}
                 resizeMode="contain"
               />
             </View>
@@ -76,7 +87,9 @@ export default function LoginScreen() {
           {/* Form Card */}
           <View style={styles.formCard}>
             <Text style={styles.cardTitle}>Đăng nhập</Text>
-            <Text style={styles.cardSubtitle}>Vui lòng điền thông tin để quản lý phòng trọ của bạn</Text>
+            <Text style={styles.cardSubtitle}>
+              Nhập số điện thoại và mật khẩu được cấp bởi chủ trọ
+            </Text>
 
             <Input
               label="Số điện thoại"
@@ -120,31 +133,24 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             <Button
-              title="Đăng nhập"
+              title={loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
               onPress={handleLogin}
               loading={loading}
               style={{ marginTop: 24 }}
             />
           </View>
 
-          {/* Footer Section */}
+          {/* Footer */}
           <View style={styles.footerSection}>
-
-            <TouchableOpacity
-              style={styles.btnMock}
-              onPress={handleMockLogin}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.btnMockText}>Điền nhanh tài khoản Test (Bypass)</Text>
-            </TouchableOpacity>
-
+            <Text style={styles.helpText}>
+              Liên hệ chủ trọ để được cấp tài khoản đăng nhập
+            </Text>
             <Text style={styles.terms}>
               Bằng việc đăng nhập, bạn đồng ý với{' '}
               <Text style={styles.termsLink}>Điều khoản dịch vụ</Text> &{' '}
               <Text style={styles.termsLink}>Chính sách bảo mật</Text>
             </Text>
           </View>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -154,7 +160,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F4F6', // Matte Snow White backing
+    backgroundColor: '#F4F4F6',
   },
   glowTopRight: {
     position: 'absolute',
@@ -163,7 +169,7 @@ const styles = StyleSheet.create({
     width: 320,
     height: 320,
     borderRadius: 160,
-    backgroundColor: 'rgba(0, 113, 227, 0.09)', // Glowing brand blue
+    backgroundColor: 'rgba(0, 113, 227, 0.09)',
   },
   glowBottomLeft: {
     position: 'absolute',
@@ -172,7 +178,7 @@ const styles = StyleSheet.create({
     width: 350,
     height: 350,
     borderRadius: 175,
-    backgroundColor: 'rgba(0, 113, 227, 0.06)', // Faint blue glow
+    backgroundColor: 'rgba(0, 113, 227, 0.06)',
   },
   scrollContent: {
     flexGrow: 1,
@@ -247,34 +253,13 @@ const styles = StyleSheet.create({
   footerSection: {
     alignItems: 'center',
     marginTop: 32,
-    gap: 16,
+    gap: 12,
   },
-  registerPrompt: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  promptText: {
-    fontSize: 13,
+  helpText: {
+    fontSize: 12.5,
     fontFamily: Typography.fontFamily.medium,
     color: '#64748B',
-  },
-  registerLink: {
-    fontSize: 14,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.primary,
-  },
-  btnMock: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 113, 227, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnMockText: {
-    fontSize: 12.5,
-    fontFamily: Typography.fontFamily.semibold,
-    color: Colors.primary,
+    textAlign: 'center',
   },
   terms: {
     fontSize: 11,

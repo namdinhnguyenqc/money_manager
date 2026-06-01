@@ -1,27 +1,27 @@
 /**
- * TrọCare Mobile — Premium Login Screen (White & Blue Redesign)
- * A masterpiece of landlord authentication design under Senior UI/UX guidelines:
- * - Stunning white & blue (trắng xanh) dual-tone color architecture.
- * - Glassmorphic ambient blue aurora backdrops floating on alabaster.
- * - Porcelain bento-box style feature showcase grid.
- * - High-end Google Sign-In and developer mock login buttons.
+ * TrọCare Owner — Login Screen
+ * Google Sign-In via @react-native-google-signin/google-signin (native Google Play Services).
+ * Requires Android OAuth Client ID with correct SHA-1 registered in Google Cloud Console.
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, Alert, Platform, TouchableOpacity } from 'react-native';
+import {
+  View, Text, StyleSheet, Image, Alert,
+  TouchableOpacity, ActivityIndicator, Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+
 let GoogleSignin: any = null;
 try {
   GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
 } catch (e) {
-  console.warn("Google Sign-In native module not available.");
+  console.warn('Google Sign-In native module not available.');
 }
+
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Config from '@/constants/Config';
-import Button from '@/components/ui/Button';
 import { useAuthStore } from '@/store/authStore';
 import { loginWithGoogle } from '@/lib/auth';
 
@@ -35,34 +35,22 @@ export default function LoginScreen() {
       try {
         GoogleSignin.configure({
           webClientId: Config.GOOGLE_WEB_CLIENT_ID,
+          // androidClientId: must match SHA-1 registered in Google Cloud Console
+          ...(Config.GOOGLE_ANDROID_CLIENT_ID
+            ? { androidClientId: Config.GOOGLE_ANDROID_CLIENT_ID }
+            : {}),
           offlineAccess: false,
           scopes: ['profile', 'email'],
         });
       } catch (e) {
-        console.warn("Google Sign-in configure failed:", e);
+        console.warn('Google Sign-in configure failed:', e);
       }
     }
   }, []);
 
   const handleGoogleLogin = async () => {
     if (!GoogleSignin) {
-      Alert.alert(
-        'Không hỗ trợ Google Sign-In',
-        'Native Google Sign-In không khả dụng trên Expo Go. Vui lòng bấm nút "Đăng nhập nhanh Chủ trọ (Test Bypass)" bên dưới để đăng nhập bằng tài khoản test.'
-      );
-      return;
-    }
-
-    const missingAndroidClient = Platform.OS === 'android' && !Config.GOOGLE_ANDROID_CLIENT_ID;
-    const missingIosClient = Platform.OS === 'ios' && !Config.GOOGLE_IOS_CLIENT_ID;
-
-    if (missingAndroidClient || missingIosClient) {
-      Alert.alert(
-        'Thiếu OAuth Client ID',
-        missingAndroidClient
-          ? 'Tạo Google OAuth Client loại Android cho package com.trocare.mobile và SHA-1 debug, rồi set EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID.'
-          : 'Tạo Google OAuth Client loại iOS cho bundle identifier của app, rồi set EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID.'
-      );
+      Alert.alert('Lỗi', 'Google Sign-In không khả dụng trên thiết bị này.');
       return;
     }
 
@@ -77,9 +65,9 @@ export default function LoginScreen() {
         return;
       }
 
-      const idToken = result.data.idToken;
+      const idToken = result.data?.idToken;
       if (!idToken) {
-        throw new Error('Google không trả về ID token. Kiểm tra Web Client ID trong Google Sign-In config.');
+        throw new Error('Google không trả về ID token. Kiểm tra cấu hình Web Client ID.');
       }
 
       const data = await loginWithGoogle(idToken);
@@ -90,36 +78,26 @@ export default function LoginScreen() {
         data.profile?.isProfileCompleted ??
         data.nextStep === 'DONE';
       setUser(data.user, profileCompleted);
-      const pendingApproval = data.nextStep === 'PENDING_APPROVAL' || data.user?.status === 'PENDING_APPROVAL' || data.user?.approvalStatus === 'PENDING_APPROVAL';
-      router.replace(!profileCompleted ? '/(auth)/complete-profile' : pendingApproval ? '/(auth)/pending-approval' : '/(tabs)');
+      const pendingApproval =
+        data.nextStep === 'PENDING_APPROVAL' ||
+        data.user?.status === 'PENDING_APPROVAL' ||
+        data.user?.approvalStatus === 'PENDING_APPROVAL';
+      router.replace(
+        !profileCompleted
+          ? '/(auth)/complete-profile'
+          : pendingApproval
+          ? '/(auth)/pending-approval'
+          : '/(tabs)',
+      );
     } catch (error: any) {
-      Alert.alert('Lỗi đăng nhập', error?.message || 'Không thể đăng nhập bằng Google. Vui lòng thử lại.');
-      setLoading(false);
-    }
-  };
-
-  const handleMockLogin = async () => {
-    setLoading(true);
-    try {
-      const data = await loginWithGoogle('mock-owner-google-token');
-      const profileCompleted =
-        data.user?.is_profile_completed ??
-        data.user?.isProfileCompleted ??
-        data.profile?.is_profile_completed ??
-        data.profile?.isProfileCompleted ??
-        data.nextStep === 'DONE';
-      setUser(data.user, profileCompleted);
-      const pendingApproval = data.nextStep === 'PENDING_APPROVAL' || data.user?.status === 'PENDING_APPROVAL' || data.user?.approvalStatus === 'PENDING_APPROVAL';
-      router.replace(!profileCompleted ? '/(auth)/complete-profile' : pendingApproval ? '/(auth)/pending-approval' : '/(tabs)');
-    } catch (error: any) {
-      Alert.alert('Lỗi đăng nhập', error?.message || 'Không thể đăng nhập bằng tài khoản test.');
+      Alert.alert('Đăng nhập thất bại', error?.message || 'Không thể đăng nhập bằng Google. Vui lòng thử lại.');
       setLoading(false);
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* 🌌 Premium Ambient Blue Blur Orbs */}
+      {/* Ambient glow orbs */}
       <View style={styles.glowTopRight} />
       <View style={styles.glowBottomLeft} />
 
@@ -139,7 +117,7 @@ export default function LoginScreen() {
           <Text style={styles.tagline}>Nền tảng quản lý phòng trọ thế hệ mới</Text>
         </View>
 
-        {/* Features Bento Grid (Trắng & Xanh) */}
+        {/* Features Bento Grid */}
         <View style={styles.featuresBento}>
           <View style={styles.bentoRow}>
             <View style={styles.bentoItem}>
@@ -194,27 +172,26 @@ export default function LoginScreen() {
           </View>
         </View>
 
-        {/* Action Authentication Buttons */}
+        {/* Login Button */}
         <View style={styles.loginSection}>
           <TouchableOpacity
-            style={[styles.btnGoogle, { shadowColor: Colors.primary }]}
+            style={[styles.btnGoogle, loading && styles.btnDisabled]}
             onPress={handleGoogleLogin}
             activeOpacity={0.8}
+            disabled={loading}
           >
-            <Image
-              source={require('@/assets/favicon.png')}
-              style={{ width: 20, height: 20, marginRight: 10 }}
-              resizeMode="contain"
-            />
-            <Text style={styles.btnGoogleText}>Tiếp tục với Google</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.btnMock}
-            onPress={handleMockLogin}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.btnMockText}>Đăng nhập nhanh Chủ trọ (Test Bypass)</Text>
+            {loading ? (
+              <ActivityIndicator size="small" color={Colors.primary} />
+            ) : (
+              <>
+                <Image
+                  source={require('@/assets/favicon.png')}
+                  style={{ width: 20, height: 20, marginRight: 10 }}
+                  resizeMode="contain"
+                />
+                <Text style={styles.btnGoogleText}>Tiếp tục với Google</Text>
+              </>
+            )}
           </TouchableOpacity>
 
           <Text style={styles.terms}>
@@ -231,7 +208,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F4F6', // Matte Snow White backing
+    backgroundColor: '#F4F4F6',
   },
   glowTopRight: {
     position: 'absolute',
@@ -240,7 +217,7 @@ const styles = StyleSheet.create({
     width: 320,
     height: 320,
     borderRadius: 160,
-    backgroundColor: 'rgba(0, 113, 227, 0.09)', // Glowing brand blue
+    backgroundColor: 'rgba(0, 113, 227, 0.09)',
   },
   glowBottomLeft: {
     position: 'absolute',
@@ -249,7 +226,7 @@ const styles = StyleSheet.create({
     width: 350,
     height: 350,
     borderRadius: 175,
-    backgroundColor: 'rgba(0, 113, 227, 0.06)', // Faint blue glow
+    backgroundColor: 'rgba(0, 113, 227, 0.06)',
   },
   content: {
     flex: 1,
@@ -269,7 +246,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: 'rgba(0, 113, 227, 0.15)', // Glowing blue border
+    borderColor: 'rgba(0, 113, 227, 0.15)',
     shadowColor: '#0071e3',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.15,
@@ -294,8 +271,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     letterSpacing: -0.2,
   },
-
-  /* Features Bento Grid (White Porcelain cards with Soft Blue Highlights) */
   featuresBento: {
     gap: 12,
   },
@@ -337,46 +312,31 @@ const styles = StyleSheet.create({
     lineHeight: 14.5,
     marginTop: 3,
   },
-
-  /* Auth Button Section */
   loginSection: {
     gap: 14,
   },
   btnGoogle: {
     height: 52,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF', // Crisp White
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
     borderColor: 'rgba(0, 113, 227, 0.18)',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
+  btnDisabled: {
+    opacity: 0.6,
+  },
   btnGoogleText: {
     fontSize: 14.5,
     fontFamily: Typography.fontFamily.bold,
     color: '#0F172A',
-  },
-  btnMock: {
-    height: 50,
-    borderRadius: 16,
-    backgroundColor: '#0071e3', // Premium Brand Blue
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#0071e3',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  btnMockText: {
-    fontSize: 13.5,
-    fontFamily: Typography.fontFamily.bold,
-    color: '#FFFFFF',
   },
   terms: {
     fontSize: 11,

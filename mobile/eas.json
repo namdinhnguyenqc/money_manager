@@ -5,15 +5,31 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://money-manager-xdem.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "1003393001588-t88qmf22623pvughsqqq0gt7b0cgmfc3.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "1003393001588-uo6pljjo1ce6tluou5s224k4qpet6d35.apps.googleusercontent.com"
+      }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://money-manager-xdem.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "1003393001588-t88qmf22623pvughsqqq0gt7b0cgmfc3.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "1003393001588-uo6pljjo1ce6tluou5s224k4qpet6d35.apps.googleusercontent.com"
       }
     },
-    "production": {}
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://money-manager-xdem.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "1003393001588-t88qmf22623pvughsqqq0gt7b0cgmfc3.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "1003393001588-uo6pljjo1ce6tluou5s224k4qpet6d35.apps.googleusercontent.com"
+      }
+    }
   },
   "submit": {
     "production": {}
