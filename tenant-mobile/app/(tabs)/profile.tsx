@@ -201,31 +201,39 @@ export default function ProfileTab() {
               <Text style={styles.infoValue}>{contract.endDate || 'Vô thời hạn'}</Text>
             </View>
 
-            {/* Contract file action button */}
-            {contract.fileUrl ? (
-              <View style={styles.contractFileSection}>
+            {/* Formal contract print & file actions */}
+            <View style={styles.contractFileSection}>
+              <TouchableOpacity
+                style={styles.viewContractBtn}
+                onPress={() => router.push('/contract/print')}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="print-outline" size={18} color="#FFFFFF" />
+                <Text style={styles.viewContractBtnText}>Xem & In hợp đồng (PDF)</Text>
+                <Ionicons name="chevron-forward-outline" size={14} color="rgba(255,255,255,0.8)" />
+              </TouchableOpacity>
+
+              {contract.fileUrl ? (
                 <TouchableOpacity
-                  style={styles.viewContractBtn}
+                  style={[styles.viewContractBtn, { backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0', marginTop: 10 }]}
                   onPress={() => {
-                    if (contract.fileUrl) {
-                      Linking.openURL(contract.fileUrl).catch(() =>
-                        Alert.alert('Lỗi', 'Không thể mở file hợp đồng. Vui lòng thử lại.')
-                      );
-                    }
+                    Linking.openURL(contract.fileUrl).catch(() =>
+                      Alert.alert('Lỗi', 'Không thể mở file hợp đồng đính kèm. Vui lòng thử lại.')
+                    );
                   }}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name="document-attach-outline" size={18} color="#FFFFFF" />
-                  <Text style={styles.viewContractBtnText}>Xem file hợp đồng</Text>
-                  <Ionicons name="open-outline" size={14} color="rgba(255,255,255,0.8)" />
+                  <Ionicons name="document-attach-outline" size={18} color="#475569" />
+                  <Text style={[styles.viewContractBtnText, { color: '#475569' }]}>Xem file đính kèm</Text>
+                  <Ionicons name="open-outline" size={14} color="#475569" />
                 </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.noFileNote}>
-                <Ionicons name="document-outline" size={14} color="#94A3B8" />
-                <Text style={styles.noFileText}>Chủ trọ chưa đính kèm file hợp đồng</Text>
-              </View>
-            )}
+              ) : (
+                <View style={styles.noFileNote}>
+                  <Ionicons name="document-outline" size={12} color="#94A3B8" />
+                  <Text style={styles.noFileText}>Chủ trọ chưa đính kèm tệp tin scan</Text>
+                </View>
+              )}
+            </View>
 
           </Card>
         </View>

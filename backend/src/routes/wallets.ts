@@ -39,11 +39,23 @@ walletsRoutes.get("/", async (c) => {
   const db = c.get("supabase");
   const activeOnly = c.req.query("activeOnly") !== "0";
 
-  let query = db.from("wallets").select("*");
+  let query = db.from("wallets").select("*").eq("user_id", user.id);
   if (activeOnly) query = query.eq("active", true);
 
-  const { data, error } = await query;
+  let { data, error } = await query;
   if (error) return c.json({ error: error.message }, 500);
+
+  if (!data || data.length === 0) {
+    const defaultWallets = [
+      { user_id: user.id, name: "Ví cá nhân", type: "personal", icon: "wallet", color: "#8b5cf6", active: true },
+      { user_id: user.id, name: "Chuyển khoản", type: "personal", icon: "card", color: "#2563eb", active: true },
+      { user_id: user.id, name: "Tiền mặt", type: "personal", icon: "cash", color: "#10b981", active: true },
+    ];
+    const insertRes = await db.from("wallets").insert(defaultWallets).select("*");
+    if (!insertRes.error && insertRes.data) {
+      data = insertRes.data;
+    }
+  }
 
   const orderMap: Record<string, number> = { personal: 1, rental: 2, trading: 3 };
   const sorted = (data ?? []).sort((a, b) => {
@@ -139,7 +151,7 @@ walletsRoutes.delete("/:id", async (c) => {
 
   const db = c.get("supabase");
 
-  const walletCheck = await db.from("wallets").select("id").eq("id", id).single();
+  const walletCheck = await db.from("wallets").select("id").eq("id", id).eq("user_id", user.id).single();
   if (walletCheck.error || !walletCheck.data) return c.json({ error: "Wallet not found" }, 404);
 
   const txCheck = await db.from("transactions").select("id", { count: 'exact', head: true }).eq("wallet_id", id);
