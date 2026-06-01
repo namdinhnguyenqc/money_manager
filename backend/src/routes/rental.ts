@@ -636,23 +636,17 @@ rentalRoutes.post("/tenants", async (c) => {
 
   const db = c.get("supabase");
   
-  if (parsed.data.phone) {
+  if (parsed.data.phone && parsed.data.phone.trim() !== "") {
     const { data: existing } = await db.from("tenants")
       .select("*")
       .eq("user_id", user.id)
-      .eq("phone", parsed.data.phone)
+      .eq("phone", parsed.data.phone.trim())
       .maybeSingle();
     
     if (existing) {
       return c.json({
-        data: {
-          ...existing,
-          idCard: existing.id_card,
-          inviteCode: existing.invite_code,
-          inviteStatus: existing.invite_status,
-          inviteCodeExpiresAt: existing.invite_code_expires_at
-        }
-      }, 200);
+        error: "Số điện thoại này đã được sử dụng cho người thuê khác. Vui lòng kiểm tra lại."
+      }, 400);
     }
   }
 
@@ -700,6 +694,22 @@ rentalRoutes.patch("/tenants/:id", async (c) => {
 
 
   const db = c.get("supabase");
+
+  if (parsed.data.phone && parsed.data.phone.trim() !== "") {
+    const { data: existing } = await db.from("tenants")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("phone", parsed.data.phone.trim())
+      .neq("id", id)
+      .maybeSingle();
+
+    if (existing) {
+      return c.json({
+        error: "Số điện thoại này đã được sử dụng cho người thuê khác. Vui lòng kiểm tra lại."
+      }, 400);
+    }
+  }
+
   const { data, error } = await db.from("tenants").update(payload).eq("id", id).eq("user_id", user.id).select("*").single();
 
   if (error) return c.json({ error: error.message }, 400);
@@ -1080,6 +1090,25 @@ rentalRoutes.post("/contracts", async (c) => {
   let walletId = parsed.data.walletId;
 
   if (amountToRecord > 0) {
+    const { data: userWallets, error: checkWalletsErr } = await db
+      .from("wallets")
+      .select("id")
+      .eq("user_id", user.id);
+
+    if (!checkWalletsErr && (!userWallets || userWallets.length === 0)) {
+      const defaultWallets = [
+        { user_id: user.id, name: "Ví cá nhân", type: "personal", icon: "wallet", color: "#8b5cf6", active: true },
+        { user_id: user.id, name: "Chuyển khoản", type: "personal", icon: "card", color: "#2563eb", active: true },
+        { user_id: user.id, name: "Tiền mặt", type: "personal", icon: "cash", color: "#10b981", active: true },
+      ];
+      const { data: seeded } = await db.from("wallets").insert(defaultWallets).select("id");
+      if (seeded && seeded.length > 0) {
+        if (!walletId) {
+          walletId = seeded[0].id;
+        }
+      }
+    }
+
     if (!walletId) {
       const { data: activeWallets, error: activeWalletsErr } = await db
         .from("wallets")

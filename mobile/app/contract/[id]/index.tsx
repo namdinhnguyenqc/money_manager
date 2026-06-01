@@ -351,6 +351,14 @@ export default function ContractDetailScreen() {
           )}
 
           <Button
+            title="Xem / In hợp đồng"
+            variant="outline"
+            onPress={() => router.push(`/contract/${contract.id}/print`)}
+            icon={<Ionicons name="print-outline" size={16} color={Colors.primary} />}
+            style={styles.actionBtn}
+          />
+
+          <Button
             title="Xóa hợp đồng"
             variant="danger"
             onPress={handleDelete}

@@ -13,7 +13,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  SafeAreaView,
   TextInput,
   RefreshControl,
   Modal,
@@ -444,21 +443,17 @@ export default function BulkInvoiceScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'Lập hóa đơn hàng loạt',
-          headerBackTitle: 'Quay lại',
-          headerLeft: () => (
-            <TouchableOpacity style={styles.headerBackButton} onPress={handleBack} hitSlop={10} activeOpacity={0.72}>
-              <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
-            </TouchableOpacity>
-          ),
-          headerStyle: { backgroundColor: Colors.background },
-          headerTitleStyle: { fontFamily: Typography.fontFamily.bold, fontSize: 16 },
-        }}
-      />
+    <View style={[styles.safe, { paddingTop: insets.top }]}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* Custom Header */}
+      <View style={styles.customHeader}>
+        <TouchableOpacity style={styles.customBackBtn} onPress={handleBack} hitSlop={10} activeOpacity={0.72}>
+          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.customHeaderTitle}>Lập hóa đơn hàng loạt</Text>
+        <View style={{ width: 36 }} />
+      </View>
 
       <View style={styles.commandPanel}>
         <View style={styles.periodPicker}>
@@ -668,12 +663,37 @@ export default function BulkInvoiceScreen() {
         type={toast?.type}
         onDismiss={() => setToast(null)}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
+  customHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    backgroundColor: Colors.background,
+  },
+  customBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  customHeaderTitle: {
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textPrimary,
+    letterSpacing: -0.3,
+  },
   container: { flex: 1 },
   scroll: { padding: 16, gap: 12 },
   stateContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background, gap: 12 },

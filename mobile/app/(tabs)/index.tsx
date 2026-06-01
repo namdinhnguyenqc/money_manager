@@ -48,6 +48,7 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hideBalance, setHideBalance] = useState(false);
+  const [ledgerTab, setLedgerTab] = useState<'paid' | 'cashflow'>('paid');
 
   const fetchData = useCallback(async () => {
     try {
@@ -166,6 +167,14 @@ export default function DashboardScreen() {
   const tradingWallet = wallets.find((w: any) => w.type === 'trading') || wallets[0];
   const recentInvoices = invoices.slice(0, 4);
 
+  const paidMonthInvoices = monthInvoices.filter((i: any) => {
+    const paid = Number(i.paid_amount || 0);
+    const total = Number(i.total_amount || 0);
+    return paid >= total && total > 0;
+  });
+
+  const thisMonthTransactions = thisMonthTxs.slice(0, 4);
+
   const totalBalance = (data?.wallets || []).reduce((sum: number, w: any) => sum + Number(w.balance || 0), 0);
 
   return (
@@ -175,20 +184,25 @@ export default function DashboardScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
     >
       <View style={styles.subContainer}>
-        {/* Premium MoMo-style Balance Header Card */}
+        {/* Premium Balance Header Card */}
         <View style={styles.headerBalanceCard}>
           <View style={styles.balanceHeaderRow}>
             <View>
-              <Text style={styles.balanceTitle}>Tổng số dư khả dụng</Text>
+              <Text style={styles.balanceTitle}>TỔNG SỐ DƯ KHẢ DỤNG</Text>
               <Text style={styles.balanceValText}>
-                {hideBalance ? '••••••' : formatMoney(totalBalance)}
+                {hideBalance ? '••••••' : (
+                  <>
+                    {new Intl.NumberFormat('vi-VN').format(Math.round(Number(totalBalance || 0)))}{' '}
+                    <Text style={{ textDecorationLine: 'underline' }}>đ</Text>
+                  </>
+                )}
               </Text>
             </View>
             <TouchableOpacity onPress={() => setHideBalance(!hideBalance)} style={styles.eyeBtn}>
               <Ionicons
-                name={hideBalance ? 'eye-off-outline' : 'eye-outline'}
-                size={20}
-                color="#fff"
+                name={hideBalance ? 'eye-off' : 'eye'}
+                size={22}
+                color="#0056D2"
               />
             </TouchableOpacity>
           </View>
@@ -198,29 +212,36 @@ export default function DashboardScreen() {
             <TouchableOpacity
               style={styles.balanceActionItem}
               onPress={() => router.push('/transactions/new')}
+              activeOpacity={0.7}
             >
-              <View style={[styles.balanceActionIcon, { backgroundColor: '#10b981' }]}>
-                <Ionicons name="arrow-down-outline" size={16} color="#fff" />
+              <View style={styles.balanceActionIcon}>
+                <Ionicons name="arrow-down-outline" size={20} color="#0056D2" />
               </View>
               <Text style={styles.balanceActionLabel}>Lập phiếu thu</Text>
             </TouchableOpacity>
 
+            <View style={styles.balanceActionDivider} />
+
             <TouchableOpacity
               style={styles.balanceActionItem}
               onPress={() => router.push('/transactions/new')}
+              activeOpacity={0.7}
             >
-              <View style={[styles.balanceActionIcon, { backgroundColor: '#ef4444' }]}>
-                <Ionicons name="arrow-up-outline" size={16} color="#fff" />
+              <View style={styles.balanceActionIcon}>
+                <Ionicons name="arrow-up-outline" size={20} color="#0056D2" />
               </View>
               <Text style={styles.balanceActionLabel}>Lập phiếu chi</Text>
             </TouchableOpacity>
 
+            <View style={styles.balanceActionDivider} />
+
             <TouchableOpacity
               style={styles.balanceActionItem}
               onPress={() => router.push('/(tabs)/transactions')}
+              activeOpacity={0.7}
             >
-              <View style={[styles.balanceActionIcon, { backgroundColor: '#3b82f6' }]}>
-                <Ionicons name="receipt-outline" size={16} color="#fff" />
+              <View style={styles.balanceActionIcon}>
+                <Ionicons name="reader-outline" size={20} color="#0056D2" />
               </View>
               <Text style={styles.balanceActionLabel}>Xem sổ quỹ</Text>
             </TouchableOpacity>
@@ -396,34 +417,34 @@ export default function DashboardScreen() {
                 </Text>
               </View>
 
-              <View style={[styles.reportItem, { backgroundColor: '#fffbeb', borderColor: '#fde68a' }]}>
+              <View style={[styles.reportItem, { backgroundColor: '#f0f9ff', borderColor: '#bae6fd' }]}>
                 <View style={styles.reportItemHeader}>
-                  <Ionicons name="shield-checkmark-outline" size={15} color="#d97706" />
+                  <Ionicons name="shield-checkmark-outline" size={15} color="#0284c7" />
                   <Text style={styles.reportItemLabel}>Tiền cọc giữ hộ</Text>
                 </View>
-                <Text style={[styles.reportItemVal, { color: '#d97706' }]}>
+                <Text style={[styles.reportItemVal, { color: '#0284c7' }]}>
                   {formatMoney(totalDepositsHeld)}
                 </Text>
               </View>
             </View>
 
             <View style={styles.reportRow}>
-              <View style={[styles.reportItem, { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }]}>
+              <View style={[styles.reportItem, { backgroundColor: '#eff6ff', borderColor: '#93c5fd' }]}>
                 <View style={styles.reportItemHeader}>
-                  <Ionicons name="trending-up-outline" size={15} color={Colors.successDark} />
+                  <Ionicons name="trending-up-outline" size={15} color="#1d4ed8" />
                   <Text style={styles.reportItemLabel}>Doanh thu đã thu</Text>
                 </View>
-                <Text style={[styles.reportItemVal, { color: Colors.successDark }]}>
+                <Text style={[styles.reportItemVal, { color: '#1d4ed8' }]}>
                   {formatMoney(totalIncome)}
                 </Text>
               </View>
 
-              <View style={[styles.reportItem, { backgroundColor: '#fef2f2', borderColor: '#fecaca' }]}>
+              <View style={[styles.reportItem, { backgroundColor: '#f8fafc', borderColor: '#cbd5e1' }]}>
                 <View style={styles.reportItemHeader}>
-                  <Ionicons name="trending-down-outline" size={15} color={Colors.danger} />
+                  <Ionicons name="trending-down-outline" size={15} color="#475569" />
                   <Text style={styles.reportItemLabel}>Chi phí vận hành</Text>
                 </View>
-                <Text style={[styles.reportItemVal, { color: Colors.danger }]}>
+                <Text style={[styles.reportItemVal, { color: '#475569' }]}>
                   {formatMoney(totalExpense)}
                 </Text>
               </View>
@@ -444,25 +465,42 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </Card>
 
-        {/* Recent Invoices Ledger */}
+        {/* Simplified Invoice Ledger & Sổ Thu Chi Segment */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Hóa đơn tháng này</Text>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/invoices')}>
+            <View style={styles.ledgerTabContainer}>
+              <TouchableOpacity 
+                style={[styles.ledgerTabBtn, ledgerTab === 'paid' && styles.ledgerTabBtnActive]} 
+                onPress={() => setLedgerTab('paid')}
+                activeOpacity={0.72}
+              >
+                <Text style={[styles.ledgerTabText, ledgerTab === 'paid' && styles.ledgerTabTextActive]}>
+                  HĐ đã thanh toán
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.ledgerTabBtn, ledgerTab === 'cashflow' && styles.ledgerTabBtnActive]} 
+                onPress={() => setLedgerTab('cashflow')}
+                activeOpacity={0.72}
+              >
+                <Text style={[styles.ledgerTabText, ledgerTab === 'cashflow' && styles.ledgerTabTextActive]}>
+                  Sổ thu chi tháng
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity onPress={() => router.push(ledgerTab === 'paid' ? '/(tabs)/invoices' : '/(tabs)/transactions')}>
               <Text style={styles.seeAll}>Xem tất cả</Text>
             </TouchableOpacity>
           </View>
-          {recentInvoices.length === 0 ? (
-            <Card style={styles.emptyCard}>
-              <Ionicons name="receipt-outline" size={32} color={Colors.textMuted} />
-              <Text style={styles.emptyText}>Chưa có hóa đơn nào</Text>
-            </Card>
-          ) : (
-            recentInvoices.map((inv: any) => {
-              const total = Number(inv.total_amount || 0);
-              const paid = Number(inv.paid_amount || 0);
-              const status = paid >= total && total > 0 ? 'paid' : paid > 0 ? 'partial' : 'sent';
-              return (
+
+          {ledgerTab === 'paid' ? (
+            paidMonthInvoices.length === 0 ? (
+              <Card style={styles.emptyCard}>
+                <Ionicons name="shield-checkmark-outline" size={32} color={Colors.textMuted} style={{ alignSelf: 'center', marginBottom: 6 }} />
+                <Text style={styles.emptyText}>Chưa có hóa đơn nào đã thu</Text>
+              </Card>
+            ) : (
+              paidMonthInvoices.map((inv: any) => (
                 <TouchableOpacity
                   key={inv.id}
                   style={styles.invoiceItem}
@@ -475,12 +513,47 @@ export default function DashboardScreen() {
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                    <Text style={styles.invoiceAmount}>{formatMoney(total)}</Text>
-                    <StatusBadge status={status} type="invoice" />
+                    <Text style={styles.invoiceAmount}>{formatMoney(inv.total_amount)}</Text>
+                    <StatusBadge status="paid" type="invoice" />
                   </View>
                 </TouchableOpacity>
-              );
-            })
+              ))
+            )
+          ) : (
+            thisMonthTransactions.length === 0 ? (
+              <Card style={styles.emptyCard}>
+                <Ionicons name="list-outline" size={32} color={Colors.textMuted} style={{ alignSelf: 'center', marginBottom: 6 }} />
+                <Text style={styles.emptyText}>Chưa phát sinh giao dịch nào</Text>
+              </Card>
+            ) : (
+              thisMonthTransactions.map((tx: any) => {
+                const isIncome = tx.type === 'income';
+                return (
+                  <View key={tx.id} style={styles.invoiceItem}>
+                    <View style={styles.txIconCol}>
+                      <View style={[styles.txIconWrapper, { backgroundColor: isIncome ? 'rgba(13, 148, 136, 0.08)' : 'rgba(244, 63, 94, 0.08)' }]}>
+                        <Ionicons 
+                          name={isIncome ? 'arrow-down' : 'arrow-up'} 
+                          size={14} 
+                          color={isIncome ? Colors.successDark : Colors.danger} 
+                        />
+                      </View>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.invoiceRoom} numberOfLines={1}>{tx.description || 'Giao dịch không tên'}</Text>
+                      <Text style={styles.invoicePeriod}>
+                        {tx.date ? new Date(tx.date).toLocaleDateString('vi-VN') : ''}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                      <Text style={[styles.txAmountText, { color: isIncome ? Colors.successDark : Colors.danger }]}>
+                        {isIncome ? '+' : '-'}{formatMoney(tx.amount)}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })
+            )
           )}
         </View>
       </View>
@@ -541,7 +614,7 @@ const styles = StyleSheet.create({
   },
   scroll: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 110,
     gap: 16,
   },
   segmentContainer: {
@@ -671,7 +744,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: Colors.successDark,
+    backgroundColor: Colors.primary,
     borderRadius: 4,
   },
   progressLabelRow: {
@@ -681,7 +754,7 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontSize: 11,
     fontFamily: Typography.fontFamily.semibold,
-    color: Colors.successDark,
+    color: Colors.primary,
   },
   progressLabelRight: {
     fontSize: 11,
@@ -704,15 +777,17 @@ const styles = StyleSheet.create({
   },
   seeAll: { fontSize: 13, fontFamily: Typography.fontFamily.semibold, color: Colors.primary },
   headerBalanceCard: {
-    backgroundColor: '#4f46e5',
+    backgroundColor: '#D6E8FC',
     borderRadius: 24,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#4f46e5',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#C0D5FC',
+    shadowColor: '#0056D2',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   balanceHeaderRow: {
     flexDirection: 'row',
@@ -722,49 +797,65 @@ const styles = StyleSheet.create({
   },
   balanceTitle: {
     fontSize: 12,
-    fontFamily: Typography.fontFamily.medium,
-    color: 'rgba(255, 255, 255, 0.75)',
+    fontFamily: Typography.fontFamily.bold,
+    color: '#0056D2',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   balanceValText: {
-    fontSize: 28,
+    fontSize: 32,
     fontFamily: Typography.fontFamily.bold,
-    color: '#fff',
+    color: '#002E7A',
     marginTop: 4,
     letterSpacing: -0.5,
   },
   eyeBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#A8C9F8',
     alignItems: 'center',
     justifyContent: 'center',
   },
   balanceActionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 16,
-    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    shadowColor: '#0056D2',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   balanceActionItem: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
   },
+  balanceActionDivider: {
+    width: 1,
+    height: '70%',
+    backgroundColor: '#E4EDF8',
+    alignSelf: 'center',
+  },
   balanceActionIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   balanceActionLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: Typography.fontFamily.bold,
-    color: '#fff',
+    color: '#002E7A',
   },
   roomStatusBarCard: {
     padding: 16,
@@ -1068,5 +1159,50 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.borderLight,
+  },
+  ledgerTabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f5f9',
+    padding: 3,
+    borderRadius: 10,
+    gap: 2,
+  },
+  ledgerTabBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+  },
+  ledgerTabBtnActive: {
+    backgroundColor: '#fff',
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  ledgerTabText: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textSecondary,
+  },
+  ledgerTabTextActive: {
+    color: Colors.primary,
+    fontFamily: Typography.fontFamily.bold,
+  },
+  txIconCol: {
+    marginRight: 10,
+    justifyContent: 'center',
+  },
+  txIconWrapper: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  txAmountText: {
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.bold,
   },
 });

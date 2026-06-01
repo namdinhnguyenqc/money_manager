@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 let GoogleSignin: any = null;
 try {
@@ -91,6 +92,34 @@ export default function LoginScreen() {
       );
     } catch (error: any) {
       Alert.alert('Đăng nhập thất bại', error?.message || 'Không thể đăng nhập bằng Google. Vui lòng thử lại.');
+      setLoading(false);
+    }
+  };
+
+  const handleDevBypassLogin = async () => {
+    setLoading(true);
+    try {
+      const data = await loginWithGoogle("mock-owner-google-token");
+      const profileCompleted =
+        data.user?.is_profile_completed ??
+        data.user?.isProfileCompleted ??
+        data.profile?.is_profile_completed ??
+        data.profile?.isProfileCompleted ??
+        data.nextStep === 'DONE';
+      setUser(data.user, profileCompleted);
+      const pendingApproval =
+        data.nextStep === 'PENDING_APPROVAL' ||
+        data.user?.status === 'PENDING_APPROVAL' ||
+        data.user?.approvalStatus === 'PENDING_APPROVAL';
+      router.replace(
+        !profileCompleted
+          ? '/(auth)/complete-profile'
+          : pendingApproval
+          ? '/(auth)/pending-approval'
+          : '/(tabs)',
+      );
+    } catch (error: any) {
+      Alert.alert('Đăng nhập thất bại', error?.message || 'Không thể đăng nhập bằng Google.');
       setLoading(false);
     }
   };
@@ -185,7 +214,7 @@ export default function LoginScreen() {
             ) : (
               <>
                 <Image
-                  source={require('@/assets/favicon.png')}
+                  source={require('@/assets/google.png')}
                   style={{ width: 20, height: 20, marginRight: 10 }}
                   resizeMode="contain"
                 />
@@ -193,6 +222,18 @@ export default function LoginScreen() {
               </>
             )}
           </TouchableOpacity>
+
+          {__DEV__ && (
+            <TouchableOpacity
+              style={[styles.btnBypass, loading && styles.btnDisabled]}
+              onPress={handleDevBypassLogin}
+              activeOpacity={0.8}
+              disabled={loading}
+            >
+              <Ionicons name="construct-outline" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
+              <Text style={styles.btnBypassText}>Đăng nhập nhanh (Dev Bypass)</Text>
+            </TouchableOpacity>
+          )}
 
           <Text style={styles.terms}>
             Bằng việc đăng nhập, bạn đồng ý với{' '}
@@ -348,5 +389,20 @@ const styles = StyleSheet.create({
   termsLink: {
     color: '#0071e3',
     fontFamily: Typography.fontFamily.semibold,
+  },
+  btnBypass: {
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 113, 227, 0.05)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.primaryAlpha20,
+  },
+  btnBypassText: {
+    fontSize: 14.5,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.primary,
   },
 });

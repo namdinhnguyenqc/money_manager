@@ -37,6 +37,7 @@ import {
   createTenant,
   createContract,
   formatMoney,
+  loadTenants,
   RentalValidationError,
 } from '@/lib/rentalOps';
 
@@ -216,6 +217,18 @@ export default function NewContractScreen() {
     if (tenantForm.phone.replace(/\D/g, '').length !== 10) {
       Alert.alert('Thông tin không hợp lệ', 'Số điện thoại khách thuê phải có đúng 10 chữ số.');
       return;
+    }
+
+    try {
+      const tenants = await loadTenants();
+      const inputPhone = tenantForm.phone.replace(/\D/g, '');
+      const duplicate = (tenants || []).find(t => (t.phone || '').replace(/\D/g, '') === inputPhone);
+      if (duplicate) {
+        Alert.alert('Trùng số điện thoại', 'Số điện thoại này đã được sử dụng cho người thuê khác. Vui lòng kiểm tra lại.');
+        return;
+      }
+    } catch (e) {
+      // Continue silently if DB call fails, backend will check it anyway
     }
 
     if (tenantForm.idCard.replace(/\D/g, '').length !== 12) {

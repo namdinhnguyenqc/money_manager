@@ -816,11 +816,20 @@ export async function loadPendingBilling(month: number, year: number, facilityId
       .map(i => i.room_id)
   );
 
-  return rooms.filter(room => 
-    room.status === "occupied" && 
-    room.contract_id && 
-    !existingRoomIds.has(room.id)
-  );
+  return rooms.filter(room => {
+    if (room.status !== "occupied" || !room.contract_id) return false;
+    if (existingRoomIds.has(room.id)) return false;
+
+    if (room.start_date) {
+      const startDate = new Date(room.start_date);
+      const startYear = startDate.getFullYear();
+      const startMonth = startDate.getMonth() + 1;
+      if (startYear > year || (startYear === year && startMonth > month)) {
+        return false;
+      }
+    }
+    return true;
+  });
 }
 
 export async function loadOwnerProfile() {
