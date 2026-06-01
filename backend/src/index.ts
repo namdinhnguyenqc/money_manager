@@ -24,6 +24,7 @@ import zaloRoutes from "./routes/zalo.js";
 import type { AppEnv } from "./types.js";
 import tenantAuthRoutes from "./routes/tenantAuth.js";
 import tenantApiRoutes from "./routes/tenantApi.js";
+import { supabaseAdmin } from "./lib/supabase.js";
 
 import { requireCompletedProfile } from "./middleware/requireCompletedProfile.js";
 
@@ -162,6 +163,31 @@ app.onError((err, c) => {
   return c.json({ error: "Internal server error", requestId }, 500);
 });
 
+const preWarmServices = async () => {
+  console.info("Pre-warming background services to prevent cold start latency...");
+  
+  // 1. Pre-warm Supabase DB connection pool & DNS resolution
+  try {
+    await supabaseAdmin.from("users").select("id").limit(1);
+    console.info("✅ Supabase database connection pool pre-warmed successfully.");
+  } catch (err: any) {
+    console.warn("⚠️ Supabase pre-warm warning:", err?.message || err);
+  }
+
+  // 2. Pre-warm Google OAuth certificates & resolve googleapis.com DNS (keep-alive socket)
+  if (env.GOOGLE_CLIENT_ID) {
+    try {
+      const res = await fetch("https://www.googleapis.com/oauth2/v1/certs");
+      if (res.ok) {
+        console.info("✅ Google OAuth public certs pre-warmed successfully.");
+      }
+    } catch (err: any) {
+      console.warn("⚠️ Google OAuth pre-warm warning:", err?.message || err);
+    }
+  }
+};
+
+
 serve(
   {
     fetch: app.fetch,
@@ -169,5 +195,6 @@ serve(
   },
   (info) => {
     console.log(`Money Manager backend running at http://localhost:${info.port}`);
+    preWarmServices();
   }
 );
