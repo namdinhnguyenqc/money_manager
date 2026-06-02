@@ -60,7 +60,7 @@ const sections: Array<{
     title: 'Tài khoản',
     items: [
       { icon: 'lock-closed-outline', label: 'Bảo mật tài khoản', detail: 'Mật khẩu và xác thực', action: 'security' },
-      { icon: 'help-circle-outline', label: 'Trung tâm hỗ trợ', detail: 'Liên hệ hỗ trợ vận hành', action: 'support' },
+      { icon: 'help-circle-outline', label: 'Báo cáo lỗi / Góp ý', detail: 'Gửi góp ý và báo lỗi hệ thống', route: '/feedback' as any },
       { icon: 'log-out-outline', label: 'Đăng xuất', detail: 'Thoát khỏi tài khoản hiện tại', action: 'logout', tone: 'danger' },
     ],
   },

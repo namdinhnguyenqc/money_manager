@@ -25,6 +25,8 @@ import type { AppEnv } from "./types.js";
 import tenantAuthRoutes from "./routes/tenantAuth.js";
 import tenantApiRoutes from "./routes/tenantApi.js";
 import { supabaseAdmin } from "./lib/supabase.js";
+import { ownerFeedbackRoutes, adminFeedbackRoutes } from "./routes/feedback.js";
+
 
 import { requireCompletedProfile } from "./middleware/requireCompletedProfile.js";
 
@@ -128,10 +130,14 @@ app.route("/webhooks/sepay", sepayWebhookRoutes);
 app.route("/admin", adminRoutes);
 app.route("/tenant-auth", tenantAuthRoutes);
 app.route("/tenant", tenantApiRoutes);
-import { requireAuth } from "./middleware/auth.js";
+import { requireAuth, requireAdmin } from "./middleware/auth.js";
 
 app.use("/owner/*", requireAuth, requireCompletedProfile);
 app.route("/owner", ownerRoutes);
+app.route("/owner/feedback", ownerFeedbackRoutes);
+app.use("/admin/feedback/*", requireAuth, requireAdmin);
+app.route("/admin/feedback", adminFeedbackRoutes);
+
 app.use("/wallets/*", requireAuth, requireCompletedProfile);
 app.use("/categories/*", requireAuth, requireCompletedProfile);
 app.use("/transactions/*", requireAuth, requireCompletedProfile);
