@@ -45,7 +45,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const fetchActiveTickets = async () => {
     try {
-      const res = await apiGet<{ data: any[] }>("/admin/feedback/admin/all");
+      const res = await apiGet<{ data: any[] }>("/admin/feedback/all");
       const activeTickets = (res?.data || []).filter(
         (t) => t.status === "new" || t.status === "reopened"
       );
@@ -57,25 +57,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     const check = async () => {
-      const token = getStoredAccessToken();
-      if (!token) {
-        router.replace("/login");
-        return;
-      }
-      const storedUser = getStoredSessionUser();
-      if (storedUser.role === "ADMIN" || storedUser.role === "SUPER_ADMIN") {
-        setAdminName(storedUser.name || "Admin Manager");
-        setAdminEmail(storedUser.email || "admin@trocare.vn");
-        setAuthorized(true);
-        setLoading(false);
-        fetchActiveTickets();
-        
-        // Polling every 30 seconds for live badge updates
-        const interval = setInterval(fetchActiveTickets, 30000);
-        return () => clearInterval(interval);
-      } else {
+      try {
+        const token = getStoredAccessToken();
+        if (!token) {
+          router.replace("/login");
+          return;
+        }
+        const storedUser = getStoredSessionUser();
+        if (storedUser.role === "ADMIN" || storedUser.role === "SUPER_ADMIN") {
+          setAdminName(storedUser.name || "Admin Manager");
+          setAdminEmail(storedUser.email || "admin@trocare.vn");
+          setAuthorized(true);
+          setLoading(false);
+          fetchActiveTickets();
+          
+          // Polling every 30 seconds for live badge updates
+          const interval = setInterval(fetchActiveTickets, 30000);
+          return () => clearInterval(interval);
+        } else {
+          clearClientSession();
+          router.replace("/not-authorized");
+        }
+      } catch (err) {
+        console.error("Auth check error in admin layout:", err);
         clearClientSession();
-        router.replace("/not-authorized");
+        router.replace("/login");
       }
     };
     check();

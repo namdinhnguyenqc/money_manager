@@ -82,18 +82,75 @@ ownerFeedbackRoutes.post("/", async (c) => {
     return handleDbError(c, reportErr, "Không thể tạo báo cáo lỗi");
   }
 
-  // 2. Insert Attachments if any
+  // 2. Upload Attachments to Supabase Storage if any
   if (attachments && attachments.length > 0) {
-    const payload = attachments.map((att) => ({
-      report_id: report.id,
-      file_url: att.fileUrl,
-      file_name: att.fileName || "attachment",
-      file_type: att.fileType || "image/png",
-    }));
+    const uploadPromises = attachments.map(async (att, index) => {
+      try {
+        const fileUrl = att.fileUrl;
+        if (fileUrl.startsWith("data:")) {
+          const match = fileUrl.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            const mimeType = match[1];
+            const base64Data = match[2];
+            const buffer = Buffer.from(base64Data, "base64");
+            
+            // Determine file extension
+            let ext = "png";
+            if (mimeType.includes("jpeg") || mimeType.includes("jpg")) ext = "jpg";
+            else if (mimeType.includes("gif")) ext = "gif";
+            else if (mimeType.includes("webp")) ext = "webp";
 
+            const fileName = `${report.id}/${Date.now()}_${index}.${ext}`;
+
+            // Upload using supabaseAdmin (bypasses RLS to write to public bucket)
+            const { error: uploadErr } = await supabaseAdmin.storage
+              .from("feedback-attachments")
+              .upload(fileName, buffer, {
+                contentType: mimeType,
+                duplex: "half"
+              } as any);
+
+            if (uploadErr) {
+              console.error("Supabase Storage upload error:", uploadErr.message);
+              // Fallback to storing base64 if upload fails
+              return {
+                report_id: report.id,
+                file_url: fileUrl,
+                file_name: att.fileName || `attachment_${index}`,
+                file_type: mimeType,
+              };
+            }
+
+            // Get public URL
+            const { data: { publicUrl } } = supabaseAdmin.storage
+              .from("feedback-attachments")
+              .getPublicUrl(fileName);
+
+            return {
+              report_id: report.id,
+              file_url: publicUrl,
+              file_name: att.fileName || `attachment_${index}`,
+              file_type: mimeType,
+            };
+          }
+        }
+      } catch (err: any) {
+        console.error("Attachment processing error:", err.message);
+      }
+
+      // Default fallback
+      return {
+        report_id: report.id,
+        file_url: att.fileUrl,
+        file_name: att.fileName || `attachment_${index}`,
+        file_type: att.fileType || "image/png",
+      };
+    });
+
+    const payload = await Promise.all(uploadPromises);
     const { error: attErr } = await db.from("feedback_attachments").insert(payload);
     if (attErr) {
-      console.error("Failed to insert attachments:", attErr.message);
+      console.error("Failed to insert attachments to db:", attErr.message);
     }
   }
 

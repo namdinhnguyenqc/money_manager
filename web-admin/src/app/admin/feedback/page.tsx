@@ -129,7 +129,7 @@ export default function AdminFeedbackPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await apiGet<{ data: FeedbackReport[] }>("/admin/feedback/admin/all");
+      const res = await apiGet<{ data: FeedbackReport[] }>("/admin/feedback/all");
       setReports(res?.data || []);
       setFilteredReports(res?.data || []);
     } catch (err: any) {
@@ -183,7 +183,7 @@ export default function AdminFeedbackPage() {
         report: FeedbackReport; 
         comments: Comment[]; 
         statusLogs: StatusLog[] 
-      }>(`/admin/feedback/admin/${report.id}`);
+      }>(`/admin/feedback/${report.id}`);
       
       if (res?.report) {
         setSelectedReport(res.report);
@@ -203,7 +203,7 @@ export default function AdminFeedbackPage() {
 
     setSendingComment(true);
     try {
-      await apiPost(`/admin/feedback/admin/${selectedReport.id}/comments`, {
+      await apiPost(`/admin/feedback/${selectedReport.id}/comments`, {
         message: commentInput,
         isInternal: isInternalComment,
       });
@@ -234,7 +234,7 @@ export default function AdminFeedbackPage() {
 
     setSavingStatus(true);
     try {
-      await apiPatch(`/admin/feedback/admin/${selectedReport.id}/status`, {
+      await apiPatch(`/admin/feedback/${selectedReport.id}/status`, {
         status: nextStatus,
         note: statusNote.trim() || undefined,
       });
