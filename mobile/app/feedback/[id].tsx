@@ -4,6 +4,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -12,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
@@ -78,6 +80,8 @@ export default function FeedbackDetailScreen() {
 
   const [reopenText, setReopenText] = useState('');
   const [showReopenInput, setShowReopenInput] = useState(false);
+
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -172,13 +176,14 @@ export default function FeedbackDetailScreen() {
   const config = statusMap[report.status] || { label: report.status, color: Colors.textMuted, bg: Colors.border };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 0}
-    >
-      {/* Header bar */}
-      <View style={styles.header}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 0}
+      >
+        {/* Header bar */}
+        <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
@@ -222,9 +227,14 @@ export default function FeedbackDetailScreen() {
               <Text style={styles.attachmentsTitle}>Ảnh đính kèm:</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
                 {report.attachments.map((att) => (
-                  <View key={att.id} style={styles.thumbnailWrapper}>
+                  <TouchableOpacity
+                    key={att.id}
+                    style={styles.thumbnailWrapper}
+                    activeOpacity={0.8}
+                    onPress={() => setSelectedImageUrl(att.file_url)}
+                  >
                     <Image source={{ uri: att.file_url }} style={styles.thumbnail} />
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
             </View>
@@ -323,7 +333,40 @@ export default function FeedbackDetailScreen() {
           </TouchableOpacity>
         </View>
       )}
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+
+      {/* Fullscreen Image Modal */}
+      <Modal
+        visible={selectedImageUrl !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSelectedImageUrl(null)}
+      >
+        <View style={styles.modalBackground}>
+          <TouchableOpacity
+            style={styles.modalCloseOverlay}
+            activeOpacity={1}
+            onPress={() => setSelectedImageUrl(null)}
+          />
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setSelectedImageUrl(null)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={28} color={Colors.textWhite} />
+            </TouchableOpacity>
+            {selectedImageUrl && (
+              <Image
+                source={{ uri: selectedImageUrl }}
+                style={styles.fullImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
@@ -673,5 +716,36 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: Colors.textMuted,
+  },
+  modalBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalContent: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 40,
+    right: 20,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullImage: {
+    width: '95%',
+    height: '80%',
   },
 });

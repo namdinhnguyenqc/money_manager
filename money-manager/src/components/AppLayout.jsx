@@ -67,11 +67,13 @@ export default function AppLayout() {
       >
         <div className="border-b border-border px-5 py-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white">
-              <Wallet size={20} />
-            </div>
+            <img
+              src="/brand/transparent/trocare-symbol-tc-transparent-128.png"
+              alt="TrọCare"
+              className="h-10 w-10 object-contain"
+            />
             <div className="min-w-0">
-              <div className="truncate text-sm font-black text-text-primary">Money Manager</div>
+              <div className="truncate text-sm font-black text-text-primary">TrọCare</div>
               <div className="truncate text-xs text-text-muted">{user?.email}</div>
             </div>
             <button
