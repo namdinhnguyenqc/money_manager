@@ -360,12 +360,17 @@ adminRoutes.patch("/users/:id/status", requireAuth, requireAdmin, async (c) => {
 adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
   const { status = "PENDING_APPROVAL" } = c.req.query();
 
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from("users")
     .select("id,email,name,avatar,role,status,provider,is_profile_completed,onboarding_step,created_at,updated_at,last_login_at,user_profiles(*)")
     .eq("role", "OWNER")
-    .eq("status", status)
     .order("updated_at", { ascending: false });
+
+  query = status === "PENDING_APPROVAL"
+    ? query.eq("is_profile_completed", true).or("status.eq.PENDING_APPROVAL,onboarding_step.eq.PENDING_APPROVAL")
+    : query.eq("status", status);
+
+  const { data, error } = await query;
 
   if (error) return jsonDbError(c, error, "Failed to fetch owner approvals");
 
