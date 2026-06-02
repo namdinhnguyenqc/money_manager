@@ -357,13 +357,20 @@ export default function LandingPage() {
       </section>
 
       <footer className="tc-footer">
-        <Image
-          src="/brand/transparent/trocare-wordmark-transparent-1600.png"
-          alt="TroCare"
-          width={180}
-          height={54}
-        />
-        <span>Quản lý trọ thông minh, vận hành an tâm.</span>
+        <div className="tc-footer-brand">
+          <Image
+            src="/brand/transparent/trocare-wordmark-transparent-1600.png"
+            alt="TroCare"
+            width={180}
+            height={54}
+          />
+          <span>Quản lý trọ thông minh, vận hành an tâm.</span>
+        </div>
+        <nav className="tc-footer-links" aria-label="Liên kết pháp lý TroCare">
+          <Link href="/privacy">Chính sách bảo mật</Link>
+          <Link href="/terms">Điều khoản sử dụng</Link>
+          <Link href="/delete-account">Xóa tài khoản</Link>
+        </nav>
       </footer>
     </main>
   );

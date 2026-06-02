@@ -855,8 +855,30 @@ button:focus-visible {
   font-weight: 800;
 }
 
+.tc-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
 .tc-footer img {
   height: auto;
+}
+
+.tc-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px 18px;
+}
+
+.tc-footer-links a {
+  color: var(--tc-blue-deep);
+  transition: color 180ms ease;
+}
+
+.tc-footer-links a:hover {
+  color: var(--tc-blue);
 }
 
 @keyframes tc-rise {
@@ -997,6 +1019,16 @@ button:focus-visible {
   .tc-footer {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .tc-footer-brand {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tc-footer-links {
+    justify-content: flex-start;
   }
 }
 
