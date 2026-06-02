@@ -1,6 +1,6 @@
 import React from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import LoginPage from './components/LoginPage';
+import LandingPage from './components/landing/LandingPage';
 import AppLayout from './components/AppLayout';
 
 function AppRoot() {
@@ -25,7 +25,9 @@ function AppRoot() {
     );
   }
 
-  return user ? <AppLayout /> : <LoginPage />;
+  // Authenticated: show app
+  // Unauthenticated: show landing page (with login modal inside)
+  return user ? <AppLayout /> : <LandingPage />;
 }
 
 export default function App() {

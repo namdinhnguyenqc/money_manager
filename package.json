@@ -12,6 +12,7 @@
     "local": "npm run local:backend & npm run local:ui"
   },
   "dependencies": {
+    "metro-runtime": "^0.83.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

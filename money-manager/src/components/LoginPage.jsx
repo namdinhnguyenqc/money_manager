@@ -48,11 +48,13 @@ export default function LoginPage() {
       <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-5xl items-center gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="rounded-2xl bg-surface p-6 shadow-bento border border-border/40 lg:p-8">
           <div className="mb-8 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-white">
-              <Wallet size={28} />
-            </div>
+            <img
+              src="/brand/transparent/trocare-symbol-tc-transparent-128.png"
+              alt="TrọCare"
+              className="h-14 w-14 object-contain"
+            />
             <div>
-              <h1 className="text-2xl font-black text-text-primary">Money Manager</h1>
+              <h1 className="text-2xl font-black text-text-primary">TrọCare</h1>
               <p className="mt-1 text-sm text-text-secondary">
                 App vận hành tài chính, phòng trọ và nhập bán hàng.
               </p>
