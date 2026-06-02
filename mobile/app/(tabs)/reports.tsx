@@ -21,7 +21,6 @@ import {
   Linking,
   Alert,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
@@ -51,7 +50,6 @@ function normalizeRoomStatus(room: any): string {
 
 export default function RedesignedReportsTab() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   // Navigation & Filter States
   const [activeTab, setActiveTab] = useState<'finance' | 'occupancy'>('finance');
@@ -246,7 +244,7 @@ export default function RedesignedReportsTab() {
     const total = repairs + utilities + serviceCosts + taxes + others;
     if (total === 0) return [];
     return [
-      { name: 'Bảo trì & Sửa chữa', value: repairs, percentage: (repairs / total) * 100, color: '#EF4444' },
+      { name: 'Bảo trì & Sửa chữa', value: repairs, percentage: (repairs / total) * 100, color: '#F59E0B' },
       { name: 'Điện nước đầu vào', value: utilities, percentage: (utilities / total) * 100, color: '#F59E0B' },
       { name: 'Wifi & Vệ sinh', value: serviceCosts, percentage: (serviceCosts / total) * 100, color: '#8B5CF6' },
       { name: 'Thuế & Lệ phí', value: taxes, percentage: (taxes / total) * 100, color: '#6366F1' },
@@ -354,15 +352,7 @@ export default function RedesignedReportsTab() {
   };
 
   return (
-    <View style={[styles.safe, { paddingTop: insets.top }]}>
-      {/* Analytics Main Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Kiểm toán & Báo cáo</Text>
-          <Text style={styles.headerSubtitle}>Số liệu thống kê thời gian thực từ trọ của bạn</Text>
-        </View>
-      </View>
-
+    <View style={styles.safe}>
       {/* Boarding House Filter Chips horizontally */}
       <View style={styles.bhSelectorWrapper}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bhSelectorScroll}>
@@ -474,12 +464,12 @@ export default function RedesignedReportsTab() {
                             </View>
                             <View style={styles.moneyFlowRow}>
                               <Text style={styles.moneyLabel}>Đã chi:</Text>
-                              <Text style={[styles.moneyVal, { color: '#EF4444' }]}>-{formatMoney(item.expense)}</Text>
+                              <Text style={[styles.moneyVal, { color: '#D97706' }]}>-{formatMoney(item.expense)}</Text>
                             </View>
                             <View style={styles.dividerDot} />
                             <View style={styles.moneyFlowRow}>
                               <Text style={styles.moneyLabelBold}>Dòng tiền thuần:</Text>
-                              <Text style={[styles.moneyValBold, { color: item.netFlow >= 0 ? '#10B981' : '#EF4444' }]}>
+                              <Text style={[styles.moneyValBold, { color: item.netFlow >= 0 ? '#10B981' : '#D97706' }]}>
                                 {formatMoney(item.netFlow)}
                               </Text>
                             </View>
@@ -506,7 +496,7 @@ export default function RedesignedReportsTab() {
                       </View>
                       <View style={styles.accuItem}>
                         <Text style={styles.accuLabel}>Lũy kế thực chi</Text>
-                        <Text style={[styles.accuVal, { color: '#EF4444' }]}>
+                        <Text style={[styles.accuVal, { color: '#D97706' }]}>
                           {formatMoney(yearlyAnalytics.reduce((sum, y) => sum + y.expense, 0))}
                         </Text>
                       </View>
@@ -522,15 +512,15 @@ export default function RedesignedReportsTab() {
                       <View style={styles.heroRow}>
                         <View>
                           <Text style={styles.bentoLabel}>Lợi nhuận ròng dự kiến</Text>
-                          <Text style={[styles.bentoValueHero, { color: netCashFlow >= 0 ? '#10B981' : '#EF4444' }]}>
+                          <Text style={[styles.bentoValueHero, { color: netCashFlow >= 0 ? '#10B981' : '#D97706' }]}>
                             {formatMoney(netCashFlow)}
                           </Text>
                         </View>
-                        <View style={[styles.iconBadgeLarge, { backgroundColor: netCashFlow >= 0 ? '#ECFDF5' : '#FEF2F2' }]}>
+                        <View style={[styles.iconBadgeLarge, { backgroundColor: netCashFlow >= 0 ? '#ECFDF5' : '#FEF3C7' }]}>
                           <Ionicons
                             name={netCashFlow >= 0 ? 'cash' : 'trending-down'}
                             size={22}
-                            color={netCashFlow >= 0 ? '#10B981' : '#EF4444'}
+                            color={netCashFlow >= 0 ? '#10B981' : '#D97706'}
                           />
                         </View>
                       </View>
@@ -547,11 +537,11 @@ export default function RedesignedReportsTab() {
                       </Card>
 
                       <Card style={[styles.porcelainCard, styles.bentoItem]}>
-                        <View style={[styles.iconBadge, { backgroundColor: '#FEF2F2' }]}>
-                          <Ionicons name="arrow-down" size={16} color="#EF4444" />
+                        <View style={[styles.iconBadge, { backgroundColor: '#FEF3C7' }]}>
+                          <Ionicons name="arrow-down" size={16} color="#D97706" />
                         </View>
                         <Text style={styles.bentoLabelSmall}>Tổng chi phí</Text>
-                        <Text style={[styles.bentoValue, { color: '#EF4444' }]}>{formatMoney(totalExpense)}</Text>
+                        <Text style={[styles.bentoValue, { color: '#D97706' }]}>{formatMoney(totalExpense)}</Text>
                       </Card>
                     </View>
                   </View>
@@ -572,7 +562,7 @@ export default function RedesignedReportsTab() {
                           </View>
                           <View>
                             <Text style={styles.cardTitle}>Xu hướng tài chính 6 tháng</Text>
-                            <Text style={styles.cardSubtitle}>So sánh tổng thu nhập (Xanh dương) và chi phí vận hành (Đỏ)</Text>
+                            <Text style={styles.cardSubtitle}>So sánh tổng thu nhập (xanh dương) và chi phí vận hành (cam)</Text>
                           </View>
                         </View>
 
@@ -595,13 +585,13 @@ export default function RedesignedReportsTab() {
                                     </View>
                                   </View>
 
-                                  {/* Expense cylinder (Red) */}
+                                  {/* Expense cylinder */}
                                   <View style={styles.cylinderContainer}>
                                     <View style={styles.cylinderShadow} />
                                     <View style={[styles.cylinderBody, { height: Math.max(expHeight, 8) }]}>
-                                      <View style={[styles.cylinderLeftPart, { backgroundColor: '#B91C1C' }]} />
-                                      <View style={[styles.cylinderRightPart, { backgroundColor: '#EF4444' }]} />
-                                      <View style={[styles.cylinderTopCap, { backgroundColor: '#F87171' }]} />
+                                      <View style={[styles.cylinderLeftPart, { backgroundColor: '#B45309' }]} />
+                                      <View style={[styles.cylinderRightPart, { backgroundColor: '#F59E0B' }]} />
+                                      <View style={[styles.cylinderTopCap, { backgroundColor: '#FBBF24' }]} />
                                     </View>
                                   </View>
                                 </View>
@@ -617,7 +607,7 @@ export default function RedesignedReportsTab() {
                             <Text style={styles.legendLabel}>Thực thu</Text>
                           </View>
                           <View style={styles.legendItem}>
-                            <View style={[styles.legendDot, { backgroundColor: '#EF4444' }]} />
+                            <View style={[styles.legendDot, { backgroundColor: '#F59E0B' }]} />
                             <Text style={styles.legendLabel}>Thực chi</Text>
                           </View>
                         </View>
@@ -677,8 +667,8 @@ export default function RedesignedReportsTab() {
                       {/* Báo cáo Chi phí Vận hành */}
                       <Card style={styles.porcelainCard}>
                         <View style={styles.chartHeader}>
-                          <View style={[styles.iconBadge, { backgroundColor: '#FEF2F2' }]}>
-                            <Ionicons name="calculator" size={16} color="#EF4444" />
+                          <View style={[styles.iconBadge, { backgroundColor: '#FEF3C7' }]}>
+                            <Ionicons name="calculator" size={16} color="#D97706" />
                           </View>
                           <View>
                             <Text style={styles.cardTitle}>Phân bổ hao phí vận hành</Text>
@@ -734,11 +724,11 @@ export default function RedesignedReportsTab() {
               {/* Debt & Occupancy KPI summary */}
               <View style={styles.bentoRow}>
                 <Card style={[styles.porcelainCard, styles.bentoItem]}>
-                  <View style={[styles.iconBadge, { backgroundColor: '#FEF2F2' }]}>
-                    <Ionicons name="warning" size={16} color="#EF4444" />
+                  <View style={[styles.iconBadge, { backgroundColor: '#FEF3C7' }]}>
+                    <Ionicons name="warning" size={16} color="#D97706" />
                   </View>
                   <Text style={styles.bentoLabelSmall}>Tổng công nợ</Text>
-                  <Text style={[styles.bentoValue, { color: '#EF4444' }]}>{formatMoney(totalOutstandingDebt)}</Text>
+                  <Text style={[styles.bentoValue, { color: '#D97706' }]}>{formatMoney(totalOutstandingDebt)}</Text>
                   <Text style={styles.bentoSubtext}>Số tiền chưa thu</Text>
                 </Card>
 
@@ -787,7 +777,7 @@ export default function RedesignedReportsTab() {
               {/* List of outstanding debt rooms */}
               <View style={styles.listSection}>
                 <View style={styles.sectionHeaderRow}>
-                  <Ionicons name="alert-circle" size={18} color="#EF4444" />
+                  <Ionicons name="alert-circle" size={18} color="#D97706" />
                   <Text style={styles.sectionTitleText}>Phòng còn nợ tiền ({debtRooms.length})</Text>
                 </View>
 
@@ -906,26 +896,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F4F4F6', // Matte Alabaster backing
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EAEAEF',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontFamily: Typography.fontFamily.bold,
-    color: '#0F172A',
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.regular,
-    color: '#64748B',
-    marginTop: 2,
-  },
-
   /* Boarding House Filter selector horizontal */
   bhSelectorWrapper: {
     backgroundColor: '#FFFFFF',
@@ -1012,7 +982,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 140,
   },
   tabView: {
     gap: 16,
@@ -1542,7 +1512,7 @@ const styles = StyleSheet.create({
   ledgerDebtValue: {
     fontSize: 13,
     fontFamily: Typography.fontFamily.bold,
-    color: '#EF4444',
+    color: '#D97706',
   },
   ledgerPaidBadge: {
     flexDirection: 'row',
@@ -1583,7 +1553,7 @@ const styles = StyleSheet.create({
   actionBtnCall: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#EF4444',
+    backgroundColor: '#2563EB',
     paddingVertical: 8,
     borderRadius: 8,
     alignItems: 'center',

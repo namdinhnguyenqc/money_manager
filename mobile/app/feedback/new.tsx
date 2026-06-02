@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -42,7 +43,7 @@ export default function NewFeedbackScreen() {
 
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== ImagePicker.PermissionStatus.GRANTED) {
-      Alert.alert('Quyền truy cập', 'Chúng tôi cần quyền truy cập thư viện ảnh để đính kèm minh chứng.');
+      Alert.alert('Quyền truy cập', 'Cần quyền truy cập thư viện ảnh để đính kèm minh chứng.');
       return;
     }
 
@@ -80,7 +81,7 @@ export default function NewFeedbackScreen() {
       return;
     }
     if (!description.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng mô tả chi tiết lỗi phát sinh.');
+      Alert.alert('Thiếu thông tin', 'Vui lòng mô tả chi tiết lỗi hoặc góp ý.');
       return;
     }
 
@@ -96,7 +97,7 @@ export default function NewFeedbackScreen() {
         attachments,
       });
 
-      Alert.alert('Thành công', 'Báo cáo lỗi/góp ý của bạn đã được gửi thành công!', [
+      Alert.alert('Thành công', 'Báo cáo lỗi/góp ý của bạn đã được gửi thành công.', [
         { text: 'Xác nhận', onPress: () => router.back() },
       ]);
     } catch (err: any) {
@@ -107,42 +108,39 @@ export default function NewFeedbackScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header bar */}
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} hitSlop={12} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Tạo báo cáo lỗi mới</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 44 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        {/* Tiêu đề */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Tiêu đề lỗi / góp ý *</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Nhập tiêu đề ngắn gọn (Ví dụ: Lỗi lưu hóa đơn)"
+            placeholder="Ví dụ: Lỗi lưu hóa đơn"
             value={title}
             onChangeText={setTitle}
             maxLength={100}
           />
         </View>
 
-        {/* Loại & Lĩnh vực */}
         <View style={styles.row}>
           <View style={[styles.inputGroup, { flex: 1 }]}>
             <Text style={styles.label}>Phân loại</Text>
             <View style={styles.selectorContainer}>
-              <TouchableOpacity 
-                style={[styles.selectorButton, type === 'bug' && styles.selectorActive]} 
+              <TouchableOpacity
+                style={[styles.selectorButton, type === 'bug' && styles.selectorActive]}
                 onPress={() => setType('bug')}
               >
                 <Text style={[styles.selectorLabel, type === 'bug' && styles.selectorLabelActive]}>Báo lỗi</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.selectorButton, type === 'suggestion' && styles.selectorActive]} 
+              <TouchableOpacity
+                style={[styles.selectorButton, type === 'suggestion' && styles.selectorActive]}
                 onPress={() => setType('suggestion')}
               >
                 <Text style={[styles.selectorLabel, type === 'suggestion' && styles.selectorLabelActive]}>Góp ý</Text>
@@ -151,12 +149,11 @@ export default function NewFeedbackScreen() {
           </View>
         </View>
 
-        {/* Lĩnh vực phát sinh */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Lĩnh vực liên quan</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
             {Object.entries({
-              ui: 'Giao diện (UI)',
+              ui: 'Giao diện',
               function: 'Tính năng',
               data: 'Dữ liệu',
               payment: 'Thanh toán',
@@ -177,7 +174,6 @@ export default function NewFeedbackScreen() {
           </ScrollView>
         </View>
 
-        {/* Độ ưu tiên */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Mức độ cấp thiết</Text>
           <View style={styles.priorityRow}>
@@ -200,12 +196,21 @@ export default function NewFeedbackScreen() {
           </View>
         </View>
 
-        {/* Mô tả chi tiết */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Mô tả chi tiết sự cố *</Text>
+          <Text style={styles.label}>Màn hình liên quan</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ví dụ: Hóa đơn, Thu/Chi, Báo cáo..."
+            value={relatedScreen}
+            onChangeText={setRelatedScreen}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Mô tả chi tiết *</Text>
           <TextInput
             style={[styles.textInput, styles.textArea]}
-            placeholder="Mô tả cụ thể sự cố, hành động phát sinh lỗi, kết quả mong đợi..."
+            placeholder="Mô tả lỗi, các bước đã thao tác, kết quả mong đợi..."
             value={description}
             onChangeText={setDescription}
             multiline
@@ -214,7 +219,6 @@ export default function NewFeedbackScreen() {
           />
         </View>
 
-        {/* Ảnh đính kèm */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Hình ảnh minh chứng ({attachments.length}/5)</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageScroll}>
@@ -236,7 +240,6 @@ export default function NewFeedbackScreen() {
           </ScrollView>
         </View>
 
-        {/* Nút gửi */}
         <TouchableOpacity
           style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
           onPress={handleSubmit}
@@ -250,7 +253,7 @@ export default function NewFeedbackScreen() {
           )}
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -270,10 +273,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 2,
   },
   headerTitle: {
     fontSize: 16,

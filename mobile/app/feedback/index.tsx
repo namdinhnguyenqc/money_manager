@@ -1,23 +1,19 @@
-import React, { useCallback, useState } from 'react';
+﻿import React, { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import { apiGet } from '@/lib/api';
-
-type Attachment = {
-  id: string;
-  file_url: string;
-};
 
 type FeedbackReport = {
   id: string;
@@ -104,11 +100,8 @@ export default function FeedbackListScreen() {
         <View style={styles.cardFooter}>
           <View style={styles.meta}>
             <Ionicons name="time-outline" size={13} color={Colors.textMuted} />
-            <Text style={styles.metaText}>
-              {new Date(item.created_at).toLocaleDateString('vi-VN')}
-            </Text>
+            <Text style={styles.metaText}>{new Date(item.created_at).toLocaleDateString('vi-VN')}</Text>
           </View>
-
           <View style={styles.commentsBadge}>
             <Ionicons name="chatbubble-ellipses-outline" size={13} color={Colors.primary} />
             <Text style={styles.commentsText}>{item.comments_count} phản hồi</Text>
@@ -119,22 +112,21 @@ export default function FeedbackListScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header bar */}
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} hitSlop={12} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Báo cáo lỗi & Góp ý</Text>
-        <TouchableOpacity 
-          style={styles.addButton} 
+        <TouchableOpacity
+          style={styles.addButton}
+          hitSlop={12}
           onPress={() => router.push('/feedback/new' as any)}
         >
           <Ionicons name="add" size={24} color={Colors.primary} />
         </TouchableOpacity>
       </View>
 
-      {/* Tabs selectors */}
       <View style={styles.tabContainer}>
         <TabButton label="Tất cả" active={activeTab === 'all'} onPress={() => setActiveTab('all')} />
         <TabButton label="Đang xử lý" active={activeTab === 'active'} onPress={() => setActiveTab('active')} />
@@ -150,7 +142,15 @@ export default function FeedbackListScreen() {
         <View style={styles.empty}>
           <Ionicons name="chatbubbles-outline" size={48} color={Colors.textMuted} />
           <Text style={styles.emptyTitle}>Chưa có báo cáo nào</Text>
-          <Text style={styles.emptyText}>Bấm nút (+) ở góc trên để gửi ý kiến phản hồi hoặc báo lỗi cho chúng tôi.</Text>
+          <Text style={styles.emptyText}>Bấm nút (+) để gửi góp ý hoặc báo lỗi.</Text>
+          <TouchableOpacity
+            style={styles.emptyAction}
+            onPress={() => router.push('/feedback/new' as any)}
+            activeOpacity={0.82}
+          >
+            <Ionicons name="add" size={18} color={Colors.textWhite} />
+            <Text style={styles.emptyActionText}>Tạo báo cáo</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -158,12 +158,20 @@ export default function FeedbackListScreen() {
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         />
       )}
-    </View>
+
+      {!loading && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => router.push('/feedback/new' as any)}
+          activeOpacity={0.82}
+        >
+          <Ionicons name="add" size={28} color={Colors.textWhite} />
+        </TouchableOpacity>
+      )}
+    </SafeAreaView>
   );
 }
 
@@ -195,10 +203,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 2,
   },
   headerTitle: {
     flex: 1,
@@ -208,10 +217,11 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   addButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 2,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -243,6 +253,7 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: 16,
+    paddingBottom: 104,
     gap: 12,
   },
   card: {
@@ -348,5 +359,37 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  emptyAction: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    backgroundColor: Colors.primary,
+  },
+  emptyActionText: {
+    fontSize: 13,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textWhite,
+  },
+  fab: {
+    position: 'absolute',
+    right: 18,
+    bottom: 22,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.24,
+    shadowRadius: 14,
+    elevation: 8,
   },
 });

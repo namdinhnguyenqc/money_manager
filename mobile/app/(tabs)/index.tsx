@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +22,6 @@ import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { CardSkeleton } from '@/components/ui/Skeleton';
 import { apiGet } from '@/lib/api';
 
 interface DashboardData {
@@ -108,16 +108,18 @@ export default function DashboardScreen() {
 
   if (loading) {
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
-        <View style={styles.kpiRow}>
-          <CardSkeleton />
-          <CardSkeleton />
+      <View style={styles.loadingScreen}>
+        <View style={styles.loadingLogoBadge}>
+          <Image
+            source={require('@/assets/brand/transparent/trocare-symbol-tc-transparent-256.png')}
+            style={styles.loadingLogo}
+            resizeMode="contain"
+          />
         </View>
-        <View style={styles.kpiRow}>
-          <CardSkeleton />
-          <CardSkeleton />
-        </View>
-      </ScrollView>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingTitle}>Đang tải dữ liệu</Text>
+        <Text style={styles.loadingSubtitle}>Chuẩn bị dashboard quản lý của bạn...</Text>
+      </View>
     );
   }
 
@@ -616,6 +618,46 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 110,
     gap: 16,
+  },
+  loadingScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.background,
+    paddingHorizontal: 24,
+  },
+  loadingLogoBadge: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
+    marginBottom: 18,
+  },
+  loadingLogo: {
+    width: 52,
+    height: 52,
+  },
+  loadingTitle: {
+    marginTop: 14,
+    fontSize: 17,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textPrimary,
+  },
+  loadingSubtitle: {
+    marginTop: 6,
+    fontSize: 13,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textSecondary,
+    textAlign: 'center',
   },
   segmentContainer: {
     flexDirection: 'row',
