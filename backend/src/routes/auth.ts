@@ -918,23 +918,43 @@ authRoutes.get("/me", requireAuth, async (c) => {
     return c.json({ ...responseUser, user: responseUser });
   }
 
-  // Tá»‘i Æ°u: Náº¿u JWT payload Ä‘Ã£ cÃ³ sáºµn thÃ´ng tin cáº§n thiáº¿t,
-  // tráº£ vá» trá»±c tiáº¿p Ä‘á»ƒ trÃ¡nh Ä‘á»™ trá»… network hit Database (~200-500ms)
-  // Chá»‰ tráº£ vá» identity, khÃ´ng tráº£ vá» data nghiá»‡p vá»¥ á»Ÿ Ä‘Ã¢y.
-  const responseUser = {
+  const { data: freshUser, error } = await supabaseAdmin
+    .from("users")
+    .select("id,email,name,avatar,role,status,provider,is_profile_completed,onboarding_step")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error loading fresh auth/me user:", safeSupabaseError(error));
+  }
+
+  const sourceUser = freshUser || {
     id: user.id,
     email: user.email,
     name: user.name,
-    avatarUrl: user.avatarUrl,
+    avatar: user.avatarUrl,
     role: user.role,
-    status: user.status || "ACTIVE",
-    approvalStatus: user.status || "ACTIVE",
-    // DÃ¹ng header Cache-Control Ä‘á»ƒ trÃ¬nh duyá»‡t/CDN cÃ³ thá»ƒ cache session check
-    isProfileCompleted: user.isProfileCompleted ?? true,
-    onboardingStep: user.onboardingStep ?? "DONE",
+    status: user.status,
+    provider: user.authProvider,
+    is_profile_completed: user.isProfileCompleted,
+    onboarding_step: user.onboardingStep,
+  };
+  const profileMeta = await buildProfileAuthMeta(sourceUser);
+
+  const responseUser = {
+    id: sourceUser.id,
+    email: sourceUser.email,
+    name: profileMeta.profile?.fullName || sourceUser.name || null,
+    avatarUrl: profileMeta.profile?.avatarUrl || sourceUser.avatar || null,
+    role: sourceUser.role,
+    status: sourceUser.status || "ACTIVE",
+    approvalStatus: profileMeta.approvalStatus,
+    isProfileCompleted: profileMeta.isProfileCompleted,
+    onboardingStep: profileMeta.onboardingStep,
+    nextStep: profileMeta.nextStep,
   };
 
-  c.header("Cache-Control", "private, max-age=60"); // Cache session local 1 phÃºt
+  c.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   return c.json({ ...responseUser, user: responseUser });
 });
 

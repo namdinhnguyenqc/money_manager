@@ -101,6 +101,10 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
         return;
       }
       const storedUser = getStoredSessionUser();
+      if (storedUser.isProfileCompleted === false) {
+        router.replace("/complete-profile");
+        return;
+      }
       if (storedUser.status === "PENDING_APPROVAL" || storedUser.approvalStatus === "PENDING_APPROVAL") {
         router.replace("/pending-approval");
         return;
@@ -129,10 +133,17 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
           if (data?.email) localStorage.setItem("userEmail", data.email);
           if (data?.status) localStorage.setItem("userStatus", data.status);
           if (data?.approvalStatus || data?.status) localStorage.setItem("approvalStatus", data.approvalStatus || data.status);
+          if (data?.isProfileCompleted === false || data?.onboardingStep === "COMPLETE_PROFILE") {
+            localStorage.setItem("isProfileCompleted", "false");
+            router.replace("/complete-profile");
+            return;
+          }
           if (data?.status === "PENDING_APPROVAL" || data?.approvalStatus === "PENDING_APPROVAL") {
+            localStorage.setItem("isProfileCompleted", "true");
             router.replace("/pending-approval");
             return;
           }
+          localStorage.setItem("isProfileCompleted", "true");
           setOwnerName(data?.name || localStorage.getItem("userName") || "Owner");
           setOwnerEmail(data?.email || localStorage.getItem("userEmail") || "");
           setAuthorized(true);
