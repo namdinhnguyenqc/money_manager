@@ -7,7 +7,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, Image, Alert,
-  TouchableOpacity, ActivityIndicator, Platform,
+  TouchableOpacity, ActivityIndicator, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -30,16 +30,18 @@ export default function LoginScreen() {
   const router = useRouter();
   const { setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const openPolicyPage = (path: '/terms' | '/privacy') => {
+    Linking.openURL(`${Config.WEB_URL}${path}`).catch(() => {
+      Alert.alert('Không thể mở liên kết', 'Vui lòng thử lại sau.');
+    });
+  };
 
   useEffect(() => {
     if (GoogleSignin) {
       try {
         GoogleSignin.configure({
           webClientId: Config.GOOGLE_WEB_CLIENT_ID,
-          // androidClientId: must match SHA-1 registered in Google Cloud Console
-          ...(Config.GOOGLE_ANDROID_CLIENT_ID
-            ? { androidClientId: Config.GOOGLE_ANDROID_CLIENT_ID }
-            : {}),
+          // androidClientId is read automatically from google-services.json on Android, do not pass here
           offlineAccess: false,
           scopes: ['profile', 'email'],
         });
@@ -237,8 +239,8 @@ export default function LoginScreen() {
 
           <Text style={styles.terms}>
             Bằng việc đăng nhập, bạn đồng ý với{' '}
-            <Text style={styles.termsLink}>Điều khoản sử dụng</Text> &{' '}
-            <Text style={styles.termsLink}>Chính sách bảo mật</Text>
+            <Text style={styles.termsLink} onPress={() => openPolicyPage('/terms')}>Điều khoản sử dụng</Text> &{' '}
+            <Text style={styles.termsLink} onPress={() => openPolicyPage('/privacy')}>Chính sách bảo mật</Text>
           </Text>
         </View>
       </View>

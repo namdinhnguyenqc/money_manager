@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   Alert,
+  Linking,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -12,6 +13,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
+import Config from '@/constants/Config';
 import { useAuthStore } from '@/store/authStore';
 import { loadProfile, type OwnerProfile } from '@/lib/profile';
 
@@ -25,7 +27,7 @@ const sections: Array<{
     detail?: string;
     route?: RoutePath;
     tone?: 'default' | 'success' | 'warning' | 'danger';
-    action?: 'security' | 'support' | 'logout';
+    action?: 'security' | 'support' | 'deleteAccount' | 'logout';
   }>;
 }> = [
   {
@@ -60,6 +62,7 @@ const sections: Array<{
     title: 'Tài khoản',
     items: [
       { icon: 'lock-closed-outline', label: 'Bảo mật tài khoản', detail: 'Mật khẩu và xác thực', action: 'security' },
+      { icon: 'trash-outline', label: 'Yêu cầu xóa tài khoản', detail: 'Xóa tài khoản và dữ liệu liên quan', action: 'deleteAccount', tone: 'danger' },
       { icon: 'help-circle-outline', label: 'Báo cáo lỗi / Góp ý', detail: 'Gửi góp ý và báo lỗi hệ thống', route: '/feedback' as any },
       { icon: 'log-out-outline', label: 'Đăng xuất', detail: 'Thoát khỏi tài khoản hiện tại', action: 'logout', tone: 'danger' },
     ],
@@ -119,6 +122,25 @@ export default function SettingsScreen() {
     }
     if (item.action === 'security') {
       Alert.alert('Bảo mật', 'Tính năng đổi mật khẩu và xác thực 2 lớp đang được phát triển.');
+      return;
+    }
+    if (item.action === 'deleteAccount') {
+      Alert.alert(
+        'Xóa tài khoản',
+        'Bạn sẽ được chuyển đến trang hướng dẫn yêu cầu xóa tài khoản và dữ liệu TroCare.',
+        [
+          { text: 'Hủy', style: 'cancel' },
+          {
+            text: 'Mở hướng dẫn',
+            style: 'destructive',
+            onPress: () => {
+              Linking.openURL(`${Config.WEB_URL}/delete-account`).catch(() => {
+                Alert.alert('Không thể mở liên kết', 'Vui lòng thử lại sau.');
+              });
+            },
+          },
+        ],
+      );
       return;
     }
     if (item.action === 'support') {
