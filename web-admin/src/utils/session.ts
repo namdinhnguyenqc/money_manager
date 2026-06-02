@@ -126,13 +126,16 @@ export function getStoredAccessToken() {
 }
 
 export function getStoredSessionUser() {
-  if (typeof window === "undefined") return { role: null, name: null, email: null, status: null, approvalStatus: null };
+  if (typeof window === "undefined") return { role: null, name: null, email: null, status: null, approvalStatus: null, isProfileCompleted: null, onboardingStep: null };
+  const isProfileCompleted = localStorage.getItem("isProfileCompleted");
   return {
     role: localStorage.getItem("userRole"),
     name: localStorage.getItem("userName"),
     email: localStorage.getItem("userEmail"),
     status: localStorage.getItem("userStatus"),
     approvalStatus: localStorage.getItem("approvalStatus"),
+    isProfileCompleted: isProfileCompleted === null ? null : isProfileCompleted === "true",
+    onboardingStep: localStorage.getItem("onboardingStep"),
   };
 }
 

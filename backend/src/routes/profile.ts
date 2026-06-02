@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { requireAuth } from "../middleware/auth.js";
+import { clearAuthCacheForUser, requireAuth } from "../middleware/auth.js";
 import { parseJson } from "../utils/validation.js";
 import { buildProfileAuthMeta, findProfileByPhone, upsertUserProfile } from "../lib/profileStore.js";
 import type { AppEnv } from "../types.js";
@@ -95,6 +95,7 @@ profileRoutes.post("/profile/complete", async (c) => {
   if (duplicateResponse) return duplicateResponse;
 
   const profile = await upsertUserProfile(user.id, payload);
+  clearAuthCacheForUser(user.id);
   return c.json({
     success: true,
     message: "Profile completed successfully",
@@ -125,6 +126,7 @@ profileRoutes.put("/profile", async (c) => {
   if (duplicateResponse) return duplicateResponse;
 
   const profile = await upsertUserProfile(user.id, payload);
+  clearAuthCacheForUser(user.id);
   return c.json({
     success: true,
     message: "Profile updated successfully",

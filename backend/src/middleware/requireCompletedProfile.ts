@@ -1,8 +1,9 @@
 import { createMiddleware } from "hono/factory";
 import type { AppEnv } from "../types.js";
+import { supabaseAdmin } from "../lib/supabase.js";
 
 export const requireCompletedProfile = createMiddleware<AppEnv>(async (c, next) => {
-  const user = c.get("user");
+  let user = c.get("user");
   if (!user) {
     return c.json({ error: "Authentication required" }, 401);
   }
@@ -10,6 +11,26 @@ export const requireCompletedProfile = createMiddleware<AppEnv>(async (c, next) 
   if (user.role === "ADMIN" || user.role === "SUPER_ADMIN") {
     await next();
     return;
+  }
+
+  const { data: freshUser, error } = await supabaseAdmin
+    .from("users")
+    .select("id,status,is_profile_completed,onboarding_step")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Failed to verify profile gate:", error.message);
+  }
+
+  if (freshUser) {
+    user = {
+      ...user,
+      status: freshUser.status || user.status,
+      isProfileCompleted: freshUser.is_profile_completed ?? user.isProfileCompleted,
+      onboardingStep: freshUser.onboarding_step ?? user.onboardingStep,
+    };
+    c.set("user", user);
   }
 
   if (!user.isProfileCompleted || user.onboardingStep === "COMPLETE_PROFILE") {
