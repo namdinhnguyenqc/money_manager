@@ -3,6 +3,7 @@ import "./globals.css";
 import QueryProvider from "@/components/QueryProvider";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://money-manager-xdem.onrender.com"),
   title: "TrọCare Owner",
   description: "TrọCare - Nền tảng quản lý nhà trọ và phòng cho thuê thế hệ mới.",
   icons: {

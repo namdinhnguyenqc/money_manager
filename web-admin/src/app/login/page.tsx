@@ -187,7 +187,7 @@ export default function LoginPage() {
 
           <footer className="mt-8 text-center text-slate-500 text-[11px] font-medium">
             © {new Date().getFullYear()} TroCare Platform. <br/>
-            <a href="#" className="text-[#2563EB] font-extrabold hover:underline">Điều khoản</a> & <a href="#" className="text-[#2563EB] font-extrabold hover:underline">Bảo mật</a>
+            <a href="/terms" className="text-[#2563EB] font-extrabold hover:underline">Điều khoản</a> & <a href="/privacy" className="text-[#2563EB] font-extrabold hover:underline">Bảo mật</a>
           </footer>
         </section>
       </section>
