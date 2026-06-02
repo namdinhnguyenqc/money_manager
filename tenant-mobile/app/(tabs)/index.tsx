@@ -67,13 +67,15 @@ export default function TenantDashboard() {
   const contractInfo = profileData?.contract;
   const latestInvoice = dashboardData?.latestInvoice;
 
-  // Simple Utility readings consumption calculation
-  const elecConsumption = latestInvoice?.elec_new && latestInvoice?.elec_old
+  const hasElecReadings = latestInvoice?.elec_new !== undefined && latestInvoice?.elec_new !== null && latestInvoice?.elec_old !== undefined && latestInvoice?.elec_old !== null;
+  const elecConsumption = hasElecReadings
     ? latestInvoice.elec_new - latestInvoice.elec_old
-    : 0;
-  const waterConsumption = latestInvoice?.water_new && latestInvoice?.water_old
+    : null;
+
+  const hasWaterReadings = latestInvoice?.water_new !== undefined && latestInvoice?.water_new !== null && latestInvoice?.water_old !== undefined && latestInvoice?.water_old !== null;
+  const waterConsumption = hasWaterReadings
     ? latestInvoice.water_new - latestInvoice.water_old
-    : 0;
+    : null;
 
   return (
     <ScrollView
@@ -170,8 +172,12 @@ export default function TenantDashboard() {
                 <Ionicons name="flash" size={20} color="#EAB308" />
                 <Text style={styles.utilityTitle}>Chỉ số Điện</Text>
               </View>
-              <Text style={styles.utilityValue}>{elecConsumption} kWh</Text>
-              <Text style={styles.utilitySub}>{latestInvoice.elec_old} → {latestInvoice.elec_new} kWh</Text>
+              <Text style={styles.utilityValue}>
+                {elecConsumption !== null ? `${elecConsumption} kWh` : 'Chưa cập nhật'}
+              </Text>
+              <Text style={styles.utilitySub}>
+                {latestInvoice.elec_old} → {latestInvoice.elec_new !== null && latestInvoice.elec_new !== undefined ? `${latestInvoice.elec_new} kWh` : 'Đang cập nhật'}
+              </Text>
             </Card>
 
             <Card style={styles.utilityItem}>
@@ -179,8 +185,12 @@ export default function TenantDashboard() {
                 <Ionicons name="water" size={20} color="#0071e3" />
                 <Text style={styles.utilityTitle}>Chỉ số Nước</Text>
               </View>
-              <Text style={styles.utilityValue}>{waterConsumption} m³</Text>
-              <Text style={styles.utilitySub}>{latestInvoice.water_old} → {latestInvoice.water_new} m³</Text>
+              <Text style={styles.utilityValue}>
+                {waterConsumption !== null ? `${waterConsumption} m³` : 'Chưa cập nhật'}
+              </Text>
+              <Text style={styles.utilitySub}>
+                {latestInvoice.water_old} → {latestInvoice.water_new !== null && latestInvoice.water_new !== undefined ? `${latestInvoice.water_new} m³` : 'Đang cập nhật'}
+              </Text>
             </Card>
 
           </View>
@@ -257,7 +267,7 @@ export default function TenantDashboard() {
             <View style={styles.statBox}>
               <Text style={styles.statLabel}>Chi tiêu khác</Text>
               <Text style={styles.statValue}>
-                {formatMoney(Math.max(0, (dashboardData?.monthlyPersonalExpense || 0) - (contractInfo?.rent_amount || 0)))}
+                {formatMoney(dashboardData?.monthlyPersonalExpense || 0)}
               </Text>
             </View>
           </View>

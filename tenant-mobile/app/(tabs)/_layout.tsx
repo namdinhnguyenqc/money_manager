@@ -3,12 +3,14 @@
  * 5 tabs: Dashboard, Invoices, Finance, Notifications, Profile
  */
 
+import { useState, useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, Image, TouchableOpacity, View, Text } from 'react-native';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
+import { apiGet } from '@/lib/api';
 
 // Shared brand logo component for all tab headers
 function HeaderBrandLogo() {
@@ -30,6 +32,24 @@ function HeaderBrandLogo() {
 
 export default function TabLayout() {
   const router = useRouter();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const res = await apiGet<any>('/tenant/notifications');
+      const list = res?.data ?? res ?? [];
+      const count = list.filter((n: any) => !n.is_read).length;
+      setUnreadCount(count);
+    } catch (err) {
+      console.warn('Error fetching unread notifications count:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <Tabs
@@ -54,6 +74,37 @@ export default function TabLayout() {
             style={{ width: 24, height: 24, marginLeft: 16 }}
             resizeMode="contain"
           />
+        ),
+        headerRight: () => (
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/notifications')}
+            style={{ marginRight: 16, padding: 4 }}
+            activeOpacity={0.7}
+          >
+            <View style={{ position: 'relative' }}>
+              <Ionicons name="notifications-outline" size={24} color={Colors.textPrimary} />
+              {unreadCount > 0 && (
+                <View style={{
+                  position: 'absolute',
+                  right: -4,
+                  top: -4,
+                  backgroundColor: Colors.danger,
+                  borderRadius: 8,
+                  minWidth: 16,
+                  height: 16,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  borderWidth: 1.5,
+                  borderColor: Colors.background,
+                  paddingHorizontal: 2,
+                }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 8.5, fontFamily: Typography.fontFamily.bold, textAlign: 'center' }}>
+                    {unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
         ),
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
@@ -120,8 +171,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="notifications"
         options={{
+          href: null, // Hide tab from bottom bar
           title: 'Thông báo',
           headerTitle: 'Thông báo của tôi',
+          headerRight: () => null, // Hide notification bell icon in notification screen
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="notifications-outline" size={size} color={color} />
           ),

@@ -22,8 +22,8 @@ export default function LoginScreen() {
   const router = useRouter();
   const { setUser } = useAuthStore();
 
-  const devPhone = '0923456789';
-  const devPassword = '0923456789';
+  const devPhone = '0927368772';
+  const devPassword = '0927368772';
 
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
