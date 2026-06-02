@@ -187,6 +187,11 @@ tenantApiRoutes.get("/dashboard", async (c) => {
     let unpaidInvoiceAmount = 0;
     let latestInvoice = null;
 
+    const activeContracts = allContracts || [];
+    const primaryContract = activeContracts.sort((a: any, b: any) => 
+      Number(b.rent_amount || 0) - Number(a.rent_amount || 0)
+    )[0] || null;
+
     if (allContracts && allContracts.length > 0) {
       const allContractIds = allContracts.map((c) => c.id);
 
@@ -205,11 +210,12 @@ tenantApiRoutes.get("/dashboard", async (c) => {
         );
       }
 
-      // Fetch latest invoice across all contracts (for dashboard preview)
+      // Fetch latest invoice of the primary active contract (for dashboard preview)
+      const targetContractIds = primaryContract ? [primaryContract.id] : allContractIds;
       const { data: latest } = await supabaseAdmin
         .from("invoices")
         .select("*, rooms(name)")
-        .in("contract_id", allContractIds)
+        .in("contract_id", targetContractIds)
         .order("year", { ascending: false })
         .order("month", { ascending: false })
         .limit(1)
@@ -218,7 +224,7 @@ tenantApiRoutes.get("/dashboard", async (c) => {
       latestInvoice = latest || null;
     }
 
-    // 2. Fetch current month personal expenses
+    // 2. Fetch current month personal expenses (excluding auto room-invoice payments)
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     const startOfMonthStr = startOfMonth.toISOString().split("T")[0];
@@ -228,6 +234,7 @@ tenantApiRoutes.get("/dashboard", async (c) => {
       .select("amount")
       .eq("user_id", user.id)
       .eq("type", "expense")
+      .neq("source", "auto_invoice")
       .gte("date", startOfMonthStr);
 
     const monthlyPersonalExpense = txs ? txs.reduce((sum, t) => sum + Number(t.amount || 0), 0) : 0;
