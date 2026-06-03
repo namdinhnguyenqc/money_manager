@@ -49,7 +49,12 @@ const getAdminDisplayStatus = (user: any) => {
   const hasCompletedProfile =
     user?.is_profile_completed === true ||
     user?.onboarding_step === "PENDING_APPROVAL" ||
+    user?.onboarding_step === "REJECTED" ||
     user?.onboarding_step === "DONE";
+
+  if (user?.role === "OWNER" && user?.onboarding_step === "REJECTED") {
+    return "REJECTED";
+  }
 
   if (user?.role === "OWNER" && hasCompletedProfile && user?.onboarding_step !== "DONE") {
     return "PENDING_APPROVAL";
@@ -410,7 +415,7 @@ adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
         const profile = Array.isArray(user.user_profiles) ? user.user_profiles[0] : user.user_profiles;
         const hasProfile = Boolean(profile);
         const isPending = user.status === "PENDING_APPROVAL" || user.onboarding_step === "PENDING_APPROVAL";
-        const hasLegacyCompletedProfile = hasProfile && user.is_profile_completed !== true && user.onboarding_step !== "DONE";
+        const hasLegacyCompletedProfile = hasProfile && user.is_profile_completed !== true && !["DONE", "REJECTED"].includes(user.onboarding_step);
         return hasProfile && (isPending || hasLegacyCompletedProfile);
       })
     : (data ?? []);
@@ -418,8 +423,12 @@ adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
   return c.json({
     data: rows.map((user: any) => {
       const profile = Array.isArray(user.user_profiles) ? user.user_profiles[0] : user.user_profiles;
-      const hasLegacyCompletedProfile = Boolean(profile) && user.is_profile_completed !== true && user.onboarding_step !== "DONE";
-      const approvalStatus = user.onboarding_step === "PENDING_APPROVAL" || hasLegacyCompletedProfile ? "PENDING_APPROVAL" : user.status;
+      const hasLegacyCompletedProfile = Boolean(profile) && user.is_profile_completed !== true && !["DONE", "REJECTED"].includes(user.onboarding_step);
+      const approvalStatus = user.onboarding_step === "REJECTED"
+        ? "REJECTED"
+        : user.onboarding_step === "PENDING_APPROVAL" || hasLegacyCompletedProfile
+          ? "PENDING_APPROVAL"
+          : user.status;
       return {
         id: user.id,
         email: user.email,
@@ -465,11 +474,11 @@ adminRoutes.patch("/owner-approvals/:id", requireAuth, requireAdmin, async (c) =
   if (targetUser.role !== "OWNER") return c.json({ error: "Only OWNER accounts require approval" }, 400);
   if (currentUser.id === userId) return c.json({ error: "Cannot approve/reject yourself" }, 400);
 
-  const nextStatus = validation.data.action === "approve" ? "ACTIVE" : "REJECTED";
+  const nextStatus = validation.data.action === "approve" ? "ACTIVE" : targetUser.status;
   const payload = {
     status: nextStatus,
     is_profile_completed: true,
-    onboarding_step: validation.data.action === "approve" ? "DONE" : "PENDING_APPROVAL",
+    onboarding_step: validation.data.action === "approve" ? "DONE" : "REJECTED",
     updated_at: new Date().toISOString(),
   };
 
@@ -482,7 +491,7 @@ adminRoutes.patch("/owner-approvals/:id", requireAuth, requireAdmin, async (c) =
 
   if (updateError) return jsonDbError(c, updateError, "Failed to update owner approval", 400);
 
-  if (nextStatus === "REJECTED") {
+  if (validation.data.action === "reject") {
     await supabaseAdmin
       .from("refresh_tokens")
       .update({ revoked_at: new Date().toISOString() })
@@ -496,12 +505,19 @@ adminRoutes.patch("/owner-approvals/:id", requireAuth, requireAdmin, async (c) =
     resourceType: "user",
     resourceId: userId,
     beforeValue: { status: targetUser.status },
-    afterValue: { status: nextStatus },
+    afterValue: { status: validation.data.action === "reject" ? "REJECTED" : nextStatus },
     reason: validation.data.reason || null,
     riskLevel: validation.data.action === "reject" ? "medium" : "low",
   });
 
-  return c.json({ success: true, user: updatedUser });
+  return c.json({
+    success: true,
+    user: {
+      ...updatedUser,
+      status: validation.data.action === "reject" ? "REJECTED" : updatedUser.status,
+      approvalStatus: validation.data.action === "reject" ? "REJECTED" : updatedUser.status,
+    },
+  });
 });
 
 // PATCH /admin/users/:id/role - Update user role

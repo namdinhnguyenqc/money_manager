@@ -39,7 +39,7 @@ export interface JwtPayload {
   avatarUrl?: string | null;
   provider?: string | null;
   isProfileCompleted?: boolean;
-  onboardingStep?: "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "DONE";
+  onboardingStep?: "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "REJECTED" | "DONE";
   iat: number;
   exp: number;
 }
@@ -51,7 +51,7 @@ export async function generateAccessToken(
     avatarUrl?: string | null;
     provider?: string | null;
     isProfileCompleted?: boolean;
-    onboardingStep?: "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "DONE";
+    onboardingStep?: "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "REJECTED" | "DONE";
   }
 ): Promise<string> {
   const { SignJWT } = await import("jose");

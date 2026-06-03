@@ -9,7 +9,7 @@ export type CurrentUser = {
   avatarUrl?: string | null;
   authProvider?: string | null;
   isProfileCompleted?: boolean;
-  onboardingStep?: "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "DONE";
+  onboardingStep?: "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "REJECTED" | "DONE";
   phone?: string | null;
 };
 

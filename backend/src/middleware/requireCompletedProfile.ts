@@ -42,6 +42,15 @@ export const requireCompletedProfile = createMiddleware<AppEnv>(async (c, next) 
     }, 403);
   }
 
+  if (user.status === "REJECTED" || user.onboardingStep === "REJECTED") {
+    return c.json({
+      error: "Account rejected",
+      code: "ACCOUNT_REJECTED",
+      message: "Hồ sơ của bạn chưa được duyệt hoặc đã bị từ chối.",
+      nextStep: "REJECTED",
+    }, 403);
+  }
+
   if (user.status === "PENDING_APPROVAL" || user.onboardingStep === "PENDING_APPROVAL") {
     return c.json({
       error: "Account pending approval",
