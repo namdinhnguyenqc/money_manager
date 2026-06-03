@@ -43,8 +43,21 @@ export default function PendingApprovalPage() {
       });
 
       const status = data?.user?.status || data?.status;
-      if (status === "ACTIVE") router.replace("/owner/dashboard");
-      else setMessage("Hồ sơ vẫn đang chờ admin duyệt.");
+      const approvalStatus = data?.user?.approvalStatus || data?.approvalStatus || status;
+      const onboardingStep = data?.user?.onboardingStep || data?.onboardingStep;
+      const nextStep = data?.user?.nextStep || data?.nextStep;
+
+      if (nextStep === "DASHBOARD" && approvalStatus !== "PENDING_APPROVAL" && onboardingStep !== "PENDING_APPROVAL") {
+        router.replace("/owner/dashboard");
+        return;
+      }
+
+      if (nextStep === "COMPLETE_PROFILE" || onboardingStep === "COMPLETE_PROFILE" || data?.isProfileCompleted === false || data?.user?.isProfileCompleted === false) {
+        router.replace("/complete-profile");
+        return;
+      }
+
+      setMessage("Hồ sơ vẫn đang chờ admin duyệt.");
     } catch (err: any) {
       setMessage(err?.message || "Không kiểm tra được trạng thái.");
     } finally {

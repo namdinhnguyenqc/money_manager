@@ -9,6 +9,9 @@ type OwnerApproval = {
   email: string;
   name?: string | null;
   status: string;
+  approvalStatus?: string;
+  onboardingStep?: string;
+  isProfileCompleted?: boolean;
   createdAt?: string;
   updatedAt?: string;
   profile?: {
@@ -63,6 +66,13 @@ export default function OwnerApprovalsPage() {
     }
   };
 
+  const getApprovalLabel = (item: OwnerApproval) => {
+    if (item.approvalStatus === "PENDING_APPROVAL" || item.onboardingStep === "PENDING_APPROVAL") return "Chờ duyệt";
+    if (item.status === "REJECTED") return "Đã từ chối";
+    if (item.status === "ACTIVE" && item.onboardingStep === "DONE") return "Đã duyệt";
+    return item.status || "-";
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-8">
       <div className="mx-auto max-w-6xl">
@@ -114,7 +124,7 @@ export default function OwnerApprovalsPage() {
                         {item.profile?.fullAddress && <div className="mt-1 max-w-md text-xs text-slate-500">{item.profile.fullAddress}</div>}
                       </td>
                       <td className="px-4 py-4">
-                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">{item.status}</span>
+                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">{getApprovalLabel(item)}</span>
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex justify-end gap-2">
@@ -175,7 +185,8 @@ export default function OwnerApprovalsPage() {
                 <ProfileRow label="Quận/Huyện" value={selectedItem.profile?.districtName || "-"} />
                 <ProfileRow label="Địa chỉ chi tiết" value={selectedItem.profile?.addressLine || "-"} />
                 <ProfileRow label="Địa chỉ đầy đủ" value={selectedItem.profile?.fullAddress || "-"} />
-                <ProfileRow label="Trạng thái" value={selectedItem.status} />
+                <ProfileRow label="Trạng thái" value={getApprovalLabel(selectedItem)} />
+                <ProfileRow label="Bước onboarding" value={selectedItem.onboardingStep || "-"} />
                 <ProfileRow label="Ngày gửi" value={formatDate(selectedItem.updatedAt || selectedItem.createdAt)} />
 
                 <div className="grid grid-cols-2 gap-2 pt-2">

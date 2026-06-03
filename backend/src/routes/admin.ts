@@ -384,6 +384,7 @@ adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
         avatar: user.avatar,
         role: user.role,
         status: user.status,
+        approvalStatus: user.onboarding_step === "PENDING_APPROVAL" ? "PENDING_APPROVAL" : user.status,
         provider: user.provider,
         isProfileCompleted: user.is_profile_completed,
         onboardingStep: user.onboarding_step,
