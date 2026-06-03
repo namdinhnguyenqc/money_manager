@@ -23,7 +23,7 @@ import { apiGet } from "@/utils/apiClient";
 import Logo from "@/components/ui/Logo";
 
 const navItems = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, isPlaceholder: true },
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/rooms", label: "Quản lý phòng", icon: Home, isPlaceholder: true },
   { href: "/admin/contracts", label: "Quản lý hợp đồng", icon: FileText, isPlaceholder: true },
   { href: "/admin/invoices", label: "Quản lý hóa đơn", icon: Receipt, isPlaceholder: true },

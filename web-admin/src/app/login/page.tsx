@@ -5,12 +5,51 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Logo from "@/components/ui/Logo";
 import OwnerGoogleLoginButton from "@/components/OwnerGoogleLoginButton";
-import { getStoredAccessToken } from "@/utils/session";
+import { getStoredAccessToken, setClientSession } from "@/utils/session";
 import { API_URL } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [adminUsername, setAdminUsername] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminError, setAdminError] = useState("");
+
+  const handleAdminLogin = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAdminLoading(true);
+    setAdminError("");
+    try {
+      const res = await fetch(`${API_URL}/auth/admin-login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: adminUsername, password: adminPassword }),
+        credentials: "include",
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.accessToken) {
+        throw new Error(data?.message || data?.error || "Đăng nhập admin thất bại.");
+      }
+      setClientSession({
+        accessToken: data.accessToken,
+        role: data.user?.role || "SUPER_ADMIN",
+        name: data.user?.name || "Administrator",
+        email: data.user?.email || "admin@trocare.vn",
+        status: data.user?.status || "ACTIVE",
+        approvalStatus: "ACTIVE",
+        isProfileCompleted: true,
+        onboardingStep: "DONE",
+      });
+      router.replace("/admin");
+    } catch (error: any) {
+      setAdminError(error?.message || "Đăng nhập admin thất bại.");
+    } finally {
+      setAdminLoading(false);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -157,7 +196,48 @@ export default function LoginPage() {
 
           <div className="relative z-20 space-y-4">
             <OwnerGoogleLoginButton />
-            
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+              <button
+                type="button"
+                onClick={() => setShowAdminLogin((value) => !value)}
+                className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-extrabold uppercase tracking-wide text-slate-600 hover:bg-white"
+              >
+                Đăng nhập quản trị
+                <span className="text-[#2563EB]">{showAdminLogin ? "Ẩn" : "Mở"}</span>
+              </button>
+              {showAdminLogin && (
+                <form onSubmit={handleAdminLogin} className="mt-3 space-y-3">
+                  <input
+                    value={adminUsername}
+                    onChange={(event) => setAdminUsername(event.target.value)}
+                    placeholder="Tài khoản admin"
+                    autoComplete="username"
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-blue-500"
+                  />
+                  <input
+                    value={adminPassword}
+                    onChange={(event) => setAdminPassword(event.target.value)}
+                    placeholder="Mật khẩu admin"
+                    type="password"
+                    autoComplete="current-password"
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-blue-500"
+                  />
+                  {adminError && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                      {adminError}
+                    </div>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={adminLoading}
+                    className="h-11 w-full rounded-xl bg-slate-950 px-4 text-sm font-extrabold text-white disabled:opacity-60"
+                  >
+                    {adminLoading ? "Đang đăng nhập..." : "Vào Admin"}
+                  </button>
+                </form>
+              )}
+            </div>
 
           </div>
 
