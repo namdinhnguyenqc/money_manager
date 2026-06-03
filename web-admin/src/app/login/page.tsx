@@ -56,6 +56,11 @@ export default function LoginPage() {
     // Auto-redirect to dashboard if user has an active session and goes back to login page
     const token = getStoredAccessToken();
     if (token) {
+      const role = localStorage.getItem("userRole");
+      if (role === "ADMIN" || role === "SUPER_ADMIN") {
+        router.replace("/admin");
+        return;
+      }
       const isProfileCompleted = localStorage.getItem("isProfileCompleted") === "true";
       const approvalStatus = localStorage.getItem("approvalStatus") || localStorage.getItem("userStatus");
       router.replace(!isProfileCompleted ? "/complete-profile" : approvalStatus === "PENDING_APPROVAL" ? "/pending-approval" : "/owner/dashboard");
@@ -268,6 +273,8 @@ export default function LoginPage() {
           <footer className="mt-8 text-center text-slate-500 text-[11px] font-medium">
             © {new Date().getFullYear()} TroCare Platform. <br/>
             <a href="/terms" className="text-[#2563EB] font-extrabold hover:underline">Điều khoản</a> & <a href="/privacy" className="text-[#2563EB] font-extrabold hover:underline">Bảo mật</a>
+            <br />
+            <a href="/admin" className="mt-2 inline-block text-slate-600 font-extrabold hover:text-[#2563EB] hover:underline">Khu vực Admin</a>
           </footer>
         </section>
       </section>
