@@ -104,25 +104,29 @@ export async function upsertUserProfile(userId: string, input: UserProfileInput)
     is_profile_completed: true,
     onboarding_step: "PENDING_APPROVAL",
     status: "PENDING_APPROVAL",
+    updated_at: now,
   };
 
-  const { error: userUpdateError } = await supabaseAdmin
+  const { data: updatedUser, error: userUpdateError } = await supabaseAdmin
     .from("users")
     .update(userUpdatePayload)
-    .eq("id", userId);
+    .eq("id", userId)
+    .select("id,status,is_profile_completed,onboarding_step")
+    .single();
 
   if (userUpdateError) {
     console.error("Failed to update user profile status in users table:", userUpdateError.message);
-    // If it's a "column does not exist" error, try updating only the basic fields
-    if (userUpdateError.code === "42703") {
-      await supabaseAdmin
-        .from("users")
-        .update({
-          name: input.fullName,
-          avatar: input.avatarUrl ?? undefined,
-        })
-        .eq("id", userId);
-    }
+    throw new Error("PROFILE_APPROVAL_STATUS_UPDATE_FAILED");
+  }
+
+  if (
+    !updatedUser ||
+    updatedUser.status !== "PENDING_APPROVAL" ||
+    updatedUser.is_profile_completed !== true ||
+    updatedUser.onboarding_step !== "PENDING_APPROVAL"
+  ) {
+    console.error("User approval status was not persisted after profile completion:", updatedUser);
+    throw new Error("PROFILE_APPROVAL_STATUS_NOT_PERSISTED");
   }
 
   return toProfileResponse(data);
