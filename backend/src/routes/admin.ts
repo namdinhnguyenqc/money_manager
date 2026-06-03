@@ -366,17 +366,28 @@ adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
     .eq("role", "OWNER")
     .order("updated_at", { ascending: false });
 
-  query = status === "PENDING_APPROVAL"
-    ? query.eq("is_profile_completed", true).or("status.eq.PENDING_APPROVAL,onboarding_step.eq.PENDING_APPROVAL")
-    : query.eq("status", status);
+  if (status !== "PENDING_APPROVAL") {
+    query = query.eq("status", status);
+  }
 
   const { data, error } = await query;
 
   if (error) return jsonDbError(c, error, "Failed to fetch owner approvals");
 
+  const rows = status === "PENDING_APPROVAL"
+    ? (data ?? []).filter((user: any) => {
+        const profile = Array.isArray(user.user_profiles) ? user.user_profiles[0] : user.user_profiles;
+        const hasProfile = Boolean(profile);
+        const isPending = user.status === "PENDING_APPROVAL" || user.onboarding_step === "PENDING_APPROVAL";
+        const hasLegacyCompletedProfile = hasProfile && user.is_profile_completed !== true && user.onboarding_step !== "DONE";
+        return hasProfile && (isPending || hasLegacyCompletedProfile);
+      })
+    : (data ?? []);
+
   return c.json({
-    data: (data ?? []).map((user: any) => {
+    data: rows.map((user: any) => {
       const profile = Array.isArray(user.user_profiles) ? user.user_profiles[0] : user.user_profiles;
+      const hasLegacyCompletedProfile = Boolean(profile) && user.is_profile_completed !== true && user.onboarding_step !== "DONE";
       return {
         id: user.id,
         email: user.email,
@@ -384,10 +395,10 @@ adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
         avatar: user.avatar,
         role: user.role,
         status: user.status,
-        approvalStatus: user.onboarding_step === "PENDING_APPROVAL" ? "PENDING_APPROVAL" : user.status,
+        approvalStatus: user.onboarding_step === "PENDING_APPROVAL" || hasLegacyCompletedProfile ? "PENDING_APPROVAL" : user.status,
         provider: user.provider,
         isProfileCompleted: user.is_profile_completed,
-        onboardingStep: user.onboarding_step,
+        onboardingStep: hasLegacyCompletedProfile ? "PENDING_APPROVAL" : user.onboarding_step,
         createdAt: user.created_at,
         updatedAt: user.updated_at,
         lastLoginAt: user.last_login_at,

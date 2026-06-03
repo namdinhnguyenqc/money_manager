@@ -47,7 +47,7 @@ export default function PendingApprovalPage() {
       const onboardingStep = data?.user?.onboardingStep || data?.onboardingStep;
       const nextStep = data?.user?.nextStep || data?.nextStep;
 
-      if (nextStep === "DASHBOARD" && approvalStatus !== "PENDING_APPROVAL" && onboardingStep !== "PENDING_APPROVAL") {
+      if (nextStep === "DASHBOARD" && status === "ACTIVE" && approvalStatus === "ACTIVE" && onboardingStep === "DONE") {
         router.replace("/owner/dashboard");
         return;
       }
