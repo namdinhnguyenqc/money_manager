@@ -167,9 +167,15 @@ export async function buildProfileAuthMeta(user: any, preFetchedProfile?: any) {
   }
   const status = String(user.status || "").toUpperCase();
   const isProfileCompleted = Boolean(profile || user.is_profile_completed === true || user.onboarding_step === "DONE" || user.onboarding_step === "PENDING_APPROVAL");
+  const hasProfileButNoApprovalState = Boolean(
+    profile &&
+    user.is_profile_completed !== true &&
+    user.onboarding_step !== "DONE" &&
+    user.onboarding_step !== "PENDING_APPROVAL",
+  );
   const onboardingStep: OnboardingStep = !isProfileCompleted
     ? "COMPLETE_PROFILE"
-    : user.onboarding_step === "PENDING_APPROVAL"
+    : hasProfileButNoApprovalState || user.onboarding_step === "PENDING_APPROVAL"
       ? "PENDING_APPROVAL"
       : status === "ACTIVE" || user.onboarding_step === "DONE"
         ? "DONE"

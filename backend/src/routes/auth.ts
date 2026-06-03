@@ -425,10 +425,10 @@ async function upsertOwnerGoogleUser(input: {
         name,
         avatar,
         role: "OWNER",
-        status: "ACTIVE",
+        status: "PENDING_APPROVAL",
         provider: "GOOGLE",
         is_profile_completed: isProfileCompleted,
-        onboarding_step: isProfileCompleted ? "DONE" : "COMPLETE_PROFILE",
+        onboarding_step: isProfileCompleted ? "PENDING_APPROVAL" : "COMPLETE_PROFILE",
         last_login_at: new Date().toISOString(),
       })
       .select()

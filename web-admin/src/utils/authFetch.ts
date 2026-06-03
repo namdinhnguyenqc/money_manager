@@ -121,11 +121,13 @@ export async function refreshAccessToken() {
 
     setClientSession({
       accessToken,
-      role: localStorage.getItem("userRole") || undefined,
-      name: localStorage.getItem("userName") || undefined,
-      email: localStorage.getItem("userEmail") || undefined,
-      isProfileCompleted: localStorage.getItem("isProfileCompleted") === "true",
-      onboardingStep: localStorage.getItem("onboardingStep") || undefined,
+      role: data?.user?.role || localStorage.getItem("userRole") || undefined,
+      name: data?.user?.name || localStorage.getItem("userName") || undefined,
+      email: data?.user?.email || localStorage.getItem("userEmail") || undefined,
+      status: data?.user?.status || localStorage.getItem("userStatus") || undefined,
+      approvalStatus: data?.user?.approvalStatus || localStorage.getItem("approvalStatus") || undefined,
+      isProfileCompleted: data?.user?.isProfileCompleted ?? (localStorage.getItem("isProfileCompleted") === "true"),
+      onboardingStep: data?.user?.onboardingStep || localStorage.getItem("onboardingStep") || undefined,
     });
 
     return accessToken;
