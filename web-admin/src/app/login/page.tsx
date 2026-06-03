@@ -200,6 +200,17 @@ export default function LoginPage() {
           </div>
 
           <div className="relative z-20 space-y-4">
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3">
+              <button
+                type="button"
+                onClick={() => setShowAdminLogin(true)}
+                className="flex w-full items-center justify-between rounded-xl bg-white px-4 py-3 text-left text-sm font-black text-slate-950 shadow-sm transition hover:border-blue-200 hover:text-[#2563EB]"
+              >
+                Khu vực Admin: duyệt tài khoản và báo cáo lỗi
+                <span className="text-xs font-extrabold text-[#2563EB]">Mở</span>
+              </button>
+            </div>
+
             <OwnerGoogleLoginButton />
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
