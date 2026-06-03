@@ -103,7 +103,6 @@ export async function upsertUserProfile(userId: string, input: UserProfileInput)
     avatar: input.avatarUrl ?? undefined,
     is_profile_completed: true,
     onboarding_step: "PENDING_APPROVAL",
-    status: "PENDING_APPROVAL",
     updated_at: now,
   };
 
@@ -121,7 +120,6 @@ export async function upsertUserProfile(userId: string, input: UserProfileInput)
 
   if (
     !updatedUser ||
-    updatedUser.status !== "PENDING_APPROVAL" ||
     updatedUser.is_profile_completed !== true ||
     updatedUser.onboarding_step !== "PENDING_APPROVAL"
   ) {

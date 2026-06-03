@@ -388,14 +388,15 @@ adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
     data: rows.map((user: any) => {
       const profile = Array.isArray(user.user_profiles) ? user.user_profiles[0] : user.user_profiles;
       const hasLegacyCompletedProfile = Boolean(profile) && user.is_profile_completed !== true && user.onboarding_step !== "DONE";
+      const approvalStatus = user.onboarding_step === "PENDING_APPROVAL" || hasLegacyCompletedProfile ? "PENDING_APPROVAL" : user.status;
       return {
         id: user.id,
         email: user.email,
         name: user.name,
         avatar: user.avatar,
         role: user.role,
-        status: user.status,
-        approvalStatus: user.onboarding_step === "PENDING_APPROVAL" || hasLegacyCompletedProfile ? "PENDING_APPROVAL" : user.status,
+        status: approvalStatus,
+        approvalStatus,
         provider: user.provider,
         isProfileCompleted: user.is_profile_completed,
         onboardingStep: hasLegacyCompletedProfile ? "PENDING_APPROVAL" : user.onboarding_step,
