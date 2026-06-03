@@ -2,7 +2,7 @@ import { env } from "../config/env.js";
 
 import { supabaseAdmin } from "./supabase.js";
 
-export type OnboardingStep = "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "DONE";
+export type OnboardingStep = "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "REJECTED" | "DONE";
 
 export type UserProfileInput = {
   fullName: string;
@@ -164,15 +164,24 @@ export async function buildProfileAuthMeta(user: any, preFetchedProfile?: any) {
     profile = toProfileResponse(profile);
   }
   const status = String(user.status || "").toUpperCase();
-  const isProfileCompleted = Boolean(profile || user.is_profile_completed === true || user.onboarding_step === "DONE" || user.onboarding_step === "PENDING_APPROVAL");
+  const isProfileCompleted = Boolean(
+    profile ||
+    user.is_profile_completed === true ||
+    user.onboarding_step === "DONE" ||
+    user.onboarding_step === "PENDING_APPROVAL" ||
+    user.onboarding_step === "REJECTED",
+  );
   const hasProfileButNoApprovalState = Boolean(
     profile &&
     user.is_profile_completed !== true &&
     user.onboarding_step !== "DONE" &&
-    user.onboarding_step !== "PENDING_APPROVAL",
+    user.onboarding_step !== "PENDING_APPROVAL" &&
+    user.onboarding_step !== "REJECTED",
   );
   const onboardingStep: OnboardingStep = !isProfileCompleted
     ? "COMPLETE_PROFILE"
+    : user.onboarding_step === "REJECTED"
+      ? "REJECTED"
     : hasProfileButNoApprovalState || user.onboarding_step === "PENDING_APPROVAL"
       ? "PENDING_APPROVAL"
       : status === "ACTIVE" || user.onboarding_step === "DONE"
@@ -183,7 +192,7 @@ export async function buildProfileAuthMeta(user: any, preFetchedProfile?: any) {
     profile,
     isProfileCompleted,
     onboardingStep,
-    approvalStatus: onboardingStep === "PENDING_APPROVAL" ? "PENDING_APPROVAL" : status || "ACTIVE",
+    approvalStatus: onboardingStep === "PENDING_APPROVAL" || onboardingStep === "REJECTED" ? onboardingStep : status || "ACTIVE",
     nextStep: onboardingStep === "DONE" ? "DASHBOARD" : onboardingStep,
   };
 }

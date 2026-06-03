@@ -32,7 +32,17 @@ export default function CompleteProfilePage() {
       const res = await getMyProfile();
       setProfileState(res);
       if (res.user?.isProfileCompleted) {
-        router.replace(res.user?.approvalStatus === "PENDING_APPROVAL" || res.user?.status === "PENDING_APPROVAL" ? "/pending-approval" : "/owner");
+        const status = String(res.user.status || "").toUpperCase();
+        const approvalStatus = String(res.user.approvalStatus || "").toUpperCase();
+        const onboardingStep = String(res.user.onboardingStep || "").toUpperCase();
+        const nextStep = String(res.nextStep || "").toUpperCase();
+        const canEnterDashboard =
+          status === "ACTIVE" &&
+          approvalStatus === "ACTIVE" &&
+          onboardingStep === "DONE" &&
+          nextStep === "DASHBOARD";
+
+        router.replace(canEnterDashboard ? "/owner/dashboard" : "/pending-approval");
       }
     } catch (err: any) {
       setError(err?.message || "Không tải được hồ sơ. Vui lòng thử lại.");

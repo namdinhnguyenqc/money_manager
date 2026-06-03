@@ -2,7 +2,7 @@
 
 import { apiGet, apiPost, apiPut } from "@/utils/apiClient";
 
-export type OnboardingStep = "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "DONE";
+export type OnboardingStep = "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "REJECTED" | "DONE";
 
 export type UserProfile = {
   fullName: string;
@@ -33,7 +33,7 @@ export type ProfileResponse = {
   success: boolean;
   user: ProfileUser;
   profile: UserProfile | null;
-  nextStep?: "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "DASHBOARD";
+  nextStep?: "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "REJECTED" | "DASHBOARD";
 };
 
 export type LocationItem = {

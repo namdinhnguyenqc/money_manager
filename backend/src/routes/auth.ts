@@ -460,7 +460,7 @@ async function upsertOwnerGoogleUser(input: {
     if (existingUser.status === "BLOCKED") {
       return { error: { code: "ACCOUNT_BLOCKED", message: "Tài khoản owner đã bị khóa." }, status: 403 };
     }
-    if (existingUser.status === "REJECTED") {
+    if (existingUser.status === "REJECTED" || existingUser.onboarding_step === "REJECTED") {
       return { error: { code: "ACCOUNT_REJECTED", message: "Tài khoản owner chưa được duyệt hoặc đã bị từ chối." }, status: 403 };
     }
     // Check if user info actually changed
