@@ -45,6 +45,26 @@ const jsonDbError = (c: any, error: any, fallback: string, status = 500) => {
   return c.json({ error: fallback, detail: error?.message, code: error?.code }, status);
 };
 
+const getAdminDisplayStatus = (user: any) => {
+  const hasCompletedProfile =
+    user?.is_profile_completed === true ||
+    user?.onboarding_step === "PENDING_APPROVAL" ||
+    user?.onboarding_step === "DONE";
+
+  if (user?.role === "OWNER" && hasCompletedProfile && user?.onboarding_step !== "DONE") {
+    return "PENDING_APPROVAL";
+  }
+
+  return user?.status || "ACTIVE";
+};
+
+const withAdminDisplayStatus = (user: any) => ({
+  ...user,
+  raw_status: user?.status,
+  status: getAdminDisplayStatus(user),
+  approvalStatus: getAdminDisplayStatus(user),
+});
+
 const deleteUserScopedRows = async (table: string, column: string, userId: string) => {
   const { error } = await supabaseAdmin.from(table).delete().eq(column, userId);
   if (!error) return null;
@@ -256,19 +276,24 @@ adminRoutes.get("/users", requireAuth, requireAdmin, async (c) => {
   }
 
   return c.json({
-    data: data?.map((u) => ({
+    data: data?.map((u) => {
+      const displayUser = withAdminDisplayStatus(u);
+      return {
       id: u.id,
       email: u.email,
       name: u.name,
       avatar: u.avatar,
       role: u.role,
-      status: u.status,
+      status: displayUser.status,
+      raw_status: displayUser.raw_status,
+      approvalStatus: displayUser.approvalStatus,
       is_profile_completed: u.is_profile_completed,
       onboarding_step: u.onboarding_step,
       provider: u.provider,
       created_at: u.created_at,
       last_login_at: u.last_login_at,
-    })),
+      };
+    }),
     pagination: {
       page: pageNum,
       limit: limitNum,
@@ -300,13 +325,19 @@ adminRoutes.get("/users/:id", requireAuth, requireAdmin, async (c) => {
     .order("login_at", { ascending: false })
     .limit(20);
 
+  const displayUser = withAdminDisplayStatus(user);
+
   return c.json({
     id: user.id,
     email: user.email,
     name: user.name,
     avatar: user.avatar,
     role: user.role,
-    status: user.status,
+    status: displayUser.status,
+    raw_status: displayUser.raw_status,
+    approvalStatus: displayUser.approvalStatus,
+    is_profile_completed: user.is_profile_completed,
+    onboarding_step: user.onboarding_step,
     provider: user.provider,
     created_at: user.created_at,
     last_login_at: user.last_login_at,
@@ -1046,16 +1077,16 @@ adminRoutes.get("/accounts", ...adminWithPermission("account.view"), async (c) =
 
   if (error) return jsonDbError(c, error, "Failed to fetch admin accounts");
   return c.json({
-    data: data ?? [],
+    data: (data ?? []).map(withAdminDisplayStatus),
     pagination: toPagination(page, limit, count || 0),
   });
 });
 
 adminRoutes.get("/accounts/summary", ...adminWithPermission("account.view"), async (c) => {
-  const { data, error } = await supabaseAdmin.from("users").select("id, role, user_type, status, created_at, last_login_at");
+  const { data, error } = await supabaseAdmin.from("users").select("id, role, user_type, status, is_profile_completed, onboarding_step, created_at, last_login_at");
   if (error) return jsonDbError(c, error, "Failed to fetch account summary");
 
-  const rows = data ?? [];
+  const rows = (data ?? []).map(withAdminDisplayStatus);
   const byStatus = rows.reduce<Record<string, number>>((acc, row: any) => {
     const key = String(row.status || "UNKNOWN");
     acc[key] = (acc[key] || 0) + 1;

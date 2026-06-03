@@ -12,7 +12,7 @@ type User = {
   name: string;
   avatar?: string;
   role: "USER" | "OWNER" | "ADMIN" | "SUPER_ADMIN";
-  status: "ACTIVE" | "BLOCKED" | "DELETED";
+  status: "ACTIVE" | "PENDING_APPROVAL" | "REJECTED" | "BLOCKED" | "DELETED";
   provider?: string;
   created_at?: string;
   boardingHouseCount?: number;
@@ -35,6 +35,8 @@ const roleBadgeMap: Record<User["role"], string> = {
 
 const statusBadgeMap: Record<User["status"], string> = {
   ACTIVE: "bg-emerald-50 text-emerald-700",
+  PENDING_APPROVAL: "bg-amber-50 text-amber-700",
+  REJECTED: "bg-red-50 text-red-700",
   BLOCKED: "bg-rose-50 text-rose-700",
   DELETED: "bg-slate-100 text-slate-500",
 };
@@ -153,6 +155,7 @@ export default function UsersPage() {
 
   const totalUsers = users.length;
   const activeUsers = users.filter((user) => user.status === "ACTIVE").length;
+  const pendingUsers = users.filter((user) => user.status === "PENDING_APPROVAL").length;
   const ownerUsers = users.filter((user) => user.role === "OWNER").length;
   const blockedUsers = users.filter((user) => user.status === "BLOCKED").length;
 
@@ -185,6 +188,7 @@ export default function UsersPage() {
         <div className="rounded-[8px] border border-slate-200 bg-white p-4">
           <div className="text-sm text-slate-500">Đang hoạt động</div>
           <div className="mt-2 text-2xl font-semibold text-emerald-700">{activeUsers}</div>
+          {pendingUsers > 0 && <div className="mt-1 text-xs font-semibold text-amber-700">{pendingUsers} chờ duyệt</div>}
         </div>
         <div className="rounded-[8px] border border-slate-200 bg-white p-4">
           <div className="text-sm text-slate-500">Chủ trọ</div>
