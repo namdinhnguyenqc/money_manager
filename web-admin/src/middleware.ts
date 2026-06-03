@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 const CANONICAL_HOST = 'tcareproduction.vercel.app'
+const ADMIN_PORTAL_HOST = 'tcareproduction.vercel.app'
 const PREVIEW_HOST_PREFIXES = [
   'trocare-production-',
   'tcare-production-',
@@ -42,6 +43,13 @@ const withNoStore = (response: NextResponse) => {
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
   const host = req.headers.get('host')?.split(':')[0] || ''
+
+  if ((pathname === '/admin' || pathname.startsWith('/admin/')) && host !== ADMIN_PORTAL_HOST) {
+    const url = req.nextUrl.clone()
+    url.protocol = 'https:'
+    url.host = ADMIN_PORTAL_HOST
+    return NextResponse.redirect(url, 308)
+  }
 
   if (shouldRedirectToCanonicalHost(host)) {
     const url = req.nextUrl.clone()
