@@ -16,7 +16,7 @@ import {
   Menu,
   X,
   Loader2,
-  AlertCircle
+  ChevronRight
 } from "lucide-react";
 import { clearClientSession, getStoredAccessToken, getStoredSessionUser } from "@/utils/session";
 import { apiGet } from "@/utils/apiClient";
@@ -31,6 +31,23 @@ const navItems = [
   { href: "/admin/owner-approvals", label: "Duyệt tài khoản", icon: Users },
   { href: "/admin/feedback", label: "Báo cáo lỗi", icon: Bug, hasBadge: true },
   { href: "/admin/settings", label: "Cài đặt", icon: Settings, isPlaceholder: true },
+];
+
+const primaryAdminActions = [
+  {
+    href: "/admin/owner-approvals",
+    label: "Duyệt tài khoản",
+    description: "Xem hồ sơ owner mới và approve",
+    icon: Users,
+    tone: "bg-blue-50 text-blue-700 border-blue-100",
+  },
+  {
+    href: "/admin/feedback",
+    label: "Báo cáo lỗi",
+    description: "Ticket lỗi, góp ý và phản hồi owner",
+    icon: Bug,
+    tone: "bg-red-50 text-red-700 border-red-100",
+  },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -131,13 +148,46 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-5">
+        <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-5">
+          <div>
+            <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase px-3 pb-2 block select-none">
+              Tác vụ chính
+            </span>
+            <div className="space-y-2">
+              {primaryAdminActions.map((item) => {
+                const Icon = item.icon;
+                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`group flex items-center gap-3 rounded-xl border px-3 py-3 transition-all ${
+                      active ? "border-slate-900 bg-slate-900 text-white shadow-md shadow-slate-900/10" : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border ${active ? "border-white/15 bg-white/10 text-white" : item.tone}`}>
+                      <Icon size={18} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className={`block truncate text-sm font-black ${active ? "text-white" : "text-slate-950"}`}>{item.label}</span>
+                      <span className={`mt-0.5 block truncate text-[11px] font-semibold ${active ? "text-slate-300" : "text-slate-500"}`}>{item.description}</span>
+                    </span>
+                    <ChevronRight size={16} className={active ? "text-white" : "text-slate-400 group-hover:text-slate-700"} />
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
           <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase px-3 pb-2 block select-none">
             Điều hướng quản lý
           </span>
           {navItems.map((item) => {
             const Icon = item.icon;
-            const active = pathname.startsWith(item.href);
+            const active = item.href === "/admin" ? pathname === "/admin" : pathname === item.href || pathname.startsWith(`${item.href}/`);
             
             if (item.isPlaceholder) {
               return (
@@ -176,6 +226,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </Link>
             );
           })}
+          </div>
         </nav>
 
         <div className="border-t border-slate-200 px-3 py-3">
@@ -191,7 +242,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <button className="text-slate-600" onClick={() => setSidebarOpen(true)} aria-label="Mở menu">
             <Menu size={22} />
           </button>
-          <div className="text-sm font-semibold text-slate-900">Admin Control Panel</div>
+          <div className="min-w-0 flex-1 text-sm font-semibold text-slate-900">Admin Control Panel</div>
+          <Link href="/admin/owner-approvals" className="rounded-[8px] bg-blue-50 px-2.5 py-2 text-xs font-black text-blue-700">
+            Duyệt
+          </Link>
+          <Link href="/admin/feedback" className="rounded-[8px] bg-red-50 px-2.5 py-2 text-xs font-black text-red-700">
+            Lỗi
+          </Link>
         </header>
         <main className="flex-1 p-4 sm:p-6 bg-slate-50">{children}</main>
       </div>
