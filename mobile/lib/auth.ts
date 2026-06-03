@@ -24,7 +24,7 @@ export interface AuthUser {
   approvalStatus?: string;
   is_profile_completed?: boolean;
   isProfileCompleted?: boolean;
-  onboardingStep?: 'COMPLETE_PROFILE' | 'PENDING_APPROVAL' | 'DONE';
+  onboardingStep?: 'COMPLETE_PROFILE' | 'PENDING_APPROVAL' | 'REJECTED' | 'DONE';
 }
 
 export interface LoginResponse {
@@ -32,11 +32,39 @@ export interface LoginResponse {
   refreshToken: string;
   user: AuthUser;
   profile?: any;
-  nextStep?: 'COMPLETE_PROFILE' | 'PENDING_APPROVAL' | 'DONE' | 'DASHBOARD';
+  nextStep?: 'COMPLETE_PROFILE' | 'PENDING_APPROVAL' | 'REJECTED' | 'DONE' | 'DASHBOARD';
 }
 
 export function getProfileCompleted(user?: AuthUser | null, fallback = false): boolean {
-  return Boolean(user?.is_profile_completed ?? user?.isProfileCompleted ?? fallback);
+  const explicitCompleted = user?.is_profile_completed ?? user?.isProfileCompleted;
+  if (typeof explicitCompleted === 'boolean') return explicitCompleted;
+  if (['PENDING_APPROVAL', 'REJECTED', 'DONE'].includes(String(user?.onboardingStep || '').toUpperCase())) return true;
+  return fallback;
+}
+
+export function getApprovalStatus(user?: AuthUser | null): string | null {
+  const onboardingStep = String(user?.onboardingStep || '').toUpperCase();
+  if (onboardingStep === 'PENDING_APPROVAL' || onboardingStep === 'REJECTED') return onboardingStep;
+  if (onboardingStep === 'DONE') return String(user?.approvalStatus || user?.status || 'ACTIVE').toUpperCase();
+  return user?.approvalStatus ? String(user.approvalStatus).toUpperCase() : user?.status ? String(user.status).toUpperCase() : null;
+}
+
+export function isDashboardReady(user?: AuthUser | null, nextStep?: string | null): boolean {
+  return (
+    String(user?.status || '').toUpperCase() === 'ACTIVE' &&
+    getApprovalStatus(user) === 'ACTIVE' &&
+    String(user?.onboardingStep || '').toUpperCase() === 'DONE' &&
+    String(nextStep || 'DASHBOARD').toUpperCase() === 'DASHBOARD'
+  );
+}
+
+export function isPendingApproval(user?: AuthUser | null, nextStep?: string | null): boolean {
+  return (
+    String(nextStep || '').toUpperCase() === 'PENDING_APPROVAL' ||
+    String(user?.onboardingStep || '').toUpperCase() === 'PENDING_APPROVAL' ||
+    String(user?.approvalStatus || '').toUpperCase() === 'PENDING_APPROVAL' ||
+    String(user?.status || '').toUpperCase() === 'PENDING_APPROVAL'
+  );
 }
 
 /**

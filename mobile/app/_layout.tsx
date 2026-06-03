@@ -31,8 +31,8 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
-  const { isAuthenticated, isProfileCompleted, approvalStatus, isLoading, isHydrated, hydrate, logout } = useAuthStore();
-  const isPendingApproval = isProfileCompleted && approvalStatus === 'PENDING_APPROVAL';
+  const { isAuthenticated, isProfileCompleted, approvalStatus, onboardingStep, isLoading, isHydrated, hydrate, logout } = useAuthStore();
+  const canEnterApp = isProfileCompleted && approvalStatus === 'ACTIVE' && onboardingStep === 'DONE';
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -79,12 +79,12 @@ export default function RootLayout() {
       router.replace('/(auth)/login');
     } else if (isAuthenticated && !isProfileCompleted && segs[1] !== 'complete-profile') {
       router.replace('/(auth)/complete-profile');
-    } else if (isAuthenticated && isPendingApproval && segs[1] !== 'pending-approval') {
+    } else if (isAuthenticated && isProfileCompleted && !canEnterApp && segs[1] !== 'pending-approval') {
       router.replace('/(auth)/pending-approval');
-    } else if (isAuthenticated && isProfileCompleted && !isPendingApproval && inAuthGroup) {
+    } else if (isAuthenticated && canEnterApp && inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [isAuthenticated, isProfileCompleted, isPendingApproval, segments, fontsLoaded, isHydrated, router]);
+  }, [isAuthenticated, isProfileCompleted, canEnterApp, segments, fontsLoaded, isHydrated, router]);
 
   // Show loading while fonts/auth hydrating
   if (!fontsLoaded || !isHydrated) {

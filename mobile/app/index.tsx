@@ -4,7 +4,7 @@ import Colors from '@/constants/Colors';
 import { useAuthStore } from '@/store/authStore';
 
 export default function IndexRoute() {
-  const { isAuthenticated, isProfileCompleted, approvalStatus, isHydrated } = useAuthStore();
+  const { isAuthenticated, isProfileCompleted, approvalStatus, onboardingStep, isHydrated } = useAuthStore();
 
   if (!isHydrated) {
     return (
@@ -19,7 +19,7 @@ export default function IndexRoute() {
   }
 
   if (!isProfileCompleted) return <Redirect href="/(auth)/complete-profile" />;
-  if (approvalStatus === 'PENDING_APPROVAL') return <Redirect href="/(auth)/pending-approval" />;
+  if (approvalStatus !== 'ACTIVE' || onboardingStep !== 'DONE') return <Redirect href="/(auth)/pending-approval" />;
   return <Redirect href="/(tabs)" />;
 }
 

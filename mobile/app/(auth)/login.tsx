@@ -24,7 +24,7 @@ import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Config from '@/constants/Config';
 import { useAuthStore } from '@/store/authStore';
-import { loginWithGoogle } from '@/lib/auth';
+import { getProfileCompleted, isDashboardReady, isPendingApproval, loginWithGoogle } from '@/lib/auth';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -74,21 +74,14 @@ export default function LoginScreen() {
       }
 
       const data = await loginWithGoogle(idToken);
-      const profileCompleted =
-        data.user?.is_profile_completed ??
-        data.user?.isProfileCompleted ??
-        data.profile?.is_profile_completed ??
-        data.profile?.isProfileCompleted ??
-        data.nextStep === 'DONE';
+      const profileCompleted = getProfileCompleted(data.user, Boolean(data.profile?.is_profile_completed ?? data.profile?.isProfileCompleted));
       setUser(data.user, profileCompleted);
-      const pendingApproval =
-        data.nextStep === 'PENDING_APPROVAL' ||
-        data.user?.status === 'PENDING_APPROVAL' ||
-        data.user?.approvalStatus === 'PENDING_APPROVAL';
+      const pendingApproval = isPendingApproval(data.user, data.nextStep);
+      const dashboardReady = isDashboardReady(data.user, data.nextStep);
       router.replace(
         !profileCompleted
           ? '/(auth)/complete-profile'
-          : pendingApproval
+          : pendingApproval || !dashboardReady
           ? '/(auth)/pending-approval'
           : '/(tabs)',
       );
@@ -102,21 +95,14 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const data = await loginWithGoogle("mock-owner-google-token");
-      const profileCompleted =
-        data.user?.is_profile_completed ??
-        data.user?.isProfileCompleted ??
-        data.profile?.is_profile_completed ??
-        data.profile?.isProfileCompleted ??
-        data.nextStep === 'DONE';
+      const profileCompleted = getProfileCompleted(data.user, Boolean(data.profile?.is_profile_completed ?? data.profile?.isProfileCompleted));
       setUser(data.user, profileCompleted);
-      const pendingApproval =
-        data.nextStep === 'PENDING_APPROVAL' ||
-        data.user?.status === 'PENDING_APPROVAL' ||
-        data.user?.approvalStatus === 'PENDING_APPROVAL';
+      const pendingApproval = isPendingApproval(data.user, data.nextStep);
+      const dashboardReady = isDashboardReady(data.user, data.nextStep);
       router.replace(
         !profileCompleted
           ? '/(auth)/complete-profile'
-          : pendingApproval
+          : pendingApproval || !dashboardReady
           ? '/(auth)/pending-approval'
           : '/(tabs)',
       );
