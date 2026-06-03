@@ -12,7 +12,7 @@ type User = {
   name: string;
   avatar?: string;
   role: "USER" | "OWNER" | "ADMIN" | "SUPER_ADMIN";
-  status: "ACTIVE" | "BLOCKED" | "DELETED";
+  status: "ACTIVE" | "PENDING_APPROVAL" | "REJECTED" | "BLOCKED" | "DELETED";
   provider?: string;
   created_at?: string;
   last_login_at?: string;
@@ -26,6 +26,8 @@ type User = {
 
 const statusColor = (status: string) => {
   if (status === "ACTIVE") return "bg-green-100 text-green-800";
+  if (status === "PENDING_APPROVAL") return "bg-amber-100 text-amber-800";
+  if (status === "REJECTED") return "bg-red-100 text-red-800";
   if (status === "BLOCKED") return "bg-red-100 text-red-800";
   return "bg-gray-100 text-gray-500";
 };
