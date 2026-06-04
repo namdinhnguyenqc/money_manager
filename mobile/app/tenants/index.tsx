@@ -100,7 +100,8 @@ export default function TenantsScreen() {
       return;
     }
 
-    if (editForm.idCard.replace(/\D/g, '').length !== 12) {
+    const cleanIdCard = editForm.idCard.replace(/\D/g, '');
+    if (cleanIdCard && cleanIdCard.length !== 12) {
       Alert.alert('Thông tin không hợp lệ', 'Số CCCD phải có đúng 12 chữ số.');
       return;
     }
@@ -274,7 +275,7 @@ export default function TenantsScreen() {
                   <View style={{ height: 12 }} />
 
                   <Input
-                    label="Số CCCD / Hộ chiếu (12 số) *"
+                    label="Số CCCD / Hộ chiếu (12 số) (không bắt buộc)"
                     value={editForm.idCard}
                     onChangeText={(v) => setEditForm({ ...editForm, idCard: v })}
                     placeholder="Ví dụ: 030098765432"

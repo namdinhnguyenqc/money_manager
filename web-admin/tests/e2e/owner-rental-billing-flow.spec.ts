@@ -51,7 +51,7 @@ test.describe("Owner rental billing flow", () => {
     await expect(page.getByRole("heading", { name: /Tạo hợp đồng/i })).toBeVisible();
     await page.getByLabel("Họ tên *").fill("Lê Văn C");
     await page.getByLabel("SĐT *").fill("0912345678");
-    await page.getByLabel("CCCD *").fill("123456789012");
+    await page.getByLabel("CCCD").fill("123456789012");
     await page.getByRole("button", { name: /Tiếp theo/i }).click();
     await page.getByLabel(/Ngày kết thúc/).fill("2026-12-31");
     await page.getByRole("button", { name: /^Tạo hợp đồng$/i }).click();
@@ -94,8 +94,8 @@ test.describe("Owner rental billing flow", () => {
     await page.getByLabel("Họ tên *").fill("Khách A");
     await page.getByLabel("SĐT *").fill("abc1xyz");
     await expect(page.getByLabel("SĐT *")).toHaveValue("1");
-    await page.getByLabel("CCCD *").fill("abc123456789xyz");
-    await expect(page.getByLabel("CCCD *")).toHaveValue("123456789");
+    await page.getByLabel("CCCD").fill("abc123456789xyz");
+    await expect(page.getByLabel("CCCD")).toHaveValue("123456789");
     await page.getByLabel("Email").fill("0927368772@gmail.com");
     await page.getByRole("button", { name: /Tiếp theo/i }).click();
 

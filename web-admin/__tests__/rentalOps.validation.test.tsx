@@ -65,6 +65,28 @@ describe("rental tenant validation", () => {
     }
   });
 
+  it("normalizes phone numbers starting with +84 or 84 to 0", () => {
+    const result1 = validateTenantInput({
+      name: "Khách A",
+      phone: "+84927368772",
+      idCard: "123456789012",
+    });
+    expect(result1.ok).toBe(true);
+    if (result1.ok) {
+      expect(result1.data.phone).toBe("0927368772");
+    }
+
+    const result2 = validateTenantInput({
+      name: "Khách A",
+      phone: "84927368772",
+      idCard: "123456789012",
+    });
+    expect(result2.ok).toBe(true);
+    if (result2.ok) {
+      expect(result2.data.phone).toBe("0927368772");
+    }
+  });
+
   it("strips non-digits and caps CCCD/phone input length", () => {
     expect(onlyDigits("abc123-456 789 012xyz", 12)).toBe("123456789012");
     expect(onlyDigits("09a27368772xxx", 10)).toBe("0927368772");

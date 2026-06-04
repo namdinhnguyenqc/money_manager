@@ -1,0 +1,176 @@
+Activity Resolver Table:
+  Schemes:
+      trocare:
+        3c3fa12 com.trocare.mobile/.MainActivity filter 7107be0
+          Action: "android.intent.action.VIEW"
+          Category: "android.intent.category.DEFAULT"
+          Category: "android.intent.category.BROWSABLE"
+          Scheme: "trocare"
+
+  Non-Data Actions:
+      android.intent.action.MAIN:
+        3c3fa12 com.trocare.mobile/.MainActivity filter c8f25e3
+          Action: "android.intent.action.MAIN"
+          Category: "android.intent.category.LAUNCHER"
+
+Receiver Resolver Table:
+  Non-Data Actions:
+      androidx.profileinstaller.action.SAVE_PROFILE:
+        7032e99 com.trocare.mobile/androidx.profileinstaller.ProfileInstallReceiver filter 331760c
+          Action: "androidx.profileinstaller.action.SAVE_PROFILE"
+      androidx.profileinstaller.action.INSTALL_PROFILE:
+        7032e99 com.trocare.mobile/androidx.profileinstaller.ProfileInstallReceiver filter 7e3a55e
+          Action: "androidx.profileinstaller.action.INSTALL_PROFILE"
+      androidx.profileinstaller.action.SKIP_FILE:
+        7032e99 com.trocare.mobile/androidx.profileinstaller.ProfileInstallReceiver filter d043d3f
+          Action: "androidx.profileinstaller.action.SKIP_FILE"
+      androidx.profileinstaller.action.BENCHMARK_OPERATION:
+        7032e99 com.trocare.mobile/androidx.profileinstaller.ProfileInstallReceiver filter 74f1b55
+          Action: "androidx.profileinstaller.action.BENCHMARK_OPERATION"
+
+Domain verification status:
+
+Permissions:
+  Permission [com.trocare.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION] (7d351c5):
+    sourcePackage=com.trocare.mobile
+    uid=10242 gids=[] type=0 prot=signature
+    perm=PermissionInfo{b42071a com.trocare.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION}
+    flags=0x0
+
+Registered ContentProviders:
+  com.trocare.mobile/expo.modules.filesystem.FileSystemFileProvider:
+    Provider{163224b com.trocare.mobile/expo.modules.filesystem.FileSystemFileProvider}
+  com.trocare.mobile/androidx.startup.InitializationProvider:
+    Provider{caaa428 com.trocare.mobile/androidx.startup.InitializationProvider}
+  com.trocare.mobile/expo.modules.sharing.SharingFileProvider:
+    Provider{19c4541 com.trocare.mobile/expo.modules.sharing.SharingFileProvider}
+
+ContentProvider Authorities:
+  [com.trocare.mobile.FileSystemFileProvider]:
+    Provider{163224b com.trocare.mobile/expo.modules.filesystem.FileSystemFileProvider}
+      applicationInfo=ApplicationInfo{de97ae6 com.trocare.mobile}
+  [com.trocare.mobile.SharingFileProvider]:
+    Provider{19c4541 com.trocare.mobile/expo.modules.sharing.SharingFileProvider}
+      applicationInfo=ApplicationInfo{3bf9827 com.trocare.mobile}
+  [com.trocare.mobile.androidx-startup]:
+    Provider{caaa428 com.trocare.mobile/androidx.startup.InitializationProvider}
+      applicationInfo=ApplicationInfo{e19dad4 com.trocare.mobile}
+
+Key Set Manager:
+  [com.trocare.mobile]
+      Signing KeySets: 72
+
+Packages:
+  Package [com.trocare.mobile] (b95b78e):
+    appId=10242
+    pccId=-1
+    pkg=Package{5a6f47d com.trocare.mobile}
+    codePath=/data/app/~~eNZxiy210A5NS9PDDBREAw==/com.trocare.mobile-NweOgdOQGn-XXLnBz5SzwQ==
+    resourcePath=/data/app/~~eNZxiy210A5NS9PDDBREAw==/com.trocare.mobile-NweOgdOQGn-XXLnBz5SzwQ==
+    legacyNativeLibraryDir=/data/app/~~eNZxiy210A5NS9PDDBREAw==/com.trocare.mobile-NweOgdOQGn-XXLnBz5SzwQ==/lib
+    extractNativeLibs=true
+    primaryCpuAbi=arm64-v8a
+    secondaryCpuAbi=null
+    cpuAbiOverride=null
+    versionCode=1 minSdk=24 targetSdk=36
+    minExtensionVersions=[]
+    versionName=1.0.0
+    hiddenApiEnforcementPolicy=2
+    usesNonSdkApi=false
+    splits=[base]
+    apkSigningVersion=2
+    flags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ALLOW_BACKUP KILL_AFTER_RESTORE ]
+    privateFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    forceQueryable=false
+    pageSizeCompat=0
+    queriesIntents=[Intent { act=android.intent.action.VIEW cat=[android.intent.category.BROWSABLE] dat=https:/... }, Intent { act=android.intent.action.OPEN_DOCUMENT_TREE }, Intent { act=android.intent.action.SEND dat=content://*/... typ=*/* }, Intent { act=android.support.customtabs.action.CustomTabsService }]
+    scannedAsStoppedSystemApp=false
+    supportsScreens=[small, medium, large, xlarge, resizeable, anyDensity]
+    timeStamp=2026-05-31 02:13:29
+    lastUpdateTime=2026-05-31 02:13:29
+    installerPackageName=null
+    installerPackageUid=-1
+    initiatingPackageName=com.android.shell
+    originatingPackageName=null
+    packageSource=1
+    appMetadataFilePath=null
+    appMetadataSource=0
+    signatures=PackageSignatures{c425f72 version:2, signatures:[51ed3f60], past signatures:[]}
+    installPermissionsFixed=false
+    pkgFlags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ALLOW_BACKUP KILL_AFTER_RESTORE ]
+    privatePkgFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    apexModuleName=null
+    declared permissions:
+      com.trocare.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: prot=signature
+    requested permissions:
+      com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE
+      android.permission.ACCESS_LOCAL_NETWORK
+      android.permission.SYSTEM_ALERT_WINDOW
+      android.permission.INTERNET
+      android.permission.READ_EXTERNAL_STORAGE
+      com.trocare.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+      android.permission.USE_FINGERPRINT
+      android.permission.WRITE_EXTERNAL_STORAGE
+      android.permission.VIBRATE
+      android.permission.USE_BIOMETRIC
+    install permissions:
+      com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE: granted=true
+      android.permission.INTERNET: granted=true
+      com.trocare.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: granted=true
+      android.permission.USE_FINGERPRINT: granted=true
+      android.permission.VIBRATE: granted=true
+      android.permission.USE_BIOMETRIC: granted=true
+    User 0: ceDataInode=0 deDataInode=49492 pccCeDataInode=0 pccDeDataInode=0 installed=true hidden=false suspended=false appLockEnabled=false distractionFlags=0 stopped=true notLaunched=true enabled=0 instant=false virtual=false quarantined=false
+      installReason=0
+      dataDir=/data/user/0/com.trocare.mobile
+      firstInstallTime=2026-05-31 02:13:29
+      uninstallReason=0
+      overlay paths:
+        /product/overlay/EmulationPixel7a/EmulationPixel7aOverlay.apk
+        /product/overlay/NavigationBarModeGestural/NavigationBarModeGesturalOverlay.apk
+      legacy overlay paths:
+        /product/overlay/EmulationPixel7a/EmulationPixel7aOverlay.apk
+        /product/overlay/NavigationBarModeGestural/NavigationBarModeGesturalOverlay.apk
+      gids=[3003]
+      runtime permissions:
+        android.permission.ACCESS_LOCAL_NETWORK: granted=true, flags=[ REVOKE_WHEN_REQUESTED|USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+        android.permission.READ_EXTERNAL_STORAGE: granted=false, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED|RESTRICTION_INSTALLER_EXEMPT]
+        android.permission.WRITE_EXTERNAL_STORAGE: granted=false, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED|RESTRICTION_INSTALLER_EXEMPT]
+
+Queries:
+  system apps queryable: false
+  queries via forceQueryable:
+  queries via package name:
+  queries via component:
+    com.google.android.as.oss:
+      com.trocare.mobile
+    com.google.android.as:
+      com.trocare.mobile
+    com.google.android.apps.messaging:
+      com.trocare.mobile
+    com.google.android.settings.intelligence:
+      com.trocare.mobile
+    com.google.android.glasses.companion:
+      com.trocare.mobile
+    com.google.android.apps.accessibility.voiceaccess:
+      com.trocare.mobile
+    com.trocare.mobile:
+      com.google.android.bluetooth
+      com.google.android.documentsui
+      com.google.android.apps.messaging
+      com.google.android.googlequicksearchbox
+      com.android.chrome
+      com.google.android.apps.docs
+      com.google.android.apps.maps
+      com.google.android.apps.photos
+      com.google.android.gm
+      com.google.android.youtube
+  queryable via interaction:
+    User 0:
+  queryable via uses-library:
+
+Dexopt state:
+  [com.trocare.mobile]
+    path: /data/app/~~eNZxiy210A5NS9PDDBREAw==/com.trocare.mobile-NweOgdOQGn-XXLnBz5SzwQ==/base.apk
+      arm64: [status=run-from-apk] [reason=unknown] [primary-abi]
+        [location is error]

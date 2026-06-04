@@ -65,7 +65,6 @@ const navSections = [
       { href: "/owner/profile", label: "Hồ sơ chủ trọ", icon: UserCircle },
       { href: "/owner/settings", label: "Cài đặt hệ thống", icon: Settings },
       { href: "/owner/feedback", label: "Báo cáo lỗi / Góp ý", icon: HelpCircle },
-      { href: "/owner/bookings", label: "Yêu cầu thuê (Beta)", icon: MessageSquare },
     ]
   }
 ];

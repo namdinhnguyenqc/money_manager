@@ -36,7 +36,9 @@ const tenantInputSchema = z.object({
   name: z.string().trim().min(1, 'Vui lòng nhập họ tên khách thuê.'),
   phone: z.string().trim().length(10, 'Số điện thoại phải có đúng 10 số.').regex(/^\d+$/, 'Số điện thoại chỉ được chứa chữ số.'),
   email: z.string().trim().optional().refine((value) => !value || z.string().email().safeParse(value).success, 'Email không hợp lệ.'),
-  idCard: z.string().trim().length(12, 'CCCD phải có đúng 12 số.').regex(/^\d+$/, 'CCCD chỉ được chứa chữ số.'),
+  idCard: z.string().trim().optional().or(z.literal('')).refine((val) => !val || (val.length === 12 && /^\d+$/.test(val)), {
+    message: 'CCCD phải có đúng 12 số.',
+  }),
   address: z.string().trim().optional(),
 });
 

@@ -61,7 +61,7 @@ type SettingItem = { key: string; value: any; type: string; category: string };
 
 export default function OwnerSettingsPage() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("general");
+  const [activeTab, setActiveTab] = useState("payment");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<Record<string, SettingItem>>({});
@@ -586,12 +586,10 @@ export default function OwnerSettingsPage() {
   };
 
   const tabs = [
-    { id: "general", label: "Chung", icon: Settings, desc: "Cấu hình thông tin cơ bản & hiển thị" },
     { id: "payment", label: "Thanh toán", icon: CreditCard, desc: "Cài đặt chu kỳ thanh toán & Ngân hàng tĩnh" },
     { id: "sepay-logs", label: "Kết nối SePay", icon: Layers, desc: "Tích hợp API, Kênh thanh toán & Webhook logs" },
     { id: "pricing", label: "Bảng giá", icon: Zap, desc: "Đơn giá các dịch vụ điện, nước, tiện ích" },
     { id: "extension", label: "Mở rộng", icon: Wallet, desc: "Quản lý dòng tiền, Ví lưu trữ và đối soát" },
-    { id: "zalo", label: "Tích hợp Zalo", icon: Sparkles, desc: "Zalo Login & gửi tin nhắn qua Zalo OA" },
   ];
 
   return (

@@ -3,12 +3,12 @@
   "numPassedTestSuites": 14,
   "numFailedTestSuites": 0,
   "numPendingTestSuites": 0,
-  "numTotalTests": 17,
-  "numPassedTests": 17,
+  "numTotalTests": 18,
+  "numPassedTests": 18,
   "numFailedTests": 0,
   "numPendingTests": 0,
   "numTodoTests": 0,
-  "startTime": 1779646843706,
+  "startTime": 1780585350929,
   "success": true,
   "testResults": [
     {
@@ -21,7 +21,7 @@
           "fullName": " KPICard renders title and value",
           "status": "passed",
           "title": "renders title and value",
-          "duration": 43,
+          "duration": 16,
           "failureMessages": []
         },
         {
@@ -32,7 +32,7 @@
           "fullName": " KPICard renders suffix when provided",
           "status": "passed",
           "title": "renders suffix when provided",
-          "duration": 4,
+          "duration": 1,
           "failureMessages": []
         },
         {
@@ -43,12 +43,12 @@
           "fullName": " KPICard renders delta when provided",
           "status": "passed",
           "title": "renders delta when provided",
-          "duration": 1,
+          "duration": 2,
           "failureMessages": []
         }
       ],
-      "startTime": 1779646844715,
-      "endTime": 1779646844764,
+      "startTime": 1780585351314,
+      "endTime": 1780585351333,
       "status": "passed",
       "message": "",
       "name": "/Users/thao/money_manager/web-admin/__tests__/KPICard.test.tsx"
@@ -63,12 +63,12 @@
           "fullName": " LeadForm submits payload via onSubmit",
           "status": "passed",
           "title": "submits payload via onSubmit",
-          "duration": 46,
+          "duration": 23,
           "failureMessages": []
         }
       ],
-      "startTime": 1779646844721,
-      "endTime": 1779646844767,
+      "startTime": 1780585351325,
+      "endTime": 1780585351348,
       "status": "passed",
       "message": "",
       "name": "/Users/thao/money_manager/web-admin/__tests__/LeadForm.test.tsx"
@@ -83,12 +83,12 @@
           "fullName": " Not Authorized Page renders Not Authorized message",
           "status": "passed",
           "title": "renders Not Authorized message",
-          "duration": 55,
+          "duration": 18,
           "failureMessages": []
         }
       ],
-      "startTime": 1779646844761,
-      "endTime": 1779646844816,
+      "startTime": 1780585351333,
+      "endTime": 1780585351351,
       "status": "passed",
       "message": "",
       "name": "/Users/thao/money_manager/web-admin/__tests__/NotAuthorized.test.tsx"
@@ -103,7 +103,7 @@
           "fullName": " ProfileFormCard keeps typed values when a server field error is shown",
           "status": "passed",
           "title": "keeps typed values when a server field error is shown",
-          "duration": 38,
+          "duration": 28,
           "failureMessages": []
         },
         {
@@ -114,12 +114,12 @@
           "fullName": " ProfileFormCard hides the stale server error when the user edits that field",
           "status": "passed",
           "title": "hides the stale server error when the user edits that field",
-          "duration": 11,
+          "duration": 4,
           "failureMessages": []
         }
       ],
-      "startTime": 1779646844818,
-      "endTime": 1779646844867,
+      "startTime": 1780585351385,
+      "endTime": 1780585351417,
       "status": "passed",
       "message": "",
       "name": "/Users/thao/money_manager/web-admin/__tests__/ProfileFormCard.test.tsx"
@@ -134,7 +134,7 @@
           "fullName": " RBACGuard renders children when role is allowed",
           "status": "passed",
           "title": "renders children when role is allowed",
-          "duration": 15,
+          "duration": 19,
           "failureMessages": []
         },
         {
@@ -145,12 +145,12 @@
           "fullName": " RBACGuard rejects roles that are not allowed",
           "status": "passed",
           "title": "rejects roles that are not allowed",
-          "duration": 1,
+          "duration": 0,
           "failureMessages": []
         }
       ],
-      "startTime": 1779646844737,
-      "endTime": 1779646844753,
+      "startTime": 1780585351326,
+      "endTime": 1780585351346,
       "status": "passed",
       "message": "",
       "name": "/Users/thao/money_manager/web-admin/__tests__/RBACGuard.test.tsx"
@@ -165,7 +165,7 @@
           "fullName": " RBAC guard logic (evaluateRBACGuard) allows access when token present and role OWNER",
           "status": "passed",
           "title": "allows access when token present and role OWNER",
-          "duration": 1,
+          "duration": 0,
           "failureMessages": []
         },
         {
@@ -176,7 +176,7 @@
           "fullName": " RBAC guard logic (evaluateRBACGuard) redirects to login when no token",
           "status": "passed",
           "title": "redirects to login when no token",
-          "duration": 0,
+          "duration": 1,
           "failureMessages": []
         },
         {
@@ -187,12 +187,12 @@
           "fullName": " RBAC guard logic (evaluateRBACGuard) redirects to not-authorized when non-owner with token",
           "status": "passed",
           "title": "redirects to not-authorized when non-owner with token",
-          "duration": 1,
+          "duration": 0,
           "failureMessages": []
         }
       ],
-      "startTime": 1779646844593,
-      "endTime": 1779646844595,
+      "startTime": 1780585351263,
+      "endTime": 1780585351264,
       "status": "passed",
       "message": "",
       "name": "/Users/thao/money_manager/web-admin/__tests__/RBACGuardLogic.test.tsx"
@@ -229,7 +229,7 @@
           "fullName": " rental tenant validation rejects old 9-digit identity numbers for CCCD rental flow",
           "status": "passed",
           "title": "rejects old 9-digit identity numbers for CCCD rental flow",
-          "duration": 0,
+          "duration": 1,
           "failureMessages": []
         },
         {
@@ -240,7 +240,18 @@
           "fullName": " rental tenant validation accepts valid tenant identity data",
           "status": "passed",
           "title": "accepts valid tenant identity data",
-          "duration": 1,
+          "duration": 0,
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": [
+            "",
+            "rental tenant validation"
+          ],
+          "fullName": " rental tenant validation normalizes phone numbers starting with +84 or 84 to 0",
+          "status": "passed",
+          "title": "normalizes phone numbers starting with +84 or 84 to 0",
+          "duration": 0,
           "failureMessages": []
         },
         {
@@ -251,12 +262,12 @@
           "fullName": " rental tenant validation strips non-digits and caps CCCD/phone input length",
           "status": "passed",
           "title": "strips non-digits and caps CCCD/phone input length",
-          "duration": 0,
+          "duration": 1,
           "failureMessages": []
         }
       ],
-      "startTime": 1779646844670,
-      "endTime": 1779646844676,
+      "startTime": 1780585351328,
+      "endTime": 1780585351334,
       "status": "passed",
       "message": "",
       "name": "/Users/thao/money_manager/web-admin/__tests__/rentalOps.validation.test.tsx"

@@ -516,9 +516,9 @@ async function handleOwnerGoogleAuth(idToken: string | undefined) {
 
   if (idToken === "mock-owner-google-token") {
     return upsertOwnerGoogleUser({
-      googleId: "109755943978980298572-chelsea",
-      email: "namchelsea2611@gmail.com",
-      name: "Nam Chelsea",
+      googleId: "109755943978980298572",
+      email: "namdinhnguyen2611@gmail.com",
+      name: "Nam Nguyễn",
       avatar: "https://lh3.googleusercontent.com/a/ACg8ocI6xyVrrGXfxgxyKj5x8CdUantzwKgQ6ReY4kLY0A5Rk1bL3UMk=s96-c",
       isProfileCompleted: true,
     });

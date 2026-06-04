@@ -158,7 +158,11 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
       console.error("Database error fetching app JWT user:", dbError.message);
     }
 
-    const status = dbUser?.status || appJwt.status || "ACTIVE";
+    if (!dbUser) {
+      return c.json({ error: "User not found in database", code: "USER_NOT_FOUND" }, 401);
+    }
+
+    const status = dbUser?.status || "ACTIVE";
     if (status === "BLOCKED") {
       return c.json({ error: "Account is blocked", code: "ACCOUNT_BLOCKED" }, 403);
     }
