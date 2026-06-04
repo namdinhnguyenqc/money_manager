@@ -109,6 +109,19 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
         router.replace("/pending-approval");
         return;
       }
+      const justLoggedIn = typeof window !== "undefined" && sessionStorage.getItem("justLoggedIn") === "true";
+      if (justLoggedIn) {
+        sessionStorage.removeItem("justLoggedIn");
+      }
+
+      if (justLoggedIn && (storedUser.role === "OWNER" || storedUser.role === "SUPER_ADMIN")) {
+        setOwnerName(storedUser.name || "Owner");
+        setOwnerEmail(storedUser.email || "");
+        setAuthorized(true);
+        setLoading(false);
+        return;
+      }
+
       if (storedUser.role === "OWNER" || storedUser.role === "SUPER_ADMIN") {
         setOwnerName(storedUser.name || "Owner");
         setOwnerEmail(storedUser.email || "");

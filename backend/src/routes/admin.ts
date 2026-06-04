@@ -474,7 +474,7 @@ adminRoutes.patch("/owner-approvals/:id", requireAuth, requireAdmin, async (c) =
   if (targetUser.role !== "OWNER") return c.json({ error: "Only OWNER accounts require approval" }, 400);
   if (currentUser.id === userId) return c.json({ error: "Cannot approve/reject yourself" }, 400);
 
-  const nextStatus = validation.data.action === "approve" ? "ACTIVE" : targetUser.status;
+  const nextStatus = validation.data.action === "approve" ? "ACTIVE" : "REJECTED";
   const payload = {
     status: nextStatus,
     is_profile_completed: true,
