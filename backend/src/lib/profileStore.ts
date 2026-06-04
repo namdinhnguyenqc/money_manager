@@ -102,6 +102,7 @@ export async function upsertUserProfile(userId: string, input: UserProfileInput)
     name: input.fullName,
     avatar: input.avatarUrl ?? undefined,
     is_profile_completed: true,
+    status: "PENDING_APPROVAL",
     onboarding_step: "PENDING_APPROVAL",
     updated_at: now,
   };

@@ -46,7 +46,8 @@ const cleanupRecentRefreshRotations = () => {
 // ─────────────────────────────────────────────────────────
 // Cookie helpers (same pattern as auth.ts)
 // ─────────────────────────────────────────────────────────
-const cookieOptions = `Path=/tenant-auth; HttpOnly; SameSite=Lax; Max-Age=${env.REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+const isProd = process.env.NODE_ENV === "production";
+const cookieOptions = `Path=/; HttpOnly; SameSite=${isProd ? "None" : "Lax"}; Max-Age=${env.REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60}${isProd ? "; Secure" : ""}`;
 
 const setRefreshCookie = (c: any, refreshToken: string) => {
   c.header("Set-Cookie", `refreshToken=${encodeURIComponent(refreshToken)}; ${cookieOptions}`, { append: true });

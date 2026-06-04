@@ -109,6 +109,8 @@ app.use(
         env.CORS_ORIGINS.includes(origin) ||
         origin.endsWith(".vercel.app") ||
         origin.endsWith(".onrender.com") ||
+        origin.endsWith(".trocare.vn") ||
+        origin === "https://trocare.vn" ||
         origin.includes("localhost:") ||
         origin.includes("127.0.0.1:");
       

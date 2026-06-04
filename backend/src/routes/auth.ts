@@ -17,7 +17,8 @@ import { buildProfileAuthMeta, getUserProfile } from "../lib/profileStore.js";
 
 const authRoutes = new Hono<AppEnv>();
 
-const cookieOptions = `Path=/auth; HttpOnly; SameSite=Lax; Max-Age=${env.REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+const isProd = process.env.NODE_ENV === "production";
+const cookieOptions = `Path=/; HttpOnly; SameSite=${isProd ? "None" : "Lax"}; Max-Age=${env.REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60}${isProd ? "; Secure" : ""}`;
 const REFRESH_REPLAY_GRACE_MS = 10_000;
 
 // TODO: Chuyá»ƒn sang Redis náº¿u triá»ƒn khai nhiá»u instance backend (Horizontal Scaling)
@@ -39,10 +40,12 @@ const setRefreshCookie = (c: any, refreshToken: string) => {
 };
 
 const clearAuthCookies = (c: any) => {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  c.header("Set-Cookie", `accessToken=; Path=/; Max-Age=0; SameSite=Lax${secure}`);
-  c.header("Set-Cookie", `refreshToken=; Path=/auth; Max-Age=0; HttpOnly; SameSite=Lax${secure}`, { append: true });
-  c.header("Set-Cookie", `refreshToken=; Path=/; Max-Age=0; SameSite=Lax${secure}`, { append: true });
+  const isProd = process.env.NODE_ENV === "production";
+  const secure = isProd ? "; Secure" : "";
+  const sameSite = isProd ? "None" : "Lax";
+  c.header("Set-Cookie", `accessToken=; Path=/; Max-Age=0; SameSite=${sameSite}${secure}`);
+  c.header("Set-Cookie", `refreshToken=; Path=/auth; Max-Age=0; HttpOnly; SameSite=${sameSite}${secure}`, { append: true });
+  c.header("Set-Cookie", `refreshToken=; Path=/; Max-Age=0; HttpOnly; SameSite=${sameSite}${secure}`, { append: true });
 };
 
 const getCookieValue = (cookieHeader: string | undefined, name: string): string | null => {

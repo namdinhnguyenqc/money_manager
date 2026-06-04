@@ -58,6 +58,8 @@ export default function OwnerGoogleLoginButton() {
         onboardingStep,
       });
 
+      sessionStorage.setItem("justLoggedIn", "true");
+
       // Use client-side router.replace to prevent saving login page in browser history
       router.replace(!isProfileCompleted ? "/complete-profile" : approvalStatus === "PENDING_APPROVAL" ? "/pending-approval" : "/owner/dashboard");
     } catch (err: any) {
