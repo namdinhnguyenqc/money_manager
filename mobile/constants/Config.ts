@@ -58,7 +58,7 @@ const Config = {
   APP_NAME: 'TrọCare',
 
   /** Public website and store-policy pages */
-  WEB_URL: process.env.EXPO_PUBLIC_WEB_URL || 'https://money-manager-xdem.onrender.com',
+  WEB_URL: process.env.EXPO_PUBLIC_WEB_URL || 'https://trocare-production.vercel.app',
 
   /** Default billing day for new contracts */
   DEFAULT_BILLING_DAY: 5,

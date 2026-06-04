@@ -7,7 +7,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://money-manager-xdem.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://trocare-production.vercel.app"
       }
     },
     "preview": {
@@ -16,12 +16,12 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://money-manager-xdem.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://trocare-production.vercel.app"
       }
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://money-manager-xdem.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://trocare-production.vercel.app"
       }
     }
   },
