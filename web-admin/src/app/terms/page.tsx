@@ -64,7 +64,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-extrabold text-slate-950">6. Liên hệ</h2>
             <p className="mt-2">
-              Hỗ trợ người dùng: <a href="mailto:support@trocare.vn" className="font-bold text-blue-600">support@trocare.vn</a>.
+              Hỗ trợ người dùng: <a href="mailto:namnguyen.nexsoft@gmail.com" className="font-bold text-blue-600">namnguyen.nexsoft@gmail.com</a>.
             </p>
           </section>
         </div>

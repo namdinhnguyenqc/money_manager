@@ -64,7 +64,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-lg font-extrabold text-slate-950">6. Liên hệ</h2>
             <p className="mt-2">
-              Nếu có câu hỏi về bảo mật dữ liệu, vui lòng liên hệ: <a href="mailto:support@trocare.vn" className="font-bold text-blue-600">support@trocare.vn</a>.
+              Nếu có câu hỏi về bảo mật dữ liệu, vui lòng liên hệ: <a href="mailto:namnguyen.nexsoft@gmail.com" className="font-bold text-blue-600">namnguyen.nexsoft@gmail.com</a>.
             </p>
           </section>
         </div>

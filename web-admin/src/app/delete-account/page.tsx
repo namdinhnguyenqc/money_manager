@@ -29,7 +29,7 @@ export default function DeleteAccountPage() {
           <section>
             <h2 className="text-lg font-extrabold text-slate-950">1. Cách yêu cầu xóa tài khoản</h2>
             <p className="mt-2">
-              Người dùng có thể yêu cầu xóa tài khoản bằng cách gửi email đến <a href="mailto:support@trocare.vn?subject=Yeu%20cau%20xoa%20tai%20khoan%20TroCare" className="font-bold text-blue-600">support@trocare.vn</a> với tiêu đề “Yêu cầu xóa tài khoản TroCare”. Vui lòng gửi từ email đang dùng để đăng nhập TroCare.
+              Người dùng có thể yêu cầu xóa tài khoản bằng cách gửi email đến <a href="mailto:namnguyen.nexsoft@gmail.com?subject=Yeu%20cau%20xoa%20tai%20khoan%20TroCare" className="font-bold text-blue-600">namnguyen.nexsoft@gmail.com</a> với tiêu đề “Yêu cầu xóa tài khoản TroCare”. Vui lòng gửi từ email đang dùng để đăng nhập TroCare.
             </p>
           </section>
 
