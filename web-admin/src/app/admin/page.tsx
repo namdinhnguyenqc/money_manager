@@ -60,7 +60,7 @@ export default function AdminHomePage() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className="grid gap-4 lg:grid-cols-3">
         <AdminFeatureCard
           href="/admin/owner-approvals"
           icon={<Users size={22} />}
@@ -68,6 +68,15 @@ export default function AdminHomePage() {
           description="Xem form hồ sơ chủ trọ, kiểm tra thông tin liên hệ và duyệt hoặc từ chối quyền vào dashboard."
           count={pendingOwners}
           countLabel="hồ sơ chờ duyệt"
+          tone="blue"
+        />
+        <AdminFeatureCard
+          href="/admin/owner-permissions"
+          icon={<ShieldCheck size={22} />}
+          title="Phân quyền Owner"
+          description="Cấu hình vai trò và bộ quyền chi tiết cho tài khoản chủ trọ (Owner) trong hệ thống."
+          count={null}
+          countLabel="quản lý vai trò"
           tone="blue"
         />
         <AdminFeatureCard

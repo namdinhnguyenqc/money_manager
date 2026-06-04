@@ -16,7 +16,8 @@ import {
   Menu,
   X,
   Loader2,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck
 } from "lucide-react";
 import { clearClientSession, getStoredAccessToken, getStoredSessionUser } from "@/utils/session";
 import { apiGet } from "@/utils/apiClient";
@@ -29,6 +30,7 @@ const navItems = [
   { href: "/admin/invoices", label: "Quản lý hóa đơn", icon: Receipt, isPlaceholder: true },
   { href: "/admin/payments", label: "Quản lý thanh toán", icon: Wallet, isPlaceholder: true },
   { href: "/admin/owner-approvals", label: "Duyệt tài khoản", icon: Users },
+  { href: "/admin/owner-permissions", label: "Phân quyền Owner", icon: ShieldCheck },
   { href: "/admin/feedback", label: "Báo cáo lỗi", icon: Bug, hasBadge: true },
   { href: "/admin/settings", label: "Cài đặt", icon: Settings, isPlaceholder: true },
 ];
