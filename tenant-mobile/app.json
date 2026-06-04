@@ -3,6 +3,7 @@
     "name": "TrọCare Tenant",
     "slug": "trocare-tenant-mobile",
     "version": "1.0.0",
+    "privacyPolicyUrl": "https://money-manager-xdem.onrender.com/privacy",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,10 +16,17 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.trocare.tenant"
+      "bundleIdentifier": "com.trocare.tenant",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "TroCare cần quyền chọn ảnh để khách thuê gửi ảnh phản hồi hoặc tài liệu hỗ trợ.",
+        "NSPhotoLibraryAddUsageDescription": "TroCare cần quyền lưu ảnh khi khách thuê chia sẻ hóa đơn hoặc biên nhận.",
+        "NSCameraUsageDescription": "TroCare cần quyền sử dụng camera để chụp ảnh tài liệu, hóa đơn hoặc gửi ảnh phản hồi."
+      }
     },
     "android": {
-      "usesCleartextTraffic": true,
+      "versionCode": 1,
+      "usesCleartextTraffic": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0066FF"

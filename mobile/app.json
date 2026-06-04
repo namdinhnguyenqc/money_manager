@@ -4,6 +4,7 @@
     "slug": "trocare-mobile",
     "version": "1.0.0",
     "description": "TroCare Owner giúp chủ trọ quản lý dãy trọ, phòng, khách thuê, hợp đồng, hóa đơn, thu chi và thanh toán.",
+    "privacyPolicyUrl": "https://money-manager-xdem.onrender.com/privacy",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,12 +18,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.trocare.mobile",
+      "buildNumber": "1",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "TroCare cần quyền chọn ảnh để chủ trọ gửi ảnh phản hồi hoặc tài liệu hỗ trợ.",
-        "NSPhotoLibraryAddUsageDescription": "TroCare cần quyền lưu ảnh khi chủ trọ chia sẻ hóa đơn hoặc biên nhận."
+        "NSPhotoLibraryAddUsageDescription": "TroCare cần quyền lưu ảnh khi chủ trọ chia sẻ hóa đơn hoặc biên nhận.",
+        "NSCameraUsageDescription": "TroCare cần quyền sử dụng camera để chụp ảnh tài liệu, hóa đơn hoặc gửi ảnh phản hồi."
       }
     },
     "android": {
+      "versionCode": 1,
       "usesCleartextTraffic": false,
       "permissions": [
         "android.permission.INTERNET",
