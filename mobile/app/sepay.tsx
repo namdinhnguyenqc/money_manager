@@ -14,7 +14,7 @@ import { apiGet } from '@/lib/api';
 import type { PaymentChannel } from '@/lib/rentalOps';
 import { formatMoney } from '@/lib/rentalOps';
 
-const SEPAY_WEBHOOK_URL = 'https://money-manager-xdem.onrender.com/webhooks/sepay';
+const SEPAY_WEBHOOK_URL = 'https://trocare-production.vercel.app/webhooks/sepay';
 
 const API_ROWS = [
   { method: 'POST', path: '/webhooks/sepay', desc: 'Webhook nhận giao dịch SePay' },

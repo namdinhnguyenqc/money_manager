@@ -1,5 +1,5 @@
 /** Next.js config for Web Admin */
-const productionApiUrl = 'https://money-manager-xdem.onrender.com';
+const productionApiUrl = 'https://trocare-production.vercel.app';
 const localApiUrl = 'http://localhost:8787';
 const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL;
 const safeApiUrl =

@@ -4,7 +4,7 @@
     "slug": "trocare-mobile",
     "version": "1.0.0",
     "description": "TroCare Owner giúp chủ trọ quản lý dãy trọ, phòng, khách thuê, hợp đồng, hóa đơn, thu chi và thanh toán.",
-    "privacyPolicyUrl": "https://money-manager-xdem.onrender.com/privacy",
+    "privacyPolicyUrl": "https://trocare-production.vercel.app/privacy",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
