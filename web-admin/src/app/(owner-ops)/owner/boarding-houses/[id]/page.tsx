@@ -815,7 +815,7 @@ function ContractPanel({ rooms, onClose, onSaved }: { rooms: RentalRoom[]; onClo
         </Field>
         <div className="grid gap-3 md:grid-cols-2">
           <Field label="Họ tên khách thuê *"><input className="input" value={form.tenantName} onChange={(e) => setForm((prev) => ({ ...prev, tenantName: e.target.value }))} required /></Field>
-          <Field label="CCCD *"><input className="input" inputMode="numeric" value={form.idCard} onChange={(e) => setForm((prev) => ({ ...prev, idCard: onlyDigits(e.target.value) }))} required /></Field>
+          <Field label="CCCD"><input className="input" inputMode="numeric" value={form.idCard} onChange={(e) => setForm((prev) => ({ ...prev, idCard: onlyDigits(e.target.value) }))} /></Field>
           <Field label="SĐT *"><input className="input" inputMode="numeric" value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: onlyDigits(e.target.value) }))} required /></Field>
           <Field label="Email"><input className="input" type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} /></Field>
         </div>

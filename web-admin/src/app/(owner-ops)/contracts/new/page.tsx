@@ -14,7 +14,7 @@ import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 const tenantSchema = z.object({
   full_name: z.string().min(1, "Vui lòng nhập họ tên."),
   phone: z.string().regex(/^\d+$/, "Số điện thoại chỉ được chứa chữ số."),
-  id_number: z.string().regex(/^\d+$/, "CCCD chỉ được chứa chữ số."),
+  id_number: z.string().optional().refine((val) => !val || /^\d+$/.test(val), "CCCD chỉ được chứa chữ số.").or(z.literal("")),
   email: z.string().email("Email không hợp lệ.").optional().or(z.literal("")),
 });
 
@@ -251,7 +251,7 @@ export default function NewContractPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Họ tên *" error={fieldErrors.full_name}><input className="input" value={tenant.full_name} onChange={(e) => setTenant((prev) => ({ ...prev, full_name: e.target.value }))} /></Field>
               <Field label="SĐT *" error={fieldErrors.phone}><input className="input" inputMode="numeric" value={tenant.phone} onChange={(e) => setTenant((prev) => ({ ...prev, phone: onlyDigits(e.target.value) }))} /></Field>
-              <Field label="CCCD *" error={fieldErrors.id_number}><input className="input" inputMode="numeric" value={tenant.id_number} onChange={(e) => setTenant((prev) => ({ ...prev, id_number: onlyDigits(e.target.value) }))} /></Field>
+              <Field label="CCCD" error={fieldErrors.id_number}><input className="input" inputMode="numeric" value={tenant.id_number} onChange={(e) => setTenant((prev) => ({ ...prev, id_number: onlyDigits(e.target.value) }))} /></Field>
               <Field label="Email" error={fieldErrors.email}><input className="input" value={tenant.email} onChange={(e) => setTenant((prev) => ({ ...prev, email: e.target.value }))} /></Field>
             </div>
           </div>

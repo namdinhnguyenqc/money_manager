@@ -7,7 +7,7 @@ import { ArrowLeft, Check, Copy, PencilLine, Send, ShieldCheck, Wallet } from "l
 import StatusBadge from "@/components/ops/StatusBadge";
 import { BankConfig, Invoice, Transaction, buildInvoiceQrUrl, formatMoney, getInvoiceRemainingAmount, loadBankConfig, loadInvoice, normalizeInvoiceStatus, loadTransactions, loadSettingsMap } from "@/lib/rentalOps";
 import { History, QrCode, ArrowRight } from "lucide-react";
-import ZaloNotificationSection from "@/components/ZaloNotificationSection";
+
 
 export default function InvoiceDetailPage() {
   const { id } = useParams();
@@ -217,12 +217,7 @@ export default function InvoiceDetailPage() {
         </div>
       </div>
 
-      <ZaloNotificationSection 
-        invoice={invoice} 
-        onStatusChange={() => {
-          loadInvoice(String(id)).then(setInvoice).catch(() => {});
-        }} 
-      />
+
 
       {(invoice.paid_amount || 0) > 0 ? (
         <div className="mt-5 space-y-4">

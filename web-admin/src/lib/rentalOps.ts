@@ -13,7 +13,7 @@ export type TenantInput = {
 };
 
 export type TenantValidationResult =
-  | { ok: true; data: Required<Pick<TenantInput, "name" | "phone" | "idCard">> & Pick<TenantInput, "email" | "address"> }
+  | { ok: true; data: Required<Pick<TenantInput, "name" | "phone">> & Pick<TenantInput, "idCard" | "email" | "address"> }
   | { ok: false; fieldErrors: Record<string, string> };
 
 export class RentalValidationError extends Error {
@@ -30,7 +30,7 @@ const tenantInputSchema = z.object({
   name: z.string().trim().min(1, "Vui lòng nhập họ tên khách thuê."),
   phone: z.string().trim().length(10, "Số điện thoại phải có đúng 10 số.").regex(/^\d+$/, "Số điện thoại chỉ được chứa chữ số."),
   email: z.string().trim().optional().refine((value) => !value || z.string().email().safeParse(value).success, "Email không hợp lệ."),
-  idCard: z.string().trim().length(12, "CCCD phải có đúng 12 số.").regex(/^\d+$/, "CCCD chỉ được chứa chữ số."),
+  idCard: z.string().trim().optional().refine((value) => !value || (value.length === 12 && /^\d+$/.test(value)), "CCCD phải có đúng 12 số."),
   address: z.string().trim().optional(),
 });
 
@@ -40,10 +40,15 @@ export function onlyDigits(value: string, maxLength?: number) {
 }
 
 export function validateTenantInput(input: TenantInput): TenantValidationResult {
+  let cleanPhone = onlyDigits(input.phone ?? "");
+  if (cleanPhone.startsWith("84") && cleanPhone.length === 11) {
+    cleanPhone = "0" + cleanPhone.slice(2);
+  }
+
   const parsed = tenantInputSchema.safeParse({
     ...input,
     name: input.name ?? "",
-    phone: onlyDigits(input.phone ?? ""),
+    phone: cleanPhone,
     idCard: onlyDigits(input.idCard ?? ""),
     email: input.email ?? "",
     address: input.address ?? "",

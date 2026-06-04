@@ -231,7 +231,8 @@ export default function NewContractScreen() {
       // Continue silently if DB call fails, backend will check it anyway
     }
 
-    if (tenantForm.idCard.replace(/\D/g, '').length !== 12) {
+    const cleanIdCard = tenantForm.idCard.replace(/\D/g, '');
+    if (cleanIdCard && cleanIdCard.length !== 12) {
       Alert.alert('Thông tin không hợp lệ', 'CCCD phải có đúng 12 chữ số.');
       return;
     }
@@ -402,7 +403,7 @@ export default function NewContractScreen() {
           <View style={{ height: 10 }} />
           
           <Input
-            label="Số CCCD / Hộ chiếu *"
+            label="Số CCCD / Hộ chiếu (không bắt buộc)"
             placeholder="Nhập đúng 12 số"
             keyboardType="number-pad"
             maxLength={12}

@@ -370,6 +370,7 @@ rentalRoutes.get("/deposits", async (c) => {
 
 rentalRoutes.post("/deposits", async (c) => {
   const user = c.get("user");
+  console.log(">>> POST /deposits - authenticated user:", JSON.stringify(user));
   const parsed = await parseJson(c, depositSchema);
   if (!parsed.ok) return parsed.response;
 

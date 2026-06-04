@@ -63,7 +63,7 @@ export default function CompleteProfileScreen() {
     const cleanPhone = onlyDigits(phone, 10);
     if (cleanPhone.length !== 10) errs.phone = 'Số điện thoại phải có đúng 10 số.';
     const cleanIdCard = onlyDigits(idCard, 12);
-    if (cleanIdCard.length !== 12) errs.idCard = 'CCCD phải có đúng 12 số.';
+    if (cleanIdCard && cleanIdCard.length !== 12) errs.idCard = 'CCCD phải có đúng 12 số.';
     if (!address.trim() || address.trim().length < 5) errs.address = 'Vui lòng nhập địa chỉ chi tiết.';
     if (!provinceCode) errs.provinceCode = 'Vui lòng chọn tỉnh/thành phố.';
     if (!districtCode) errs.districtCode = 'Vui lòng chọn quận/huyện.';
@@ -156,13 +156,12 @@ export default function CompleteProfileScreen() {
           />
 
           <Input
-            label="Số CCCD"
+            label="Số CCCD (không bắt buộc)"
             value={idCard}
             onChangeText={(v) => setIdCard(onlyDigits(v, 12))}
             placeholder="012345678901"
             keyboardType="number-pad"
             error={errors.idCard}
-            required
             icon={<Ionicons name="card-outline" size={18} color={Colors.textMuted} />}
           />
 
