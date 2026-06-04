@@ -156,7 +156,6 @@ export default function LoginPage() {
 
           <div className="relative z-20 space-y-4">
             <OwnerGoogleLoginButton />
-
           </div>
 
           <div className="mt-8 mb-6 relative flex justify-center items-center h-20">
