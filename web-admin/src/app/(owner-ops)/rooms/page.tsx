@@ -189,9 +189,16 @@ export default function AllRoomsPage() {
                 <div className="border-t border-slate-100 bg-slate-50/30 px-5 py-3 flex items-center justify-between gap-2">
                   <div className="flex gap-2">
                     {String(room.status || "").toLowerCase() !== "occupied" && (
-                      <Link href={`/contracts/new?room_id=${room.id}&facility_id=${facilityId}`}>
-                        <Button variant="primary" size="sm">Tạo HĐ</Button>
-                      </Link>
+                      <>
+                        <Link href={`/contracts/new?room_id=${room.id}&facility_id=${facilityId}`}>
+                          <Button variant="primary" size="sm">Tạo HĐ</Button>
+                        </Link>
+                        {String(room.status || "").toLowerCase() !== "reserved" && (
+                          <Link href={`/deposits?room_id=${room.id}`}>
+                            <Button variant="outline" size="sm">Đặt cọc</Button>
+                          </Link>
+                        )}
+                      </>
                     )}
                     {String(room.status || "").toLowerCase() === "occupied" && room.contract_id && (
                       <>

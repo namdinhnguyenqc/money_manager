@@ -24,14 +24,23 @@ import PageHeader from "@/components/ui/PageHeader";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+import { useSearchParams } from "next/navigation";
 
 const pageSize = 10;
 
 export default function DepositsPage() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const urlRoomId = searchParams.get("room_id") || "";
   const [formOpen, setFormOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    if (urlRoomId) {
+      setFormOpen(true);
+    }
+  }, [urlRoomId]);
 
   const depositsQuery = useQuery({
     queryKey: ["deposits"],
@@ -144,9 +153,14 @@ export default function DepositsPage() {
       {/* Form Modal */}
       {formOpen && (
         <NewDepositModal
-          onClose={() => setFormOpen(false)}
+          defaultRoomId={urlRoomId}
+          onClose={() => {
+            setFormOpen(false);
+            window.history.replaceState(null, "", "/deposits");
+          }}
           onCreated={() => {
             setFormOpen(false);
+            window.history.replaceState(null, "", "/deposits");
             invalidateOwnerOpsQueries(queryClient);
           }}
         />
@@ -257,13 +271,13 @@ function DepositRow({ deposit, onCancelled }: { deposit: Deposit; onCancelled: (
   );
 }
 
-function NewDepositModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NewDepositModal({ defaultRoomId = "", onClose, onCreated }: { defaultRoomId?: string; onClose: () => void; onCreated: () => void }) {
   const [rooms, setRooms] = useState<RentalRoom[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const [form, setForm] = useState<DepositInput>({
-    roomId: "",
+    roomId: defaultRoomId,
     tenantName: "",
     tenantPhone: "",
     amount: 0,
@@ -276,9 +290,9 @@ function NewDepositModal({ onClose, onCreated }: { onClose: () => void; onCreate
 
   React.useEffect(() => {
     loadRentalRooms()
-      .then((data) => setRooms(data.filter((r) => r.status === "vacant")))
+      .then((data) => setRooms(data.filter((r) => r.status === "vacant" || r.id === defaultRoomId)))
       .catch(() => undefined);
-  }, []);
+  }, [defaultRoomId]);
 
   React.useEffect(() => {
     if (walletsQuery.data?.length && !form.walletId) {
