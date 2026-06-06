@@ -113,9 +113,22 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
         sessionStorage.removeItem("justLoggedIn");
       }
 
+      const fetchPermissions = async () => {
+        try {
+          const permRes = await authFetch(`${API_URL}/owner/permissions`, { cache: "no-store" });
+          if (permRes.ok) {
+            const permData = await permRes.json();
+            localStorage.setItem("userPermissions", JSON.stringify(permData.permissions || []));
+          }
+        } catch (err) {
+          console.error("Failed to fetch user permissions:", err);
+        }
+      };
+
       if (justLoggedIn && (storedUser.role === "OWNER" || storedUser.role === "SUPER_ADMIN")) {
         setOwnerName(storedUser.name || "Owner");
         setOwnerEmail(storedUser.email || "");
+        await fetchPermissions();
         setAuthorized(true);
         setLoading(false);
         return;
@@ -146,16 +159,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
           if (data?.status) localStorage.setItem("userStatus", data.status);
           if (data?.approvalStatus || data?.status) localStorage.setItem("approvalStatus", data.approvalStatus || data.status);
           
-          // Fetch user permissions for Owner
-          try {
-            const permRes = await authFetch(`${API_URL}/owner/permissions`, { cache: "no-store" });
-            if (permRes.ok) {
-              const permData = await permRes.json();
-              localStorage.setItem("userPermissions", JSON.stringify(permData.permissions || []));
-            }
-          } catch (err) {
-            console.error("Failed to fetch user permissions:", err);
-          }
+          await fetchPermissions();
 
           if (data?.isProfileCompleted === false || data?.onboardingStep === "COMPLETE_PROFILE") {
             localStorage.setItem("isProfileCompleted", "false");
