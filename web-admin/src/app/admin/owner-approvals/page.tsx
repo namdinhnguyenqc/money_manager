@@ -38,6 +38,49 @@ export default function OwnerApprovalsPage() {
   const [selectedPlan, setSelectedPlan] = useState<"basic" | "premium">("basic");
   const [updatingPlan, setUpdatingPlan] = useState(false);
 
+  const [searchEmail, setSearchEmail] = useState("");
+  const [nonOwnerResults, setNonOwnerResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [promotingId, setPromotingId] = useState<string | null>(null);
+  const [searchSuccess, setSearchSuccess] = useState("");
+
+  const handleSearchUsers = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchEmail.trim()) return;
+    setSearching(true);
+    setError("");
+    setSearchSuccess("");
+    setNonOwnerResults([]);
+    try {
+      const res = await apiGet<{ data: any[] }>(`/admin/users?search=${encodeURIComponent(searchEmail.trim())}&role=USER`);
+      setNonOwnerResults(res.data || []);
+      if ((res.data || []).length === 0) {
+        setError("Không tìm thấy user thường (USER) nào khớp với email trên.");
+      }
+    } catch (err: any) {
+      setError(err?.message || "Không thể tìm kiếm user.");
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const promoteUserToOwner = async (userId: string, email: string) => {
+    setPromotingId(userId);
+    setError("");
+    setSearchSuccess("");
+    try {
+      await apiPatch(`/admin/users/${userId}/role`, { role: "OWNER" });
+      setSearchSuccess(`Đã nâng cấp thành công tài khoản ${email} thành Owner!`);
+      setNonOwnerResults([]);
+      setSearchEmail("");
+      await load();
+    } catch (err: any) {
+      setError(err?.message || "Không thể nâng cấp user.");
+    } finally {
+      setPromotingId(null);
+    }
+  };
+
   const selectedItem = items.find((item) => item.id === selectedId) || items[0] || null;
 
   const load = useCallback(async () => {
@@ -116,7 +159,7 @@ export default function OwnerApprovalsPage() {
               <ShieldCheck className="text-indigo-600" size={26} />
               Quản lý tài khoản chủ trọ
             </h1>
-            <p className="mt-1 text-sm text-slate-500">Duyệt hồ sơ đăng ký mới và quản lý phân quyền gói dịch vụ (Basic vs Premium).</p>
+            <p className="mt-1 text-sm text-slate-500">Duyệt hồ sơ đăng ký mới, phân quyền và nâng cấp user thường thành Owner.</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex rounded-lg border border-slate-200 bg-white p-1">
@@ -145,6 +188,68 @@ export default function OwnerApprovalsPage() {
             </button>
           </div>
         </div>
+
+        {/* ── Section: Promote User to Owner ── */}
+        <section className="mb-6 rounded-[12px] border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-sm font-black uppercase tracking-wider text-slate-700 mb-2">
+            Nâng cấp User thường lên Owner
+          </h2>
+          <form onSubmit={handleSearchUsers} className="flex gap-2 max-w-md">
+            <input
+              type="email"
+              placeholder="Nhập email user cần nâng cấp..."
+              value={searchEmail}
+              onChange={(e) => setSearchEmail(e.target.value)}
+              className="flex-1 text-xs px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+            <button
+              type="submit"
+              disabled={searching}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-xs font-bold text-white transition disabled:opacity-60"
+            >
+              {searching ? <RefreshCw size={12} className="animate-spin" /> : "Tìm kiếm"}
+            </button>
+          </form>
+
+          {searchSuccess && (
+            <div className="mt-3 text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg p-2.5">
+              {searchSuccess}
+            </div>
+          )}
+
+          {nonOwnerResults.length > 0 && (
+            <div className="mt-3 border border-slate-100 rounded-lg overflow-hidden max-w-lg">
+              <table className="w-full text-left text-xs bg-slate-50">
+                <thead>
+                  <tr className="text-slate-500 border-b border-slate-100">
+                    <th className="px-3 py-2">Tên / Email</th>
+                    <th className="px-3 py-2 text-right">Hành động</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {nonOwnerResults.map((u) => (
+                    <tr key={u.id}>
+                      <td className="px-3 py-2">
+                        <div className="font-bold text-slate-900">{u.name || "Chưa đặt tên"}</div>
+                        <div className="text-[10px] text-slate-400">{u.email}</div>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          type="button"
+                          disabled={promotingId === u.id}
+                          onClick={() => promoteUserToOwner(u.id, u.email)}
+                          className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded-md text-[10px] transition disabled:opacity-60"
+                        >
+                          {promotingId === u.id ? "Đang nâng..." : "Lên Owner"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
         {error && <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
