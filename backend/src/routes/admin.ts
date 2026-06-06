@@ -426,7 +426,102 @@ adminRoutes.patch("/users/:id/plan", requireAuth, requireAdmin, async (c) => {
   return c.json({ success: true, plan: planValue, role_id: targetRoleId });
 });
 
+// ─────────────────────────────────────────────────
+// ROLES & PERMISSIONS management endpoints
+// ─────────────────────────────────────────────────
+
+// GET /admin/roles - List all roles (for owner-permissions admin page)
+adminRoutes.get("/roles", requireAuth, requireAdmin, async (c) => {
+  const { data, error } = await supabaseAdmin
+    .from("roles")
+    .select("id, name, description, created_at")
+    .order("name", { ascending: true });
+
+  if (error) return jsonDbError(c, error, "Failed to fetch roles");
+  return c.json({ data: data || [] });
+});
+
+// GET /admin/roles/:id - Get a single role with its current permissions
+adminRoutes.get("/roles/:id", requireAuth, requireAdmin, async (c) => {
+  const roleId = c.req.param("id");
+
+  const { data: role, error: roleError } = await supabaseAdmin
+    .from("roles")
+    .select("id, name, description, created_at")
+    .eq("id", roleId)
+    .single();
+
+  if (roleError || !role) {
+    return c.json({ error: "Vai trò không tồn tại." }, 404);
+  }
+
+  const { data: perms, error: permError } = await supabaseAdmin
+    .from("role_permissions")
+    .select("permission_key")
+    .eq("role_id", roleId);
+
+  if (permError) return jsonDbError(c, permError, "Failed to fetch role permissions");
+
+  return c.json({
+    data: {
+      ...role,
+      permissions: (perms || []).map((p: any) => p.permission_key),
+    },
+  });
+});
+
+// PATCH /admin/roles/:id/permissions - Replace the permission set for a role
+adminRoutes.patch("/roles/:id/permissions", requireAuth, requireAdmin, async (c) => {
+  const roleId = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const { permissions } = body as { permissions?: string[] };
+
+  if (!Array.isArray(permissions)) {
+    return c.json({ error: "permissions phải là mảng chuỗi." }, 400);
+  }
+
+  // Verify role exists
+  const { data: role, error: roleError } = await supabaseAdmin
+    .from("roles")
+    .select("id, name")
+    .eq("id", roleId)
+    .single();
+
+  if (roleError || !role) {
+    return c.json({ error: "Vai trò không tồn tại." }, 404);
+  }
+
+  // Delete existing permissions for this role, then insert new ones
+  const { error: deleteError } = await supabaseAdmin
+    .from("role_permissions")
+    .delete()
+    .eq("role_id", roleId);
+
+  if (deleteError) return jsonDbError(c, deleteError, "Failed to clear role permissions");
+
+  if (permissions.length > 0) {
+    const rows = permissions.map((key: string) => ({
+      role_id: roleId,
+      permission_key: key,
+    }));
+
+    const { error: insertError } = await supabaseAdmin
+      .from("role_permissions")
+      .insert(rows);
+
+    if (insertError) return jsonDbError(c, insertError, "Failed to insert permissions");
+  }
+
+  return c.json({
+    success: true,
+    role_id: roleId,
+    role_name: role.name,
+    permissions_count: permissions.length,
+  });
+});
+
 // GET /admin/owner-approvals - Owners waiting for admin approval
+
 adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
   const { status = "PENDING_APPROVAL" } = c.req.query();
 

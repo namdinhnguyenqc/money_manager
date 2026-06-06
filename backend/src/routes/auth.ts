@@ -289,6 +289,7 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
         name,
         avatar,
         role: "OWNER",
+        role_id: "8a62d08a-2c8b-4b2a-8888-000000000001", // OWNER_BASIC default
         status: "ACTIVE",
         provider: "GOOGLE",
         last_login_at: new Date().toISOString(),
@@ -428,6 +429,7 @@ async function upsertOwnerGoogleUser(input: {
         name,
         avatar,
         role: "OWNER",
+        role_id: "8a62d08a-2c8b-4b2a-8888-000000000001", // OWNER_BASIC default
         status: "ACTIVE",
         provider: "GOOGLE",
         is_profile_completed: isProfileCompleted,
@@ -448,13 +450,24 @@ async function upsertOwnerGoogleUser(input: {
     if (existingUser.role === "USER") {
       const { data: upgradedUser } = await supabaseAdmin
         .from("users")
-        .update({ role: "OWNER" })
+        .update({ role: "OWNER", role_id: "8a62d08a-2c8b-4b2a-8888-000000000001" })
         .eq("id", existingUser.id)
         .select()
         .single();
       if (upgradedUser) {
         existingUser = upgradedUser;
       }
+    }
+
+    // Backfill role_id for existing OWNER users without one assigned yet
+    if (existingUser.role === "OWNER" && !existingUser.role_id) {
+      supabaseAdmin
+        .from("users")
+        .update({ role_id: "8a62d08a-2c8b-4b2a-8888-000000000001" })
+        .eq("id", existingUser.id)
+        .then(({ error }) => {
+          if (error) console.error("Backfill role_id failed:", error.message);
+        });
     }
 
     if (!["OWNER", "SUPER_ADMIN"].includes(existingUser.role)) {
