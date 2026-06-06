@@ -1,6 +1,7 @@
 {
-  "installCommand": "npm --prefix web-admin install",
-  "buildCommand": "npm --prefix web-admin run build",
-  "outputDirectory": "web-admin/.next",
+  "installCommand": "npm --prefix admin-portal install",
+  "buildCommand": "npm --prefix admin-portal run build",
+  "outputDirectory": "admin-portal/.next",
   "framework": "nextjs"
 }
+
