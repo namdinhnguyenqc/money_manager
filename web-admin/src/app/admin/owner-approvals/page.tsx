@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { CheckCircle2, Eye, RefreshCw, UserRound, XCircle, Sparkles, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Eye, RefreshCw, UserRound, XCircle, Sparkles, ShieldCheck, Sliders } from "lucide-react";
 import { apiGet, apiPatch } from "@/utils/apiClient";
 
 type OwnerApproval = {
@@ -17,6 +17,8 @@ type OwnerApproval = {
   adminNote?: string | null;
   roleId?: string | null;
   plan?: "basic" | "premium";
+  max_boarding_houses?: number | null;
+  max_rooms_per_house?: number | null;
   profile?: {
     fullName?: string;
     phone?: string;
@@ -82,6 +84,42 @@ export default function OwnerApprovalsPage() {
   };
 
   const selectedItem = items.find((item) => item.id === selectedId) || items[0] || null;
+
+  const [maxBoardingHouses, setMaxBoardingHouses] = useState("");
+  const [maxRoomsPerHouse, setMaxRoomsPerHouse] = useState("");
+  const [savingLimits, setSavingLimits] = useState(false);
+
+  useEffect(() => {
+    if (selectedItem) {
+      setMaxBoardingHouses(selectedItem.max_boarding_houses != null ? String(selectedItem.max_boarding_houses) : "");
+      setMaxRoomsPerHouse(selectedItem.max_rooms_per_house != null ? String(selectedItem.max_rooms_per_house) : "");
+    }
+  }, [selectedItem]);
+
+  const handleSaveUserLimits = async () => {
+    if (!selectedItem) return;
+    setSavingLimits(true);
+    setError("");
+    try {
+      const bhVal = maxBoardingHouses === "" ? null : parseInt(maxBoardingHouses, 10);
+      const rmVal = maxRoomsPerHouse === "" ? null : parseInt(maxRoomsPerHouse, 10);
+      await apiPatch(`/admin/users/${selectedItem.id}/limits`, {
+        max_boarding_houses: bhVal,
+        max_rooms_per_house: rmVal,
+      });
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === selectedItem.id
+            ? { ...item, max_boarding_houses: bhVal, max_rooms_per_house: rmVal }
+            : item
+        )
+      );
+    } catch (err: any) {
+      setError(err?.message || "Lỗi khi lưu giới hạn tài nguyên.");
+    } finally {
+      setSavingLimits(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -456,6 +494,50 @@ export default function OwnerApprovalsPage() {
                         }
                       </button>
                     )}
+                  </div>
+                </div>
+
+                {/* ── Custom Limits Section ── */}
+                <div className="rounded-[12px] border border-slate-200 bg-white overflow-hidden shadow-sm">
+                  <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+                    <Sliders size={14} className="text-indigo-600" />
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-700">Giới hạn tài nguyên riêng</span>
+                  </div>
+
+                  <div className="p-4 space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-500 mb-1">Số nhà trọ tối đa</label>
+                        <input
+                          type="number"
+                          value={maxBoardingHouses}
+                          onChange={(e) => setMaxBoardingHouses(e.target.value)}
+                          placeholder="Mặc định role"
+                          className="w-full rounded-[8px] border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-500 mb-1">Phòng / nhà tối đa</label>
+                        <input
+                          type="number"
+                          value={maxRoomsPerHouse}
+                          onChange={(e) => setMaxRoomsPerHouse(e.target.value)}
+                          placeholder="Mặc định role"
+                          className="w-full rounded-[8px] border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      * Cấu hình riêng cho chủ trọ này. Để trống để tự động áp dụng giới hạn mặc định của gói Basic/Premium.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleSaveUserLimits}
+                      disabled={savingLimits}
+                      className="w-full py-2 bg-slate-950 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition disabled:opacity-40 shadow-sm"
+                    >
+                      {savingLimits ? "Đang lưu..." : "Lưu giới hạn riêng"}
+                    </button>
                   </div>
                 </div>
 

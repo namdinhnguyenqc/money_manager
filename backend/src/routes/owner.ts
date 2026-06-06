@@ -7,65 +7,42 @@ import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 
-// ─── Plan tier constants ───────────────────────────────────────
-const OWNER_BASIC_ROLE_ID  = "8a62d08a-2c8b-4b2a-8888-000000000001";
-const OWNER_PREMIUM_ROLE_ID = "8a62d08a-2c8b-4b2a-8888-000000000002";
-
-// Legacy fallback limits (used when DB columns don't exist yet)
-const FALLBACK_LIMITS = {
-  basic:   { maxBoardingHouses: 3,  maxRoomsPerHouse: 15 },
-  premium: { maxBoardingHouses: Infinity, maxRoomsPerHouse: Infinity },
-} as const;
+import { isRolePremium, limitsFromRole, getRoleId } from "../lib/roles.js";
 
 /**
- * Resolve the plan limits for the given user based on their role_id.
- * Fetches max_boarding_houses and max_rooms_per_house from the roles table.
- * NULL in DB = unlimited (Infinity).
- * Falls back to legacy hardcoded values if DB columns don't exist.
+ * Resolve the plan limits for the given user.
+ *
+ * Single query: users JOIN roles — no hardcoded UUIDs, no two-step lookup.
+ * NULL limit columns in the roles table = unlimited (Infinity).
  */
 async function getPlanLimits(userId: string) {
-  // Step 1: Get user's role_id
-  const { data: userData } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("users")
-    .select("role_id")
+    .select("max_boarding_houses, max_rooms_per_house, roles(name, max_boarding_houses, max_rooms_per_house)")
     .eq("id", userId)
     .single();
 
-  const roleId = userData?.role_id;
-  const isPremium = roleId === OWNER_PREMIUM_ROLE_ID;
+  const role = (data as any)?.roles ?? null;
+  const user = data as any;
 
-  // Step 2: Try to fetch limits from the roles table
-  if (roleId) {
-    try {
-      const { data: roleData, error: roleError } = await supabaseAdmin
-        .from("roles")
-        .select("max_boarding_houses, max_rooms_per_house")
-        .eq("id", roleId)
-        .single();
+  const maxBoardingHouses = user?.max_boarding_houses !== null && user?.max_boarding_houses !== undefined
+    ? user.max_boarding_houses
+    : (role?.max_boarding_houses ?? Infinity);
 
-      if (!roleError && roleData) {
-        const maxBH = (roleData as any).max_boarding_houses;
-        const maxR  = (roleData as any).max_rooms_per_house;
-        return {
-          isPremium,
-          limits: {
-            maxBoardingHouses: maxBH === null || maxBH === undefined ? Infinity : maxBH,
-            maxRoomsPerHouse:  maxR === null  || maxR === undefined  ? Infinity : maxR,
-          },
-        };
-      }
-    } catch {
-      // Column doesn't exist yet, fall through to legacy
-    }
-  }
+  const maxRoomsPerHouse = user?.max_rooms_per_house !== null && user?.max_rooms_per_house !== undefined
+    ? user.max_rooms_per_house
+    : (role?.max_rooms_per_house ?? Infinity);
 
-  // Fallback to legacy hardcoded limits
   return {
-    isPremium,
-    limits: isPremium ? FALLBACK_LIMITS.premium : FALLBACK_LIMITS.basic,
+    roleName: role?.name ?? "USER",
+    isPremium: isRolePremium(role?.name),
+    limits: {
+      maxBoardingHouses,
+      maxRoomsPerHouse,
+    },
   };
 }
-// ──────────────────────────────────────────────────────────────
+
 
 const ownerRoutes = new Hono<AppEnv>();
 
@@ -271,7 +248,7 @@ ownerRoutes.post("/boarding-houses", async (c) => {
   }
 
   // ── Plan limit check ───────────────────────────────────────
-  const { isPremium, limits } = await getPlanLimits(currentUser.id);
+  const { roleName, limits } = await getPlanLimits(currentUser.id);
   if (limits.maxBoardingHouses !== Infinity) {
     const { count } = await c
       .get("supabase")
@@ -282,7 +259,7 @@ ownerRoutes.post("/boarding-houses", async (c) => {
     if ((count ?? 0) >= limits.maxBoardingHouses) {
       return c.json(
         {
-          error: `Gói Basic chỉ cho phép tối đa ${limits.maxBoardingHouses} nhà trọ. Nâng cấp lên Premium để tạo không giới hạn.`,
+          error: `Tài khoản của bạn (gói ${roleName.replace("OWNER_", "")}) chỉ cho phép tối đa ${limits.maxBoardingHouses} nhà trọ. Vui lòng nâng cấp để mở rộng giới hạn.`,
           code: "PLAN_LIMIT_REACHED",
           limit: limits.maxBoardingHouses,
           current: count,
@@ -501,7 +478,7 @@ ownerRoutes.post("/boarding-houses/:id/rooms", async (c) => {
   }
 
   // ── Plan limit check ───────────────────────────────────────
-  const { limits } = await getPlanLimits(currentUser.id);
+  const { roleName, limits } = await getPlanLimits(currentUser.id);
   if (limits.maxRoomsPerHouse !== Infinity) {
     const { count } = await c
       .get("supabase")
@@ -513,7 +490,7 @@ ownerRoutes.post("/boarding-houses/:id/rooms", async (c) => {
     if ((count ?? 0) >= limits.maxRoomsPerHouse) {
       return c.json(
         {
-          error: `Gói Basic chỉ cho phép tối đa ${limits.maxRoomsPerHouse} phòng trên mỗi nhà trọ. Nâng cấp lên Premium để tạo không giới hạn.`,
+          error: `Tài khoản của bạn (gói ${roleName.replace("OWNER_", "")}) chỉ cho phép tối đa ${limits.maxRoomsPerHouse} phòng trên mỗi nhà trọ. Vui lòng nâng cấp để mở rộng giới hạn.`,
           code: "PLAN_LIMIT_REACHED",
           limit: limits.maxRoomsPerHouse,
           current: count,
@@ -1345,8 +1322,8 @@ ownerRoutes.post("/simulate-upgrade", async (c) => {
   const { plan } = await c.req.json().catch(() => ({}));
 
   const targetRoleId = plan === "premium"
-    ? "8a62d08a-2c8b-4b2a-8888-000000000002"
-    : "8a62d08a-2c8b-4b2a-8888-000000000001";
+    ? await getRoleId("OWNER_PREMIUM")
+    : await getRoleId("OWNER_BASIC");
 
   const planValue = plan === "premium" ? "plan:premium" : "plan:basic";
 

@@ -14,6 +14,7 @@ import { requireAuth, getClientIp, getDeviceInfo, revokeAccessToken } from "../m
 import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
 import { buildProfileAuthMeta, getUserProfile } from "../lib/profileStore.js";
+import { getRoleId } from "../lib/roles.js";
 
 const authRoutes = new Hono<AppEnv>();
 
@@ -281,6 +282,7 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
   let isNewUser = false;
   if (!existingUser) {
     isNewUser = true;
+    const ownerBasicRoleId = await getRoleId("OWNER_BASIC");
     const { data: newUser, error: createError } = await supabaseAdmin
       .from("users")
       .insert({
@@ -289,7 +291,7 @@ async function handleGoogleAuth(idToken: string, ip: string, deviceInfo: string)
         name,
         avatar,
         role: "OWNER",
-        role_id: "8a62d08a-2c8b-4b2a-8888-000000000001", // OWNER_BASIC default
+        role_id: ownerBasicRoleId, // OWNER_BASIC default
         status: "ACTIVE",
         provider: "GOOGLE",
         last_login_at: new Date().toISOString(),
@@ -369,6 +371,7 @@ async function upsertOwnerGoogleUser(input: {
 }) {
   const email = input.email.toLowerCase();
   const googleId = input.googleId;
+  const ownerBasicRoleId = await getRoleId("OWNER_BASIC");
   const name = input.name;
   const avatar = input.avatar;
   const isProfileCompleted = input.isProfileCompleted ?? false;
@@ -429,7 +432,7 @@ async function upsertOwnerGoogleUser(input: {
         name,
         avatar,
         role: "OWNER",
-        role_id: "8a62d08a-2c8b-4b2a-8888-000000000001", // OWNER_BASIC default
+        role_id: ownerBasicRoleId, // OWNER_BASIC default
         status: "ACTIVE",
         provider: "GOOGLE",
         is_profile_completed: isProfileCompleted,
@@ -450,7 +453,7 @@ async function upsertOwnerGoogleUser(input: {
     if (existingUser.role === "USER") {
       const { data: upgradedUser } = await supabaseAdmin
         .from("users")
-        .update({ role: "OWNER", role_id: "8a62d08a-2c8b-4b2a-8888-000000000001" })
+        .update({ role: "OWNER", role_id: ownerBasicRoleId })
         .eq("id", existingUser.id)
         .select()
         .single();
@@ -463,7 +466,7 @@ async function upsertOwnerGoogleUser(input: {
     if (existingUser.role === "OWNER" && !existingUser.role_id) {
       supabaseAdmin
         .from("users")
-        .update({ role_id: "8a62d08a-2c8b-4b2a-8888-000000000001" })
+        .update({ role_id: ownerBasicRoleId })
         .eq("id", existingUser.id)
         .then(({ error }) => {
           if (error) console.error("Backfill role_id failed:", error.message);
