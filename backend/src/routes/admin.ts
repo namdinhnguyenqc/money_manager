@@ -4,6 +4,7 @@ import { supabaseAdmin } from "../lib/supabase.js";
 import { clearAuthCacheForUser, requireAuth, requireAdmin, requireAdminPermission, requireSuperAdmin } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
+import { getRoleId, warmRoleCache, isRoleIdPremiumSync } from "../lib/roles.js";
 
 const adminRoutes = new Hono<AppEnv>();
 
@@ -346,6 +347,8 @@ adminRoutes.get("/users/:id", requireAuth, requireAdmin, async (c) => {
     provider: user.provider,
     created_at: user.created_at,
     last_login_at: user.last_login_at,
+    max_boarding_houses: user.max_boarding_houses,
+    max_rooms_per_house: user.max_rooms_per_house,
     loginLogs: loginLogs || [],
   });
 });
@@ -392,10 +395,6 @@ adminRoutes.patch("/users/:id/status", requireAuth, requireAdmin, async (c) => {
   return c.json({ success: true, user: { id: userId, status } });
 });
 
-// OWNER_BASIC and OWNER_PREMIUM role UUIDs (seeded in DB)
-const OWNER_BASIC_ROLE_ID = "8a62d08a-2c8b-4b2a-8888-000000000001";
-const OWNER_PREMIUM_ROLE_ID = "8a62d08a-2c8b-4b2a-8888-000000000002";
-
 // PATCH /admin/users/:id/plan - Update owner subscription plan
 adminRoutes.patch("/users/:id/plan", requireAuth, requireAdmin, async (c) => {
   const userId = c.req.param("id");
@@ -406,7 +405,9 @@ adminRoutes.patch("/users/:id/plan", requireAuth, requireAdmin, async (c) => {
   }
 
   const planValue = plan === "premium" ? "plan:premium" : "plan:basic";
-  const targetRoleId = plan === "premium" ? OWNER_PREMIUM_ROLE_ID : OWNER_BASIC_ROLE_ID;
+  const targetRoleId = plan === "premium"
+    ? await getRoleId("OWNER_PREMIUM")
+    : await getRoleId("OWNER_BASIC");
 
   const { error } = await supabaseAdmin
     .from("users")
@@ -424,6 +425,29 @@ adminRoutes.patch("/users/:id/plan", requireAuth, requireAdmin, async (c) => {
   clearAuthCacheForUser(userId);
 
   return c.json({ success: true, plan: planValue, role_id: targetRoleId });
+});
+
+// PATCH /admin/users/:id/limits - Update user-specific resource limit overrides
+adminRoutes.patch("/users/:id/limits", requireAuth, requireAdmin, async (c) => {
+  const userId = c.req.param("id");
+  const { max_boarding_houses, max_rooms_per_house } = await c.req.json().catch(() => ({}));
+
+  const updatePayload: any = {};
+  if (max_boarding_houses !== undefined) updatePayload.max_boarding_houses = max_boarding_houses;
+  if (max_rooms_per_house !== undefined) updatePayload.max_rooms_per_house = max_rooms_per_house;
+
+  const { error } = await supabaseAdmin
+    .from("users")
+    .update(updatePayload)
+    .eq("id", userId);
+
+  if (error) {
+    return c.json({ error: error.message }, 400);
+  }
+
+  clearAuthCacheForUser(userId);
+
+  return c.json({ success: true, ...updatePayload });
 });
 
 // ─────────────────────────────────────────────────
@@ -577,7 +601,7 @@ adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
 
   let query = supabaseAdmin
     .from("users")
-    .select("id,email,name,avatar,role,role_id,status,provider,is_profile_completed,onboarding_step,created_at,updated_at,last_login_at,admin_note,user_profiles(*)")
+    .select("id,email,name,avatar,role,role_id,status,provider,is_profile_completed,onboarding_step,created_at,updated_at,last_login_at,admin_note,max_boarding_houses,max_rooms_per_house,user_profiles(*)")
     .eq("role", "OWNER")
     .order("updated_at", { ascending: false });
 
@@ -588,6 +612,8 @@ adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
   const { data, error } = await query;
 
   if (error) return jsonDbError(c, error, "Failed to fetch owner approvals");
+
+  await warmRoleCache();
 
   const rows = status === "PENDING_APPROVAL"
     ? (data ?? []).filter((user: any) => {
@@ -609,7 +635,7 @@ adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
           ? "PENDING_APPROVAL"
           : user.status;
       // Derive plan from role_id (DB-driven) with fallback to admin_note
-      const isPremiumById = user.role_id === OWNER_PREMIUM_ROLE_ID;
+      const isPremiumById = isRoleIdPremiumSync(user.role_id);
       const isPremiumByNote = user.admin_note?.includes("premium");
       const isPremium = isPremiumById || isPremiumByNote;
       return {
@@ -620,6 +646,8 @@ adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
         role: user.role,
         roleId: user.role_id,
         plan: isPremium ? "premium" : "basic",
+        max_boarding_houses: user.max_boarding_houses,
+        max_rooms_per_house: user.max_rooms_per_house,
         status: approvalStatus,
         approvalStatus,
         provider: user.provider,
@@ -734,11 +762,13 @@ adminRoutes.patch("/users/:id/role", requireAuth, requireAdmin, async (c) => {
     return c.json({ code: "INSUFFICIENT_PERMISSION", message: "Không thể thay đổi role của SUPER_ADMIN." }, 403);
   }
 
+  const targetRoleId = role === "OWNER" ? await getRoleId("OWNER_BASIC") : null;
+
   await supabaseAdmin
     .from("users")
     .update({ 
       role, 
-      role_id: role === "OWNER" ? OWNER_BASIC_ROLE_ID : null,
+      role_id: targetRoleId,
       updated_at: new Date().toISOString() 
     })
     .eq("id", userId);
