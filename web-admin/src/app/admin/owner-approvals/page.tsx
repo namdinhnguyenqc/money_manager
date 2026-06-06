@@ -74,6 +74,10 @@ export default function OwnerApprovalsPage() {
     setError("");
     try {
       await apiPatch(`/admin/owner-approvals/${id}`, { action });
+      // If approving, also assign the selected plan at the same time
+      if (action === "approve") {
+        await apiPatch(`/admin/users/${id}/plan`, { plan: selectedPlan });
+      }
       await load();
     } catch (err: any) {
       setError(err?.message || "Không cập nhật được trạng thái.");
@@ -251,68 +255,105 @@ export default function OwnerApprovalsPage() {
                 <ProfileRow label="Địa chỉ đầy đủ" value={selectedItem.profile?.fullAddress || "-"} />
                 <ProfileRow label="Trạng thái tài khoản" value={getApprovalLabel(selectedItem)} />
 
-                {/* Account Plan configuration (only for approved ACTIVE owners) */}
-                {selectedItem.status === "ACTIVE" && (
-                  <div className="rounded-[12px] border border-slate-200 bg-slate-50/50 p-4 mt-6 space-y-3">
-                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1">
-                      <Sparkles size={14} className="text-amber-500" />
-                      Gói dịch vụ Premium
-                    </h3>
-                    <div className="flex gap-2">
+                {/* ── Plan Selector — always visible ── */}
+                <div className="mt-5 rounded-[12px] border border-slate-200 bg-white overflow-hidden shadow-sm">
+                  <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+                    <Sparkles size={14} className="text-amber-500" />
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-700">Gói dịch vụ</span>
+                    <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      (selectedItem.plan === "premium" || selectedItem.adminNote?.includes("premium"))
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-slate-100 text-slate-600"
+                    }`}>
+                      Hiện tại: {(selectedItem.plan === "premium" || selectedItem.adminNote?.includes("premium")) ? "Premium" : "Basic"}
+                    </span>
+                  </div>
+
+                  <div className="p-4 space-y-3">
+                    {/* Plan options */}
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setSelectedPlan("basic")}
-                        className={`flex-1 py-2 text-xs font-bold rounded-lg border text-center transition-all ${
-                          selectedPlan === "basic" 
-                            ? "bg-slate-900 border-slate-900 text-white" 
-                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                        className={`relative flex flex-col items-start p-3 rounded-xl border-2 text-left transition-all ${
+                          selectedPlan === "basic"
+                            ? "border-slate-900 bg-slate-900 text-white shadow-md"
+                            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
                         }`}
                       >
-                        Gói Basic
+                        {selectedPlan === "basic" && (
+                          <span className="absolute top-2 right-2 text-[8px] font-black bg-white/20 text-white px-1.5 py-0.5 rounded-full">✓</span>
+                        )}
+                        <span className="text-sm font-black mb-1">Basic</span>
+                        <span className={`text-[10px] leading-relaxed ${selectedPlan === "basic" ? "text-slate-300" : "text-slate-500"}`}>
+                          • Quản lý phòng, hợp đồng{"\n"}
+                          • Hóa đơn & thanh toán{"\n"}
+                          • Tin nhắn, sự cố{"\n"}
+                          <span className={`font-bold ${selectedPlan === "basic" ? "text-red-300" : "text-red-500"}`}>✗ Không có Kinh doanh</span>
+                        </span>
                       </button>
+
                       <button
                         type="button"
                         onClick={() => setSelectedPlan("premium")}
-                        className={`flex-1 py-2 text-xs font-bold rounded-lg border text-center transition-all ${
-                          selectedPlan === "premium" 
-                            ? "bg-gradient-to-r from-amber-500 to-orange-500 border-transparent text-slate-950 shadow-sm" 
-                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                        className={`relative flex flex-col items-start p-3 rounded-xl border-2 text-left transition-all ${
+                          selectedPlan === "premium"
+                            ? "border-amber-400 bg-gradient-to-b from-amber-400 to-orange-500 text-slate-900 shadow-md"
+                            : "border-amber-200 bg-amber-50/40 text-slate-700 hover:border-amber-300"
                         }`}
                       >
-                        Premium (Pro)
+                        {selectedPlan === "premium" && (
+                          <span className="absolute top-2 right-2 text-[8px] font-black bg-slate-900/20 text-slate-900 px-1.5 py-0.5 rounded-full">✓</span>
+                        )}
+                        <span className="text-sm font-black mb-1 flex items-center gap-1">
+                          ✦ Premium
+                        </span>
+                        <span className={`text-[10px] leading-relaxed ${selectedPlan === "premium" ? "text-slate-800" : "text-slate-500"}`}>
+                          • Tất cả tính năng Basic{"\n"}
+                          • <span className="font-bold text-emerald-700">✓ Tab Kinh doanh</span>{"\n"}
+                          • Nhập hàng, bán, thống kê
+                        </span>
                       </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleUpdatePlan}
-                      disabled={updatingPlan}
-                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-60 shadow-sm"
-                    >
-                      {updatingPlan ? "Đang lưu..." : "Cập nhật gói"}
-                    </button>
-                  </div>
-                )}
 
-                {selectedItem.status === "PENDING_APPROVAL" && (
-                  <div className="grid grid-cols-2 gap-2 pt-2">
-                    <button
-                      disabled={savingId === selectedItem.id}
-                      onClick={() => updateApproval(selectedItem.id, "approve")}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-[8px] bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white disabled:opacity-60"
-                    >
-                      <CheckCircle2 size={15} />
-                      Duyệt user
-                    </button>
-                    <button
-                      disabled={savingId === selectedItem.id}
-                      onClick={() => updateApproval(selectedItem.id, "reject")}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-[8px] bg-red-600 px-3 py-2.5 text-xs font-bold text-white disabled:opacity-60"
-                    >
-                      <XCircle size={15} />
-                      Từ chối
-                    </button>
+                    {/* Action buttons */}
+                    {selectedItem.status === "PENDING_APPROVAL" ? (
+                      <div className="space-y-2 pt-1">
+                        <button
+                          disabled={savingId === selectedItem.id}
+                          onClick={() => updateApproval(selectedItem.id, "approve")}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-[8px] bg-emerald-600 hover:bg-emerald-700 px-3 py-2.5 text-xs font-bold text-white disabled:opacity-60 transition"
+                        >
+                          <CheckCircle2 size={14} />
+                          {savingId === selectedItem.id ? "Đang duyệt..." : `Duyệt & gán gói ${selectedPlan === "premium" ? "Premium ✦" : "Basic"}`}
+                        </button>
+                        <button
+                          disabled={savingId === selectedItem.id}
+                          onClick={() => updateApproval(selectedItem.id, "reject")}
+                          className="w-full inline-flex items-center justify-center gap-1.5 rounded-[8px] border border-red-200 bg-white px-3 py-2 text-xs font-bold text-red-600 disabled:opacity-60 transition hover:bg-red-50"
+                        >
+                          <XCircle size={13} />
+                          Từ chối
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleUpdatePlan}
+                        disabled={updatingPlan || selectedPlan === (selectedItem.plan ?? (selectedItem.adminNote?.includes("premium") ? "premium" : "basic"))}
+                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-40 shadow-sm"
+                      >
+                        {updatingPlan
+                          ? "Đang lưu..."
+                          : selectedPlan === (selectedItem.plan ?? (selectedItem.adminNote?.includes("premium") ? "premium" : "basic"))
+                            ? "Gói không thay đổi"
+                            : `Chuyển sang ${selectedPlan === "premium" ? "Premium ✦" : "Basic"}`
+                        }
+                      </button>
+                    )}
                   </div>
-                )}
+                </div>
+
               </div>
             )}
           </aside>
