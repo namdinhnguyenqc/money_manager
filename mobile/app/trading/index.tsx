@@ -26,6 +26,7 @@ type TabKey = 'available' | 'sold';
 
 export default function TradingScreen() {
   const router = useRouter();
+  const [isPremium, setIsPremium] = useState<boolean | null>(null);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<string>('');
   const [items, setItems] = useState<TradingItem[]>([]);
@@ -62,7 +63,12 @@ export default function TradingScreen() {
       ]);
       setItems(itemsData);
       setStats(statsData);
-    } catch { } finally {
+      setIsPremium(true);
+    } catch (err: any) {
+      if (err?.status === 403 || err?.code === 'PREMIUM_REQUIRED') {
+        setIsPremium(false);
+      }
+    } finally {
       setLoading(false);
       setRefreshing(false);
     }
@@ -130,6 +136,41 @@ export default function TradingScreen() {
         <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
           <CardSkeleton /><CardSkeleton /><CardSkeleton />
         </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (isPremium === false) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={[styles.header, { paddingHorizontal: 16, marginTop: 12 }]}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Kinh doanh</Text>
+            <View style={{ width: 36 }} />
+          </View>
+
+          <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 }}>
+            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+              <Ionicons name="lock-closed-outline" size={40} color="#d97706" />
+            </View>
+            <Text style={{ fontSize: 20, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary, textAlign: 'center' }}>
+              Mở khóa gói Premium
+            </Text>
+            <Text style={{ fontSize: 14, fontFamily: Typography.fontFamily.regular, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
+              Tính năng Quản lý Kinh doanh chỉ dành riêng cho tài khoản gói Cao cấp (Premium). Vui lòng nâng cấp tài khoản của bạn trên Cổng quản lý Web Admin để sử dụng.
+            </Text>
+            <TouchableOpacity 
+              style={{ marginTop: 20, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, backgroundColor: Colors.primary, width: '100%', alignItems: 'center' }}
+              onPress={() => router.back()}
+            >
+              <Text style={{ color: Colors.textWhite, fontFamily: Typography.fontFamily.bold, fontSize: 15 }}>Quay lại</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
       </SafeAreaView>
     );
   }
