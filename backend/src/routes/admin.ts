@@ -1282,6 +1282,10 @@ adminRoutes.patch("/roles/:id/permissions", ...adminWithPermission("role.update"
     reason: parsed.data.reason,
     riskLevel: "critical",
   });
+  
+  const { clearAuthCacheForRole } = await import("../middleware/auth.js");
+  clearAuthCacheForRole(id);
+
   return c.json({ success: true, permissions: parsed.data.permissions });
 });
 

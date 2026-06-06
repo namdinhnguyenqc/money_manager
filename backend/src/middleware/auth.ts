@@ -81,6 +81,13 @@ export const clearAuthCacheForUser = (userId: string) => {
   }
 };
 
+export const clearAuthCacheForRole = (roleId: string) => {
+  // Clear cache for all users since we don't store roleId directly in cached context,
+  // or clear everything if we want to be safe. Since permissions change is rare, clearing tokenCache is fine.
+  tokenCache.clear();
+};
+
+
 const isAccessTokenRevoked = (token: string, now: number) => {
   const hash = hashAccessToken(token);
   const exp = revokedAccessTokens.get(hash);
