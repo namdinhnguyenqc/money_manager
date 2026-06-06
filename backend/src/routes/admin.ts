@@ -686,8 +686,14 @@ adminRoutes.patch("/users/:id/role", requireAuth, requireSuperAdmin, async (c) =
 
   await supabaseAdmin
     .from("users")
-    .update({ role, updated_at: new Date().toISOString() })
+    .update({ 
+      role, 
+      role_id: role === "OWNER" ? OWNER_BASIC_ROLE_ID : null,
+      updated_at: new Date().toISOString() 
+    })
     .eq("id", userId);
+
+  clearAuthCacheForUser(userId);
 
   return c.json({ success: true, user: { id: userId, role } });
 });
