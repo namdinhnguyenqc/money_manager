@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Package, TrendingUp, TrendingDown, RefreshCw, Tag, Plus, X } from "lucide-react";
+import { Package, TrendingUp, TrendingDown, RefreshCw, Tag, Plus, X, Lock, Sparkles, CheckCircle2, ArrowRight, LineChart, Smartphone, RotateCcw } from "lucide-react";
 import { apiGet, apiPost, apiPatch } from "@/utils/apiClient";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -13,12 +13,19 @@ import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ops/EmptyState";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+import { API_URL } from "@/lib/api";
+import { getStoredAccessToken } from "@/utils/session";
 
 const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0)) + ' ₫';
 
 export default function OwnerTradingPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isDowngrading, setIsDowngrading] = useState(false);
+
   const [wallets, setWallets] = useState<any[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
@@ -27,6 +34,26 @@ export default function OwnerTradingPage() {
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [sellModalItem, setSellModalItem] = useState<any>(null);
+
+  const checkPermission = useCallback(() => {
+    const permsStr = typeof window !== "undefined" ? localStorage.getItem("userPermissions") : null;
+    if (!permsStr) {
+      setHasPermission(false);
+      return;
+    }
+    try {
+      const perms = JSON.parse(permsStr) as string[];
+      setHasPermission(perms.includes("trading.view"));
+    } catch {
+      setHasPermission(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkPermission();
+    window.addEventListener("storage", checkPermission);
+    return () => window.removeEventListener("storage", checkPermission);
+  }, [checkPermission]);
 
   const loadWallets = useCallback(async () => {
     try {
@@ -56,8 +83,159 @@ export default function OwnerTradingPage() {
     }
   }, []);
 
-  useEffect(() => { loadWallets(); }, [loadWallets]);
-  useEffect(() => { if (selectedWallet) loadItems(selectedWallet.id); }, [selectedWallet, loadItems]);
+  useEffect(() => {
+    if (hasPermission) {
+      loadWallets();
+    }
+  }, [hasPermission, loadWallets]);
+
+  useEffect(() => {
+    if (hasPermission && selectedWallet) {
+      loadItems(selectedWallet.id);
+    }
+  }, [hasPermission, selectedWallet, loadItems]);
+
+  const handleSimulateUpgrade = async () => {
+    setIsUpgrading(true);
+    try {
+      const token = getStoredAccessToken();
+      const res = await apiPost<any>('/owner/simulate-upgrade', { plan: 'premium' });
+      if (res.success) {
+        // Refetch user permissions to update local state
+        const permRes = await fetch(`${API_URL}/owner/permissions`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store"
+        });
+        if (permRes.ok) {
+          const permData = await permRes.json();
+          localStorage.setItem("userPermissions", JSON.stringify(permData.permissions || []));
+        }
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
+
+  const handleSimulateDowngrade = async () => {
+    setIsDowngrading(true);
+    try {
+      const token = getStoredAccessToken();
+      const res = await apiPost<any>('/owner/simulate-upgrade', { plan: 'basic' });
+      if (res.success) {
+        // Refetch user permissions to update local state
+        const permRes = await fetch(`${API_URL}/owner/permissions`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store"
+        });
+        if (permRes.ok) {
+          const permData = await permRes.json();
+          localStorage.setItem("userPermissions", JSON.stringify(permData.permissions || []));
+        }
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsDowngrading(false);
+    }
+  };
+
+  if (hasPermission === null) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <RefreshCw size={36} className="text-blue-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (hasPermission === false) {
+    return (
+      <div className="mx-auto max-w-4xl py-6 animate-in fade-in duration-500">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 text-white shadow-2xl p-8 md:p-12 mb-8 border border-slate-700/50">
+          <div className="absolute right-0 top-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+          <div className="absolute left-1/3 bottom-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+          
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-xs font-bold uppercase tracking-wider text-slate-950 mb-6 shadow-md shadow-orange-500/10">
+                <Sparkles size={12} className="fill-slate-950" />
+                Gói Premium (Cao cấp)
+              </div>
+              <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-4 bg-gradient-to-r from-white via-slate-100 to-blue-200 bg-clip-text text-transparent">
+                Mở Khóa Tính Năng Kinh Doanh
+              </h1>
+              <p className="text-slate-300 text-base md:text-lg leading-relaxed mb-6">
+                Nâng tầm quản lý mô hình nhà trọ kết hợp thương mại. Quản lý vốn nhập hàng, doanh số, chốt hóa đơn bán hàng và theo dõi lợi nhuận chi tiết.
+              </p>
+            </div>
+            <div className="shrink-0 flex flex-col items-center justify-center p-6 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 w-full md:w-64">
+              <div className="text-center mb-4">
+                <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block mb-1">Chi phí nâng cấp</span>
+                <span className="text-3xl font-extrabold text-amber-400">99.000 ₫</span>
+                <span className="text-xs text-slate-400 font-semibold block mt-1">/ tháng / tài khoản</span>
+              </div>
+              <Button
+                variant="primary"
+                className="w-full !bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 !text-slate-950 font-bold shadow-lg shadow-orange-500/20 py-3 rounded-xl flex items-center justify-center gap-2"
+                onClick={handleSimulateUpgrade}
+                loading={isUpgrading}
+              >
+                {!isUpgrading && <Sparkles size={16} />}
+                Nâng cấp thử nghiệm
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-3 mb-10">
+          <Card className="p-6 border-slate-200/60 hover:shadow-lg transition-all duration-300 flex flex-col justify-between h-full group">
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center mb-5 border border-blue-100/50 group-hover:scale-105 transition-transform">
+                <Package size={22} className="text-blue-600" />
+              </div>
+              <h3 className="font-extrabold text-slate-900 text-lg mb-2">Quản lý kho hàng chuyên nghiệp</h3>
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Thêm mới kiện hàng, tự động bóc tách lô hàng thành các sản phẩm đơn lẻ để quản lý tồn kho chi tiết và tiện lợi.
+              </p>
+            </div>
+          </Card>
+
+          <Card className="p-6 border-slate-200/60 hover:shadow-lg transition-all duration-300 flex flex-col justify-between h-full group">
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center mb-5 border border-emerald-100/50 group-hover:scale-105 transition-transform">
+                <TrendingUp size={22} className="text-emerald-600" />
+              </div>
+              <h3 className="font-extrabold text-slate-900 text-lg mb-2">Chốt đơn & Thu chi tự động</h3>
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Tích hợp chốt đơn thu tiền trực tiếp vào Ví doanh số, ghi nhận doanh thu tự động liên kết với sổ quỹ tiền mặt.
+              </p>
+            </div>
+          </Card>
+
+          <Card className="p-6 border-slate-200/60 hover:shadow-lg transition-all duration-300 flex flex-col justify-between h-full group">
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mb-5 border border-indigo-100/50 group-hover:scale-105 transition-transform">
+                <LineChart size={22} className="text-indigo-600" />
+              </div>
+              <h3 className="font-extrabold text-slate-900 text-lg mb-2">Báo cáo lãi lỗ tức thì</h3>
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Theo dõi chính xác chỉ số vốn lưu động (unsold capital), tổng tiền hàng đã bán, và lợi nhuận thuần túy thời gian thực.
+              </p>
+            </div>
+          </Card>
+        </div>
+
+        <div className="flex flex-col items-center justify-center border border-slate-200/60 bg-white/50 backdrop-blur-sm rounded-2xl p-6 text-center">
+          <Lock className="text-slate-400 mb-3" size={24} />
+          <h4 className="font-bold text-slate-800 text-sm">Tính năng đang bị khóa</h4>
+          <p className="text-slate-400 text-xs mt-1">Vui lòng bấm nút "Nâng cấp thử nghiệm" ở trên để mở khóa tính năng ngay lập tức.</p>
+        </div>
+      </div>
+    );
+  }
 
   const filteredItems = items.filter(i => i.status === tab);
 
@@ -242,6 +420,23 @@ export default function OwnerTradingPage() {
           }}
         />
       )}
+      {/* Simulation Toggle Option for reviewer */}
+      <div className="mt-12 pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+        <div className="flex items-center gap-1.5">
+          <Sparkles size={14} className="text-amber-500" />
+          <span>Bạn đang trải nghiệm gói <strong>Premium</strong>. Có thể chuyển đổi qua lại để thử nghiệm phân quyền.</span>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+          icon={<RotateCcw size={13} />}
+          onClick={handleSimulateDowngrade}
+          loading={isDowngrading}
+        >
+          Hạ cấp thử nghiệm (Basic)
+        </Button>
+      </div>
     </div>
   );
 }

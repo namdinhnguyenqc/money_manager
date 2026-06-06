@@ -1,10 +1,11 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { requireAuth, requireOwner } from "../middleware/auth.js";
+import { requireAuth, requireOwner, clearAuthCacheForUser } from "../middleware/auth.js";
 import { cacheMiddleware, invalidateCache } from "../middleware/cache.js";
 import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
+import { supabaseAdmin } from "../lib/supabase.js";
 
 const ownerRoutes = new Hono<AppEnv>();
 
@@ -1214,7 +1215,46 @@ ownerRoutes.get("/permissions", async (c) => {
     return c.json({ error: error.message }, 500);
   }
 
-  return c.json({ permissions: (perms || []).map((p: any) => p.permission_key) });
+  let permissionKeys = (perms || []).map((p: any) => p.permission_key);
+
+  // Check subscription plan
+  const { data: dbUser } = await supabaseAdmin
+    .from("users")
+    .select("admin_note")
+    .eq("id", user.id)
+    .single();
+
+  const isPremium = dbUser?.admin_note?.includes("plan:premium") || dbUser?.admin_note?.includes("premium");
+  if (isPremium) {
+    if (!permissionKeys.includes("trading.view")) {
+      permissionKeys.push("trading.view");
+    }
+  } else {
+    permissionKeys = permissionKeys.filter((k: string) => k !== "trading.view");
+  }
+
+  return c.json({ permissions: permissionKeys });
+});
+
+ownerRoutes.post("/simulate-upgrade", async (c) => {
+  const currentUser = c.get("user");
+  const { plan } = await c.req.json().catch(() => ({}));
+
+  const planValue = plan === "premium" ? "plan:premium" : "plan:basic";
+
+  const { error } = await supabaseAdmin
+    .from("users")
+    .update({ admin_note: planValue, updated_at: new Date().toISOString() })
+    .eq("id", currentUser.id);
+
+  if (error) {
+    return c.json({ error: error.message }, 400);
+  }
+
+  // Clear auth caches so permissions are re-fetched correctly
+  clearAuthCacheForUser(currentUser.id);
+
+  return c.json({ success: true, plan: planValue });
 });
 
 export default ownerRoutes;
