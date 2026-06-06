@@ -657,7 +657,7 @@ adminRoutes.patch("/owner-approvals/:id", requireAuth, requireAdmin, async (c) =
 });
 
 // PATCH /admin/users/:id/role - Update user role
-adminRoutes.patch("/users/:id/role", requireAuth, requireSuperAdmin, async (c) => {
+adminRoutes.patch("/users/:id/role", requireAuth, requireAdmin, async (c) => {
   const userId = c.req.param("id");
 
   const parsed = await c.req.json();
