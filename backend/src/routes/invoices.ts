@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import crypto from "crypto";
+import ExcelJS from "exceljs";
 import { requireAuth } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { parseJson, toId } from "../utils/validation.js";
@@ -264,6 +265,352 @@ invoicesRoutes.get("/", async (c) => {
     .sort((a, b) => String(a.room_name).localeCompare(String(b.room_name)));
 
   return c.json({ data });
+});
+
+invoicesRoutes.get("/export-excel", async (c) => {
+  const user = c.get("user");
+  const db = c.get("supabase");
+
+  const monthsRaw = c.req.query("months") || "";
+  const buildingId = c.req.query("buildingId");
+
+  if (!monthsRaw) {
+    return c.json({ error: "Missing months parameter" }, 400);
+  }
+
+  const periods = monthsRaw.split(",").map((p) => {
+    const [m, y] = p.split("/").map(Number);
+    return { month: m, year: y };
+  });
+
+  let query = db.from("invoices").select("*").eq("user_id", user.id);
+  if (buildingId) {
+    const roomsRes = await db.from("rooms").select("id").eq("boarding_house_id", buildingId).eq("user_id", user.id);
+    if (roomsRes.error) return c.json({ error: roomsRes.error.message }, 500);
+    const roomIds = (roomsRes.data || []).map((r) => r.id);
+    if (roomIds.length > 0) {
+      query = query.in("room_id", roomIds);
+    } else {
+      query = query.in("room_id", ["00000000-0000-0000-0000-000000000000"]);
+    }
+  }
+
+  const invRes = await query;
+  if (invRes.error) return c.json({ error: invRes.error.message }, 500);
+  let invoices = invRes.data || [];
+
+  invoices = invoices.filter((inv) =>
+    periods.some((p) => inv.month === p.month && inv.year === p.year)
+  );
+
+  const contractIds = [...new Set(invoices.map((x) => x.contract_id))];
+  const roomIds = [...new Set(invoices.map((x) => x.room_id))];
+
+  const [contractsRes, roomsRes] = await Promise.all([
+    contractIds.length > 0 ? db.from("contracts").select("*").in("id", contractIds) : { data: [], error: null },
+    roomIds.length > 0 ? db.from("rooms").select("*").in("id", roomIds) : { data: [], error: null },
+  ]);
+
+  if (contractsRes.error) return c.json({ error: contractsRes.error.message }, 500);
+  if (roomsRes.error) return c.json({ error: roomsRes.error.message }, 500);
+
+  const contracts = contractsRes.data ?? [];
+  const rooms = roomsRes.data ?? [];
+  const tenantIds = [...new Set(contracts.map((x) => x.tenant_id))];
+  const tenantsRes = tenantIds.length > 0
+    ? await db.from("tenants").select("*").in("id", tenantIds)
+    : { data: [], error: null };
+  if (tenantsRes.error) return c.json({ error: tenantsRes.error.message }, 500);
+  const tenants = tenantsRes.data ?? [];
+
+  const roomsById = new Map(rooms.map((room) => [String(room.id), room]));
+  const contractsById = new Map(contracts.map((contract) => [String(contract.id), contract]));
+  const tenantsById = new Map(tenants.map((tenant) => [String(tenant.id), tenant]));
+
+  const invoiceIds = invoices.map((i) => i.id);
+  const itemsRes = invoiceIds.length > 0
+    ? await db.from("invoice_items").select("*").in("invoice_id", invoiceIds).eq("user_id", user.id)
+    : { data: [], error: null };
+  if (itemsRes.error) return c.json({ error: itemsRes.error.message }, 500);
+
+  const itemsById: Map<string, any[]> = new Map();
+  (itemsRes.data || []).forEach((item) => {
+    const list = itemsById.get(String(item.invoice_id)) || [];
+    list.push(item);
+    itemsById.set(String(item.invoice_id), list);
+  });
+
+  const enrichedInvoices = invoices.map((inv) => {
+    const room = roomsById.get(String(inv.room_id));
+    const contract = contractsById.get(String(inv.contract_id));
+    const tenant = contract?.tenant_id ? tenantsById.get(String(contract.tenant_id)) : null;
+    return {
+      ...inv,
+      roomName: room?.name ?? "",
+      tenantName: tenant?.name ?? "",
+      items: itemsById.get(String(inv.id)) || [],
+    };
+  });
+
+  const groupedInvoices: Record<string, any[]> = {};
+  enrichedInvoices.forEach((inv) => {
+    const key = `${inv.month}/${inv.year}`;
+    groupedInvoices[key] = groupedInvoices[key] || [];
+    groupedInvoices[key].push(inv);
+  });
+
+  const workbook = new ExcelJS.Workbook();
+
+  for (const period of periods) {
+    const sheetName = `Tháng ${period.month}-${period.year}`;
+    const periodInvoices = groupedInvoices[`${period.month}/${period.year}`] || [];
+    periodInvoices.sort((a, b) => String(a.roomName || "").localeCompare(String(b.roomName || ""), undefined, { numeric: true }));
+
+    const worksheet = workbook.addWorksheet(sheetName, {
+      views: [{ showGridLines: true }]
+    });
+
+    worksheet.columns = [
+      { key: "room", width: 12 },
+      { key: "elecOld", width: 10 },
+      { key: "elecNew", width: 10 },
+      { key: "elecUsage", width: 12 },
+      { key: "waterOld", width: 10 },
+      { key: "waterNew", width: 10 },
+      { key: "waterUsage", width: 12 },
+      { key: "elecAmt", width: 16 },
+      { key: "waterAmt", width: 16 },
+      { key: "roomFee", width: 16 },
+      { key: "trashAmt", width: 12 },
+      { key: "wifiAmt", width: 12 },
+      { key: "otherAmt", width: 12 },
+      { key: "debtAmt", width: 16 },
+      { key: "totalAmt", width: 18 },
+      { key: "tenantName", width: 22 },
+      { key: "status", width: 18 },
+    ];
+
+    const blueHeaderFill: ExcelJS.Fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF85B3F4" }
+    };
+
+    const lightGreenFill: ExcelJS.Fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFA9D08E" }
+    };
+
+    const yellowFill: ExcelJS.Fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFFFE699" }
+    };
+
+    const lightBlueFill: ExcelJS.Fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFE2EFDA" }
+    };
+
+    const borderStyle: Partial<ExcelJS.Borders> = {
+      top: { style: "thin", color: { argb: "FFBFBFBF" } },
+      left: { style: "thin", color: { argb: "FFBFBFBF" } },
+      bottom: { style: "thin", color: { argb: "FFBFBFBF" } },
+      right: { style: "thin", color: { argb: "FFBFBFBF" } },
+    };
+
+    const textCenter: Partial<ExcelJS.Alignment> = { vertical: "middle", horizontal: "center", wrapText: true };
+    const textLeft: Partial<ExcelJS.Alignment> = { vertical: "middle", horizontal: "left" };
+    const textRight: Partial<ExcelJS.Alignment> = { vertical: "middle", horizontal: "right" };
+
+    worksheet.addRow([]);
+    worksheet.getRow(1).height = 15;
+
+    worksheet.mergeCells("A2:Q2");
+    const titleCell = worksheet.getCell("A2");
+    titleCell.value = `Tháng ${period.month}/${period.year}`;
+    titleCell.font = { name: "Arial", size: 14, bold: true, color: { argb: "FF000000" } };
+    titleCell.alignment = textCenter;
+    titleCell.fill = blueHeaderFill;
+    worksheet.getRow(2).height = 30;
+
+    const indexRowValues = Array.from({ length: 17 }, (_, i) => i + 1);
+    const indexRow = worksheet.addRow(indexRowValues);
+    indexRow.height = 20;
+    indexRow.eachCell((cell) => {
+      cell.font = { name: "Arial", size: 10, bold: true };
+      cell.alignment = textCenter;
+      cell.fill = lightBlueFill;
+      cell.border = borderStyle;
+    });
+
+    const row4 = worksheet.getRow(4);
+    const row5 = worksheet.getRow(5);
+    row4.height = 24;
+    row5.height = 24;
+
+    const headers = [
+      { col: "A", text: "Phòng", merge: "A4:A5" },
+      { col: "B", text: "Số điện", merge: "B4:C4" },
+      { col: "D", text: "Điện tiêu thụ", merge: "D4:D5" },
+      { col: "E", text: "Số nước", merge: "E4:F4" },
+      { col: "G", text: "Nước tiêu thụ", merge: "G4:G5" },
+      { col: "H", text: "Tiền điện\n(KWh)", merge: "H4:H5", fill: yellowFill },
+      { col: "I", text: "Tiền nước\n(Khối)", merge: "I4:I5", fill: yellowFill },
+      { col: "J", text: "Tiền phòng", merge: "J4:J5", fill: yellowFill },
+      { col: "K", text: "Rác", merge: "K4:K5", fill: yellowFill },
+      { col: "L", text: "Wifi", merge: "L4:L5", fill: yellowFill },
+      { col: "M", text: "Khác", merge: "M4:M5", fill: yellowFill },
+      { col: "N", text: "Công nợ", merge: "N4:N5", fill: yellowFill },
+      { col: "O", text: "Tổng cộng", merge: "O4:O5", fill: yellowFill },
+      { col: "P", text: "Họ & Tên", merge: "P4:P5" },
+      { col: "Q", text: "Trạng thái", merge: "Q4:Q5" },
+    ];
+
+    worksheet.getCell("B5").value = "Số cũ";
+    worksheet.getCell("C5").value = "Số mới";
+    worksheet.getCell("E5").value = "Số cũ";
+    worksheet.getCell("F5").value = "Số mới";
+
+    headers.forEach((h) => {
+      const cell = worksheet.getCell(`${h.col}4`);
+      cell.value = h.text;
+      worksheet.mergeCells(h.merge);
+    });
+
+    for (let r = 4; r <= 5; r++) {
+      const row = worksheet.getRow(r);
+      row.eachCell((cell, colNumber) => {
+        cell.font = { name: "Arial", size: 10, bold: true };
+        cell.alignment = textCenter;
+        cell.border = borderStyle;
+
+        if (colNumber >= 8 && colNumber <= 15) {
+          cell.fill = yellowFill;
+        } else {
+          cell.fill = lightGreenFill;
+        }
+      });
+    }
+
+    periodInvoices.forEach((inv) => {
+      const items = inv.items || [];
+      const dienOld = inv.elec_old ?? 0;
+      const dienNew = inv.elec_new ?? 0;
+      const waterOld = inv.water_old ?? 0;
+      const waterNew = inv.water_new ?? 0;
+
+      let tienDien = 0;
+      let tienNuoc = 0;
+      let tienRac = 0;
+      let tienWifi = 0;
+      let tienKhac = 0;
+
+      items.forEach((item: any) => {
+        const nameNorm = normalizeServiceName(item.name);
+        const amt = Number(item.amount || 0);
+        if (nameNorm.includes("dien") || nameNorm.includes("electric")) {
+          tienDien += amt;
+        } else if (nameNorm.includes("nuoc") || nameNorm.includes("water")) {
+          tienNuoc += amt;
+        } else if (nameNorm.includes("rac") || nameNorm.includes("trash")) {
+          tienRac += amt;
+        } else if (nameNorm.includes("wifi") || nameNorm.includes("internet") || nameNorm.includes("mang")) {
+          tienWifi += amt;
+        } else {
+          tienKhac += amt;
+        }
+      });
+
+      const statusRaw = String(inv.status || "").toLowerCase();
+      const statusText = statusRaw === "paid" ? "Đã thanh toán" : "Chưa thanh toán";
+
+      const dataRow = worksheet.addRow([
+        inv.roomName || "",
+        dienOld,
+        dienNew,
+        Math.max(0, dienNew - dienOld),
+        waterOld,
+        waterNew,
+        Math.max(0, waterNew - waterOld),
+        tienDien,
+        tienNuoc,
+        inv.room_fee ?? 0,
+        tienRac,
+        tienWifi,
+        tienKhac,
+        inv.previous_debt ?? 0,
+        inv.total_amount ?? 0,
+        inv.tenantName || "",
+        statusText
+      ]);
+
+      dataRow.height = 22;
+      dataRow.eachCell((cell, colNumber) => {
+        cell.font = { name: "Arial", size: 10 };
+        cell.border = borderStyle;
+
+        if (colNumber === 1 || colNumber === 16 || colNumber === 17) {
+          cell.alignment = colNumber === 16 ? textLeft : textCenter;
+        } else {
+          cell.alignment = textRight;
+          if (colNumber >= 8 && colNumber <= 15) {
+            cell.numFmt = `#,##0" ₫"`;
+          } else {
+            cell.numFmt = `#,##0`;
+          }
+        }
+
+        if (colNumber === 1) {
+          cell.font = { name: "Arial", size: 10, bold: true };
+        }
+        if (colNumber === 15) {
+          cell.font = { name: "Arial", size: 10, bold: true };
+          cell.fill = yellowFill;
+        }
+      });
+    });
+
+    const lastDataRow = worksheet.lastRow ? worksheet.lastRow.number : 5;
+    if (lastDataRow >= 6) {
+      const summaryRow = worksheet.addRow([]);
+      summaryRow.height = 24;
+
+      for (let c = 1; c <= 17; c++) {
+        const cell = summaryRow.getCell(c);
+        cell.fill = lightGreenFill;
+        cell.border = borderStyle;
+        cell.font = { name: "Arial", size: 10, bold: true };
+        cell.alignment = c === 1 || c === 16 || c === 17 ? textCenter : textRight;
+
+        if (c === 1) {
+          cell.value = "Tổng";
+        } else if (c === 4) {
+          cell.value = { formula: `SUM(D6:D${lastDataRow})` };
+          cell.numFmt = `#,##0`;
+        } else if (c === 7) {
+          cell.value = { formula: `SUM(G6:G${lastDataRow})` };
+          cell.numFmt = `#,##0`;
+        } else if (c >= 8 && c <= 15) {
+          const colLetter = String.fromCharCode(64 + c);
+          cell.value = { formula: `SUM(${colLetter}6:${colLetter}${lastDataRow})` };
+          cell.numFmt = `#,##0" ₫"`;
+        }
+      }
+    }
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  c.header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  
+  const label = periods.length === 1 
+    ? `Thang_${periods[0].month}_${periods[0].year}` 
+    : `Bao_cao_nhieu_thang`;
+  c.header("Content-Disposition", `attachment; filename=Danh_Sach_Hoa_Don_${label}.xlsx`);
+
+  return c.body(buffer as any);
 });
 
 const normalizeServiceName = (value: unknown) =>

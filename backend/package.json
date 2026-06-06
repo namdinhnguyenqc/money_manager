@@ -17,6 +17,7 @@
     "bcrypt": "^5.0.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
     "google-auth-library": "^9.15.1",
     "hono": "^4.6.20",
     "jose": "^5.9.6",

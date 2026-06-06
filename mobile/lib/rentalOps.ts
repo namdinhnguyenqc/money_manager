@@ -19,7 +19,7 @@ export type TenantInput = {
 };
 
 export type TenantValidationResult =
-  | { ok: true; data: Required<Pick<TenantInput, 'name' | 'phone' | 'idCard'>> & Pick<TenantInput, 'email' | 'address'> }
+  | { ok: true; data: Required<Pick<TenantInput, 'name' | 'phone'>> & Pick<TenantInput, 'idCard' | 'email' | 'address'> }
   | { ok: false; fieldErrors: Record<string, string> };
 
 export class RentalValidationError extends Error {

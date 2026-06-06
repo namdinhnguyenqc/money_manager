@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ScrollView,
+  View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ScrollView, Alert,
 } from 'react-native';
 import { useFocusEffect, useRouter, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,8 +15,11 @@ import Typography from '@/constants/Typography';
 import StatusBadge from '@/components/ui/StatusBadge';
 import EmptyState from '@/components/ui/EmptyState';
 import { ListItemSkeleton } from '@/components/ui/Skeleton';
-import { apiGet } from '@/lib/api';
+import { apiGet, getAccessToken } from '@/lib/api';
 import { loadPendingBilling } from '@/lib/rentalOps';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import Config from '@/constants/Config';
 
 const formatMoney = (value?: number | null) =>
   `${new Intl.NumberFormat('vi-VN').format(Math.round(Number(value || 0)))} ₫`;
@@ -56,6 +59,87 @@ export default function InvoicesScreen() {
     const today = new Date();
     return { month: today.getMonth() + 1, year: today.getFullYear() };
   });
+
+  const exportInvoicesToExcelMobile = async (months: string, selectedPeriodLabel: string) => {
+    try {
+      setLoading(true);
+      const token = await getAccessToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const url = `${Config.API_URL}/invoices/export-excel?months=${encodeURIComponent(months)}`;
+      const filename = `Hoa_don_${selectedPeriodLabel.replace(/[\/\s]/g, '_')}.xlsx`;
+      const fileUri = `${(FileSystem as any).documentDirectory}${filename}`;
+
+      const downloadRes = await (FileSystem as any).downloadAsync(url, fileUri, {
+        headers
+      });
+
+      if (downloadRes.status !== 200) {
+        throw new Error(`Server returned code ${downloadRes.status}`);
+      }
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(downloadRes.uri, {
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          dialogTitle: `Xuất hóa đơn ${selectedPeriodLabel}`,
+          UTI: 'com.microsoft.excel.xlsx'
+        });
+      } else {
+        Alert.alert('Chia sẻ', `Tải thành công. Tệp lưu tại: ${downloadRes.uri}`);
+      }
+    } catch (err: any) {
+      Alert.alert('Lỗi', `Xuất file Excel thất bại: ${err?.message || err}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExcelExportOptions = () => {
+    Alert.alert(
+      'Xuất báo cáo Excel',
+      'Chọn khoảng thời gian muốn xuất báo cáo:',
+      [
+        {
+          text: `Tháng hiện tại (T${selectedPeriod.month}/${selectedPeriod.year})`,
+          onPress: () => {
+            const months = `${selectedPeriod.month}/${selectedPeriod.year}`;
+            exportInvoicesToExcelMobile(months, `Tháng_${selectedPeriod.month}_${selectedPeriod.year}`);
+          }
+        },
+        {
+          text: '3 tháng gần nhất',
+          onPress: () => {
+            const p1 = `${selectedPeriod.month}/${selectedPeriod.year}`;
+            const date2 = new Date(selectedPeriod.year, selectedPeriod.month - 2, 1);
+            const p2 = `${date2.getMonth() + 1}/${date2.getFullYear()}`;
+            const date3 = new Date(selectedPeriod.year, selectedPeriod.month - 3, 1);
+            const p3 = `${date3.getMonth() + 1}/${date3.getFullYear()}`;
+            
+            const months = `${p1},${p2},${p3}`;
+            exportInvoicesToExcelMobile(months, 'Bao_cao_3_thang');
+          }
+        },
+        {
+          text: '6 tháng gần nhất',
+          onPress: () => {
+            const list = [];
+            for (let i = 0; i < 6; i++) {
+              const d = new Date(selectedPeriod.year, selectedPeriod.month - 1 - i, 1);
+              list.push(`${d.getMonth() + 1}/${d.getFullYear()}`);
+            }
+            exportInvoicesToExcelMobile(list.join(','), 'Bao_cao_6_thang');
+          }
+        },
+        {
+          text: 'Hủy',
+          style: 'cancel'
+        }
+      ]
+    );
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -151,17 +235,28 @@ export default function InvoicesScreen() {
       />
       {/* Period Picker Header */}
       <View style={styles.periodPicker}>
-        <TouchableOpacity style={styles.periodArrow} onPress={handlePrevMonth}>
-          <Ionicons name="chevron-back" size={18} color={Colors.primary} />
-        </TouchableOpacity>
-        <View style={styles.periodTextContainer}>
-          <Ionicons name="calendar-outline" size={16} color={Colors.primary} style={{ marginRight: 6 }} />
-          <Text style={styles.periodText}>
-            Tháng {selectedPeriod.month}, {selectedPeriod.year}
-          </Text>
+        <View style={styles.periodPickerLeft}>
+          <TouchableOpacity style={styles.periodArrow} onPress={handlePrevMonth}>
+            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+          </TouchableOpacity>
+          <View style={styles.periodTextContainer}>
+            <Ionicons name="calendar-outline" size={16} color={Colors.primary} style={{ marginRight: 6 }} />
+            <Text style={styles.periodText}>
+              Tháng {selectedPeriod.month}, {selectedPeriod.year}
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.periodArrow} onPress={handleNextMonth}>
+            <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.periodArrow} onPress={handleNextMonth}>
-          <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+
+        <TouchableOpacity
+          style={styles.exportBtn}
+          onPress={handleExcelExportOptions}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="share-outline" size={14} color={Colors.primary} />
+          <Text style={styles.exportBtnText}>Xuất Excel</Text>
         </TouchableOpacity>
       </View>
 
@@ -270,6 +365,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
+  },
+  periodPickerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  exportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(138, 63, 252, 0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(138, 63, 252, 0.15)',
+  },
+  exportBtnText: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.primary,
   },
   periodArrow: {
     width: 34,
