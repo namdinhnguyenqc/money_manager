@@ -7,6 +7,29 @@ import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 
+// ─── Plan tier constants ───────────────────────────────────────
+const OWNER_PREMIUM_ROLE_ID = "8a62d08a-2c8b-4b2a-8888-000000000002";
+
+const PLAN_LIMITS = {
+  basic:   { maxBoardingHouses: 3,  maxRoomsPerHouse: 15 },
+  premium: { maxBoardingHouses: Infinity, maxRoomsPerHouse: Infinity },
+} as const;
+
+/** Resolve the plan limits for the given user based on their role_id. */
+async function getPlanLimits(userId: string) {
+  const { data } = await supabaseAdmin
+    .from("users")
+    .select("role_id")
+    .eq("id", userId)
+    .single();
+  const isPremium = data?.role_id === OWNER_PREMIUM_ROLE_ID;
+  return {
+    isPremium,
+    limits: isPremium ? PLAN_LIMITS.premium : PLAN_LIMITS.basic,
+  };
+}
+// ──────────────────────────────────────────────────────────────
+
 const ownerRoutes = new Hono<AppEnv>();
 
 ownerRoutes.use("*", requireAuth, requireOwner);
@@ -209,6 +232,30 @@ ownerRoutes.post("/boarding-houses", async (c) => {
       400,
     );
   }
+
+  // ── Plan limit check ───────────────────────────────────────
+  const { isPremium, limits } = await getPlanLimits(currentUser.id);
+  if (limits.maxBoardingHouses !== Infinity) {
+    const { count } = await c
+      .get("supabase")
+      .from("boarding_houses")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", currentUser.id);
+
+    if ((count ?? 0) >= limits.maxBoardingHouses) {
+      return c.json(
+        {
+          error: `Gói Basic chỉ cho phép tối đa ${limits.maxBoardingHouses} nhà trọ. Nâng cấp lên Premium để tạo không giới hạn.`,
+          code: "PLAN_LIMIT_REACHED",
+          limit: limits.maxBoardingHouses,
+          current: count,
+          upgrade_required: true,
+        },
+        403,
+      );
+    }
+  }
+  // ──────────────────────────────────────────────────────────
 
   const { name, address, description, latitude, longitude, status, isPublic } =
     validation.data;
@@ -415,6 +462,31 @@ ownerRoutes.post("/boarding-houses/:id/rooms", async (c) => {
       400,
     );
   }
+
+  // ── Plan limit check ───────────────────────────────────────
+  const { limits } = await getPlanLimits(currentUser.id);
+  if (limits.maxRoomsPerHouse !== Infinity) {
+    const { count } = await c
+      .get("supabase")
+      .from("rooms")
+      .select("id", { count: "exact", head: true })
+      .eq("boarding_house_id", bhId)
+      .eq("user_id", currentUser.id);
+
+    if ((count ?? 0) >= limits.maxRoomsPerHouse) {
+      return c.json(
+        {
+          error: `Gói Basic chỉ cho phép tối đa ${limits.maxRoomsPerHouse} phòng trên mỗi nhà trọ. Nâng cấp lên Premium để tạo không giới hạn.`,
+          code: "PLAN_LIMIT_REACHED",
+          limit: limits.maxRoomsPerHouse,
+          current: count,
+          upgrade_required: true,
+        },
+        403,
+      );
+    }
+  }
+  // ──────────────────────────────────────────────────────────
 
   const { name, price, status, isPublic } = validation.data;
 

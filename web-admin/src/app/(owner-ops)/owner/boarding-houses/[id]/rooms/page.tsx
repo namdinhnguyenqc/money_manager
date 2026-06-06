@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, PencilLine, Receipt, Wallet } from "lucide-react";
+import { Building2, Lock, PencilLine, Receipt, Wallet } from "lucide-react";
 import RoomEditModal, { Room } from "@/components/RoomEditModal";
 import RBACGuard from "@/components/RBACGuard";
 import { apiGet, apiPatch, apiPost } from "@/utils/apiClient";
@@ -68,6 +68,7 @@ export default function BoardingHouseRoomsPage() {
   const [rooms, setRooms] = useState<ExtendedRoom[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [planLimit, setPlanLimit] = useState<{ limit: number; current: number } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [selected, setSelected] = useState<ExtendedRoom | null>(null);
   const [creating, setCreating] = useState(false);
@@ -141,6 +142,7 @@ export default function BoardingHouseRoomsPage() {
     try {
       setCreating(true);
       setError(null);
+      setPlanLimit(null);
       await apiPost(`/owner/boarding-houses/${bhId}/rooms`, {
         name: newRoom.name.trim(),
         price: Number(newRoom.price || 0),
@@ -151,7 +153,14 @@ export default function BoardingHouseRoomsPage() {
       await invalidateOwnerOpsQueries(queryClient, { facilityId: bhId });
       await loadRooms();
     } catch (e: any) {
-      setError(e?.message ?? "Create room error");
+      if (e?.code === "PLAN_LIMIT_REACHED" || e?.details?.upgrade_required) {
+        setPlanLimit({
+          limit: e.details?.limit ?? 15,
+          current: e.details?.current ?? rooms.length,
+        });
+      } else {
+        setError(e?.message ?? "Create room error");
+      }
     } finally {
       setCreating(false);
     }
@@ -191,7 +200,25 @@ export default function BoardingHouseRoomsPage() {
           <div className="rounded-[8px] border border-slate-200 bg-white p-4 shadow-sm"><div className="text-sm text-slate-500">Chờ thu tiền</div><div className="mt-2 text-2xl font-semibold text-rose-700">{summary.waitingPayment}</div></div>
         </div>
 
-        <form onSubmit={createRoom} className="mb-6 grid grid-cols-1 gap-3 rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[1fr_160px_170px_140px]">
+        {/* Plan limit banner */}
+        {planLimit && (
+          <div className="mb-5 flex items-start gap-4 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-5 py-4 shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-amber-100 text-amber-600">
+              <Lock size={20} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-amber-900">
+                Đã đạt giới hạn gói Basic — {planLimit.current}/{planLimit.limit} phòng
+              </p>
+              <p className="mt-0.5 text-xs text-amber-700">
+                Gói Basic chỉ cho phép tối đa <strong>{planLimit.limit} phòng</strong> trên mỗi nhà trọ. Liên hệ admin để nâng cấp lên Premium và tạo không giới hạn.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-amber-200 px-2.5 py-0.5 text-[10px] font-black uppercase text-amber-900">Basic</span>
+          </div>
+        )}
+
+        <form onSubmit={createRoom} className={`mb-6 grid grid-cols-1 gap-3 rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[1fr_160px_170px_140px] ${planLimit ? 'opacity-50 pointer-events-none' : ''}`}>
           <input
             className="rounded-[8px] border border-slate-300 px-3 py-2.5 text-sm"
             value={newRoom.name ?? ""}

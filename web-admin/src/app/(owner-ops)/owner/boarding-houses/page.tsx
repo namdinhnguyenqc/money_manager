@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, Edit2, MapPin, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Building2, Edit2, MapPin, Plus, RefreshCw, Trash2, Lock } from "lucide-react";
 import { apiPost } from "@/utils/apiClient";
 import { BoardingHouse, loadBoardingHouses, loadOwnerRooms, deleteBoardingHouse, updateBoardingHouse } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
@@ -18,6 +18,7 @@ export default function OwnerBoardingHousesPage() {
   const [summaries, setSummaries] = useState<Record<string, Summary>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [planLimit, setPlanLimit] = useState<{ limit: number; current: number } | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ name: "", address: "", description: "" });
@@ -80,6 +81,7 @@ export default function OwnerBoardingHousesPage() {
     }
     setSubmitting(true);
     setError("");
+    setPlanLimit(null);
     try {
       await apiPost("/owner/boarding-houses", {
         name: form.name.trim(),
@@ -93,7 +95,15 @@ export default function OwnerBoardingHousesPage() {
       await invalidateOwnerOpsQueries(queryClient);
       await load();
     } catch (err: any) {
-      setError(err?.message || "Không tạo được cơ sở.");
+      if (err?.code === "PLAN_LIMIT_REACHED" || err?.details?.upgrade_required) {
+        setPlanLimit({
+          limit: err.details?.limit ?? 3,
+          current: err.details?.current ?? houses.length,
+        });
+        setFormOpen(false);
+      } else {
+        setError(err?.message || "Không tạo được cơ sở.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -141,9 +151,13 @@ export default function OwnerBoardingHousesPage() {
             <RefreshCw size={16} />
             Làm mới
           </button>
-          <button onClick={() => setFormOpen((value) => !value)} className="inline-flex items-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
-            <Plus size={16} />
-            Thêm cơ sở
+          <button
+            onClick={() => { setPlanLimit(null); setFormOpen((v) => !v); }}
+            disabled={planLimit !== null}
+            className="inline-flex items-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {planLimit ? <Lock size={16} /> : <Plus size={16} />}
+            {planLimit ? `Đã đạt giới hạn (${planLimit.current}/${planLimit.limit})` : "Thêm cơ sở"}
           </button>
         </div>
       </div>
@@ -171,6 +185,24 @@ export default function OwnerBoardingHousesPage() {
           </button>
           <input className="rounded-[8px] border border-slate-300 px-3 py-2.5 text-sm md:col-span-3" placeholder="Ghi chú nội bộ" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
         </form>
+      )}
+
+      {/* Plan limit banner */}
+      {planLimit && (
+        <div className="mb-5 flex items-start gap-4 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-5 py-4 shadow-sm">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-amber-100 text-amber-600">
+            <Lock size={20} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-amber-900">
+              Đã đạt giới hạn gói Basic — {planLimit.current}/{planLimit.limit} nhà trọ
+            </p>
+            <p className="mt-0.5 text-xs text-amber-700">
+              Gói Basic chỉ cho phép tối đa <strong>{planLimit.limit} nhà trọ</strong>. Nâng cấp lên Premium để tạo không giới hạn số lượng nhà trọ và phòng.
+            </p>
+          </div>
+          <span className="shrink-0 rounded-full bg-amber-200 px-2.5 py-0.5 text-[10px] font-black uppercase text-amber-900">Basic</span>
+        </div>
       )}
 
       {error && <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
