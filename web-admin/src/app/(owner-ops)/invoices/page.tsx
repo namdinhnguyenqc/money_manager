@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { RefreshCw, Send, Trash2, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { RefreshCw, Send, Trash2, Calendar, ChevronLeft, ChevronRight, FileSpreadsheet } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import StatusBadge from "@/components/ops/StatusBadge";
 import { 
@@ -22,6 +22,7 @@ import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 import BulkInvoiceModal from "@/components/ops/BulkInvoiceModal";
+import ExportExcelModal from "@/components/ops/ExportExcelModal";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 const statusTabs = ["Tất cả", "Chưa lập HĐ", "Chưa gửi", "Đã gửi", "Quá hạn", "Đã thanh toán"];
@@ -48,6 +49,7 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
 
@@ -176,6 +178,13 @@ export default function InvoicesPage() {
               Làm mới
             </Button>
             <Button
+              variant="outline"
+              icon={<FileSpreadsheet size={15} />}
+              onClick={() => setIsExportModalOpen(true)}
+            >
+              Xuất Excel
+            </Button>
+            <Button
               variant="primary"
               icon={<RefreshCw size={15} className={generating ? "animate-spin" : ""} />}
               onClick={handleAutoGenerate}
@@ -295,7 +304,11 @@ export default function InvoicesPage() {
         period={period}
       />
 
-
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        selectedHouseId={selectedHouse}
+      />
     </div>
   );
 }

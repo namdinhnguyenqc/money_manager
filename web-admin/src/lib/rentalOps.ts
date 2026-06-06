@@ -558,6 +558,17 @@ export async function loadInvoices(buildingId?: string) {
   return (res?.data ?? []) as Invoice[];
 }
 
+export async function loadInvoicesWithItems(buildingId?: string, month?: number, year?: number) {
+  const params = new URLSearchParams();
+  params.append("includeItems", "true");
+  if (buildingId) params.append("buildingId", buildingId);
+  if (month) params.append("month", String(month));
+  if (year) params.append("year", String(year));
+
+  const res = await apiGet<any>(`/invoices?${params.toString()}`);
+  return (res?.data ?? []) as Invoice[];
+}
+
 export async function loadServiceConfigs(activeOnly = true) {
   const res = await apiGet<any>(`/rental/services${activeOnly ? "" : "?activeOnly=0"}`);
   return (res?.data ?? []) as ServiceConfig[];

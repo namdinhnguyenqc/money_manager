@@ -213,12 +213,31 @@ invoicesRoutes.get("/", async (c) => {
   if (channelsRes.error) return c.json({ error: channelsRes.error.message }, 500);
   const channelsById = new Map((channelsRes.data ?? []).map((channel) => [String(channel.id), channel]));
 
+  const includeItems = c.req.query("includeItems") === "true";
+  let itemsById: Map<string, any[]> = new Map();
+  if (includeItems && invoices.length > 0) {
+    const invIds = invoices.map((i) => i.id);
+    const itemsRes = await db.from("invoice_items").select("*").in("invoice_id", invIds).eq("user_id", user.id);
+    if (!itemsRes.error && itemsRes.data) {
+      itemsRes.data.forEach((item) => {
+        const list = itemsById.get(String(item.invoice_id)) || [];
+        list.push({
+          id: item.id,
+          name: item.name,
+          detail: item.detail,
+          amount: item.amount,
+        });
+        itemsById.set(String(item.invoice_id), list);
+      });
+    }
+  }
+
   const data = invoices
     .map((inv) => {
       const room = roomsById.get(String(inv.room_id));
       const contract = contractsById.get(String(inv.contract_id));
       const tenant = contract?.tenant_id ? tenantsById.get(String(contract.tenant_id)) : null;
-      return enrichPaymentFields({
+      const baseResult = enrichPaymentFields({
         ...inv,
         roomId: inv.room_id,
         contractId: inv.contract_id,
@@ -236,6 +255,11 @@ invoicesRoutes.get("/", async (c) => {
         tenantPhone: tenant?.phone ?? "",
         tenant_phone: tenant?.phone ?? "",
       }, inv.payment_channel_id ? channelsById.get(String(inv.payment_channel_id)) : null);
+
+      if (includeItems) {
+        baseResult.items = itemsById.get(String(inv.id)) || [];
+      }
+      return baseResult;
     })
     .sort((a, b) => String(a.room_name).localeCompare(String(b.room_name)));
 
