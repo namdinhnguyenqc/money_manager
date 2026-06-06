@@ -4,10 +4,39 @@ import crypto from "crypto";
 import { requireAuth } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { parseJson, toId } from "../utils/validation.js";
+import { supabaseAdmin } from "../lib/supabase.js";
 
 const tradingRoutes = new Hono<AppEnv>();
 
 tradingRoutes.use("*", requireAuth);
+
+tradingRoutes.use("*", async (c, next) => {
+  const user = c.get("user");
+  // Allow ADMIN and SUPER_ADMIN by default
+  if (user.role === "SUPER_ADMIN" || user.role === "ADMIN") {
+    return await next();
+  }
+
+  const { data: dbUser, error } = await supabaseAdmin
+    .from("users")
+    .select("admin_note")
+    .eq("id", user.id)
+    .single();
+
+  if (error || !dbUser) {
+    return c.json({ error: "Không tìm thấy thông tin tài khoản." }, 404);
+  }
+
+  const isPremium = dbUser.admin_note?.includes("plan:premium") || dbUser.admin_note?.includes("premium");
+  if (!isPremium) {
+    return c.json({
+      error: "Tính năng Kinh doanh yêu cầu tài khoản nâng cấp gói Cao cấp (Premium).",
+      code: "PREMIUM_REQUIRED"
+    }, 403);
+  }
+
+  return await next();
+});
 
 const subItemSchema = z.object({
   name: z.string().min(1),

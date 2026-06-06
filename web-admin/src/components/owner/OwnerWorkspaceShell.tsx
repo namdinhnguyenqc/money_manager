@@ -69,7 +69,7 @@ const navSections: NavSection[] = [
   {
     title: "Mở rộng",
     items: [
-      { href: "/owner/trading", label: "Kinh doanh", icon: Package },
+      { href: "/owner/trading", label: "Kinh doanh", icon: Package, badge: "PRO" },
     ]
   },
   {
@@ -308,7 +308,9 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
                       <Icon size={17} className={`shrink-0 ${active ? "text-blue-600" : "text-slate-400"}`} />
                       <span className="min-w-0 flex-1 truncate">{item.label}</span>
                       {item.badge && (
-                        <span className="shrink-0 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                        <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none text-white ${
+                          item.badge === "PRO" ? "bg-gradient-to-r from-amber-500 to-orange-500 shadow-sm" : "bg-red-500"
+                        }`}>
                           {item.badge}
                         </span>
                       )}
