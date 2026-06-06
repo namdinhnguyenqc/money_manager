@@ -392,13 +392,38 @@ adminRoutes.patch("/users/:id/status", requireAuth, requireAdmin, async (c) => {
   return c.json({ success: true, user: { id: userId, status } });
 });
 
+// PATCH /admin/users/:id/plan - Update owner subscription plan
+adminRoutes.patch("/users/:id/plan", requireAuth, requireAdmin, async (c) => {
+  const userId = c.req.param("id");
+  const { plan } = await c.req.json().catch(() => ({}));
+
+  if (plan !== "premium" && plan !== "basic") {
+    return c.json({ error: "Gói dịch vụ không hợp lệ." }, 400);
+  }
+
+  const planValue = plan === "premium" ? "plan:premium" : "plan:basic";
+
+  const { error } = await supabaseAdmin
+    .from("users")
+    .update({ admin_note: planValue, updated_at: new Date().toISOString() })
+    .eq("id", userId);
+
+  if (error) {
+    return c.json({ error: error.message }, 400);
+  }
+
+  clearAuthCacheForUser(userId);
+
+  return c.json({ success: true, plan: planValue });
+});
+
 // GET /admin/owner-approvals - Owners waiting for admin approval
 adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
   const { status = "PENDING_APPROVAL" } = c.req.query();
 
   let query = supabaseAdmin
     .from("users")
-    .select("id,email,name,avatar,role,status,provider,is_profile_completed,onboarding_step,created_at,updated_at,last_login_at,user_profiles(*)")
+    .select("id,email,name,avatar,role,status,provider,is_profile_completed,onboarding_step,created_at,updated_at,last_login_at,admin_note,user_profiles(*)")
     .eq("role", "OWNER")
     .order("updated_at", { ascending: false });
 
@@ -443,6 +468,7 @@ adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
         createdAt: user.created_at,
         updatedAt: user.updated_at,
         lastLoginAt: user.last_login_at,
+        adminNote: user.admin_note,
         profile: profile ? {
           fullName: profile.full_name,
           phone: profile.phone,
