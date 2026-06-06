@@ -64,7 +64,7 @@ const navSections = [
     items: [
       { href: "/owner/profile", label: "Hồ sơ chủ trọ", icon: UserCircle },
       { href: "/owner/settings", label: "Cài đặt hệ thống", icon: Settings },
-      { href: "/owner/feedback", label: "Báo cáo lỗi / Góp ý", icon: HelpCircle },
+      { href: "/owner/feedback", label: "Báo cáo lỗi / Góp ý", icon: HelpCircle, permission: "feedback.view" },
     ]
   }
 ];
@@ -145,6 +145,18 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
           if (data?.email) localStorage.setItem("userEmail", data.email);
           if (data?.status) localStorage.setItem("userStatus", data.status);
           if (data?.approvalStatus || data?.status) localStorage.setItem("approvalStatus", data.approvalStatus || data.status);
+          
+          // Fetch user permissions for Owner
+          try {
+            const permRes = await authFetch(`${API_URL}/owner/permissions`, { cache: "no-store" });
+            if (permRes.ok) {
+              const permData = await permRes.json();
+              localStorage.setItem("userPermissions", JSON.stringify(permData.permissions || []));
+            }
+          } catch (err) {
+            console.error("Failed to fetch user permissions:", err);
+          }
+
           if (data?.isProfileCompleted === false || data?.onboardingStep === "COMPLETE_PROFILE") {
             localStorage.setItem("isProfileCompleted", "false");
             router.replace("/complete-profile");
@@ -241,34 +253,54 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
         </div>
 
         <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-5">
-          {navSections.map((section) => (
-            <div key={section.title} className="flex flex-col gap-0.5">
-              <div className="px-3 mb-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
-                {section.title}
+          {navSections.map((section) => {
+            const filteredItems = section.items.filter((item) => {
+              // If item doesn't specify a permission constraint, show it.
+              if (!("permission" in item)) return true;
+              
+              // Get current user permissions from localStorage
+              const permsStr = typeof window !== "undefined" ? localStorage.getItem("userPermissions") : null;
+              if (!permsStr) return false;
+              
+              try {
+                const perms = JSON.parse(permsStr) as string[];
+                return perms.includes(item.permission as string);
+              } catch {
+                return false;
+              }
+            });
+
+            if (filteredItems.length === 0) return null;
+
+            return (
+              <div key={section.title} className="flex flex-col gap-0.5">
+                <div className="px-3 mb-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
+                  {section.title}
+                </div>
+                {filteredItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActiveRoute(pathname, item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                        active ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      }`}
+                    >
+                      <Icon size={17} className={`shrink-0 ${active ? "text-blue-600" : "text-slate-400"}`} />
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      {item.badge && (
+                        <span className="shrink-0 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                          {item.badge}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
               </div>
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                const active = isActiveRoute(pathname, item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
-                      active ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                    }`}
-                  >
-                    <Icon size={17} className={`shrink-0 ${active ? "text-blue-600" : "text-slate-400"}`} />
-                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                    {item.badge && (
-                      <span className="shrink-0 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-                        {item.badge}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
         <div className="border-t border-slate-200 px-3 py-3">
