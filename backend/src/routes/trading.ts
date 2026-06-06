@@ -19,16 +19,22 @@ tradingRoutes.use("*", async (c, next) => {
 
   const { data: dbUser, error } = await supabaseAdmin
     .from("users")
-    .select("admin_note")
+    .select("role_id")
     .eq("id", user.id)
     .single();
 
-  if (error || !dbUser) {
-    return c.json({ error: "Không tìm thấy thông tin tài khoản." }, 404);
+  if (error || !dbUser || !dbUser.role_id) {
+    return c.json({ error: "Không tìm thấy thông tin tài khoản hoặc quyền truy cập." }, 404);
   }
 
-  const isPremium = dbUser.admin_note?.includes("plan:premium") || dbUser.admin_note?.includes("premium");
-  if (!isPremium) {
+  const { data: perm, error: permError } = await supabaseAdmin
+    .from("role_permissions")
+    .select("permission_key")
+    .eq("role_id", dbUser.role_id)
+    .eq("permission_key", "trading.view")
+    .maybeSingle();
+
+  if (permError || !perm) {
     return c.json({
       error: "Tính năng Kinh doanh yêu cầu tài khoản nâng cấp gói Cao cấp (Premium).",
       code: "PREMIUM_REQUIRED"
