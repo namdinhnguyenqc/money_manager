@@ -1,8 +1,58 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { CheckCircle2, Eye, RefreshCw, UserRound, XCircle, Sparkles, ShieldCheck, Sliders } from "lucide-react";
+import { CheckCircle2, Eye, RefreshCw, UserRound, XCircle, Sparkles, ShieldCheck, Sliders, CheckSquare, Square } from "lucide-react";
 import { apiGet, apiPatch } from "@/utils/apiClient";
+
+// Owner operation features mapping
+const OWNER_FEATURES = [
+  {
+    category: "Quản lý Phòng & Nhà trọ",
+    permissions: [
+      { key: "boarding_house.view", label: "Xem danh sách nhà trọ", desc: "Xem danh sách các nhà trọ/khu trọ sở hữu" },
+      { key: "boarding_house.create", label: "Tạo mới nhà trọ", desc: "Thêm nhà trọ/khu trọ mới vào hệ thống" },
+      { key: "boarding_house.update", label: "Sửa thông tin nhà trọ", desc: "Cập nhật thông tin chi tiết nhà trọ" },
+      { key: "boarding_house.delete", label: "Xóa nhà trọ", desc: "Xóa khu trọ khỏi tài khoản" },
+      { key: "room.view", label: "Xem danh sách phòng", desc: "Xem danh sách và chi tiết phòng trọ" },
+      { key: "room.create", label: "Thêm phòng mới", desc: "Tạo phòng trọ mới trong khu trọ" },
+      { key: "room.update", label: "Sửa thông tin phòng", desc: "Cập nhật giá, diện tích, dịch vụ phòng" },
+      { key: "room.delete", label: "Xóa phòng trọ", desc: "Xóa phòng trọ khỏi hệ thống" },
+      { key: "facility.view", label: "Xem tiện ích", desc: "Xem danh sách tiện ích, dịch vụ đi kèm" },
+    ],
+  },
+  {
+    category: "Quản lý Hợp đồng & Người thuê",
+    permissions: [
+      { key: "contract.view", label: "Xem hợp đồng", desc: "Xem danh sách hợp đồng thuê phòng" },
+      { key: "contract.create", label: "Lập hợp đồng mới", desc: "Tạo hợp đồng thuê phòng mới cho khách" },
+      { key: "contract.update", label: "Sửa hợp đồng", desc: "Cập nhật thông tin hoặc gia hạn hợp đồng" },
+      { key: "contract.terminate", label: "Thanh lý hợp đồng", desc: "Kết thúc hợp đồng trước hạn hoặc đúng hạn" },
+      { key: "tenant.view", label: "Xem danh sách khách thuê", desc: "Xem thông tin liên hệ và lịch sử khách thuê" },
+      { key: "tenant.create", label: "Thêm khách thuê", desc: "Đăng ký thông tin khách thuê mới" },
+      { key: "tenant.update", label: "Sửa thông tin khách thuê", desc: "Cập nhật thông tin cá nhân khách thuê" },
+    ],
+  },
+  {
+    category: "Hóa đơn & Thanh toán",
+    permissions: [
+      { key: "invoice.view", label: "Xem hóa đơn", desc: "Xem danh sách hóa đơn tiền phòng hằng tháng" },
+      { key: "invoice.create", label: "Lập hóa đơn", desc: "Chốt điện nước và tạo hóa đơn thanh toán" },
+      { key: "invoice.update", label: "Cập nhật hóa đơn", desc: "Chỉnh sửa số liệu điện nước, dịch vụ trên hóa đơn" },
+      { key: "payment.view", label: "Xem lịch sử giao dịch", desc: "Theo dõi trạng thái thanh toán của khách thuê" },
+      { key: "payment.verify", label: "Xác nhận thanh toán", desc: "Xác nhận khách đã trả tiền mặt hoặc chuyển khoản" },
+      { key: "deposit.view", label: "Xem tiền cọc", desc: "Quản lý danh sách cọc giữ chỗ và cọc hợp đồng" },
+    ],
+  },
+  {
+    category: "Giao tiếp & Phản hồi",
+    permissions: [
+      { key: "message.view", label: "Xem tin nhắn", desc: "Trò chuyện và giao tiếp trực tiếp với khách thuê" },
+      { key: "feedback.view", label: "Xem phản hồi sự cố", desc: "Nhận yêu cầu sửa chữa, báo cáo sự cố từ phòng trọ" },
+      { key: "feedback.resolve", label: "Xử lý sự cố", desc: "Cập nhật tiến độ sửa chữa và hoàn thành sự cố" },
+      { key: "notification.send", label: "Gửi thông báo chung", desc: "Gửi thông báo bảng tin cho toàn bộ khu trọ" },
+    ],
+  },
+];
 
 type OwnerApproval = {
   id: string;
@@ -89,12 +139,50 @@ export default function OwnerApprovalsPage() {
   const [maxRoomsPerHouse, setMaxRoomsPerHouse] = useState("");
   const [savingLimits, setSavingLimits] = useState(false);
 
+  const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const [loadingPermissions, setLoadingPermissions] = useState(false);
+  const [savingPermissions, setSavingPermissions] = useState(false);
+
+  const loadUserPermissions = async (userId: string) => {
+    setLoadingPermissions(true);
+    try {
+      const res = await apiGet<{ permissions: string[] }>(`/admin/users/${userId}/permissions`);
+      setUserPermissions(res.permissions || []);
+    } catch (err: any) {
+      console.warn("Failed to load user permissions:", err.message);
+    } finally {
+      setLoadingPermissions(false);
+    }
+  };
+
   useEffect(() => {
     if (selectedItem) {
       setMaxBoardingHouses(selectedItem.max_boarding_houses != null ? String(selectedItem.max_boarding_houses) : "");
       setMaxRoomsPerHouse(selectedItem.max_rooms_per_house != null ? String(selectedItem.max_rooms_per_house) : "");
+      loadUserPermissions(selectedItem.id);
     }
   }, [selectedItem]);
+
+  const toggleUserPermission = (key: string) => {
+    setUserPermissions((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
+
+  const handleSaveUserPermissions = async () => {
+    if (!selectedItem) return;
+    setSavingPermissions(true);
+    setError("");
+    try {
+      await apiPatch(`/admin/users/${selectedItem.id}/permissions`, {
+        permissions: userPermissions,
+      });
+    } catch (err: any) {
+      setError(err?.message || "Lỗi khi lưu quyền hạn đặc biệt.");
+    } finally {
+      setSavingPermissions(false);
+    }
+  };
 
   const handleSaveUserLimits = async () => {
     if (!selectedItem) return;
@@ -537,6 +625,72 @@ export default function OwnerApprovalsPage() {
                       className="w-full py-2 bg-slate-950 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition disabled:opacity-40 shadow-sm"
                     >
                       {savingLimits ? "Đang lưu..." : "Lưu giới hạn riêng"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── Custom Permissions Section ── */}
+                <div className="rounded-[12px] border border-slate-200 bg-white overflow-hidden shadow-sm">
+                  <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+                    <ShieldCheck size={14} className="text-indigo-600" />
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-700">Quyền hạn đặc biệt (Cá nhân)</span>
+                  </div>
+
+                  <div className="p-4 space-y-4">
+                    <p className="text-[10px] text-slate-500 leading-normal">
+                      * Cấp thêm quyền cụ thể cho chủ trọ này độc lập với gói dịch vụ của họ.
+                    </p>
+
+                    {loadingPermissions ? (
+                      <div className="py-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                        <RefreshCw size={12} className="animate-spin" />
+                        Đang tải quyền riêng...
+                      </div>
+                    ) : (
+                      <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
+                        {OWNER_FEATURES.map((cat, catIdx) => (
+                          <div key={catIdx} className="space-y-1.5">
+                            <h4 className="text-[9px] font-black uppercase tracking-widest text-slate-400">{cat.category}</h4>
+                            <div className="space-y-1">
+                              {cat.permissions.map((p) => {
+                                const isChecked = userPermissions.includes(p.key);
+                                return (
+                                  <button
+                                    key={p.key}
+                                    type="button"
+                                    onClick={() => toggleUserPermission(p.key)}
+                                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[6px] border text-left transition-all ${
+                                      isChecked
+                                        ? "bg-indigo-50/50 border-indigo-200 text-indigo-900"
+                                        : "bg-white border-slate-100 text-slate-600 hover:bg-slate-50"
+                                    }`}
+                                  >
+                                    <span className="shrink-0 text-indigo-600">
+                                      {isChecked ? (
+                                        <CheckSquare size={13} className="fill-indigo-50" />
+                                      ) : (
+                                        <Square size={13} className="text-slate-300" />
+                                      )}
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                      <span className="block text-[11px] font-bold truncate">{p.label}</span>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleSaveUserPermissions}
+                      disabled={savingPermissions || loadingPermissions}
+                      className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-40 shadow-sm"
+                    >
+                      {savingPermissions ? "Đang lưu..." : "Cập nhật quyền đặc biệt"}
                     </button>
                   </div>
                 </div>

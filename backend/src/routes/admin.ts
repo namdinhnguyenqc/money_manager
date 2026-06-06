@@ -450,6 +450,64 @@ adminRoutes.patch("/users/:id/limits", requireAuth, requireAdmin, async (c) => {
   return c.json({ success: true, ...updatePayload });
 });
 
+// GET /admin/users/:id/permissions - Get user-specific custom permissions
+adminRoutes.get("/users/:id/permissions", requireAuth, requireAdmin, async (c) => {
+  const userId = c.req.param("id");
+
+  const { data, error } = await supabaseAdmin
+    .from("user_permissions")
+    .select("permission_key")
+    .eq("user_id", userId);
+
+  if (error) {
+    return c.json({ error: error.message }, 500);
+  }
+
+  return c.json({
+    success: true,
+    permissions: (data ?? []).map((x: any) => x.permission_key),
+  });
+});
+
+// PATCH /admin/users/:id/permissions - Grant specific permissions directly to a user
+adminRoutes.patch("/users/:id/permissions", requireAuth, requireAdmin, async (c) => {
+  const userId = c.req.param("id");
+  const { permissions } = await c.req.json().catch(() => ({}));
+
+  if (!Array.isArray(permissions)) {
+    return c.json({ error: "Quyền hạn phải là một mảng chuỗi." }, 400);
+  }
+
+  // Delete all existing user-specific permissions
+  const { error: deleteError } = await supabaseAdmin
+    .from("user_permissions")
+    .delete()
+    .eq("user_id", userId);
+
+  if (deleteError) {
+    return c.json({ error: deleteError.message }, 400);
+  }
+
+  if (permissions.length > 0) {
+    const rows = permissions.map((key) => ({
+      user_id: userId,
+      permission_key: key,
+    }));
+
+    const { error: insertError } = await supabaseAdmin
+      .from("user_permissions")
+      .insert(rows);
+
+    if (insertError) {
+      return c.json({ error: insertError.message }, 400);
+    }
+  }
+
+  clearAuthCacheForUser(userId);
+
+  return c.json({ success: true, permissions });
+});
+
 // ─────────────────────────────────────────────────
 // ROLES & PERMISSIONS management endpoints
 // ─────────────────────────────────────────────────
