@@ -1189,4 +1189,32 @@ ownerRoutes.post("/settings", async (c) => {
   return c.json({ ok: true });
 });
 
+ownerRoutes.get("/permissions", async (c) => {
+  const user = c.get("user");
+  const db = c.get("supabase");
+
+  // Fetch the role ID of the OWNER role (since the user is an owner, we check roles table)
+  const { data: role } = await db
+    .from("roles")
+    .select("id")
+    .eq("name", "OWNER")
+    .maybeSingle();
+
+  if (!role) {
+    return c.json({ permissions: [] });
+  }
+
+  // Get permissions associated with the OWNER role
+  const { data: perms, error } = await db
+    .from("role_permissions")
+    .select("permission_key")
+    .eq("role_id", role.id);
+
+  if (error) {
+    return c.json({ error: error.message }, 500);
+  }
+
+  return c.json({ permissions: (perms || []).map((p: any) => p.permission_key) });
+});
+
 export default ownerRoutes;
