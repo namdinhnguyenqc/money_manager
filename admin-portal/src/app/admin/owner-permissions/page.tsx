@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ShieldCheck, RefreshCw, Save, CheckSquare, Square, Shield } from "lucide-react";
+import { ShieldCheck, RefreshCw, Save, CheckSquare, Square, Shield, Settings2 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 
 // Owner operation features mapping
@@ -59,6 +59,8 @@ type Role = {
   name: string;
   description: string;
   created_at: string;
+  max_boarding_houses?: number | null;
+  max_rooms_per_house?: number | null;
 };
 
 export default function OwnerPermissionsPage() {
@@ -67,9 +69,14 @@ export default function OwnerPermissionsPage() {
   const [rolePermissions, setRolePermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingLimits, setSavingLimits] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [reason, setReason] = useState("Cập nhật phân quyền chức năng của Owner");
+
+  // Limits state
+  const [maxBoardingHouses, setMaxBoardingHouses] = useState<string>("");
+  const [maxRoomsPerHouse, setMaxRoomsPerHouse] = useState<string>("");
 
   const loadRoles = async () => {
     setLoading(true);
@@ -77,13 +84,10 @@ export default function OwnerPermissionsPage() {
     setSuccess("");
     try {
       const res = await apiClient<{ data: Role[] }>("/admin/roles");
-      // Filter out only owner-specific or all roles
-      // Usually, role system includes OWNER, ADMIN, etc.
-      // Let's filter to display OWNER role first if exists, or show all
       const list = res.data || [];
       setRoles(list);
       
-      const ownerRole = list.find(r => r.name === "OWNER" || r.id === "owner");
+      const ownerRole = list.find(r => r.name?.startsWith("OWNER") || r.id === "owner");
       if (ownerRole) {
         setSelectedRoleId(ownerRole.id);
       } else if (list.length > 0) {
@@ -100,10 +104,43 @@ export default function OwnerPermissionsPage() {
     setError("");
     setSuccess("");
     try {
-      const res = await apiClient<{ data: { permissions: string[] } }>(`/admin/roles/${roleId}`);
+      const res = await apiClient<{ data: { permissions: string[]; max_boarding_houses?: number | null; max_rooms_per_house?: number | null } }>(`/admin/roles/${roleId}`);
       setRolePermissions(res.data?.permissions || []);
+      
+      // Update limits from role data
+      const mbh = res.data?.max_boarding_houses;
+      const mrh = res.data?.max_rooms_per_house;
+      setMaxBoardingHouses(mbh != null ? String(mbh) : "");
+      setMaxRoomsPerHouse(mrh != null ? String(mrh) : "");
     } catch (err: any) {
       setError(err?.message || "Không tải được danh sách quyền hạn vai trò.");
+    }
+  };
+
+  const handleSaveLimits = async () => {
+    if (!selectedRoleId) return;
+    setSavingLimits(true);
+    setError("");
+    setSuccess("");
+    try {
+      await apiClient(`/admin/roles/${selectedRoleId}/limits`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          max_boarding_houses: maxBoardingHouses === "" ? null : parseInt(maxBoardingHouses, 10),
+          max_rooms_per_house: maxRoomsPerHouse === "" ? null : parseInt(maxRoomsPerHouse, 10),
+        })
+      });
+      setSuccess("Cập nhật giới hạn tài nguyên thành công!");
+      setRoles(prev => prev.map(r => r.id === selectedRoleId ? {
+        ...r,
+        max_boarding_houses: maxBoardingHouses === "" ? null : parseInt(maxBoardingHouses, 10),
+        max_rooms_per_house: maxRoomsPerHouse === "" ? null : parseInt(maxRoomsPerHouse, 10),
+      } : r));
+      setTimeout(() => setSuccess(""), 4000);
+    } catch (err: any) {
+      setError(err?.message || "Lỗi khi lưu giới hạn tài nguyên.");
+    } finally {
+      setSavingLimits(false);
     }
   };
 
@@ -161,6 +198,7 @@ export default function OwnerPermissionsPage() {
   };
 
   const selectedRole = roles.find((r) => r.id === selectedRoleId);
+  const isOwnerRole = selectedRole?.name?.startsWith("OWNER") || selectedRole?.id === "owner";
 
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-8">
@@ -210,9 +248,9 @@ export default function OwnerPermissionsPage() {
                 <div className="py-4 text-center text-sm text-slate-500">Không tìm thấy vai trò nào.</div>
               ) : (
                 <div className="space-y-1.5">
-                  {roles.map((role) => {
+                   {roles.map((role) => {
                     const isSelected = selectedRoleId === role.id;
-                    const isOwner = role.name === "OWNER" || role.id === "owner";
+                    const isOwner = role.name?.startsWith("OWNER") || role.id === "owner";
                     return (
                       <button
                         key={role.id}
@@ -228,19 +266,95 @@ export default function OwnerPermissionsPage() {
                           {role.name}
                           {isOwner && (
                             <span className="ml-1.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-indigo-500 text-white">
-                              Mục tiêu
+                              Owner
                             </span>
                           )}
                         </span>
                         <span className={`mt-0.5 block line-clamp-1 ${isSelected ? "text-slate-300" : "text-slate-500"}`}>
                           {role.description || "Chưa có mô tả vai trò."}
                         </span>
+                        {/* Show limits badge for owner roles */}
+                        {isOwner && (
+                          <span className={`mt-1 flex items-center gap-1.5 text-[9px] ${isSelected ? "text-slate-400" : "text-slate-400"}`}>
+                            <Settings2 size={9} />
+                            {role.max_boarding_houses != null ? `${role.max_boarding_houses} nhà` : "∞ nhà"}
+                            {" · "}
+                            {role.max_rooms_per_house != null ? `${role.max_rooms_per_house} phòng/nhà` : "∞ phòng"}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
                 </div>
               )}
             </div>
+
+            {/* ── Resource Limits Panel ── */}
+            {selectedRole && isOwnerRole && (
+              <div className="rounded-[12px] border border-amber-200 bg-gradient-to-b from-amber-50 to-white p-4 shadow-sm space-y-3">
+                <div className="flex items-center gap-2">
+                  <Settings2 size={14} className="text-amber-600" />
+                  <h3 className="text-xs font-black uppercase tracking-wider text-amber-800">Giới hạn tài nguyên</h3>
+                </div>
+                <p className="text-[10px] text-amber-700/70 leading-relaxed">
+                  Thiết lập số nhà trọ và phòng tối đa cho vai trò <strong>{selectedRole.name}</strong>. 
+                  Để trống = không giới hạn.
+                </p>
+
+                <div className="space-y-2.5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                      Số nhà trọ tối đa
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        value={maxBoardingHouses}
+                        onChange={(e) => setMaxBoardingHouses(e.target.value)}
+                        placeholder="∞ Không giới hạn"
+                        className="w-full text-xs px-3 py-2 rounded-lg border border-amber-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400 placeholder:text-amber-400/60"
+                      />
+                      {maxBoardingHouses === "" && (
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-amber-500 bg-amber-100 px-1.5 py-0.5 rounded">
+                          ∞
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                      Số phòng tối đa / nhà trọ
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        value={maxRoomsPerHouse}
+                        onChange={(e) => setMaxRoomsPerHouse(e.target.value)}
+                        placeholder="∞ Không giới hạn"
+                        className="w-full text-xs px-3 py-2 rounded-lg border border-amber-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400 placeholder:text-amber-400/60"
+                      />
+                      {maxRoomsPerHouse === "" && (
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-amber-500 bg-amber-100 px-1.5 py-0.5 rounded">
+                          ∞
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSaveLimits}
+                  disabled={savingLimits}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-[8px] bg-amber-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-amber-700 transition disabled:opacity-60 shadow-sm"
+                >
+                  <Save size={13} />
+                  {savingLimits ? "Đang lưu..." : "Lưu giới hạn"}
+                </button>
+              </div>
+            )}
 
             {selectedRole && (
               <div className="rounded-[12px] border border-slate-200 bg-white p-4 shadow-sm space-y-4">
