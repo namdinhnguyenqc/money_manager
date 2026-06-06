@@ -27,14 +27,30 @@ tradingRoutes.use("*", async (c, next) => {
     return c.json({ error: "Không tìm thấy thông tin tài khoản hoặc quyền truy cập." }, 404);
   }
 
-  const { data: perm, error: permError } = await supabaseAdmin
+  let hasPermission = false;
+
+  const { data: perm } = await supabaseAdmin
     .from("role_permissions")
     .select("permission_key")
     .eq("role_id", dbUser.role_id)
     .eq("permission_key", "trading.view")
     .maybeSingle();
 
-  if (permError || !perm) {
+  if (perm) {
+    hasPermission = true;
+  } else {
+    const { data: userPerm } = await supabaseAdmin
+      .from("user_permissions")
+      .select("permission_key")
+      .eq("user_id", user.id)
+      .eq("permission_key", "trading.view")
+      .maybeSingle();
+    if (userPerm) {
+      hasPermission = true;
+    }
+  }
+
+  if (!hasPermission) {
     return c.json({
       error: "Tính năng Kinh doanh yêu cầu tài khoản nâng cấp gói Cao cấp (Premium).",
       code: "PREMIUM_REQUIRED"

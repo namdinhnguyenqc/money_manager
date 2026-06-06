@@ -1313,8 +1313,19 @@ ownerRoutes.get("/permissions", async (c) => {
     return c.json({ error: error.message }, 500);
   }
 
-  const permissionKeys = (perms || []).map((p: any) => p.permission_key);
-  return c.json({ permissions: permissionKeys });
+  // Get user-specific overrides
+  const { data: userPerms } = await db
+    .from("user_permissions")
+    .select("permission_key")
+    .eq("user_id", user.id);
+
+  const roleKeys = (perms || []).map((p: any) => p.permission_key);
+  const userKeys = (userPerms || []).map((p: any) => p.permission_key);
+
+  // Combine and de-duplicate keys
+  const combinedKeys = Array.from(new Set([...roleKeys, ...userKeys]));
+
+  return c.json({ permissions: combinedKeys });
 });
 
 ownerRoutes.post("/simulate-upgrade", async (c) => {
