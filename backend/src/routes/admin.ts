@@ -434,7 +434,7 @@ adminRoutes.patch("/users/:id/plan", requireAuth, requireAdmin, async (c) => {
 adminRoutes.get("/roles", requireAuth, requireAdmin, async (c) => {
   const { data, error } = await supabaseAdmin
     .from("roles")
-    .select("id, name, description, created_at")
+    .select("id, name, description, created_at, max_boarding_houses, max_rooms_per_house")
     .order("name", { ascending: true });
 
   if (error) return jsonDbError(c, error, "Failed to fetch roles");
@@ -447,7 +447,7 @@ adminRoutes.get("/roles/:id", requireAuth, requireAdmin, async (c) => {
 
   const { data: role, error: roleError } = await supabaseAdmin
     .from("roles")
-    .select("id, name, description, created_at")
+    .select("id, name, description, created_at, max_boarding_houses, max_rooms_per_house")
     .eq("id", roleId)
     .single();
 
@@ -517,6 +517,56 @@ adminRoutes.patch("/roles/:id/permissions", requireAuth, requireAdmin, async (c)
     role_id: roleId,
     role_name: role.name,
     permissions_count: permissions.length,
+  });
+});
+
+// PATCH /admin/roles/:id/limits - Update resource limits for a role
+adminRoutes.patch("/roles/:id/limits", requireAuth, requireAdmin, async (c) => {
+  const roleId = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const { max_boarding_houses, max_rooms_per_house } = body as {
+    max_boarding_houses?: number | null;
+    max_rooms_per_house?: number | null;
+  };
+
+  // Verify role exists
+  const { data: role, error: roleError } = await supabaseAdmin
+    .from("roles")
+    .select("id, name")
+    .eq("id", roleId)
+    .single();
+
+  if (roleError || !role) {
+    return c.json({ error: "Vai trò không tồn tại." }, 404);
+  }
+
+  // Build update payload — only include fields that were actually sent
+  const updatePayload: Record<string, unknown> = {};
+  if ("max_boarding_houses" in body) {
+    updatePayload.max_boarding_houses = max_boarding_houses === 0 ? null : (max_boarding_houses ?? null);
+  }
+  if ("max_rooms_per_house" in body) {
+    updatePayload.max_rooms_per_house = max_rooms_per_house === 0 ? null : (max_rooms_per_house ?? null);
+  }
+
+  if (Object.keys(updatePayload).length === 0) {
+    return c.json({ error: "Không có giá trị nào được gửi để cập nhật." }, 400);
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from("roles")
+    .update(updatePayload)
+    .eq("id", roleId);
+
+  if (updateError) {
+    return jsonDbError(c, updateError, "Failed to update role limits");
+  }
+
+  return c.json({
+    success: true,
+    role_id: roleId,
+    role_name: role.name,
+    ...updatePayload,
   });
 });
 

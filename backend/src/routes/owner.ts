@@ -8,24 +8,61 @@ import { env } from "../config/env.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 
 // ─── Plan tier constants ───────────────────────────────────────
+const OWNER_BASIC_ROLE_ID  = "8a62d08a-2c8b-4b2a-8888-000000000001";
 const OWNER_PREMIUM_ROLE_ID = "8a62d08a-2c8b-4b2a-8888-000000000002";
 
-const PLAN_LIMITS = {
+// Legacy fallback limits (used when DB columns don't exist yet)
+const FALLBACK_LIMITS = {
   basic:   { maxBoardingHouses: 3,  maxRoomsPerHouse: 15 },
   premium: { maxBoardingHouses: Infinity, maxRoomsPerHouse: Infinity },
 } as const;
 
-/** Resolve the plan limits for the given user based on their role_id. */
+/**
+ * Resolve the plan limits for the given user based on their role_id.
+ * Fetches max_boarding_houses and max_rooms_per_house from the roles table.
+ * NULL in DB = unlimited (Infinity).
+ * Falls back to legacy hardcoded values if DB columns don't exist.
+ */
 async function getPlanLimits(userId: string) {
-  const { data } = await supabaseAdmin
+  // Step 1: Get user's role_id
+  const { data: userData } = await supabaseAdmin
     .from("users")
     .select("role_id")
     .eq("id", userId)
     .single();
-  const isPremium = data?.role_id === OWNER_PREMIUM_ROLE_ID;
+
+  const roleId = userData?.role_id;
+  const isPremium = roleId === OWNER_PREMIUM_ROLE_ID;
+
+  // Step 2: Try to fetch limits from the roles table
+  if (roleId) {
+    try {
+      const { data: roleData, error: roleError } = await supabaseAdmin
+        .from("roles")
+        .select("max_boarding_houses, max_rooms_per_house")
+        .eq("id", roleId)
+        .single();
+
+      if (!roleError && roleData) {
+        const maxBH = (roleData as any).max_boarding_houses;
+        const maxR  = (roleData as any).max_rooms_per_house;
+        return {
+          isPremium,
+          limits: {
+            maxBoardingHouses: maxBH === null || maxBH === undefined ? Infinity : maxBH,
+            maxRoomsPerHouse:  maxR === null  || maxR === undefined  ? Infinity : maxR,
+          },
+        };
+      }
+    } catch {
+      // Column doesn't exist yet, fall through to legacy
+    }
+  }
+
+  // Fallback to legacy hardcoded limits
   return {
     isPremium,
-    limits: isPremium ? PLAN_LIMITS.premium : PLAN_LIMITS.basic,
+    limits: isPremium ? FALLBACK_LIMITS.premium : FALLBACK_LIMITS.basic,
   };
 }
 // ──────────────────────────────────────────────────────────────
