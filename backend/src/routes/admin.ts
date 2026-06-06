@@ -392,6 +392,10 @@ adminRoutes.patch("/users/:id/status", requireAuth, requireAdmin, async (c) => {
   return c.json({ success: true, user: { id: userId, status } });
 });
 
+// OWNER_BASIC and OWNER_PREMIUM role UUIDs (seeded in DB)
+const OWNER_BASIC_ROLE_ID = "8a62d08a-2c8b-4b2a-8888-000000000001";
+const OWNER_PREMIUM_ROLE_ID = "8a62d08a-2c8b-4b2a-8888-000000000002";
+
 // PATCH /admin/users/:id/plan - Update owner subscription plan
 adminRoutes.patch("/users/:id/plan", requireAuth, requireAdmin, async (c) => {
   const userId = c.req.param("id");
@@ -402,10 +406,15 @@ adminRoutes.patch("/users/:id/plan", requireAuth, requireAdmin, async (c) => {
   }
 
   const planValue = plan === "premium" ? "plan:premium" : "plan:basic";
+  const targetRoleId = plan === "premium" ? OWNER_PREMIUM_ROLE_ID : OWNER_BASIC_ROLE_ID;
 
   const { error } = await supabaseAdmin
     .from("users")
-    .update({ admin_note: planValue, updated_at: new Date().toISOString() })
+    .update({
+      role_id: targetRoleId,
+      admin_note: planValue,
+      updated_at: new Date().toISOString()
+    })
     .eq("id", userId);
 
   if (error) {
@@ -414,7 +423,7 @@ adminRoutes.patch("/users/:id/plan", requireAuth, requireAdmin, async (c) => {
 
   clearAuthCacheForUser(userId);
 
-  return c.json({ success: true, plan: planValue });
+  return c.json({ success: true, plan: planValue, role_id: targetRoleId });
 });
 
 // GET /admin/owner-approvals - Owners waiting for admin approval
@@ -423,7 +432,7 @@ adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
 
   let query = supabaseAdmin
     .from("users")
-    .select("id,email,name,avatar,role,status,provider,is_profile_completed,onboarding_step,created_at,updated_at,last_login_at,admin_note,user_profiles(*)")
+    .select("id,email,name,avatar,role,role_id,status,provider,is_profile_completed,onboarding_step,created_at,updated_at,last_login_at,admin_note,user_profiles(*)")
     .eq("role", "OWNER")
     .order("updated_at", { ascending: false });
 
@@ -454,12 +463,18 @@ adminRoutes.get("/owner-approvals", requireAuth, requireAdmin, async (c) => {
         : user.onboarding_step === "PENDING_APPROVAL" || hasLegacyCompletedProfile
           ? "PENDING_APPROVAL"
           : user.status;
+      // Derive plan from role_id (DB-driven) with fallback to admin_note
+      const isPremiumById = user.role_id === OWNER_PREMIUM_ROLE_ID;
+      const isPremiumByNote = user.admin_note?.includes("premium");
+      const isPremium = isPremiumById || isPremiumByNote;
       return {
         id: user.id,
         email: user.email,
         name: user.name,
         avatar: user.avatar,
         role: user.role,
+        roleId: user.role_id,
+        plan: isPremium ? "premium" : "basic",
         status: approvalStatus,
         approvalStatus,
         provider: user.provider,

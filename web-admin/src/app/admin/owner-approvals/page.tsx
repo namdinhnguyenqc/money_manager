@@ -15,6 +15,8 @@ type OwnerApproval = {
   createdAt?: string;
   updatedAt?: string;
   adminNote?: string | null;
+  roleId?: string | null;
+  plan?: "basic" | "premium";
   profile?: {
     fullName?: string;
     phone?: string;
@@ -61,7 +63,8 @@ export default function OwnerApprovalsPage() {
 
   useEffect(() => {
     if (selectedItem) {
-      const currentPlan = selectedItem.adminNote?.includes("premium") ? "premium" : "basic";
+      // Use DB-driven plan field; fallback to parsing adminNote for legacy records
+      const currentPlan = selectedItem.plan ?? (selectedItem.adminNote?.includes("premium") ? "premium" : "basic");
       setSelectedPlan(currentPlan);
     }
   }, [selectedId, selectedItem]);
@@ -177,11 +180,11 @@ export default function OwnerApprovalsPage() {
                       </td>
                       <td className="px-4 py-4">
                         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                          item.adminNote?.includes("premium") 
+                          (item.plan === "premium" || item.adminNote?.includes("premium"))
                             ? "bg-amber-50 text-amber-800 border border-amber-200/50" 
                             : "bg-slate-100 text-slate-700 border border-slate-200/50"
                         }`}>
-                          {item.adminNote?.includes("premium") ? "Premium" : "Basic"}
+                          {(item.plan === "premium" || item.adminNote?.includes("premium")) ? "✦ Premium" : "Basic"}
                         </span>
                       </td>
                       <td className="px-4 py-4">

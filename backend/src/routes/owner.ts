@@ -1194,45 +1194,40 @@ ownerRoutes.get("/permissions", async (c) => {
   const user = c.get("user");
   const db = c.get("supabase");
 
-  // Fetch the role ID of the OWNER role (since the user is an owner, we check roles table)
-  const { data: role } = await db
-    .from("roles")
-    .select("id")
-    .eq("name", "OWNER")
-    .maybeSingle();
+  const { data: dbUser, error: userError } = await supabaseAdmin
+    .from("users")
+    .select("role_id")
+    .eq("id", user.id)
+    .single();
 
-  if (!role) {
+  let roleId = dbUser?.role_id;
+
+  // Fallback if role_id is not set: look for OWNER_BASIC or OWNER role
+  if (!roleId) {
+    const { data: fallbackRole } = await db
+      .from("roles")
+      .select("id")
+      .or("name.eq.OWNER_BASIC,name.eq.OWNER")
+      .limit(1)
+      .maybeSingle();
+    roleId = fallbackRole?.id;
+  }
+
+  if (!roleId) {
     return c.json({ permissions: [] });
   }
 
-  // Get permissions associated with the OWNER role
+  // Get permissions associated with the role_id
   const { data: perms, error } = await db
     .from("role_permissions")
     .select("permission_key")
-    .eq("role_id", role.id);
+    .eq("role_id", roleId);
 
   if (error) {
     return c.json({ error: error.message }, 500);
   }
 
-  let permissionKeys = (perms || []).map((p: any) => p.permission_key);
-
-  // Check subscription plan
-  const { data: dbUser } = await supabaseAdmin
-    .from("users")
-    .select("admin_note")
-    .eq("id", user.id)
-    .single();
-
-  const isPremium = dbUser?.admin_note?.includes("plan:premium") || dbUser?.admin_note?.includes("premium");
-  if (isPremium) {
-    if (!permissionKeys.includes("trading.view")) {
-      permissionKeys.push("trading.view");
-    }
-  } else {
-    permissionKeys = permissionKeys.filter((k: string) => k !== "trading.view");
-  }
-
+  const permissionKeys = (perms || []).map((p: any) => p.permission_key);
   return c.json({ permissions: permissionKeys });
 });
 
@@ -1240,11 +1235,19 @@ ownerRoutes.post("/simulate-upgrade", async (c) => {
   const currentUser = c.get("user");
   const { plan } = await c.req.json().catch(() => ({}));
 
+  const targetRoleId = plan === "premium"
+    ? "8a62d08a-2c8b-4b2a-8888-000000000002"
+    : "8a62d08a-2c8b-4b2a-8888-000000000001";
+
   const planValue = plan === "premium" ? "plan:premium" : "plan:basic";
 
   const { error } = await supabaseAdmin
     .from("users")
-    .update({ admin_note: planValue, updated_at: new Date().toISOString() })
+    .update({
+      role_id: targetRoleId,
+      admin_note: planValue,
+      updated_at: new Date().toISOString()
+    })
     .eq("id", currentUser.id);
 
   if (error) {
@@ -1252,7 +1255,9 @@ ownerRoutes.post("/simulate-upgrade", async (c) => {
   }
 
   // Clear auth caches so permissions are re-fetched correctly
-  clearAuthCacheForUser(currentUser.id);
+  if (typeof clearAuthCacheForUser === "function") {
+    clearAuthCacheForUser(currentUser.id);
+  }
 
   return c.json({ success: true, plan: planValue });
 });
