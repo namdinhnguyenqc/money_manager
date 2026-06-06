@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const CANONICAL_HOST = 'tcareproduction.vercel.app'
-const ADMIN_PORTAL_HOST = 'tcareproduction.vercel.app'
+const CANONICAL_HOST = 'trocare-production.vercel.app'
+const ADMIN_PORTAL_HOST = 'trocare-production.vercel.app'
 const PREVIEW_HOST_PREFIXES = [
   'trocare-production-',
   'tcare-production-',
