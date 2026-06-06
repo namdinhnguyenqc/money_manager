@@ -822,7 +822,8 @@ export async function loadPendingBilling(month: number, year: number, facilityId
   );
 
   return rooms.filter(room => {
-    if (room.status !== "occupied" || !room.contract_id) return false;
+    const status = String(room.status || "").toLowerCase();
+    if (status !== "occupied" || !room.contract_id) return false;
     if (existingRoomIds.has(room.id)) return false;
 
     if (room.start_date) {

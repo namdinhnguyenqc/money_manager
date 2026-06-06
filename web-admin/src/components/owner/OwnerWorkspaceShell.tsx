@@ -28,7 +28,20 @@ import { clearClientSession, getStoredAccessToken, getStoredSessionUser } from "
 import { authFetch } from "@/utils/authFetch";
 import Logo from "@/components/ui/Logo";
 
-const navSections = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: any;
+  badge?: string;
+  permission?: string;
+}
+
+interface NavSection {
+  title: string;
+  items: NavItem[];
+}
+
+const navSections: NavSection[] = [
   {
     title: "Tổng quan",
     items: [
