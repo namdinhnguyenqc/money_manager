@@ -8,6 +8,7 @@ import Card from "@/components/ui/Card";
 import DataTable from "@/components/ui/DataTable";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiClient } from "@/lib/api";
+import { translateContractStatus, translateInvoiceStatus, translateRoomStatus } from "@/utils/translate";
 
 type Row = Record<string, any>;
 type RoomDetail = {
@@ -17,6 +18,7 @@ type RoomDetail = {
   price?: number;
   status?: string;
   boardingHouseId?: string;
+  boardingHouseName?: string;
   contracts: Row[];
   invoices: Row[];
 };
@@ -52,8 +54,8 @@ export default function AdminRoomDetailPage({ params }: { params: { id: string }
         breadcrumb={<Link href="/admin/owners" className="inline-flex items-center gap-1 text-sm font-semibold text-blue-700"><ArrowLeft size={15} /> Về danh sách chủ trọ</Link>}
         subtitle="Chi tiết phòng"
         title={room.name || room.room_number || room.id}
-        description={`Mã phòng ${room.id} - Cơ sở ${room.boarding_house_id || detail.boardingHouseId || "-"}`}
-        actions={<Badge>{room.status || detail.status || "UNKNOWN"}</Badge>}
+        description={`Mã phòng ${room.id} - Cơ sở ${room.boarding_house_name || detail.boardingHouseName || room.boarding_house_id || detail.boardingHouseId || "-"}`}
+        actions={<Badge>{translateRoomStatus(room.status || detail.status)}</Badge>}
       />
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="p-5"><p className="text-sm text-slate-500">Giá phòng</p><p className="mt-2 text-2xl font-black text-slate-950">{Number(room.price || detail.price || 0).toLocaleString("vi-VN")} VND</p></Card>
@@ -63,14 +65,14 @@ export default function AdminRoomDetailPage({ params }: { params: { id: string }
       <section className="space-y-3">
         <h2 className="flex items-center gap-2 text-lg font-black text-slate-950"><FileText size={18} /> Hợp đồng</h2>
         <DataTable headers={["Mã", "Khách thuê", "Trạng thái", "Bắt đầu", "Kết thúc"]}>
-          {detail.contracts.map((contract) => <tr key={contract.id}><td className="px-4 py-3 font-mono text-xs">{contract.id}</td><td className="px-4 py-3">{contract.tenant_id || "-"}</td><td className="px-4 py-3"><Badge>{contract.status || "UNKNOWN"}</Badge></td><td className="px-4 py-3">{contract.start_date || "-"}</td><td className="px-4 py-3">{contract.end_date || "-"}</td></tr>)}
+          {detail.contracts.map((contract) => <tr key={contract.id}><td className="px-4 py-3 font-mono text-xs">{contract.id}</td><td className="px-4 py-3">{contract.tenant_name || contract.tenant_id || "-"}</td><td className="px-4 py-3"><Badge>{translateContractStatus(contract.status)}</Badge></td><td className="px-4 py-3">{contract.start_date || "-"}</td><td className="px-4 py-3">{contract.end_date || "-"}</td></tr>)}
           {detail.contracts.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500">Phòng chưa có hợp đồng.</td></tr>}
         </DataTable>
       </section>
       <section className="space-y-3">
         <h2 className="flex items-center gap-2 text-lg font-black text-slate-950"><Receipt size={18} /> Hóa đơn</h2>
         <DataTable headers={["Mã", "Tháng", "Tổng tiền", "Đã trả", "Trạng thái"]}>
-          {detail.invoices.map((invoice) => <tr key={invoice.id}><td className="px-4 py-3 font-mono text-xs">{invoice.id}</td><td className="px-4 py-3">{invoice.month || "-"}/{invoice.year || "-"}</td><td className="px-4 py-3">{Number(invoice.total_amount || 0).toLocaleString("vi-VN")}</td><td className="px-4 py-3">{Number(invoice.paid_amount || 0).toLocaleString("vi-VN")}</td><td className="px-4 py-3"><Badge>{invoice.status || "UNKNOWN"}</Badge></td></tr>)}
+          {detail.invoices.map((invoice) => <tr key={invoice.id}><td className="px-4 py-3 font-mono text-xs">{invoice.id}</td><td className="px-4 py-3">{invoice.month || "-"}/{invoice.year || "-"}</td><td className="px-4 py-3">{Number(invoice.total_amount || 0).toLocaleString("vi-VN")}</td><td className="px-4 py-3">{Number(invoice.paid_amount || 0).toLocaleString("vi-VN")}</td><td className="px-4 py-3"><Badge>{translateInvoiceStatus(invoice.status)}</Badge></td></tr>)}
           {detail.invoices.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500">Phòng chưa có hóa đơn.</td></tr>}
         </DataTable>
       </section>

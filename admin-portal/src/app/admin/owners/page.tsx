@@ -9,6 +9,8 @@ import DataTable from "@/components/ui/DataTable";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiClient } from "@/lib/api";
 
+import { translateUserStatus } from "@/utils/translate";
+
 type Owner = {
   id: string;
   name?: string | null;
@@ -106,7 +108,7 @@ export default function AdminOwnersPage() {
               <p className="text-xs text-slate-500">{owner.phone || "-"}</p>
             </td>
             <td className="px-4 py-3">
-              <Badge variant={owner.status === "BLOCKED" ? "danger" : "success"}>{owner.status || "UNKNOWN"}</Badge>
+              <Badge variant={owner.status === "BLOCKED" ? "danger" : "success"}>{translateUserStatus(owner.status)}</Badge>
             </td>
             <td className="px-4 py-3 text-slate-600">{owner.created_at ? owner.created_at.slice(0, 10) : "-"}</td>
             <td className="px-4 py-3">

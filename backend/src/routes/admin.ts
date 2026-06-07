@@ -1215,16 +1215,55 @@ adminRoutes.get("/rooms/:id", ...adminWithPermission("room.view"), async (c) => 
   }
 
   const { contracts: roomContracts, invoices: roomInvoices, ...roomData } = room as any;
+
+  // Fetch tenant names for contracts
+  const tenantIds = (roomContracts ?? []).map((c: any) => c.tenant_id).filter(Boolean);
+  let tenantsMap: Record<string, string> = {};
+  if (tenantIds.length > 0) {
+    const { data: tenants } = await supabaseAdmin
+      .from("tenants")
+      .select("id, name")
+      .in("id", tenantIds);
+    if (tenants) {
+      tenantsMap = tenants.reduce((acc: any, t: any) => {
+        acc[t.id] = t.name;
+        return acc;
+      }, {});
+    }
+  }
+
+  const contractsWithTenantNames = (roomContracts ?? []).map((c: any) => ({
+    ...c,
+    tenant_name: tenantsMap[c.tenant_id] || null,
+  }));
+
+  // Fetch boarding house name
+  let boardingHouseName: string | null = null;
+  if (roomData.boarding_house_id) {
+    const { data: bh } = await supabaseAdmin
+      .from("boarding_houses")
+      .select("name")
+      .eq("id", roomData.boarding_house_id)
+      .single();
+    if (bh) {
+      boardingHouseName = bh.name;
+    }
+  }
+
   return c.json({
-    data: roomData,
+    data: {
+      ...roomData,
+      boarding_house_name: boardingHouseName,
+    },
     id: roomData.id,
     name: roomData.name,
     boardingHouseId: roomData.boarding_house_id,
+    boardingHouseName: boardingHouseName,
     price: roomData.price,
     status: roomData.status,
     isPublic: roomData.is_public,
     createdAt: roomData.created_at,
-    contracts: roomContracts ?? [],
+    contracts: contractsWithTenantNames,
     invoices: roomInvoices ?? [],
   });
 });
@@ -1659,7 +1698,29 @@ adminRoutes.get("/tenants/:id", ...adminWithPermission("tenant.view"), async (c)
     supabaseAdmin.from("contracts").select("*").eq("tenant_id", id),
   ]);
   if (tenant.error || !tenant.data) return c.json({ error: "Tenant not found" }, 404);
-  return c.json({ data: tenant.data, contracts: contracts.data ?? [] });
+
+  // Fetch room names for contracts
+  const roomIds = (contracts.data ?? []).map((c: any) => c.room_id).filter(Boolean);
+  let roomsMap: Record<string, string> = {};
+  if (roomIds.length > 0) {
+    const { data: rooms } = await supabaseAdmin
+      .from("rooms")
+      .select("id, name")
+      .in("id", roomIds);
+    if (rooms) {
+      roomsMap = rooms.reduce((acc: any, r: any) => {
+        acc[r.id] = r.name;
+        return acc;
+      }, {});
+    }
+  }
+
+  const contractsWithRoomNames = (contracts.data ?? []).map((c: any) => ({
+    ...c,
+    room_name: roomsMap[c.room_id] || null,
+  }));
+
+  return c.json({ data: tenant.data, contracts: contractsWithRoomNames });
 });
 
 const lockTableRow = async (c: any, table: string, resourceType: string, action: "lock" | "unlock", status?: string) => {
