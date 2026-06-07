@@ -169,10 +169,6 @@ export default function TransactionsScreen() {
     setActiveWalletId(walletId || null);
   }, [walletId]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
   useFocusEffect(
     useCallback(() => {
       fetchData(true);

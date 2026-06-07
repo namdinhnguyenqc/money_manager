@@ -3,7 +3,7 @@
  * Lists lease contracts with filter tabs and status badges.
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ScrollView,
 } from 'react-native';
@@ -56,11 +56,10 @@ export default function ContractsScreen() {
     } catch {} finally { setLoading(false); setRefreshing(false); }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
   useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
   const onRefresh = () => { setRefreshing(true); fetchData(); };
 
-  const filtered = contracts.filter((c) => matchesFilter(c, activeTab));
+  const filtered = useMemo(() => contracts.filter((c) => matchesFilter(c, activeTab)), [contracts, activeTab]);
 
   if (loading) {
     return <View style={styles.container}>{[1,2,3,4].map(i => <ListItemSkeleton key={i} />)}</View>;
