@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from './api';
+import { apiGet, apiPost, apiDelete, apiPatch, apiPut, type RequestOptions } from './api';
 
 export type ContractStatus = 'active' | 'expiring_soon' | 'ended' | 'expired';
 export type InvoiceStatus = 'paid' | 'partial' | 'sent' | 'overdue' | 'draft';
@@ -467,8 +467,8 @@ export const isContractSoonEnding = (room: RentalRoom) => {
   return end >= now && end - now <= 30 * 24 * 60 * 60 * 1000;
 };
 
-export async function loadBoardingHouses() {
-  const res = await apiGet<any>('/owner/boarding-houses');
+export async function loadBoardingHouses(options?: RequestOptions) {
+  const res = await apiGet<any>('/owner/boarding-houses', options);
   return (res?.data ?? []) as BoardingHouse[];
 }
 
@@ -505,9 +505,9 @@ export async function createOwnerRoom(buildingId: string, input: { name: string;
   return (res?.data ?? res) as OwnerRoom;
 }
 
-export async function loadRentalRooms(buildingId?: string) {
+export async function loadRentalRooms(buildingId?: string, options?: RequestOptions) {
   const url = buildingId ? `/rental/rooms?buildingId=${buildingId}` : '/rental/rooms';
-  const res = await apiGet<any>(url);
+  const res = await apiGet<any>(url, options);
   return ((res?.data ?? []) as RentalRoom[]).map((room) => ({
     ...room,
     status: normalizeRoomStatusValue(room.status),
@@ -519,8 +519,8 @@ export async function loadRoom(id: string) {
   return rooms.find((room) => String(room.id) === String(id)) || null;
 }
 
-export async function loadContracts() {
-  const res = await apiGet<any>('/rental/contracts');
+export async function loadContracts(options?: RequestOptions) {
+  const res = await apiGet<any>('/rental/contracts', options);
   return (res?.data ?? []).map(toContractViewFromApi) as ContractView[];
 }
 
@@ -555,9 +555,9 @@ export async function loadDepositRefund(contractId: string) {
   return res?.data;
 }
 
-export async function loadInvoices(buildingId?: string) {
+export async function loadInvoices(buildingId?: string, options?: RequestOptions) {
   const url = buildingId ? `/invoices?buildingId=${buildingId}` : '/invoices';
-  const res = await apiGet<any>(url);
+  const res = await apiGet<any>(url, options);
   return (res?.data ?? []) as Invoice[];
 }
 
@@ -571,14 +571,14 @@ export async function loadInvoice(id: string) {
   return (res?.data ?? null) as Invoice;
 }
 
-export async function loadWallets() {
-  const res = await apiGet<any>('/wallets');
+export async function loadWallets(options?: RequestOptions) {
+  const res = await apiGet<any>('/wallets', options);
   return (res?.data ?? []) as Wallet[];
 }
 
-export async function loadTransactions(walletId?: string) {
+export async function loadTransactions(walletId?: string, options?: RequestOptions) {
   const url = walletId ? `/transactions?walletId=${walletId}&limit=100` : '/transactions?limit=100';
-  const res = await apiGet<any>(url);
+  const res = await apiGet<any>(url, options);
   return (res?.data ?? []) as Transaction[];
 }
 

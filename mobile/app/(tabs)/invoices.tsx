@@ -17,6 +17,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import { ListItemSkeleton } from '@/components/ui/Skeleton';
 import { apiGet, getAccessToken } from '@/lib/api';
 import { loadPendingBilling } from '@/lib/rentalOps';
+import { logPerfEvent } from '@/lib/telemetry/appPerformance';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import Config from '@/constants/Config';
@@ -139,10 +140,10 @@ export default function InvoicesScreen() {
     exportInvoicesToExcelMobile(periods.join(','), label);
   };
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     try {
       const [res, pending] = await Promise.all([
-        apiGet<any>(`/invoices?month=${selectedPeriod.month}&year=${selectedPeriod.year}&includeOverdueCarryover=true`),
+        apiGet<any>(`/invoices?month=${selectedPeriod.month}&year=${selectedPeriod.year}&includeOverdueCarryover=true`, { forceRefresh }),
         loadPendingBilling(selectedPeriod.month, selectedPeriod.year),
       ]);
       setInvoices(res?.data ?? []);
@@ -156,7 +157,7 @@ export default function InvoicesScreen() {
   }, [selectedPeriod.month, selectedPeriod.year]);
 
   useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
-  const onRefresh = () => { setRefreshing(true); fetchData(); };
+  const onRefresh = () => { setRefreshing(true); fetchData(true); };
 
   const handlePrevMonth = () => {
     setSelectedPeriod((prev) => {
@@ -304,6 +305,7 @@ export default function InvoicesScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
+        onContentSizeChange={() => logPerfEvent("LIST_RENDER_DONE", { screen: "invoices", itemCount: filtered.length })}
         extraData={`${activeTab}-${selectedPeriod.month}-${selectedPeriod.year}-${overdueCarryCount}`}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}

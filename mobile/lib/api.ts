@@ -11,6 +11,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import Config from '@/constants/Config';
+import { logPerfEvent } from '@/lib/telemetry/appPerformance';
 
 const API_URL = Config.API_URL;
 const REQUEST_TIMEOUT_MS = 30000; // 30s to handle Render.com cold starts
@@ -38,6 +39,7 @@ export async function setRefreshToken(token: string): Promise<void> {
 }
 
 export async function clearTokens(): Promise<void> {
+  clearApiCache();
   await Promise.all([
     SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
     SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
@@ -227,11 +229,54 @@ async function tryRefreshToken(): Promise<boolean> {
 
 // ─── Core Request Function ───
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
-type RequestOptions = {
+export type RequestOptions = {
   auth?: boolean;
   retry?: boolean;
   timeoutMs?: number;
+  cacheTtlMs?: number;
+  forceRefresh?: boolean;
+  cacheKey?: string;
 };
+
+type CacheEntry = {
+  value: any;
+  expiresAt: number;
+  storedAt: number;
+};
+
+const responseCache = new Map<string, CacheEntry>();
+const inFlightRequests = new Map<string, Promise<any>>();
+
+function getDefaultCacheTtlMs(path: string, method: HttpMethod): number {
+  if (method !== 'GET') return 0;
+  if (path.startsWith('/auth/')) return 0;
+  if (path.startsWith('/owner/notifications')) return 0;
+  if (path.startsWith('/me/profile')) return 5 * 60 * 1000;
+  if (path.startsWith('/owner/settings')) return 10 * 60 * 1000;
+  if (path.startsWith('/categories')) return 10 * 60 * 1000;
+  if (path.startsWith('/locations/')) return 24 * 60 * 60 * 1000;
+  if (path.startsWith('/rental/services')) return 10 * 60 * 1000;
+  if (path.startsWith('/bank-config')) return 10 * 60 * 1000;
+  if (path.startsWith('/owner/dashboard-init')) return 60 * 1000;
+  if (path.startsWith('/owner/boarding-houses')) return 5 * 60 * 1000;
+  if (path.startsWith('/rental/rooms')) return 2 * 60 * 1000;
+  if (path.startsWith('/wallets')) return 60 * 1000;
+  if (path.startsWith('/rental/contracts')) return 60 * 1000;
+  if (path.startsWith('/invoices')) return 30 * 1000;
+  if (path.startsWith('/transactions')) return 30 * 1000;
+  if (path.startsWith('/rental/deposits')) return 60 * 1000;
+  return 0;
+}
+
+function getCacheKey(path: string, method: HttpMethod, options: RequestOptions) {
+  return options.cacheKey || `${method}:${path}`;
+}
+
+export function clearApiCache() {
+  responseCache.clear();
+  inFlightRequests.clear();
+  logPerfEvent("CACHE_CLEAR", { scope: "api" });
+}
 
 function buildUrl(path: string): string {
   if (path.startsWith('http')) return path;
@@ -242,6 +287,27 @@ function buildUrl(path: string): string {
 async function request<T>(path: string, method: HttpMethod, body?: any, options: RequestOptions = {}): Promise<T> {
   const url = buildUrl(path);
   const retry = options.retry !== false;
+  const requestStartedAt = Date.now();
+  const cacheKey = getCacheKey(path, method, options);
+  const cacheTtlMs = options.cacheTtlMs ?? getDefaultCacheTtlMs(path, method);
+
+  if (method === 'GET' && cacheTtlMs > 0 && !options.forceRefresh) {
+    const cached = responseCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      logPerfEvent("CACHE_HIT", { path, method, cacheKey, ageMs: Date.now() - cached.storedAt, ttlMs: cacheTtlMs });
+      return cached.value as T;
+    }
+    logPerfEvent("CACHE_MISS", { path, method, cacheKey, reason: cached ? "expired" : "empty", ttlMs: cacheTtlMs });
+
+    const inFlight = inFlightRequests.get(cacheKey);
+    if (inFlight) {
+      logPerfEvent("CACHE_HIT", { path, method, cacheKey, source: "in_flight" });
+      return inFlight as Promise<T>;
+    }
+  } else if (method === 'GET') {
+    logPerfEvent("CACHE_MISS", { path, method, reason: options.forceRefresh ? "force_refresh" : "disabled", ttlMs: cacheTtlMs });
+  }
+
   const accessToken = options.auth === false ? null : await getAccessToken();
 
   const headers: Record<string, string> = {
@@ -256,13 +322,54 @@ async function request<T>(path: string, method: HttpMethod, body?: any, options:
     headers['Content-Type'] = 'application/json';
   }
 
-  const res = await fetchWithTimeout(url, {
-    method,
-    headers,
-    body: body !== undefined && body !== null ? JSON.stringify(body) : undefined,
-  }, { timeoutMs: options.timeoutMs });
+  const executeNetworkRequest = async () => {
+    logPerfEvent("API_REQUEST_START", { path, method, cacheKey, cacheTtlMs });
+    try {
+      const res = await fetchWithTimeout(url, {
+        method,
+        headers,
+        body: body !== undefined && body !== null ? JSON.stringify(body) : undefined,
+      }, { timeoutMs: options.timeoutMs });
 
-  const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(() => ({}));
+      logPerfEvent("API_REQUEST_DONE", {
+        path,
+        method,
+        status: res.status,
+        ok: res.ok,
+        durationMs: Date.now() - requestStartedAt,
+        cacheKey,
+      });
+
+      return { res, data };
+    } catch (error: any) {
+      logPerfEvent("API_REQUEST_DONE", {
+        path,
+        method,
+        status: error?.status ?? 0,
+        ok: false,
+        durationMs: Date.now() - requestStartedAt,
+        cacheKey,
+        message: String(error?.message || error),
+      });
+      throw error;
+    }
+  };
+
+  const networkPromise = executeNetworkRequest();
+  if (method === 'GET' && cacheTtlMs > 0 && !options.forceRefresh) {
+    inFlightRequests.set(cacheKey, networkPromise.then(({ data }) => data));
+  }
+
+  let res: Response;
+  let data: any;
+  try {
+    const result = await networkPromise;
+    res = result.res;
+    data = result.data;
+  } finally {
+    if (method === 'GET') inFlightRequests.delete(cacheKey);
+  }
 
   // Handle 403 PROFILE_REQUIRED
   if (res.status === 403 && data?.code === 'PROFILE_REQUIRED') {
@@ -307,12 +414,20 @@ async function request<T>(path: string, method: HttpMethod, body?: any, options:
     );
   }
 
+  if (method === 'GET' && cacheTtlMs > 0) {
+    responseCache.set(cacheKey, {
+      value: data,
+      expiresAt: Date.now() + cacheTtlMs,
+      storedAt: Date.now(),
+    });
+  }
+
   return data as T;
 }
 
 // ─── Public API Methods ───
-export async function apiGet<T>(path: string): Promise<T> {
-  return request<T>(path, 'GET');
+export async function apiGet<T>(path: string, options?: RequestOptions): Promise<T> {
+  return request<T>(path, 'GET', undefined, options);
 }
 
 export async function apiPost<T>(path: string, body: any, options?: RequestOptions): Promise<T> {
