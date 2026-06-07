@@ -99,6 +99,19 @@ const isAccessTokenRevoked = (token: string, now: number) => {
   return true;
 };
 
+const logAuthReject = (c: any, reason: string, details: Record<string, any> = {}) => {
+  console.warn(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level: "WARN",
+    event: "AUTH_REJECT",
+    reason,
+    requestId: c.get("requestId"),
+    method: c.req.method,
+    path: c.req.path,
+    ...details,
+  }));
+};
+
 export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
   // Rate limiting for /auth/google
   if (c.req.path === "/auth/google") {
@@ -110,6 +123,7 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
 
   const token = extractBearer(c.req.header("Authorization"));
   if (!token) {
+    logAuthReject(c, "MISSING_BEARER_TOKEN");
     return c.json({ error: "Missing bearer token" }, 401);
   }
 
@@ -119,6 +133,7 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
   const now = Date.now();
   if (isAccessTokenRevoked(token, now)) {
     tokenCache.delete(token);
+    logAuthReject(c, "TOKEN_REVOKED");
     return c.json({ error: "Token has been revoked", code: "TOKEN_REVOKED" }, 401);
   }
 
@@ -173,6 +188,7 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
 
     if (appJwt.sessionId) {
       if (!sessionRes.data || sessionRes.data.revoked_at) {
+        logAuthReject(c, "SESSION_REVOKED", { userId: appJwt.sub, sessionId: appJwt.sessionId });
         return c.json({ error: "Session has been revoked", code: "SESSION_REVOKED" }, 401);
       }
     }
@@ -184,17 +200,21 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
     }
 
     if (!dbUser) {
+      logAuthReject(c, "USER_NOT_FOUND", { userId: appJwt.sub });
       return c.json({ error: "User not found in database", code: "USER_NOT_FOUND" }, 401);
     }
 
     const status = dbUser?.status || "ACTIVE";
     if (status === "BLOCKED") {
+      logAuthReject(c, "ACCOUNT_BLOCKED", { userId: appJwt.sub });
       return c.json({ error: "Account is blocked", code: "ACCOUNT_BLOCKED" }, 403);
     }
     if (status === "REJECTED") {
+      logAuthReject(c, "ACCOUNT_REJECTED", { userId: appJwt.sub });
       return c.json({ error: "Account has been rejected", code: "ACCOUNT_REJECTED" }, 403);
     }
     if (status === "DELETED") {
+      logAuthReject(c, "ACCOUNT_DELETED", { userId: appJwt.sub });
       return c.json({ error: "Account is deleted", code: "ACCOUNT_DELETED" }, 403);
     }
 
@@ -227,6 +247,7 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
   // Verify Supabase JWT â€” láº¥y user tá»« auth.users
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (!isSupabaseAuthTokenCandidate(token)) {
+    logAuthReject(c, "APP_JWT_INVALID_OR_EXPIRED");
     return c.json({ error: "Invalid or expired token", code: "APP_JWT_INVALID" }, 401);
   }
 
@@ -234,6 +255,7 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
 
   if (authError || !supaUser) {
     console.error("Auth error:", authError?.message);
+    logAuthReject(c, "SUPABASE_TOKEN_INVALID_OR_EXPIRED", { message: authError?.message });
     return c.json({ error: "Invalid or expired token" }, 401);
   }
 
@@ -303,12 +325,15 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
   const status = dbUser?.status || "ACTIVE";
 
   if (status === "BLOCKED") {
+    logAuthReject(c, "ACCOUNT_BLOCKED", { userId: supaUser.id });
     return c.json({ error: "Account is blocked", code: "ACCOUNT_BLOCKED" }, 403);
   }
   if (status === "REJECTED") {
+    logAuthReject(c, "ACCOUNT_REJECTED", { userId: supaUser.id });
     return c.json({ error: "Account has been rejected", code: "ACCOUNT_REJECTED" }, 403);
   }
   if (status === "DELETED") {
+    logAuthReject(c, "ACCOUNT_DELETED", { userId: supaUser.id });
     return c.json({ error: "Account is deleted", code: "ACCOUNT_DELETED" }, 403);
   }
 

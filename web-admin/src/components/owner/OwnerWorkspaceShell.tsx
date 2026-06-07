@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { clearClientSession, getStoredAccessToken, getStoredSessionUser } from "@/utils/session";
-import { authFetch } from "@/utils/authFetch";
+import { authFetch, logAuthEvent } from "@/utils/authFetch";
 import Logo from "@/components/ui/Logo";
 
 interface NavItem {
@@ -151,6 +151,20 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
         setOwnerName(storedUser.name || "Owner");
         setOwnerEmail(storedUser.email || "");
       }
+      const authorizeFromStoredSession = () => {
+        if (storedUser.role === "OWNER" || storedUser.role === "SUPER_ADMIN") {
+          setOwnerName(storedUser.name || "Owner");
+          setOwnerEmail(storedUser.email || "");
+          setAuthorized(true);
+          return true;
+        }
+        if (token) {
+          logAuthEvent("AUTH_OWNER_ALLOW_TOKEN_ONLY_AFTER_VERIFY_ERROR");
+          setAuthorized(true);
+          return true;
+        }
+        return false;
+      };
       try {
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 5000);
@@ -160,8 +174,19 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
         });
         window.clearTimeout(timeout);
         if (!res.ok) {
-          clearClientSession();
-          router.replace("/login");
+          if (res.status === 401 || res.status === 403) {
+            const data = await res.clone().json().catch(() => ({}));
+            logAuthEvent("AUTH_OWNER_ME_AUTH_FAILED", {
+              status: res.status,
+              code: data?.code,
+              message: data?.message || data?.error,
+            });
+            clearClientSession();
+            router.replace("/login");
+            return;
+          }
+          logAuthEvent("AUTH_OWNER_ME_NON_AUTH_ERROR", { status: res.status });
+          if (authorizeFromStoredSession()) return;
           return;
         }
         const data = await res.json();
@@ -189,12 +214,13 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
           setOwnerEmail(data?.email || localStorage.getItem("userEmail") || "");
           setAuthorized(true);
         } else {
+          logAuthEvent("AUTH_OWNER_NOT_AUTHORIZED", { role: data?.role });
           clearClientSession();
           router.replace("/not-authorized");
         }
       } catch {
-        clearClientSession();
-        router.replace("/login");
+        logAuthEvent("AUTH_OWNER_ME_NETWORK_ERROR");
+        if (authorizeFromStoredSession()) return;
       } finally {
         setLoading(false);
       }

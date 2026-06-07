@@ -91,6 +91,11 @@ type ClearSessionOptions = {
 
 export function clearClientSession(options: ClearSessionOptions = {}) {
   if (typeof window === "undefined") return;
+
+  console.warn("[auth] AUTH_CLEAR_CLIENT_SESSION", {
+    path: window.location.pathname,
+    broadcast: options.broadcast !== false,
+  });
   
   memoryAccessToken = null;
   localStorage.removeItem("accessToken");

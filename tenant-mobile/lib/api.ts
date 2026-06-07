@@ -17,27 +17,39 @@ const REQUEST_TIMEOUT_MS = 60000; // 60s to handle Render.com cold starts (free 
 // ─── Token Storage Keys (unique to Tenant App) ───
 const ACCESS_TOKEN_KEY = 'trocare_tenant_access_token';
 const REFRESH_TOKEN_KEY = 'trocare_tenant_refresh_token';
+let accessTokenCache: string | null | undefined;
+let refreshTokenCache: string | null | undefined;
 
 // ─── Token Helpers ───
 export async function getAccessToken(): Promise<string | null> {
-  return SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+  if (accessTokenCache !== undefined) return accessTokenCache;
+  accessTokenCache = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+  return accessTokenCache;
 }
 
 export async function setAccessToken(token: string): Promise<void> {
+  accessTokenCache = token;
   await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
 }
 
 export async function getRefreshToken(): Promise<string | null> {
-  return SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+  if (refreshTokenCache !== undefined) return refreshTokenCache;
+  refreshTokenCache = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+  return refreshTokenCache;
 }
 
 export async function setRefreshToken(token: string): Promise<void> {
+  refreshTokenCache = token;
   await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
 }
 
 export async function clearTokens(): Promise<void> {
-  await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-  await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+  accessTokenCache = null;
+  refreshTokenCache = null;
+  await Promise.all([
+    SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
+    SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
+  ]);
 }
 
 // ─── Error Classes ───
@@ -162,11 +174,11 @@ async function tryRefreshToken(): Promise<boolean> {
       const data = await res.json();
       if (data?.accessToken) {
         console.log('[Token Refresh] Tenant token refreshed successfully!');
-        await setAccessToken(data.accessToken);
-        if (data?.refreshToken) {
-          console.log('[Token Refresh] New tenant refresh token saved.');
-          await setRefreshToken(data.refreshToken);
-        }
+        await Promise.all([
+          setAccessToken(data.accessToken),
+          data?.refreshToken ? setRefreshToken(data.refreshToken) : Promise.resolve(),
+        ]);
+        if (data?.refreshToken) console.log('[Token Refresh] New tenant refresh token saved.');
         return true;
       }
       console.error('[Token Refresh] Response did not contain accessToken:', data);
@@ -184,6 +196,10 @@ async function tryRefreshToken(): Promise<boolean> {
 
 // ─── Core Request Function ───
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+type RequestOptions = {
+  auth?: boolean;
+  retry?: boolean;
+};
 
 function buildUrl(path: string): string {
   if (path.startsWith('http')) return path;
@@ -191,9 +207,10 @@ function buildUrl(path: string): string {
   return `${API_URL}${p}`;
 }
 
-async function request<T>(path: string, method: HttpMethod, body?: any, retry = true): Promise<T> {
+async function request<T>(path: string, method: HttpMethod, body?: any, options: RequestOptions = {}): Promise<T> {
   const url = buildUrl(path);
-  const accessToken = await getAccessToken();
+  const retry = options.retry !== false;
+  const accessToken = options.auth === false ? null : await getAccessToken();
 
   const headers: Record<string, string> = {
     'x-client-platform': Platform.OS === 'ios' ? 'ios' : 'android',
@@ -219,7 +236,7 @@ async function request<T>(path: string, method: HttpMethod, body?: any, retry = 
   if (res.status === 401 && retry) {
     const refreshed = await tryRefreshToken();
     if (refreshed) {
-      return request<T>(path, method, body, false);
+      return request<T>(path, method, body, { ...options, retry: false });
     }
     authEventListener?.('logout');
     throw new ApiClientError('Unauthorized', 401);
@@ -250,16 +267,16 @@ export async function apiGet<T>(path: string): Promise<T> {
   return request<T>(path, 'GET');
 }
 
-export async function apiPost<T>(path: string, body: any): Promise<T> {
-  return request<T>(path, 'POST', body);
+export async function apiPost<T>(path: string, body: any, options?: RequestOptions): Promise<T> {
+  return request<T>(path, 'POST', body, options);
 }
 
-export async function apiPatch<T>(path: string, body: any): Promise<T> {
-  return request<T>(path, 'PATCH', body);
+export async function apiPatch<T>(path: string, body: any, options?: RequestOptions): Promise<T> {
+  return request<T>(path, 'PATCH', body, options);
 }
 
-export async function apiPut<T>(path: string, body: any): Promise<T> {
-  return request<T>(path, 'PUT', body);
+export async function apiPut<T>(path: string, body: any, options?: RequestOptions): Promise<T> {
+  return request<T>(path, 'PUT', body, options);
 }
 
 export async function apiDelete<T>(path: string): Promise<T> {

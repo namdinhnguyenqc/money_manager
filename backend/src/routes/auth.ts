@@ -640,8 +640,9 @@ authRoutes.post("/admin-login", async (c) => {
     provider: "LOCAL",
   };
 
-  const accessToken = await generateAccessToken(adminUser);
-  auditLog("ADMIN_LOGIN_SUCCESS", adminUser.id, { role: adminUser.role });
+  const adminAccessTokenTtlSeconds = Math.max(env.JWT_EXPIRY_SECONDS, 12 * 60 * 60);
+  const accessToken = await generateAccessToken(adminUser, adminAccessTokenTtlSeconds);
+  auditLog("ADMIN_LOGIN_SUCCESS", adminUser.id, { role: adminUser.role, accessTokenTtlSeconds: adminAccessTokenTtlSeconds });
 
   return c.json({
     accessToken,
@@ -704,6 +705,7 @@ authRoutes.post("/refresh", async (c) => {
   const refreshToken = body?.refreshToken || getCookieValue(c.req.header("Cookie"), "refreshToken");
   const parsed = refreshSchema.safeParse({ refreshToken });
   if (!parsed.success) {
+    auditLog("REFRESH_FAILED_MISSING_TOKEN", null, { path: c.req.path });
     return c.json({ code: "REFRESH_TOKEN_REQUIRED", message: "Thiếu refresh token." }, 401);
   }
 
@@ -716,6 +718,7 @@ authRoutes.post("/refresh", async (c) => {
     .single();
 
   if (findError || !tokenRecord) {
+    auditLog("REFRESH_FAILED_NOT_FOUND", null, { hasCookie: Boolean(getCookieValue(c.req.header("Cookie"), "refreshToken")) });
     return c.json({ code: "REFRESH_TOKEN_EXPIRED", message: "Phiên đăng nhập đã hết hạn." }, 401);
   }
 
@@ -771,8 +774,9 @@ authRoutes.post("/refresh", async (c) => {
     await supabaseAdmin
       .from("refresh_tokens")
       .update({ revoked_at: new Date().toISOString() })
-      .eq("user_id", tokenRecord.user_id)
-      .is("revoked_at", null);
+        .eq("user_id", tokenRecord.user_id)
+        .is("revoked_at", null);
+    auditLog("REFRESH_FAILED_ACCOUNT_STATUS", tokenRecord.user_id, { status: user.status });
     return c.json({
       code: user.status === "REJECTED" ? "ACCOUNT_REJECTED" : user.status === "BLOCKED" ? "ACCOUNT_BLOCKED" : "ACCOUNT_DELETED",
       message: user.status === "REJECTED" ? "Tài khoản chưa được duyệt hoặc đã bị từ chối." : "Tài khoản không còn hoạt động.",
