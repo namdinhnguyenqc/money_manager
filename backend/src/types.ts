@@ -18,5 +18,8 @@ export type AppEnv = {
     user: CurrentUser;
     supabase: SupabaseClient; // Per-request client với RLS
     requestId?: string;
+    authDbUser?: any;
+    authPreFetchedProfile?: any;
+    authDbQueryCount?: number;
   };
 };

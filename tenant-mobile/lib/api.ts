@@ -17,35 +17,25 @@ const REQUEST_TIMEOUT_MS = 60000; // 60s to handle Render.com cold starts (free 
 // ─── Token Storage Keys (unique to Tenant App) ───
 const ACCESS_TOKEN_KEY = 'trocare_tenant_access_token';
 const REFRESH_TOKEN_KEY = 'trocare_tenant_refresh_token';
-let accessTokenCache: string | null | undefined;
-let refreshTokenCache: string | null | undefined;
 
 // ─── Token Helpers ───
 export async function getAccessToken(): Promise<string | null> {
-  if (accessTokenCache !== undefined) return accessTokenCache;
-  accessTokenCache = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
-  return accessTokenCache;
+  return SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
 }
 
 export async function setAccessToken(token: string): Promise<void> {
-  accessTokenCache = token;
   await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
 }
 
 export async function getRefreshToken(): Promise<string | null> {
-  if (refreshTokenCache !== undefined) return refreshTokenCache;
-  refreshTokenCache = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
-  return refreshTokenCache;
+  return SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
 }
 
 export async function setRefreshToken(token: string): Promise<void> {
-  refreshTokenCache = token;
   await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
 }
 
 export async function clearTokens(): Promise<void> {
-  accessTokenCache = null;
-  refreshTokenCache = null;
   await Promise.all([
     SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
     SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),

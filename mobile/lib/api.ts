@@ -14,39 +14,30 @@ import Config from '@/constants/Config';
 
 const API_URL = Config.API_URL;
 const REQUEST_TIMEOUT_MS = 30000; // 30s to handle Render.com cold starts
+const DEV_FALLBACK_TIMEOUT_MS = 3000;
 
 // ─── Token Storage Keys ───
 const ACCESS_TOKEN_KEY = 'trocare_access_token';
 const REFRESH_TOKEN_KEY = 'trocare_refresh_token';
-let accessTokenCache: string | null | undefined;
-let refreshTokenCache: string | null | undefined;
 
 // ─── Token Helpers ───
 export async function getAccessToken(): Promise<string | null> {
-  if (accessTokenCache !== undefined) return accessTokenCache;
-  accessTokenCache = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
-  return accessTokenCache;
+  return SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
 }
 
 export async function setAccessToken(token: string): Promise<void> {
-  accessTokenCache = token;
   await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
 }
 
 export async function getRefreshToken(): Promise<string | null> {
-  if (refreshTokenCache !== undefined) return refreshTokenCache;
-  refreshTokenCache = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
-  return refreshTokenCache;
+  return SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
 }
 
 export async function setRefreshToken(token: string): Promise<void> {
-  refreshTokenCache = token;
   await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
 }
 
 export async function clearTokens(): Promise<void> {
-  accessTokenCache = null;
-  refreshTokenCache = null;
   await Promise.all([
     SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
     SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
@@ -70,8 +61,19 @@ export class ApiClientError extends Error {
   }
 }
 
-function getTimeoutMessage(url: string): string {
-  return `Request timed out after ${REQUEST_TIMEOUT_MS}ms: ${url}`;
+function getTimeoutMessage(url: string, timeoutMs: number): string {
+  return `Request timed out after ${timeoutMs}ms: ${url}`;
+}
+
+let activeBaseUrl: string | null = null;
+
+function getBaseUrl(url: string): string {
+  const match = url.match(/^(https?:\/\/[^/]+)/);
+  return match?.[1] || url;
+}
+
+function getPathFromApiUrl(url: string): string {
+  return url.startsWith(API_URL) ? url.slice(API_URL.length) : "";
 }
 
 function getUrlCandidates(url: string): string[] {
@@ -81,38 +83,66 @@ function getUrlCandidates(url: string): string[] {
   const isProduction = API_URL.startsWith('https://');
   if (isProduction) return [url];
 
+  const path = getPathFromApiUrl(url);
+  const activeCandidate = activeBaseUrl ? `${activeBaseUrl}${path}` : null;
   return Array.from(new Set([
+    activeCandidate,
     url,
     ...Config.API_FALLBACK_URLS.map((baseUrl) => `${baseUrl}${url.slice(API_URL.length)}`),
-  ]));
+  ].filter(Boolean) as string[]));
 }
 
-async function fetchSingleUrlWithTimeout(url: string, init: RequestInit): Promise<Response> {
+function logUrlEvent(event: string, fields: Record<string, unknown>) {
+  console.log(JSON.stringify({
+    event,
+    configuredBaseUrl: API_URL,
+    activeBaseUrl,
+    ...fields,
+  }));
+}
+
+async function fetchSingleUrlWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const startedAt = Date.now();
+  const baseUrl = getBaseUrl(url);
+  logUrlEvent("URL_START", { url, baseUrl, timeoutMs });
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    return await fetch(url, {
+    const response = await fetch(url, {
       ...init,
       signal: controller.signal,
     });
+    activeBaseUrl = baseUrl;
+    logUrlEvent("URL_SUCCESS", { url, baseUrl, status: response.status, durationMs: Date.now() - startedAt });
+    return response;
   } catch (err: any) {
     if (err?.name === 'AbortError') {
-      throw new ApiClientError(getTimeoutMessage(url), 0, { code: 'NETWORK_TIMEOUT' });
+      logUrlEvent("URL_TIMEOUT", { url, baseUrl, timeoutMs, durationMs: Date.now() - startedAt });
+      throw new ApiClientError(getTimeoutMessage(url, timeoutMs), 0, { code: 'NETWORK_TIMEOUT' });
     }
+    logUrlEvent("URL_FAILED", { url, baseUrl, message: String(err?.message || err), durationMs: Date.now() - startedAt });
     throw err;
   } finally {
     clearTimeout(timeout);
   }
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+type FetchOptions = {
+  timeoutMs?: number;
+};
+
+async function fetchWithTimeout(url: string, init: RequestInit, options: FetchOptions = {}): Promise<Response> {
   const candidates = getUrlCandidates(url);
   let lastError: any = null;
 
-  for (const candidateUrl of candidates) {
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidateUrl = candidates[index];
+    const timeoutMs = index === 0
+      ? (options.timeoutMs || REQUEST_TIMEOUT_MS)
+      : Math.min(options.timeoutMs || REQUEST_TIMEOUT_MS, DEV_FALLBACK_TIMEOUT_MS);
     try {
-      return await fetchSingleUrlWithTimeout(candidateUrl, init);
+      return await fetchSingleUrlWithTimeout(candidateUrl, init, timeoutMs);
     } catch (err: any) {
       lastError = err;
       const canRetry =
@@ -200,6 +230,7 @@ type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 type RequestOptions = {
   auth?: boolean;
   retry?: boolean;
+  timeoutMs?: number;
 };
 
 function buildUrl(path: string): string {
@@ -229,7 +260,7 @@ async function request<T>(path: string, method: HttpMethod, body?: any, options:
     method,
     headers,
     body: body !== undefined && body !== null ? JSON.stringify(body) : undefined,
-  });
+  }, { timeoutMs: options.timeoutMs });
 
   const data = await res.json().catch(() => ({}));
 

@@ -25,6 +25,7 @@ import Typography from '@/constants/Typography';
 import Config from '@/constants/Config';
 import { useAuthStore } from '@/store/authStore';
 import { getProfileCompleted, isDashboardReady, isPendingApproval, loginWithGoogle } from '@/lib/auth';
+import { finishLoginTimeline, markLoginTimeline, resetLoginTimeline } from '@/lib/telemetry/loginTimeline';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -52,6 +53,8 @@ export default function LoginScreen() {
   }, []);
 
   const handleGoogleLogin = async () => {
+    resetLoginTimeline();
+    markLoginTimeline("LOGIN_BUTTON_CLICK", { provider: "google" });
     if (!GoogleSignin) {
       Alert.alert('Lỗi', 'Google Sign-In không khả dụng trên thiết bị này.');
       return;
@@ -78,6 +81,13 @@ export default function LoginScreen() {
       setUser(data.user, profileCompleted);
       const pendingApproval = isPendingApproval(data.user, data.nextStep);
       const dashboardReady = isDashboardReady(data.user, data.nextStep);
+      markLoginTimeline("NAVIGATE_HOME_START", {
+        target: !profileCompleted
+          ? "complete-profile"
+          : pendingApproval || !dashboardReady
+          ? "pending-approval"
+          : "tabs",
+      });
       router.replace(
         !profileCompleted
           ? '/(auth)/complete-profile'
@@ -85,13 +95,18 @@ export default function LoginScreen() {
           ? '/(auth)/pending-approval'
           : '/(tabs)',
       );
+      markLoginTimeline("NAVIGATE_HOME_DONE");
+      finishLoginTimeline({ success: true, provider: "google" });
     } catch (error: any) {
+      finishLoginTimeline({ success: false, provider: "google", message: String(error?.message || error) });
       Alert.alert('Đăng nhập thất bại', error?.message || 'Không thể đăng nhập bằng Google. Vui lòng thử lại.');
       setLoading(false);
     }
   };
 
   const handleDevBypassLogin = async () => {
+    resetLoginTimeline();
+    markLoginTimeline("LOGIN_BUTTON_CLICK", { provider: "dev_bypass" });
     setLoading(true);
     try {
       const data = await loginWithGoogle("mock-owner-google-token");
@@ -99,6 +114,13 @@ export default function LoginScreen() {
       setUser(data.user, profileCompleted);
       const pendingApproval = isPendingApproval(data.user, data.nextStep);
       const dashboardReady = isDashboardReady(data.user, data.nextStep);
+      markLoginTimeline("NAVIGATE_HOME_START", {
+        target: !profileCompleted
+          ? "complete-profile"
+          : pendingApproval || !dashboardReady
+          ? "pending-approval"
+          : "tabs",
+      });
       router.replace(
         !profileCompleted
           ? '/(auth)/complete-profile'
@@ -106,7 +128,10 @@ export default function LoginScreen() {
           ? '/(auth)/pending-approval'
           : '/(tabs)',
       );
+      markLoginTimeline("NAVIGATE_HOME_DONE");
+      finishLoginTimeline({ success: true, provider: "dev_bypass" });
     } catch (error: any) {
+      finishLoginTimeline({ success: false, provider: "dev_bypass", message: String(error?.message || error) });
       Alert.alert('Đăng nhập thất bại', error?.message || 'Không thể đăng nhập bằng Google.');
       setLoading(false);
     }
