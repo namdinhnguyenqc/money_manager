@@ -11,6 +11,7 @@ import {
   setRefreshToken,
   getRefreshToken,
   clearTokens,
+  ApiClientError,
 } from './api';
 
 export type UserRole = 'TENANT';
@@ -35,12 +36,14 @@ export interface LoginResponse {
  * Login via phone and password.
  */
 export async function loginWithPhone(phone: string, password: string): Promise<LoginResponse> {
-  const res = await apiPost<any>('/tenant-auth/login', { phone, password });
+  const res = await apiPost<any>('/tenant-auth/login', { phone, password }, { auth: false, retry: false });
   const data = res?.data ?? res;
 
   // Persist tokens in SecureStore
-  if (data.accessToken) await setAccessToken(data.accessToken);
-  if (data.refreshToken) await setRefreshToken(data.refreshToken);
+  await Promise.all([
+    data.accessToken ? setAccessToken(data.accessToken) : Promise.resolve(),
+    data.refreshToken ? setRefreshToken(data.refreshToken) : Promise.resolve(),
+  ]);
 
   return data as LoginResponse;
 }
@@ -59,12 +62,14 @@ export async function registerWithInvite(
     password,
     name,
     invite_code: inviteCode,
-  });
+  }, { auth: false, retry: false });
   const data = res?.data ?? res;
 
   // Persist tokens
-  if (data.accessToken) await setAccessToken(data.accessToken);
-  if (data.refreshToken) await setRefreshToken(data.refreshToken);
+  await Promise.all([
+    data.accessToken ? setAccessToken(data.accessToken) : Promise.resolve(),
+    data.refreshToken ? setRefreshToken(data.refreshToken) : Promise.resolve(),
+  ]);
 
   return data as LoginResponse;
 }
@@ -100,7 +105,10 @@ export async function checkAuthStatus(): Promise<AuthUser | null> {
       status: 'ACTIVE',
       authProvider: 'PHONE',
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiClientError && ![400, 401, 403].includes(error.status)) {
+      throw error;
+    }
     return null;
   }
 }
@@ -124,7 +132,7 @@ export async function logoutTenant(fcmToken?: string): Promise<void> {
  * Request forgot password.
  */
 export async function forgotPassword(phone: string, email: string): Promise<{ success: boolean; message: string }> {
-  const res = await apiPost<any>('/tenant-auth/forgot-password', { phone, email });
+  const res = await apiPost<any>('/tenant-auth/forgot-password', { phone, email }, { auth: false, retry: false });
   const data = res?.data ?? res;
   return data;
 }
@@ -137,4 +145,3 @@ export async function changePassword(currentPassword: string, newPassword: strin
   const data = res?.data ?? res;
   return data;
 }
-

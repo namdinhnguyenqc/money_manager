@@ -10,6 +10,7 @@ type AuthFetchOptions = RequestInit & {
 };
 
 let refreshPromise: Promise<string | null> | null = null;
+let lastRefreshAuthFailure: { status: number; code?: string; message?: string } | null = null;
 const REFRESH_LOCK_KEY = "trocare.refresh.lock";
 const REFRESH_LOCK_TTL_MS = 8000;
 const REFRESH_WAIT_TIMEOUT_MS = 10000;
@@ -17,6 +18,15 @@ const REFRESH_WAIT_INTERVAL_MS = 120;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function logAuthEvent(event: string, details: Record<string, unknown> = {}) {
+  if (typeof window === "undefined") return;
+  const safeDetails = {
+    path: window.location.pathname,
+    ...details,
+  };
+  console.warn(`[auth] ${event}`, safeDetails);
 }
 
 function getTabId() {
@@ -79,8 +89,9 @@ async function waitForPeerRefresh(previousToken: string | null) {
   return null;
 }
 
-const redirectToLogin = () => {
+const redirectToLogin = (reason = "AUTH_REDIRECT_LOGIN", details: Record<string, unknown> = {}) => {
   if (typeof window === "undefined") return;
+  logAuthEvent(reason, details);
   clearClientSession();
   window.location.replace(getLoginPath(window.location.pathname));
 };
@@ -89,13 +100,17 @@ export async function refreshAccessToken() {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
+    lastRefreshAuthFailure = null;
     const previousToken = getStoredAccessToken();
     const owner = getTabId();
 
     if (!tryAcquireRefreshLock(owner)) {
       const peerToken = await waitForPeerRefresh(previousToken);
       if (peerToken) return peerToken;
-      if (!tryAcquireRefreshLock(owner)) return null;
+      if (!tryAcquireRefreshLock(owner)) {
+        logAuthEvent("AUTH_REFRESH_LOCK_UNAVAILABLE");
+        throw new Error("Refresh lock unavailable");
+      }
     }
 
     let res: Response;
@@ -107,6 +122,11 @@ export async function refreshAccessToken() {
         credentials: "include",
         cache: "no-store",
       });
+    } catch (error) {
+      logAuthEvent("AUTH_REFRESH_NETWORK_ERROR", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     } finally {
       releaseRefreshLock(owner);
     }
@@ -114,7 +134,20 @@ export async function refreshAccessToken() {
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok || !data.session?.access_token) {
-      return null;
+      logAuthEvent("AUTH_REFRESH_FAILED", {
+        status: res.status,
+        code: data?.code,
+        message: data?.message || data?.error,
+      });
+      if (res.status === 401 || res.status === 403) {
+        lastRefreshAuthFailure = {
+          status: res.status,
+          code: data?.code,
+          message: data?.message || data?.error,
+        };
+        return null;
+      }
+      throw new Error(`Refresh failed with non-auth status ${res.status}`);
     }
 
     const accessToken = data.session.access_token;
@@ -168,9 +201,16 @@ export async function authFetch(input: string, init: AuthFetchOptions = {}) {
       return res;
     }
 
+    logAuthEvent("AUTH_API_401_REFRESH_ATTEMPT", { url });
     const nextToken = await refreshAccessToken();
     if (!nextToken) {
-      redirectToLogin();
+      redirectToLogin("AUTH_REFRESH_AUTH_FAILED", {
+        url,
+        originalStatus: res.status,
+        refreshStatus: lastRefreshAuthFailure?.status,
+        refreshCode: lastRefreshAuthFailure?.code,
+        refreshMessage: lastRefreshAuthFailure?.message,
+      });
       return res;
     }
 
@@ -200,6 +240,6 @@ export async function authFetch(input: string, init: AuthFetchOptions = {}) {
   return doFetch();
 }
 
-export function handleUnauthorizedLogout() {
-  redirectToLogin();
+export function handleUnauthorizedLogout(details: Record<string, unknown> = {}) {
+  redirectToLogin("AUTH_UNAUTHORIZED_LOGOUT", details);
 }

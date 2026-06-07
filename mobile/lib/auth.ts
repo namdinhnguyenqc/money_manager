@@ -12,6 +12,7 @@ import {
   setRefreshToken,
   getRefreshToken,
   clearTokens,
+  ApiClientError,
 } from './api';
 
 export type UserRole = 'OWNER' | 'TENANT' | 'GUEST' | 'ADMIN' | 'SUPER_ADMIN';
@@ -81,13 +82,15 @@ export async function loginWithGoogle(
     platform: Platform.OS === 'ios' ? 'ios' : 'android',
     deviceId: deviceId || 'unknown',
     fcmToken: fcmToken || undefined,
-  });
+  }, { auth: false, retry: false });
 
   const data = res?.data ?? res;
 
   // Persist tokens
-  if (data.accessToken) await setAccessToken(data.accessToken);
-  if (data.refreshToken) await setRefreshToken(data.refreshToken);
+  await Promise.all([
+    data.accessToken ? setAccessToken(data.accessToken) : Promise.resolve(),
+    data.refreshToken ? setRefreshToken(data.refreshToken) : Promise.resolve(),
+  ]);
 
   return data as LoginResponse;
 }
@@ -100,7 +103,10 @@ export async function checkAuth(): Promise<AuthUser | null> {
     const res = await apiGet<any>('/auth/me');
     const data = res?.data ?? res;
     return (data?.user ?? data) as AuthUser;
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiClientError && ![400, 401, 403].includes(error.status)) {
+      throw error;
+    }
     return null;
   }
 }

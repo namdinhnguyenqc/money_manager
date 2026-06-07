@@ -65,7 +65,12 @@ async function request<T>(path: string, method: HttpMethod, body?: any): Promise
 
   if (shouldEndSession) {
     if (typeof window !== 'undefined') {
-      handleUnauthorizedLogout()
+      handleUnauthorizedLogout({
+        status: res.status,
+        code: data?.code,
+        message: data?.message || data?.error,
+        path,
+      })
     }
     throw new Error('Unauthorized')
   }

@@ -17,7 +17,13 @@ export async function apiClient<T>(
   });
 
   if (res.status === 401) {
-    handleUnauthorizedLogout();
+    const data = await res.clone().json().catch(() => ({}));
+    handleUnauthorizedLogout({
+      status: res.status,
+      code: data?.code,
+      message: data?.message || data?.error,
+      endpoint,
+    });
     throw new Error("Unauthorized");
   }
 

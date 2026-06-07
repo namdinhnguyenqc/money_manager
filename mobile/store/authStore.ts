@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import type { AuthUser } from '@/lib/auth';
-import { getAccessToken, clearTokens } from '@/lib/api';
+import { ApiClientError, getAccessToken, clearTokens } from '@/lib/api';
 import { checkAuth, getApprovalStatus, getProfileCompleted, logout as authLogout } from '@/lib/auth';
 
 interface AuthState {
@@ -64,7 +64,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         await clearTokens();
         set({ user: null, isAuthenticated: false, isProfileCompleted: false, approvalStatus: null, onboardingStep: null, isLoading: false, isHydrated: true });
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiClientError && ![400, 401, 403].includes(error.status)) {
+        set({ isLoading: false, isHydrated: true });
+        return;
+      }
       await clearTokens();
       set({ user: null, isAuthenticated: false, isProfileCompleted: false, approvalStatus: null, onboardingStep: null, isLoading: false, isHydrated: true });
     }

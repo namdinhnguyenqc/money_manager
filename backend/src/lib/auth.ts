@@ -52,7 +52,8 @@ export async function generateAccessToken(
     provider?: string | null;
     isProfileCompleted?: boolean;
     onboardingStep?: "COMPLETE_PROFILE" | "PENDING_APPROVAL" | "REJECTED" | "DONE";
-  }
+  },
+  expiresInSeconds = env.JWT_EXPIRY_SECONDS
 ): Promise<string> {
   const { SignJWT } = await import("jose");
   return new SignJWT({
@@ -69,7 +70,7 @@ export async function generateAccessToken(
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(`${env.JWT_EXPIRY_SECONDS}s`) // 15 minutes per security spec
+    .setExpirationTime(`${expiresInSeconds}s`)
     .sign(new TextEncoder().encode(env.JWT_SECRET));
 }
 

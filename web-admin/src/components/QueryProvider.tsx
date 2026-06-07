@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { API_URL } from "@/lib/apiUrl";
 import { clearClientSession, createAuthBroadcastChannel, getLoginPath, getStoredAccessToken } from "@/utils/session";
-import { authFetch } from "@/utils/authFetch";
+import { authFetch, logAuthEvent } from "@/utils/authFetch";
 
 const privatePrefixes = [
   "/owner",
@@ -80,8 +80,9 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     let verifying = false;
 
-    const redirectToLogin = () => {
+    const redirectToLogin = (details: Record<string, unknown> = {}) => {
       const pathname = window.location.pathname;
+      logAuthEvent("AUTH_QUERY_PROVIDER_REDIRECT_LOGIN", details);
       clearClientSession({ broadcast: false });
       client.clear();
       window.location.replace(getLoginPath(pathname));
@@ -102,9 +103,20 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
         const res = await authFetch(`${API_URL}/auth/me`, {
           cache: "no-store",
         });
-        if (!res.ok) redirectToLogin();
-      } catch {
-        redirectToLogin();
+        if (res.status === 401 || res.status === 403) {
+          const data = await res.clone().json().catch(() => ({}));
+          redirectToLogin({
+            status: res.status,
+            code: data?.code,
+            message: data?.message || data?.error,
+          });
+        } else if (!res.ok) {
+          logAuthEvent("AUTH_VERIFY_NON_AUTH_ERROR", { status: res.status });
+        }
+      } catch (error) {
+        logAuthEvent("AUTH_VERIFY_NETWORK_ERROR", {
+          message: error instanceof Error ? error.message : String(error),
+        });
       } finally {
         verifying = false;
       }
