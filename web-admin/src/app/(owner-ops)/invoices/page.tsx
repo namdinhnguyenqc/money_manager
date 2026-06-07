@@ -32,6 +32,11 @@ const isInvoiceBeforePeriod = (invoice: Invoice, period: { month: number; year: 
   return invoice.year < period.year || (invoice.year === period.year && invoice.month < period.month);
 };
 
+const isInvoiceBeforeCurrentMonth = (invoice: Invoice) => {
+  const now = new Date();
+  return isInvoiceBeforePeriod(invoice, { month: now.getMonth() + 1, year: now.getFullYear() });
+};
+
 const isInvoiceUnpaid = (invoice: Invoice) => {
   const total = Math.round(Number(invoice.total_amount || 0));
   const paid = Math.round(Number(invoice.paid_amount || 0));
@@ -39,7 +44,7 @@ const isInvoiceUnpaid = (invoice: Invoice) => {
 };
 
 const getDisplayInvoiceStatus = (invoice: Invoice, period: { month: number; year: number }) => {
-  if (isInvoiceBeforePeriod(invoice, period) && isInvoiceUnpaid(invoice)) return "overdue";
+  if ((isInvoiceBeforePeriod(invoice, period) || isInvoiceBeforeCurrentMonth(invoice)) && isInvoiceUnpaid(invoice)) return "overdue";
   return normalizeInvoiceStatus(invoice);
 };
 
@@ -306,14 +311,19 @@ export default function InvoicesPage() {
         ) : visibleInvoices.map((invoice) => {
           const status = getDisplayInvoiceStatus(invoice, period);
           const carriedOverOverdue = isInvoiceBeforePeriod(invoice, period) && isInvoiceUnpaid(invoice);
+          const periodOverdue = !carriedOverOverdue && isInvoiceBeforeCurrentMonth(invoice) && isInvoiceUnpaid(invoice);
           return (
-            <tr key={invoice.id} className={`transition-colors ${carriedOverOverdue ? "bg-red-50/50 hover:bg-red-50" : "hover:bg-slate-50"}`}>
+            <tr key={invoice.id} className={`transition-colors ${carriedOverOverdue || periodOverdue ? "bg-red-50/50 hover:bg-red-50" : "hover:bg-slate-50"}`}>
               <td className="px-4 py-3"><input type="checkbox" checked={Boolean(selected[invoice.id])} onChange={(e) => setSelected((prev) => ({ ...prev, [invoice.id]: e.target.checked }))} /></td>
               <td className="px-4 py-3 font-medium text-slate-900">
                 <div>{invoice.room_name || `Phòng #${invoice.room_id}`}</div>
                 {carriedOverOverdue ? (
                   <div className="mt-1 text-xs font-semibold text-red-600">
                     HĐ T{invoice.month}/{invoice.year} chưa đóng, chuyển sang T{period.month}/{period.year}
+                  </div>
+                ) : periodOverdue ? (
+                  <div className="mt-1 text-xs font-semibold text-red-600">
+                    Đã qua kỳ thanh toán, đang quá hạn
                   </div>
                 ) : null}
               </td>

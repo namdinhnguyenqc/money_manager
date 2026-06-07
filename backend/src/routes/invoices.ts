@@ -124,8 +124,14 @@ const enrichPaymentFields = (invoice: any, channel?: any | null) => {
   const total = Number(invoice.total_amount || 0);
   const paid = Number(invoice.paid_amount || 0);
   const remaining = Math.max(0, total - paid);
+  const now = new Date();
+  const invoiceYear = Number(invoice.year || 0);
+  const invoiceMonth = Number(invoice.month || 0);
+  const isPastPeriod = invoiceYear < now.getFullYear() || (invoiceYear === now.getFullYear() && invoiceMonth < now.getMonth() + 1);
+  const displayStatus = isPastPeriod && total > 0 && paid < total ? "overdue" : invoice.status;
   return {
     ...invoice,
+    status: displayStatus,
     paymentCode: invoice.payment_code ?? null,
     payment_code: invoice.payment_code ?? null,
     paymentChannelId: invoice.payment_channel_id ?? null,

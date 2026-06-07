@@ -44,6 +44,11 @@ function isInvoiceBeforePeriod(invoice: any, period: { month: number; year: numb
   return invoiceYear < period.year || (invoiceYear === period.year && invoiceMonth < period.month);
 }
 
+function isInvoiceBeforeCurrentMonth(invoice: any): boolean {
+  const today = new Date();
+  return isInvoiceBeforePeriod(invoice, { month: today.getMonth() + 1, year: today.getFullYear() });
+}
+
 function isInvoiceUnpaid(invoice: any): boolean {
   const total = Math.round(Number(invoice.total_amount || 0));
   const paid = Math.round(Number(invoice.paid_amount || 0));
@@ -51,7 +56,7 @@ function isInvoiceUnpaid(invoice: any): boolean {
 }
 
 function getDisplayInvoiceStatus(invoice: any, period: { month: number; year: number }): string {
-  if (isInvoiceBeforePeriod(invoice, period) && isInvoiceUnpaid(invoice)) return 'overdue';
+  if ((isInvoiceBeforePeriod(invoice, period) || isInvoiceBeforeCurrentMonth(invoice)) && isInvoiceUnpaid(invoice)) return 'overdue';
   return normalizeInvoiceStatus(invoice);
 }
 
@@ -309,10 +314,11 @@ export default function InvoicesScreen() {
           const paid = Number(item.paid_amount || 0);
           const showCollect = status === 'sent' || status === 'overdue' || status === 'partial';
           const carriedOverOverdue = isInvoiceBeforePeriod(item, selectedPeriod) && isInvoiceUnpaid(item);
+          const periodOverdue = !carriedOverOverdue && isInvoiceBeforeCurrentMonth(item) && isInvoiceUnpaid(item);
 
           return (
             <TouchableOpacity
-              style={[styles.invoiceRow, carriedOverOverdue && styles.invoiceRowOverdue]}
+              style={[styles.invoiceRow, (carriedOverOverdue || periodOverdue) && styles.invoiceRowOverdue]}
               onPress={() => router.push(`/invoice/${item.id}`)}
               activeOpacity={0.7}
             >
@@ -324,6 +330,10 @@ export default function InvoicesScreen() {
                 {carriedOverOverdue ? (
                   <Text style={styles.overdueMeta}>
                     Chưa đóng, chuyển sang T{selectedPeriod.month}/{selectedPeriod.year}
+                  </Text>
+                ) : periodOverdue ? (
+                  <Text style={styles.overdueMeta}>
+                    Đã qua kỳ thanh toán, đang quá hạn
                   </Text>
                 ) : null}
               </View>
