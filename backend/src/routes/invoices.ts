@@ -158,14 +158,15 @@ invoicesRoutes.get("/", async (c) => {
   const roomIdRaw = c.req.query("roomId");
   const statusRaw = c.req.query("status");
   const buildingId = c.req.query("buildingId");
+  const includeOverdueCarryover = c.req.query("includeOverdueCarryover") === "true";
 
 
 
   const db = c.get("supabase");
   let query = db.from("invoices").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
 
-  if (monthRaw) query = query.eq("month", Number(monthRaw));
-  if (yearRaw) query = query.eq("year", Number(yearRaw));
+  if (!includeOverdueCarryover && monthRaw) query = query.eq("month", Number(monthRaw));
+  if (!includeOverdueCarryover && yearRaw) query = query.eq("year", Number(yearRaw));
   if (roomIdRaw) query = query.eq("room_id", roomIdRaw);
   if (statusRaw) query = query.eq("status", String(statusRaw).toLowerCase());
 
@@ -183,7 +184,20 @@ invoicesRoutes.get("/", async (c) => {
   const invRes = await query;
   if (invRes.error) return c.json({ error: invRes.error.message }, 500);
 
-  const invoices = invRes.data ?? [];
+  let invoices = invRes.data ?? [];
+  if (includeOverdueCarryover && monthRaw && yearRaw) {
+    const selectedMonth = Number(monthRaw);
+    const selectedYear = Number(yearRaw);
+    invoices = invoices.filter((inv) => {
+      const invMonth = Number(inv.month || 0);
+      const invYear = Number(inv.year || 0);
+      const isCurrentPeriod = invMonth === selectedMonth && invYear === selectedYear;
+      const isBeforePeriod = invYear < selectedYear || (invYear === selectedYear && invMonth < selectedMonth);
+      const total = Math.round(Number(inv.total_amount || 0));
+      const paid = Math.round(Number(inv.paid_amount || 0));
+      return isCurrentPeriod || (isBeforePeriod && total > 0 && paid < total);
+    });
+  }
   if (invoices.length === 0) return c.json({ data: [] });
 
   const contractIds = [...new Set(invoices.map((x) => x.contract_id))];
