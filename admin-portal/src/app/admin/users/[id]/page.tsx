@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowDown, ArrowLeft, ArrowUp, Lock, Trash2, Unlock } from "lucide-react";
 import { API_URL } from "@/lib/api";
+import { translateUserRole, translateUserStatus } from "@/utils/translate";
 
 type User = {
   id: string;
@@ -169,8 +170,8 @@ export default function UserDetailPage() {
             <div className="text-lg font-bold text-slate-800">{user.name || "-"}</div>
             <div className="text-sm text-slate-500">{user.email}</div>
             <div className="mt-1 flex gap-2">
-              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${roleColor(user.role)}`}>{user.role}</span>
-              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusColor(user.status)}`}>{user.status}</span>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${roleColor(user.role)}`}>{translateUserRole(user.role)}</span>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusColor(user.status)}`}>{translateUserStatus(user.status)}</span>
             </div>
           </div>
         </div>

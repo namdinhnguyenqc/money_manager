@@ -8,6 +8,7 @@ import Card from "@/components/ui/Card";
 import DataTable from "@/components/ui/DataTable";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiClient } from "@/lib/api";
+import { translateRoomStatus, translateUserStatus } from "@/utils/translate";
 
 type Row = Record<string, any>;
 type OwnerDetail = {
@@ -70,7 +71,7 @@ export default function AdminOwnerDetailPage({ params }: { params: { id: string 
         subtitle="Chi tiết chủ trọ"
         title={owner.name || owner.full_name || owner.email || "Owner"}
         description={`${owner.email || "Không có email"}${owner.phone ? ` - ${owner.phone}` : ""}`}
-        actions={<Badge variant={owner.status === "BLOCKED" ? "danger" : "success"}>{owner.status || "UNKNOWN"}</Badge>}
+        actions={<Badge variant={owner.status === "BLOCKED" ? "danger" : "success"}>{translateUserStatus(owner.status)}</Badge>}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -92,7 +93,7 @@ export default function AdminOwnerDetailPage({ params }: { params: { id: string 
               </td>
               <td className="px-4 py-3 text-slate-600">{propertyMap.get(room.boarding_house_id)?.name || room.boarding_house_id || "-"}</td>
               <td className="px-4 py-3 text-slate-600">{Number(room.price || room.rent_price || 0).toLocaleString("vi-VN")} VND</td>
-              <td className="px-4 py-3"><Badge>{room.status || "UNKNOWN"}</Badge></td>
+              <td className="px-4 py-3"><Badge>{translateRoomStatus(room.status)}</Badge></td>
               <td className="px-4 py-3"><Link href={`/admin/rooms/${room.id}`} className="font-semibold text-blue-700">Xem phòng</Link></td>
             </tr>
           ))}
@@ -113,7 +114,7 @@ export default function AdminOwnerDetailPage({ params }: { params: { id: string 
                 <p className="text-slate-700">{tenant.email || "-"}</p>
                 <p className="text-xs text-slate-500">{tenant.phone || "-"}</p>
               </td>
-              <td className="px-4 py-3"><Badge>{tenant.status || "UNKNOWN"}</Badge></td>
+              <td className="px-4 py-3"><Badge>{translateUserStatus(tenant.status)}</Badge></td>
               <td className="px-4 py-3 text-slate-600">{tenant.created_at ? String(tenant.created_at).slice(0, 10) : "-"}</td>
               <td className="px-4 py-3"><Link href={`/admin/tenants/${tenant.id}`} className="font-semibold text-blue-700">Xem khách</Link></td>
             </tr>

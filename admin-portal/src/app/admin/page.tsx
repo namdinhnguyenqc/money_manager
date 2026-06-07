@@ -14,6 +14,7 @@ import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiClient } from "@/lib/api";
+import { translateInvoiceStatus, translateRoomStatus } from "@/utils/translate";
 
 type DashboardSummary = {
   totalOwners: number;
@@ -61,23 +62,6 @@ const formatDate = (value?: string | null) => {
 
 const chartRows = (data: Record<string, number>) =>
   Object.entries(data || {}).sort(([left], [right]) => left.localeCompare(right));
-
-const translateRoomStatus = (status: string) => {
-  const s = status.toLowerCase();
-  if (s === "occupied") return "Đang ở";
-  if (s === "vacant" || s === "available") return "Trống";
-  if (s === "reserved") return "Đã cọc";
-  return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-};
-
-const translateInvoiceStatus = (status: string) => {
-  const s = status.toLowerCase();
-  if (s === "paid") return "Đã thanh toán";
-  if (s === "unpaid") return "Chưa thanh toán";
-  if (s === "overdue") return "Quá hạn";
-  if (s === "cancelled") return "Đã hủy";
-  return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-};
 
 const mapAndAggregate = (data: Record<string, number> | undefined, mapper: (key: string) => string) => {
   const result: Record<string, number> = {};

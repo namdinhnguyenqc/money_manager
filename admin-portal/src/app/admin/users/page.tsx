@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Lock, Search, ShieldCheck, Trash2 } from "lucide-react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { API_URL } from "@/lib/api";
+import { translateUserRole, translateUserStatus } from "@/utils/translate";
 
 type User = {
   id: string;
@@ -258,7 +259,7 @@ export default function UsersPage() {
                       <td className="px-5 py-4">
                         <div className="space-y-2">
                           <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${roleBadgeMap[user.role]}`}>
-                            {user.role}
+                            {translateUserRole(user.role)}
                           </span>
                           <select
                             disabled={user.role === "SUPER_ADMIN"}
@@ -275,16 +276,16 @@ export default function UsersPage() {
                             }}
                             className="block w-full rounded-[8px] border border-slate-300 px-3 py-2 text-xs outline-none transition focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100"
                           >
-                            <option value="USER">USER</option>
-                            <option value="OWNER">OWNER</option>
-                            <option value="ADMIN">ADMIN</option>
-                            {user.role === "SUPER_ADMIN" && <option value="SUPER_ADMIN">SUPER_ADMIN</option>}
+                          <option value="USER">Người dùng</option>
+                          <option value="OWNER">Chủ trọ</option>
+                          <option value="ADMIN">Quản trị</option>
+                          {user.role === "SUPER_ADMIN" && <option value="SUPER_ADMIN">Super Admin</option>}
                           </select>
                         </div>
                       </td>
                       <td className="px-5 py-4">
                         <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeMap[user.status]}`}>
-                          {user.status}
+                          {translateUserStatus(user.status)}
                         </span>
                       </td>
                       <td className="px-5 py-4 text-slate-600">{user.provider || "-"}</td>
@@ -370,9 +371,9 @@ export default function UsersPage() {
         title="Xác nhận cập nhật người dùng"
         message={
           pendingAction?.action === "status"
-            ? `Đổi trạng thái của ${pendingAction.userName} sang ${pendingAction.value}?`
+            ? `Đổi trạng thái của ${pendingAction.userName} sang "${translateUserStatus(pendingAction.value)}"?`
             : pendingAction?.action === "role"
-              ? `Đổi vai trò của ${pendingAction.userName} sang ${pendingAction.value}?`
+              ? `Đổi vai trò của ${pendingAction.userName} sang "${translateUserRole(pendingAction.value)}"?`
               : `Xóa mềm tài khoản ${pendingAction?.userName}?`
         }
         onConfirm={handleConfirm}
