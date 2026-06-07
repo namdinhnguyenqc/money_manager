@@ -52,42 +52,16 @@ export default function DashboardScreen() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [facRes, roomRes, invRes, walRes, txRes, depRes] = await Promise.all([
-        apiGet<any>('/owner/boarding-houses'),
-        apiGet<any>('/rental/rooms'),
-        apiGet<any>('/invoices'),
-        apiGet<any>('/wallets'),
-        apiGet<any>('/transactions?limit=100'),
-        apiGet<any>('/rental/deposits').catch(() => null),
-      ]);
-
-      const facilities = facRes?.data ?? [];
-      const rooms = roomRes?.data ?? [];
-      const invoices = invRes?.data ?? [];
-      const wallets = walRes?.data ?? [];
-      const recentTransactions = txRes?.data ?? [];
-      const deposits = depRes?.data ?? [];
-
-      // Fetch trading stats for first trading wallet or general fallback
-      let tradingStats = null;
-      const tradingWallet = wallets.find((w: any) => w.type === 'trading') || wallets[0];
-      if (tradingWallet) {
-        try {
-          const statsRes = await apiGet<any>(`/trading/stats?walletId=${tradingWallet.id}`);
-          tradingStats = statsRes?.data ?? null;
-        } catch {
-          // Fallback stats
-        }
-      }
+      const res = await apiGet<any>('/owner/dashboard-init');
 
       setData({
-        facilities,
-        rooms,
-        invoices,
-        wallets,
-        tradingStats,
-        recentTransactions,
-        deposits,
+        facilities: res?.boardingHouses ?? [],
+        rooms: res?.rooms ?? [],
+        invoices: res?.invoices ?? [],
+        wallets: res?.wallets ?? [],
+        tradingStats: res?.tradingStats ?? null,
+        recentTransactions: res?.transactions ?? [],
+        deposits: res?.deposits ?? [],
       });
     } catch {
       // Silently handle

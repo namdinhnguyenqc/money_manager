@@ -60,7 +60,7 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5, 1);
   sixMonthsAgo.setHours(0, 0, 0, 0);
 
-  const [bhRes, roomsRes, walletsRes, settingsRes, transactionsRes, invoicesRes] = await Promise.all([
+  const [bhRes, roomsRes, walletsRes, settingsRes, transactionsRes, invoicesRes, depositsRes] = await Promise.all([
     supabase.from("boarding_houses").select(`
       id, name, address, status, is_public, created_at,
       rooms(id, status)
@@ -86,14 +86,49 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
       .order("year", { ascending: false })
       .order("month", { ascending: false })
       .limit(200),
+    supabase
+      .from("deposits")
+      .select("*")
+      .eq("user_id", currentUser.id)
+      .order("created_at", { ascending: false })
+      .limit(200),
   ]);
+
+  let tradingStats = null;
+  const wallets = walletsRes.data || [];
+  const tradingWallet = wallets.find((wallet: any) => wallet.type === "trading") || wallets[0];
+  if (tradingWallet?.id) {
+    const tradingItemsRes = await supabase
+      .from("trading_items")
+      .select("import_price,buy_price,sell_price,status")
+      .eq("user_id", currentUser.id)
+      .eq("wallet_id", tradingWallet.id);
+
+    if (!tradingItemsRes.error) {
+      const rows = (tradingItemsRes.data || []).map((item: any) => ({
+        importPrice: Number(item.import_price ?? item.buy_price ?? 0),
+        sellPrice: Number(item.sell_price || 0),
+        status: item.status === "holding" ? "available" : item.status,
+      }));
+      const unsoldRows = rows.filter((item) => item.status === "available");
+      const soldRows = rows.filter((item) => item.status === "sold");
+      tradingStats = {
+        unsoldCapital: unsoldRows.reduce((sum, item) => sum + item.importPrice, 0),
+        unsoldCount: unsoldRows.length,
+        realizedProfit: soldRows.reduce((sum, item) => sum + (item.sellPrice - item.importPrice), 0),
+        soldCount: soldRows.length,
+      };
+    }
+  }
 
   return c.json({
     boardingHouses: bhRes.data || [],
     rooms: roomsRes.data || [],
-    wallets: walletsRes.data || [],
+    wallets,
     transactions: transactionsRes.data || [],
     invoices: invoicesRes.data || [],
+    deposits: depositsRes.data || [],
+    tradingStats,
     settings: settingsRes.data || {}
   });
 });
