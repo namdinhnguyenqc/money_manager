@@ -137,7 +137,7 @@ export default function InvoicesScreen() {
   const fetchData = useCallback(async () => {
     try {
       const [res, pending] = await Promise.all([
-        apiGet<any>('/invoices'),
+        apiGet<any>(`/invoices?month=${selectedPeriod.month}&year=${selectedPeriod.year}&includeOverdueCarryover=true`),
         loadPendingBilling(selectedPeriod.month, selectedPeriod.year),
       ]);
       setInvoices(res?.data ?? []);
@@ -297,6 +297,7 @@ export default function InvoicesScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
+        extraData={`${activeTab}-${selectedPeriod.month}-${selectedPeriod.year}-${overdueCarryCount}`}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         ListEmptyComponent={
