@@ -62,6 +62,32 @@ const formatDate = (value?: string | null) => {
 const chartRows = (data: Record<string, number>) =>
   Object.entries(data || {}).sort(([left], [right]) => left.localeCompare(right));
 
+const translateRoomStatus = (status: string) => {
+  const s = status.toLowerCase();
+  if (s === "occupied") return "Đang ở";
+  if (s === "vacant" || s === "available") return "Trống";
+  if (s === "reserved") return "Đã cọc";
+  return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+};
+
+const translateInvoiceStatus = (status: string) => {
+  const s = status.toLowerCase();
+  if (s === "paid") return "Đã thanh toán";
+  if (s === "unpaid") return "Chưa thanh toán";
+  if (s === "overdue") return "Quá hạn";
+  if (s === "cancelled") return "Đã hủy";
+  return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+};
+
+const mapAndAggregate = (data: Record<string, number> | undefined, mapper: (key: string) => string) => {
+  const result: Record<string, number> = {};
+  Object.entries(data || {}).forEach(([key, value]) => {
+    const mappedKey = mapper(key);
+    result[mappedKey] = (result[mappedKey] || 0) + value;
+  });
+  return Object.entries(result).sort(([left], [right]) => left.localeCompare(right));
+};
+
 function Metric({
   label,
   value,
@@ -161,8 +187,8 @@ export default function AdminDashboardPage() {
     void load();
   }, []);
 
-  const roomRows = useMemo(() => chartRows(charts?.roomsByStatus || {}), [charts]);
-  const invoiceRows = useMemo(() => chartRows(charts?.invoicesByStatus || {}), [charts]);
+  const roomRows = useMemo(() => mapAndAggregate(charts?.roomsByStatus, translateRoomStatus), [charts]);
+  const invoiceRows = useMemo(() => mapAndAggregate(charts?.invoicesByStatus, translateInvoiceStatus), [charts]);
   const ownerRows = useMemo(() => chartRows(charts?.ownersByMonth || {}).slice(-6), [charts]);
 
   const occupancyRate = summary?.totalRooms ? Math.round((summary.occupiedRooms / summary.totalRooms) * 100) : 0;
