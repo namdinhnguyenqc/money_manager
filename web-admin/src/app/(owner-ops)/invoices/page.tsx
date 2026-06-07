@@ -11,7 +11,7 @@ import {
   RentalRoom, 
   formatMoney, 
   loadBoardingHouses, 
-  loadInvoicesForPeriod,
+  loadInvoices,
   loadPendingBilling,
   normalizeInvoiceStatus 
 } from "@/lib/rentalOps";
@@ -82,11 +82,15 @@ export default function InvoicesPage() {
       const hId = selectedHouse === "all" ? undefined : selectedHouse;
       const [nextHouses, nextInvoices, nextPending] = await Promise.all([
         loadBoardingHouses(), 
-        loadInvoicesForPeriod(hId, period.month, period.year),
+        loadInvoices(hId),
         loadPendingBilling(period.month, period.year, hId)
       ]);
       setHouses(nextHouses);
-      setInvoices(nextInvoices);
+      setInvoices(nextInvoices.filter((invoice) => {
+        const isCurrentPeriod = invoice.month === period.month && invoice.year === period.year;
+        const isCarryOverOverdue = isInvoiceBeforePeriod(invoice, period) && isInvoiceUnpaid(invoice);
+        return isCurrentPeriod || isCarryOverOverdue;
+      }));
       setPendingRooms(nextPending);
     } catch (err: any) {
       setError(err?.message || "Không tải được dữ liệu.");
