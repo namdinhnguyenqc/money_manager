@@ -140,6 +140,7 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
   const cachedAuth = tokenCache.get(token);
   if (cachedAuth && cachedAuth.exp > now) {
     c.set("user", cachedAuth.userContext);
+    c.set("authDbQueryCount", 0);
     // If it's an app JWT (our custom token), use supabaseAdmin
     // If it's a real Supabase token, use the user client
     if (cachedAuth.isAppToken) {
@@ -170,6 +171,9 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
       return await next();
     }
 
+    const shouldPrefetchAuthMeProfile = c.req.path === "/auth/me";
+    const userSelect = shouldPrefetchAuthMeProfile ? "*, user_profiles(*)" : "*";
+
     // Parallel fetch: session check + user data in one round-trip instead of two
     const [sessionRes, userRes] = await Promise.all([
       appJwt.sessionId
@@ -179,9 +183,9 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
             .eq("id", appJwt.sessionId)
             .single()
         : Promise.resolve({ data: { revoked_at: null } }),
-      supabaseAdmin
+      (supabaseAdmin
         .from("users")
-        .select("*")
+        .select(userSelect as any) as any)
         .eq("id", appJwt.sub)
         .single(),
     ]);
@@ -232,6 +236,14 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
 
     c.set("user", userContext);
     c.set("supabase", supabaseAdmin);
+    c.set("authDbUser", dbUser);
+    c.set("authDbQueryCount", appJwt.sessionId ? 2 : 1);
+    if (shouldPrefetchAuthMeProfile) {
+      const preFetchedProfile = (dbUser as any)?.user_profiles
+        ? (Array.isArray((dbUser as any).user_profiles) ? (dbUser as any).user_profiles[0] : (dbUser as any).user_profiles)
+        : null;
+      c.set("authPreFetchedProfile", preFetchedProfile);
+    }
     tokenCache.set(token, { userContext, exp: now + 5 * 60 * 1000, isAppToken: true });
 
     if (tokenCache.size > 1000) {

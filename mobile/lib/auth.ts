@@ -14,6 +14,7 @@ import {
   clearTokens,
   ApiClientError,
 } from './api';
+import { markLoginTimeline } from './telemetry/loginTimeline';
 
 export type UserRole = 'OWNER' | 'TENANT' | 'GUEST' | 'ADMIN' | 'SUPER_ADMIN';
 
@@ -77,20 +78,40 @@ export async function loginWithGoogle(
   deviceId?: string,
   fcmToken?: string
 ): Promise<LoginResponse> {
-  const res = await apiPost<any>('/auth/owner-google', {
-    idToken,
-    platform: Platform.OS === 'ios' ? 'ios' : 'android',
-    deviceId: deviceId || 'unknown',
-    fcmToken: fcmToken || undefined,
-  }, { auth: false, retry: false });
+  const isDevBypass = idToken === 'mock-owner-google-token';
+  markLoginTimeline("LOGIN_API_START", { provider: isDevBypass ? "dev_bypass" : "google" });
+  let res: any;
+  try {
+    res = await apiPost<any>('/auth/owner-google', {
+      idToken,
+      platform: Platform.OS === 'ios' ? 'ios' : 'android',
+      deviceId: deviceId || 'unknown',
+      fcmToken: fcmToken || undefined,
+    }, { auth: false, retry: false, timeoutMs: 10000 });
+    markLoginTimeline("LOGIN_API_DONE", { success: true, provider: isDevBypass ? "dev_bypass" : "google" });
+  } catch (error: any) {
+    markLoginTimeline("LOGIN_API_DONE", {
+      success: false,
+      provider: isDevBypass ? "dev_bypass" : "google",
+      status: error?.status ?? null,
+      message: String(error?.message || error),
+    });
+    throw error;
+  }
 
   const data = res?.data ?? res;
 
   // Persist tokens
-  await Promise.all([
-    data.accessToken ? setAccessToken(data.accessToken) : Promise.resolve(),
-    data.refreshToken ? setRefreshToken(data.refreshToken) : Promise.resolve(),
-  ]);
+  markLoginTimeline("SAVE_TOKEN_START", {
+    hasAccessToken: Boolean(data.accessToken),
+    hasRefreshToken: Boolean(data.refreshToken),
+  });
+  if (data.accessToken) await setAccessToken(data.accessToken);
+  if (data.refreshToken) await setRefreshToken(data.refreshToken);
+  markLoginTimeline("SAVE_TOKEN_DONE", {
+    hasAccessToken: Boolean(data.accessToken),
+    hasRefreshToken: Boolean(data.refreshToken),
+  });
 
   return data as LoginResponse;
 }
@@ -99,11 +120,17 @@ export async function loginWithGoogle(
  * Check current authentication status.
  */
 export async function checkAuth(): Promise<AuthUser | null> {
+  markLoginTimeline("AUTH_ME_START");
   try {
     const res = await apiGet<any>('/auth/me');
     const data = res?.data ?? res;
+    markLoginTimeline("AUTH_ME_DONE", { success: true });
     return (data?.user ?? data) as AuthUser;
   } catch (error) {
+    markLoginTimeline("AUTH_ME_DONE", {
+      success: false,
+      status: error instanceof ApiClientError ? error.status : null,
+    });
     if (error instanceof ApiClientError && ![400, 401, 403].includes(error.status)) {
       throw error;
     }

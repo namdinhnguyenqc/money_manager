@@ -920,6 +920,8 @@ authRoutes.post("/logout-all", requireAuth, async (c) => {
 
 // GET /auth/me â€” Get current user info from JWT
 authRoutes.get("/me", requireAuth, async (c) => {
+  const startedAt = Date.now();
+  let routeDbQueries = 0;
   const user = c.get("user");
 
   if (user.id === "admin-builtin") {
@@ -941,14 +943,24 @@ authRoutes.get("/me", requireAuth, async (c) => {
     return c.json({ ...responseUser, user: responseUser });
   }
 
-  const { data: freshUser, error } = await supabaseAdmin
-    .from("users")
-    .select("id,email,name,avatar,role,status,provider,is_profile_completed,onboarding_step")
-    .eq("id", user.id)
-    .maybeSingle();
+  let freshUser = c.get("authDbUser");
+  let preFetchedProfile = c.get("authPreFetchedProfile");
 
-  if (error) {
-    console.error("Error loading fresh auth/me user:", safeSupabaseError(error));
+  if (!freshUser) {
+    routeDbQueries += 1;
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .select("id,email,name,avatar,role,status,provider,is_profile_completed,onboarding_step,user_profiles(*)")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error loading fresh auth/me user:", safeSupabaseError(error));
+    }
+    freshUser = data;
+    preFetchedProfile = freshUser?.user_profiles
+      ? (Array.isArray(freshUser.user_profiles) ? freshUser.user_profiles[0] : freshUser.user_profiles)
+      : null;
   }
 
   const sourceUser = freshUser || {
@@ -962,7 +974,9 @@ authRoutes.get("/me", requireAuth, async (c) => {
     is_profile_completed: user.isProfileCompleted,
     onboarding_step: user.onboardingStep,
   };
-  const profileMeta = await buildProfileAuthMeta(sourceUser);
+  const usedPrefetchedProfile = preFetchedProfile !== undefined;
+  const profileMeta = await buildProfileAuthMeta(sourceUser, preFetchedProfile);
+  const authMiddlewareDbQueries = Number(c.get("authDbQueryCount") || 0);
 
   const responseUser = {
     id: sourceUser.id,
@@ -978,6 +992,19 @@ authRoutes.get("/me", requireAuth, async (c) => {
   };
 
   c.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  console.info(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    event: "AUTH_ME_PERF",
+    requestId: c.get("requestId"),
+    durationMs: Date.now() - startedAt,
+    authMiddlewareDbQueries,
+    routeDbQueries,
+    totalDbQueries: authMiddlewareDbQueries + routeDbQueries + (usedPrefetchedProfile ? 0 : 1),
+    previousRouteDbQueriesEstimate: 2,
+    savedRouteDbQueriesEstimate: Math.max(0, 2 - routeDbQueries - (usedPrefetchedProfile ? 0 : 1)),
+    usedMiddlewareUser: Boolean(c.get("authDbUser")),
+    usedPrefetchedProfile,
+  }));
   return c.json({ ...responseUser, user: responseUser });
 });
 

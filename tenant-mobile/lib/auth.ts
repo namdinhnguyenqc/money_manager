@@ -40,10 +40,8 @@ export async function loginWithPhone(phone: string, password: string): Promise<L
   const data = res?.data ?? res;
 
   // Persist tokens in SecureStore
-  await Promise.all([
-    data.accessToken ? setAccessToken(data.accessToken) : Promise.resolve(),
-    data.refreshToken ? setRefreshToken(data.refreshToken) : Promise.resolve(),
-  ]);
+  if (data.accessToken) await setAccessToken(data.accessToken);
+  if (data.refreshToken) await setRefreshToken(data.refreshToken);
 
   return data as LoginResponse;
 }
@@ -66,10 +64,8 @@ export async function registerWithInvite(
   const data = res?.data ?? res;
 
   // Persist tokens
-  await Promise.all([
-    data.accessToken ? setAccessToken(data.accessToken) : Promise.resolve(),
-    data.refreshToken ? setRefreshToken(data.refreshToken) : Promise.resolve(),
-  ]);
+  if (data.accessToken) await setAccessToken(data.accessToken);
+  if (data.refreshToken) await setRefreshToken(data.refreshToken);
 
   return data as LoginResponse;
 }
