@@ -9,7 +9,7 @@
  * - Outstanding Debts Ledger & Paid Rooms ledger with direct call capabilities
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -128,10 +128,6 @@ export default function RedesignedReportsTab() {
       setRefreshing(false);
     }
   }, []);
-
-  useEffect(() => {
-    fetchReportData();
-  }, [fetchReportData]);
 
   useFocusEffect(
     useCallback(() => {

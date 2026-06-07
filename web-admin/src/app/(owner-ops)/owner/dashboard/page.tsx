@@ -1,21 +1,8 @@
 "use client";
 
 import React, { useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  AreaChart,
-  Area
-} from 'recharts';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -43,6 +30,18 @@ import LoadingSkeleton from '@/components/ops/LoadingSkeleton';
 import { useOwnerDashboardInit } from '@/hooks/useOwnerData';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444'];
+const BarChart = dynamic(() => import('recharts').then((mod) => mod.BarChart as any), { ssr: false }) as any;
+const Bar = dynamic(() => import('recharts').then((mod) => mod.Bar as any), { ssr: false }) as any;
+const XAxis = dynamic(() => import('recharts').then((mod) => mod.XAxis as any), { ssr: false }) as any;
+const YAxis = dynamic(() => import('recharts').then((mod) => mod.YAxis as any), { ssr: false }) as any;
+const CartesianGrid = dynamic(() => import('recharts').then((mod) => mod.CartesianGrid as any), { ssr: false }) as any;
+const Tooltip = dynamic(() => import('recharts').then((mod) => mod.Tooltip as any), { ssr: false }) as any;
+const ResponsiveContainer = dynamic(() => import('recharts').then((mod) => mod.ResponsiveContainer as any), { ssr: false }) as any;
+const PieChart = dynamic(() => import('recharts').then((mod) => mod.PieChart as any), { ssr: false }) as any;
+const Pie = dynamic(() => import('recharts').then((mod) => mod.Pie as any), { ssr: false }) as any;
+const Cell = dynamic(() => import('recharts').then((mod) => mod.Cell as any), { ssr: false }) as any;
+const AreaChart = dynamic(() => import('recharts').then((mod) => mod.AreaChart as any), { ssr: false }) as any;
+const Area = dynamic(() => import('recharts').then((mod) => mod.Area as any), { ssr: false }) as any;
 
 export default function OwnerDashboard() {
   const dashboardQuery = useOwnerDashboardInit();
@@ -368,7 +367,7 @@ export default function OwnerDashboard() {
                     axisLine={false} 
                     tickLine={false} 
                     tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 700}}
-                    tickFormatter={(v) => `${v/1000000}M`}
+                    tickFormatter={(v: number) => `${v / 1000000}M`}
                   />
                   <Tooltip 
                     contentStyle={{
@@ -381,7 +380,7 @@ export default function OwnerDashboard() {
                     }}
                     itemStyle={{fontWeight: 'bold', fontSize: '13px'}}
                     labelStyle={{fontWeight: '900', color: '#0f172a', marginBottom: '8px'}}
-                    formatter={(value) => formatMoney(Number(value || 0))} 
+                    formatter={(value: number) => formatMoney(Number(value || 0))} 
                   />
                   <Area type="monotone" dataKey="thu" stroke="#4f46e5" strokeWidth={4} fillOpacity={1} fill="url(#colorThu)" name="Thu nhập" />
                   <Area type="monotone" dataKey="chi" stroke="#f43f5e" strokeWidth={3} fillOpacity={1} fill="url(#colorChi)" name="Chi phí" />
@@ -551,7 +550,7 @@ export default function OwnerDashboard() {
                       axisLine={false} 
                       tickLine={false} 
                       tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 700}}
-                      tickFormatter={(v) => activeUtilityTab === 'cost' ? `${v/1000}k` : v}
+                      tickFormatter={(v: number) => activeUtilityTab === 'cost' ? `${v / 1000}k` : v}
                     />
                     <Tooltip 
                       contentStyle={{
@@ -564,7 +563,7 @@ export default function OwnerDashboard() {
                       }}
                       itemStyle={{fontWeight: 'bold', fontSize: '13px'}}
                       labelStyle={{fontWeight: '900', color: '#0f172a', marginBottom: '8px'}}
-                      formatter={(value, name) => {
+                      formatter={(value: number, name: string) => {
                         if (activeUtilityTab === 'cost') {
                           return [formatMoney(Number(value)), name === 'elecCost' ? 'Tiền Điện' : 'Tiền Nước'];
                         }

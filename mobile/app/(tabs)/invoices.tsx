@@ -4,7 +4,7 @@
  * Matches web-admin invoice page behavior including partial invoice handling.
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ScrollView, Alert, Modal, Pressable,
 } from 'react-native';
@@ -155,7 +155,6 @@ export default function InvoicesScreen() {
     }
   }, [selectedPeriod.month, selectedPeriod.year]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
   useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
   const onRefresh = () => { setRefreshing(true); fetchData(); };
 
@@ -183,12 +182,15 @@ export default function InvoicesScreen() {
     });
   };
 
-  const filtered = invoices.filter((i) => {
+  const filtered = useMemo(() => invoices.filter((i) => {
     const matchPeriod = Number(i.month) === selectedPeriod.month && Number(i.year) === selectedPeriod.year;
     const carriedOverOverdue = isInvoiceBeforePeriod(i, selectedPeriod) && isInvoiceUnpaid(i);
     return (matchPeriod || carriedOverOverdue) && matchesStatus(i, activeTab, selectedPeriod);
-  });
-  const overdueCarryCount = invoices.filter((i) => isInvoiceBeforePeriod(i, selectedPeriod) && isInvoiceUnpaid(i)).length;
+  }), [invoices, selectedPeriod, activeTab]);
+  const overdueCarryCount = useMemo(
+    () => invoices.filter((i) => isInvoiceBeforePeriod(i, selectedPeriod) && isInvoiceUnpaid(i)).length,
+    [invoices, selectedPeriod],
+  );
 
   if (loading) {
     return (

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -57,10 +57,6 @@ export default function FacilitiesScreen() {
       setRefreshing(false);
     }
   }, [fetchFacilities]);
-
-  useEffect(() => {
-    fetchData(false);
-  }, [fetchData]);
 
   useFocusEffect(
     useCallback(() => {
