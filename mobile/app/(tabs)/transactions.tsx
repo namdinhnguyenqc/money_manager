@@ -29,6 +29,7 @@ import {
   loadBoardingHouses,
 } from '@/lib/rentalOps';
 import { apiGet } from '@/lib/api';
+import { logPerfEvent } from '@/lib/telemetry/appPerformance';
 
 type TxTypeFilter = 'all' | 'income' | 'expense';
 type DateFilter = 'all' | 'today' | '7d' | 'month' | 'custom';
@@ -143,12 +144,12 @@ export default function TransactionsScreen() {
       else setLoading(true);
 
       const [txList, walletList, bhList, roomsRes, invRes, conRes] = await Promise.all([
-        loadTransactions(activeWalletId || undefined),
-        loadWallets(),
-        loadBoardingHouses().catch(() => null),
-        apiGet<any>('/rental/rooms').catch(() => null),
-        apiGet<any>('/invoices').catch(() => null),
-        apiGet<any>('/rental/contracts').catch(() => null),
+        loadTransactions(activeWalletId || undefined, { forceRefresh: isRef }),
+        loadWallets({ forceRefresh: isRef }),
+        loadBoardingHouses({ forceRefresh: isRef }).catch(() => null),
+        apiGet<any>('/rental/rooms', { forceRefresh: isRef }).catch(() => null),
+        apiGet<any>('/invoices', { forceRefresh: isRef }).catch(() => null),
+        apiGet<any>('/rental/contracts', { forceRefresh: isRef }).catch(() => null),
       ]);
 
       setTransactions(txList);
@@ -420,6 +421,7 @@ export default function TransactionsScreen() {
         <FlatList
           data={groupedTransactions}
           keyExtractor={(item) => item.key}
+          onContentSizeChange={() => logPerfEvent("LIST_RENDER_DONE", { screen: "transactions", groupCount: groupedTransactions.length, itemCount: filtered.length })}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={Colors.primary} />
           }

@@ -17,6 +17,7 @@ import Typography from '@/constants/Typography';
 import Button from '@/components/ui/Button';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { useFacilityStore } from '@/store/facilityStore';
+import { logPerfEvent } from '@/lib/telemetry/appPerformance';
 
 interface Facility {
   id: string;
@@ -60,7 +61,7 @@ export default function FacilitiesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchData(true);
+      fetchData(false);
     }, [fetchData])
   );
 
@@ -187,6 +188,7 @@ export default function FacilitiesScreen() {
         data={filteredFacilities}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={renderHeader}
+        onContentSizeChange={() => logPerfEvent("LIST_RENDER_DONE", { screen: "facilities", itemCount: filteredFacilities.length })}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         contentContainerStyle={styles.list}
         ListEmptyComponent={

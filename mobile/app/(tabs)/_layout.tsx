@@ -4,7 +4,7 @@
  * Premium bottom tab bar with icons matching web-admin sidebar navigation.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Tabs, useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, Image, TouchableOpacity, View, StyleSheet, Text } from 'react-native';
@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import { apiGet } from '@/lib/api';
+import { logPerfEvent, markScreenFocus } from '@/lib/telemetry/appPerformance';
 
 type TabIconProps = {
   name: keyof typeof Ionicons.glyphMap;
@@ -60,9 +61,22 @@ function HomeNotificationButton() {
 export default function TabLayout() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const lastTabPressAt = useRef<number | null>(null);
 
   return (
     <Tabs
+      screenListeners={{
+        tabPress: (event) => {
+          lastTabPressAt.current = Date.now();
+          logPerfEvent("TAB_SWITCH_START", { target: event.target || null });
+        },
+        focus: (event) => {
+          const durationMs = lastTabPressAt.current ? Date.now() - lastTabPressAt.current : undefined;
+          logPerfEvent("TAB_SWITCH_DONE", { target: event.target || null, ...(durationMs !== undefined ? { durationMs } : {}) });
+          markScreenFocus(String(event.target || "unknown"));
+          lastTabPressAt.current = null;
+        },
+      }}
       screenOptions={{
         headerShown: true,
         headerStyle: {
@@ -83,6 +97,8 @@ export default function TabLayout() {
             source={require('@/assets/brand/transparent/trocare-symbol-tc-transparent-128.png')}
             style={{ width: 24, height: 24, marginLeft: 16 }}
             resizeMode="contain"
+            onLoadStart={() => logPerfEvent("IMAGE_LOAD_START", { image: "tab_header_logo" })}
+            onLoadEnd={() => logPerfEvent("IMAGE_LOAD_DONE", { image: "tab_header_logo" })}
           />
         ),
         tabBarActiveTintColor: Colors.primary, // Brand royal blue

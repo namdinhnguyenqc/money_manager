@@ -25,11 +25,13 @@ import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/store/authStore';
 import { setAuthEventListener } from '@/lib/api';
+import { markAppStart } from '@/lib/telemetry/appPerformance';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 
 // Keep splash screen visible while loading
 SplashScreen.preventAutoHideAsync();
+markAppStart();
 
 function AppStackHeader({ navigation, options, back }: NativeStackHeaderProps) {
   const title = typeof options.title === 'string' ? options.title : '';

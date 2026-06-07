@@ -15,6 +15,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import EmptyState from '@/components/ui/EmptyState';
 import { ListItemSkeleton } from '@/components/ui/Skeleton';
 import { apiGet } from '@/lib/api';
+import { logPerfEvent } from '@/lib/telemetry/appPerformance';
 
 const formatMoney = (value?: number | null) =>
   `${new Intl.NumberFormat('vi-VN').format(Math.round(Number(value || 0)))} ₫`;
@@ -49,15 +50,15 @@ export default function ContractsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('Tất cả');
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     try {
-      const res = await apiGet<any>('/rental/contracts');
+      const res = await apiGet<any>('/rental/contracts', { forceRefresh });
       setContracts(res?.data ?? []);
     } catch {} finally { setLoading(false); setRefreshing(false); }
   }, []);
 
   useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
-  const onRefresh = () => { setRefreshing(true); fetchData(); };
+  const onRefresh = () => { setRefreshing(true); fetchData(true); };
 
   const filtered = useMemo(() => contracts.filter((c) => matchesFilter(c, activeTab)), [contracts, activeTab]);
 
@@ -78,6 +79,7 @@ export default function ContractsScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
+        onContentSizeChange={() => logPerfEvent("LIST_RENDER_DONE", { screen: "contracts", itemCount: filtered.length })}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         ListEmptyComponent={

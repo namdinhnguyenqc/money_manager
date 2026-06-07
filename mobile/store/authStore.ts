@@ -8,7 +8,9 @@ import { create } from 'zustand';
 import type { AuthUser } from '@/lib/auth';
 import { ApiClientError, getAccessToken, clearTokens } from '@/lib/api';
 import { checkAuth, getApprovalStatus, getProfileCompleted, logout as authLogout } from '@/lib/auth';
+import { logPerfEvent } from '@/lib/telemetry/appPerformance';
 import { markLoginTimeline } from '@/lib/telemetry/loginTimeline';
+import { useFacilityStore } from '@/store/facilityStore';
 
 interface AuthState {
   user: AuthUser | null;
@@ -32,6 +34,10 @@ interface AuthState {
   markProfilePendingApproval: () => void;
 }
 
+const clearUserCaches = () => {
+  useFacilityStore.getState().clearCache();
+};
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
@@ -43,12 +49,14 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   hydrate: async () => {
     markLoginTimeline("HYDRATE_START");
+    logPerfEvent("HYDRATE_START");
     set({ isLoading: true });
     try {
       const token = await getAccessToken();
       if (!token) {
         set({ user: null, isAuthenticated: false, isProfileCompleted: false, approvalStatus: null, onboardingStep: null, isLoading: false, isHydrated: true });
         markLoginTimeline("HYDRATE_DONE", { hasToken: false, authenticated: false });
+        logPerfEvent("HYDRATE_DONE", { hasToken: false, authenticated: false });
         return;
       }
 
@@ -64,20 +72,26 @@ export const useAuthStore = create<AuthState>((set) => ({
           isHydrated: true,
         });
         markLoginTimeline("HYDRATE_DONE", { hasToken: true, authenticated: true });
+        logPerfEvent("HYDRATE_DONE", { hasToken: true, authenticated: true });
       } else {
         await clearTokens();
+        clearUserCaches();
         set({ user: null, isAuthenticated: false, isProfileCompleted: false, approvalStatus: null, onboardingStep: null, isLoading: false, isHydrated: true });
         markLoginTimeline("HYDRATE_DONE", { hasToken: true, authenticated: false });
+        logPerfEvent("HYDRATE_DONE", { hasToken: true, authenticated: false });
       }
     } catch (error) {
       if (error instanceof ApiClientError && ![400, 401, 403].includes(error.status)) {
         set({ isLoading: false, isHydrated: true });
         markLoginTimeline("HYDRATE_DONE", { hasToken: true, authenticated: false, transientError: true, status: error.status });
+        logPerfEvent("HYDRATE_DONE", { hasToken: true, authenticated: false, transientError: true, status: error.status });
         return;
       }
       await clearTokens();
+      clearUserCaches();
       set({ user: null, isAuthenticated: false, isProfileCompleted: false, approvalStatus: null, onboardingStep: null, isLoading: false, isHydrated: true });
       markLoginTimeline("HYDRATE_DONE", { authenticated: false });
+      logPerfEvent("HYDRATE_DONE", { authenticated: false });
     }
   },
 
@@ -96,6 +110,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await authLogout(fcmToken);
     } finally {
+      clearUserCaches();
       set({ user: null, isAuthenticated: false, isProfileCompleted: false, approvalStatus: null, onboardingStep: null });
     }
   },

@@ -106,14 +106,14 @@ export default function RedesignedReportsTab() {
   const [contracts, setContracts] = useState<any[]>([]);
 
   // Fetch Database Information
-  const fetchReportData = useCallback(async () => {
+  const fetchReportData = useCallback(async (forceRefresh = false) => {
     try {
       const [facRes, roomRes, invRes, txRes, conRes] = await Promise.all([
-        apiGet<any>('/owner/boarding-houses'),
-        apiGet<any>('/rental/rooms'),
-        apiGet<any>('/invoices?includeItems=true'),
-        apiGet<any>('/transactions?limit=1000'),
-        apiGet<any>('/rental/contracts').catch(() => ({ data: [] })),
+        apiGet<any>('/owner/boarding-houses', { forceRefresh }),
+        apiGet<any>('/rental/rooms', { forceRefresh }),
+        apiGet<any>('/invoices?includeItems=true', { forceRefresh }),
+        apiGet<any>('/transactions?limit=1000', { forceRefresh }),
+        apiGet<any>('/rental/contracts', { forceRefresh }).catch(() => ({ data: [] })),
       ]);
 
       setFacilities(facRes?.data ?? []);
@@ -137,7 +137,7 @@ export default function RedesignedReportsTab() {
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchReportData();
+    fetchReportData(true);
   };
 
   // 1. Filter Rooms by Selected Boarding House

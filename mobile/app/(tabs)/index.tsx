@@ -23,6 +23,7 @@ import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { apiGet } from '@/lib/api';
+import { logPerfEvent, markFirstScreenReady } from '@/lib/telemetry/appPerformance';
 
 interface DashboardData {
   facilities: any[];
@@ -50,9 +51,9 @@ export default function DashboardScreen() {
   const [hideBalance, setHideBalance] = useState(false);
   const [ledgerTab, setLedgerTab] = useState<'paid' | 'cashflow'>('paid');
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     try {
-      const res = await apiGet<any>('/owner/dashboard-init');
+      const res = await apiGet<any>('/owner/dashboard-init', { forceRefresh });
 
       setData({
         facilities: res?.boardingHouses ?? [],
@@ -75,9 +76,15 @@ export default function DashboardScreen() {
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    if (!loading) {
+      markFirstScreenReady({ screen: "dashboard", hasData: Boolean(data) });
+    }
+  }, [data, loading]);
+
   const onRefresh = () => {
     setRefreshing(true);
-    fetchData();
+    fetchData(true);
   };
 
   if (loading) {
@@ -88,6 +95,8 @@ export default function DashboardScreen() {
             source={require('@/assets/brand/transparent/trocare-symbol-tc-transparent-256.png')}
             style={styles.loadingLogo}
             resizeMode="contain"
+            onLoadStart={() => logPerfEvent("IMAGE_LOAD_START", { image: "dashboard_loading_logo" })}
+            onLoadEnd={() => logPerfEvent("IMAGE_LOAD_DONE", { image: "dashboard_loading_logo" })}
           />
         </View>
         <ActivityIndicator size="large" color={Colors.primary} />
