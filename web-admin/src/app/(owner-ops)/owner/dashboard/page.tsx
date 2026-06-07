@@ -217,6 +217,21 @@ export default function OwnerDashboard() {
     };
   }, [invoices, rooms]);
 
+  const overdueInvoices = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    return invoices.filter(inv => {
+      const total = Math.round(Number(inv.total_amount || 0));
+      const paid = Math.round(Number(inv.paid_amount || 0));
+      const isPastPeriod = inv.year < currentYear || (inv.year === currentYear && inv.month < currentMonth);
+      return isPastPeriod && total > 0 && paid < total;
+    });
+  }, [invoices]);
+  const overdueAmount = useMemo(() => {
+    return overdueInvoices.reduce((sum, inv) => sum + Math.max(0, Number(inv.total_amount || 0) - Number(inv.paid_amount || 0)), 0);
+  }, [overdueInvoices]);
+
   const isLoading = dashboardQuery.isLoading;
   const safeStats = stats ?? { total: 0, occupied: 0, vacant: 0, reserved: 0, maintenance: 0, occupancyRate: 0 };
   const chartData = financialStats?.chartData ?? [];
@@ -251,6 +266,26 @@ export default function OwnerDashboard() {
             </div>
           </div>
         </div>
+
+        {overdueInvoices.length > 0 && (
+          <Link
+            href="/invoices"
+            className="flex items-start gap-4 rounded-[28px] border border-red-200 bg-red-50 p-5 text-red-800 shadow-lg shadow-red-100/50 transition hover:bg-red-100"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-red-600 shadow-sm">
+              <AlertCircle size={20} />
+            </span>
+            <span className="flex-1">
+              <span className="block text-base font-extrabold">
+                Có {overdueInvoices.length} hóa đơn quá hạn
+              </span>
+              <span className="mt-1 block text-sm font-semibold text-red-700">
+                Còn phải thu {formatMoney(overdueAmount)} từ các kỳ đã qua. Bấm để mở tab Hóa đơn và xử lý.
+              </span>
+            </span>
+            <ArrowRight size={18} className="mt-2 shrink-0" />
+          </Link>
+        )}
 
         {/* Main Stats Cards */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">

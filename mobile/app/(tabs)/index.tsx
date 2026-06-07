@@ -174,6 +174,15 @@ export default function DashboardScreen() {
     const total = Number(i.total_amount || 0);
     return paid >= total && total > 0;
   });
+  const overdueInvoices = invoices.filter((i: any) => {
+    const paid = Math.round(Number(i.paid_amount || 0));
+    const total = Math.round(Number(i.total_amount || 0));
+    const isPastPeriod = Number(i.year || 0) < currentYear || (Number(i.year || 0) === currentYear && Number(i.month || 0) < currentMonth);
+    return isPastPeriod && total > 0 && paid < total;
+  });
+  const overdueAmount = overdueInvoices.reduce((sum: number, i: any) => (
+    sum + Math.max(0, Number(i.total_amount || 0) - Number(i.paid_amount || 0))
+  ), 0);
 
   const thisMonthTransactions = thisMonthTxs.slice(0, 4);
 
@@ -396,6 +405,27 @@ export default function DashboardScreen() {
             </View>
           </View>
         </Card>
+
+        {overdueInvoices.length > 0 && (
+          <TouchableOpacity
+            style={styles.overdueAlertCard}
+            onPress={() => router.push('/(tabs)/invoices')}
+            activeOpacity={0.78}
+          >
+            <View style={styles.overdueAlertIcon}>
+              <Ionicons name="warning-outline" size={20} color={Colors.danger} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.overdueAlertTitle}>
+                Có {overdueInvoices.length} hóa đơn quá hạn
+              </Text>
+              <Text style={styles.overdueAlertText}>
+                Còn phải thu {formatMoney(overdueAmount)} từ các kỳ đã qua.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.danger} />
+          </TouchableOpacity>
+        )}
 
         {/* Premium Financial Report Panel */}
         <Card style={styles.reportCard}>
@@ -802,6 +832,35 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: Typography.fontFamily.medium,
     color: Colors.textMuted,
+  },
+  overdueAlertCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#FFF7F9',
+    borderWidth: 1.5,
+    borderColor: 'rgba(244, 63, 94, 0.22)',
+  },
+  overdueAlertIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.dangerLight,
+  },
+  overdueAlertTitle: {
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.danger,
+  },
+  overdueAlertText: {
+    marginTop: 2,
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textSecondary,
   },
   section: {
     gap: 10,
