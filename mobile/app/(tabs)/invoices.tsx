@@ -38,9 +38,26 @@ function normalizeInvoiceStatus(invoice: any): string {
   return 'sent';
 }
 
-function matchesStatus(invoice: any, filter: FilterTab): boolean {
+function isInvoiceBeforePeriod(invoice: any, period: { month: number; year: number }): boolean {
+  const invoiceYear = Number(invoice.year || 0);
+  const invoiceMonth = Number(invoice.month || 0);
+  return invoiceYear < period.year || (invoiceYear === period.year && invoiceMonth < period.month);
+}
+
+function isInvoiceUnpaid(invoice: any): boolean {
+  const total = Math.round(Number(invoice.total_amount || 0));
+  const paid = Math.round(Number(invoice.paid_amount || 0));
+  return total > 0 && paid < total;
+}
+
+function getDisplayInvoiceStatus(invoice: any, period: { month: number; year: number }): string {
+  if (isInvoiceBeforePeriod(invoice, period) && isInvoiceUnpaid(invoice)) return 'overdue';
+  return normalizeInvoiceStatus(invoice);
+}
+
+function matchesStatus(invoice: any, filter: FilterTab, period: { month: number; year: number }): boolean {
   if (filter === 'Tất cả') return true;
-  const status = normalizeInvoiceStatus(invoice);
+  const status = getDisplayInvoiceStatus(invoice, period);
   if (filter === 'Đã thanh toán') return status === 'paid' || status === 'partial';
   if (filter === 'Đã gửi') return status === 'sent' || status === 'partial';
   if (filter === 'Quá hạn') return status === 'overdue';
@@ -163,8 +180,10 @@ export default function InvoicesScreen() {
 
   const filtered = invoices.filter((i) => {
     const matchPeriod = Number(i.month) === selectedPeriod.month && Number(i.year) === selectedPeriod.year;
-    return matchPeriod && matchesStatus(i, activeTab);
+    const carriedOverOverdue = isInvoiceBeforePeriod(i, selectedPeriod) && isInvoiceUnpaid(i);
+    return (matchPeriod || carriedOverOverdue) && matchesStatus(i, activeTab, selectedPeriod);
   });
+  const overdueCarryCount = invoices.filter((i) => isInvoiceBeforePeriod(i, selectedPeriod) && isInvoiceUnpaid(i)).length;
 
   if (loading) {
     return (
@@ -254,6 +273,27 @@ export default function InvoicesScreen() {
         </TouchableOpacity>
       )}
 
+      {overdueCarryCount > 0 && (
+        <TouchableOpacity
+          style={styles.overdueBanner}
+          onPress={() => setActiveTab('Quá hạn')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.overdueBannerIcon}>
+            <Ionicons name="warning-outline" size={16} color={Colors.danger} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.overdueBannerTitle}>
+              Có {overdueCarryCount} hóa đơn tháng trước chưa đóng
+            </Text>
+            <Text style={styles.overdueBannerSub}>
+              Đã chuyển sang kỳ T{selectedPeriod.month}/{selectedPeriod.year} và đánh dấu trễ hạn.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={Colors.danger} />
+        </TouchableOpacity>
+      )}
+
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
@@ -263,14 +303,15 @@ export default function InvoicesScreen() {
           <EmptyState icon="receipt-outline" title="Không có hóa đơn" description="Chưa có hóa đơn nào trong bộ lọc này." />
         }
         renderItem={({ item }) => {
-          const status = normalizeInvoiceStatus(item);
+          const status = getDisplayInvoiceStatus(item, selectedPeriod);
           const total = Number(item.total_amount || 0);
           const paid = Number(item.paid_amount || 0);
           const showCollect = status === 'sent' || status === 'overdue' || status === 'partial';
+          const carriedOverOverdue = isInvoiceBeforePeriod(item, selectedPeriod) && isInvoiceUnpaid(item);
 
           return (
             <TouchableOpacity
-              style={styles.invoiceRow}
+              style={[styles.invoiceRow, carriedOverOverdue && styles.invoiceRowOverdue]}
               onPress={() => router.push(`/invoice/${item.id}`)}
               activeOpacity={0.7}
             >
@@ -279,6 +320,11 @@ export default function InvoicesScreen() {
                 <Text style={styles.meta}>
                   T{item.month}/{item.year} · {item.tenant_name || 'Khách thuê'}
                 </Text>
+                {carriedOverOverdue ? (
+                  <Text style={styles.overdueMeta}>
+                    Chưa đóng, chuyển sang T{selectedPeriod.month}/{selectedPeriod.year}
+                  </Text>
+                ) : null}
               </View>
               <View style={styles.rightCol}>
                 <Text style={styles.amount}>{formatMoney(total)}</Text>
@@ -402,8 +448,18 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface, padding: 14, borderRadius: 12,
     borderWidth: 1, borderColor: Colors.borderLight, gap: 12,
   },
+  invoiceRowOverdue: {
+    borderColor: 'rgba(244, 63, 94, 0.28)',
+    backgroundColor: '#FFF7F9',
+  },
   roomName: { fontSize: 14, fontFamily: Typography.fontFamily.semibold, color: Colors.textPrimary, letterSpacing: -0.2 },
   meta: { fontSize: 12, fontFamily: Typography.fontFamily.regular, color: Colors.textMuted, marginTop: 2 },
+  overdueMeta: {
+    marginTop: 4,
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.semibold,
+    color: Colors.danger,
+  },
   rightCol: { alignItems: 'flex-end', gap: 6 },
   amount: { fontSize: 14, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary, letterSpacing: -0.3 },
   actionsRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
@@ -466,6 +522,37 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: Typography.fontFamily.bold,
     color: Colors.primary,
+  },
+  overdueBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFF7F9',
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(244, 63, 94, 0.2)',
+  },
+  overdueBannerIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: Colors.dangerLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overdueBannerTitle: {
+    fontSize: 13.5,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.danger,
+  },
+  overdueBannerSub: {
+    marginTop: 1,
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textSecondary,
   },
   modalBackdrop: {
     flex: 1,
