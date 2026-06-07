@@ -558,6 +558,17 @@ export async function loadInvoices(buildingId?: string) {
   return (res?.data ?? []) as Invoice[];
 }
 
+export async function loadInvoicesForPeriod(buildingId: string | undefined, month: number, year: number) {
+  const params = new URLSearchParams();
+  params.append("month", String(month));
+  params.append("year", String(year));
+  params.append("includeOverdueCarryover", "true");
+  if (buildingId) params.append("buildingId", buildingId);
+
+  const res = await apiGet<any>(`/invoices?${params.toString()}`);
+  return (res?.data ?? []) as Invoice[];
+}
+
 export async function loadInvoicesWithItems(buildingId?: string, month?: number, year?: number) {
   const params = new URLSearchParams();
   params.append("includeItems", "true");

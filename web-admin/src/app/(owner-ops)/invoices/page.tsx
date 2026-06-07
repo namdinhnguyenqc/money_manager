@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { RefreshCw, Send, Trash2, Calendar, ChevronLeft, ChevronRight, FileSpreadsheet } from "lucide-react";
+import { RefreshCw, Trash2, Calendar, ChevronLeft, ChevronRight, FileSpreadsheet, AlertTriangle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import StatusBadge from "@/components/ops/StatusBadge";
 import { 
@@ -11,11 +11,11 @@ import {
   RentalRoom, 
   formatMoney, 
   loadBoardingHouses, 
-  loadInvoices, 
+  loadInvoicesForPeriod,
   loadPendingBilling,
   normalizeInvoiceStatus 
 } from "@/lib/rentalOps";
-import { apiGet, apiPost, apiDelete } from "@/utils/apiClient";
+import { apiDelete } from "@/utils/apiClient";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
 import DataTable from "@/components/ui/DataTable";
@@ -28,9 +28,24 @@ import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 const statusTabs = ["Tất cả", "Chưa lập HĐ", "Chưa gửi", "Đã gửi", "Quá hạn", "Đã thanh toán"];
 const pageSize = 10;
 
-const matchesStatus = (invoice: Invoice, filter: string) => {
+const isInvoiceBeforePeriod = (invoice: Invoice, period: { month: number; year: number }) => {
+  return invoice.year < period.year || (invoice.year === period.year && invoice.month < period.month);
+};
+
+const isInvoiceUnpaid = (invoice: Invoice) => {
+  const total = Math.round(Number(invoice.total_amount || 0));
+  const paid = Math.round(Number(invoice.paid_amount || 0));
+  return total > 0 && paid < total;
+};
+
+const getDisplayInvoiceStatus = (invoice: Invoice, period: { month: number; year: number }) => {
+  if (isInvoiceBeforePeriod(invoice, period) && isInvoiceUnpaid(invoice)) return "overdue";
+  return normalizeInvoiceStatus(invoice);
+};
+
+const matchesStatus = (invoice: Invoice, filter: string, period: { month: number; year: number }) => {
   if (filter === "Tất cả") return true;
-  const status = normalizeInvoiceStatus(invoice);
+  const status = getDisplayInvoiceStatus(invoice, period);
   if (filter === "Đã thanh toán") return status === "paid" || status === "partial";
   if (filter === "Đã gửi") return status === "sent" || status === "partial";
   if (filter === "Quá hạn") return status === "overdue";
@@ -67,11 +82,11 @@ export default function InvoicesPage() {
       const hId = selectedHouse === "all" ? undefined : selectedHouse;
       const [nextHouses, nextInvoices, nextPending] = await Promise.all([
         loadBoardingHouses(), 
-        loadInvoices(hId),
+        loadInvoicesForPeriod(hId, period.month, period.year),
         loadPendingBilling(period.month, period.year, hId)
       ]);
       setHouses(nextHouses);
-      setInvoices(nextInvoices.filter(i => i.month === period.month && i.year === period.year));
+      setInvoices(nextInvoices);
       setPendingRooms(nextPending);
     } catch (err: any) {
       setError(err?.message || "Không tải được dữ liệu.");
@@ -148,7 +163,11 @@ export default function InvoicesPage() {
     });
   };
 
-  const filteredInvoices = useMemo(() => invoices.filter((invoice) => matchesStatus(invoice, filter)), [invoices, filter]);
+  const overdueCarryCount = useMemo(
+    () => invoices.filter((invoice) => isInvoiceBeforePeriod(invoice, period) && isInvoiceUnpaid(invoice)).length,
+    [invoices, period],
+  );
+  const filteredInvoices = useMemo(() => invoices.filter((invoice) => matchesStatus(invoice, filter, period)), [invoices, filter, period]);
   const filteredRows = filter === "Chưa lập HĐ" ? pendingRooms : filteredInvoices;
   const visibleInvoices = useMemo(() => filteredInvoices.slice((page - 1) * pageSize, page * pageSize), [filteredInvoices, page]);
   const visiblePendingRooms = useMemo(() => pendingRooms.slice((page - 1) * pageSize, page * pageSize), [pendingRooms, page]);
@@ -213,9 +232,30 @@ export default function InvoicesPage() {
             {item === "Chưa lập HĐ" && pendingRooms.length > 0 && (
               <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">{pendingRooms.length}</span>
             )}
+            {item === "Quá hạn" && overdueCarryCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] text-white">{overdueCarryCount}</span>
+            )}
           </button>
         ))}
       </div>
+
+      {overdueCarryCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setFilter("Quá hạn")}
+          className="mb-4 flex w-full items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-left text-sm text-red-800 shadow-sm transition hover:bg-red-100"
+        >
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-red-600">
+            <AlertTriangle size={17} />
+          </span>
+          <span className="flex-1">
+            <span className="block font-bold">Có {overdueCarryCount} hóa đơn tháng trước chưa đóng</span>
+            <span className="mt-0.5 block text-red-700">
+              Đã chuyển sang kỳ T{period.month}/{period.year} và đánh dấu quá hạn để thu tiếp.
+            </span>
+          </span>
+        </button>
+      )}
 
       {selectedCount > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
@@ -260,11 +300,19 @@ export default function InvoicesPage() {
         ) : filteredInvoices.length === 0 ? (
           <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Chưa có hóa đơn phù hợp cho kỳ T{period.month}/{period.year}.</td></tr>
         ) : visibleInvoices.map((invoice) => {
-          const status = normalizeInvoiceStatus(invoice);
+          const status = getDisplayInvoiceStatus(invoice, period);
+          const carriedOverOverdue = isInvoiceBeforePeriod(invoice, period) && isInvoiceUnpaid(invoice);
           return (
-            <tr key={invoice.id} className="hover:bg-slate-50 transition-colors">
+            <tr key={invoice.id} className={`transition-colors ${carriedOverOverdue ? "bg-red-50/50 hover:bg-red-50" : "hover:bg-slate-50"}`}>
               <td className="px-4 py-3"><input type="checkbox" checked={Boolean(selected[invoice.id])} onChange={(e) => setSelected((prev) => ({ ...prev, [invoice.id]: e.target.checked }))} /></td>
-              <td className="px-4 py-3 font-medium text-slate-900">{invoice.room_name || `Phòng #${invoice.room_id}`}</td>
+              <td className="px-4 py-3 font-medium text-slate-900">
+                <div>{invoice.room_name || `Phòng #${invoice.room_id}`}</div>
+                {carriedOverOverdue ? (
+                  <div className="mt-1 text-xs font-semibold text-red-600">
+                    HĐ T{invoice.month}/{invoice.year} chưa đóng, chuyển sang T{period.month}/{period.year}
+                  </div>
+                ) : null}
+              </td>
               <td className="px-4 py-3 text-slate-600 truncate max-w-[150px]">{invoice.tenant_name || "-"}</td>
               <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">{formatMoney(invoice.total_amount)}</td>
               <td className="px-4 py-3 text-green-700 font-medium whitespace-nowrap">{invoice.paid_amount ? formatMoney(invoice.paid_amount) : "0 ₫"}</td>
