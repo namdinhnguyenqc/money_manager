@@ -278,6 +278,20 @@ export function clearApiCache() {
   logPerfEvent("CACHE_CLEAR", { scope: "api" });
 }
 
+function invalidateApiCacheAfterMutation(path: string, method: HttpMethod) {
+  if (method === 'GET') return;
+  const entriesCleared = responseCache.size;
+  responseCache.clear();
+  inFlightRequests.clear();
+  logPerfEvent("CACHE_INVALIDATE", {
+    scope: "api",
+    path,
+    method,
+    entriesCleared,
+    reason: "mutation_success",
+  });
+}
+
 function buildUrl(path: string): string {
   if (path.startsWith('http')) return path;
   const p = path.startsWith('/') ? path : `/${path}`;
@@ -356,73 +370,75 @@ async function request<T>(path: string, method: HttpMethod, body?: any, options:
     }
   };
 
-  const networkPromise = executeNetworkRequest();
+  const runRequest = async (): Promise<T> => {
+    const { res, data } = await executeNetworkRequest();
+
+    // Handle 403 PROFILE_REQUIRED
+    if (res.status === 403 && data?.code === 'PROFILE_REQUIRED') {
+      authEventListener?.('profile_required');
+      throw new ApiClientError(data?.message || 'Profile required', res.status, { ...data, code: data?.code });
+    }
+
+    if (res.status === 403 && data?.code === 'ACCOUNT_PENDING_APPROVAL') {
+      authEventListener?.('pending_approval');
+      throw new ApiClientError(data?.message || 'Account pending approval', res.status, { ...data, code: data?.code });
+    }
+
+    // Handle 401 — try token refresh once
+    if (res.status === 401 && retry) {
+      const refreshed = await tryRefreshToken();
+      if (refreshed) {
+        return request<T>(path, method, body, { ...options, retry: false });
+      }
+      authEventListener?.('logout');
+      throw new ApiClientError('Unauthorized', 401);
+    }
+
+    if (res.status === 401) {
+      authEventListener?.('logout');
+      throw new ApiClientError('Unauthorized', res.status);
+    }
+
+    if (res.status === 403 && ['ACCOUNT_REJECTED', 'ACCOUNT_BLOCKED', 'ACCOUNT_DELETED'].includes(String(data?.code || ''))) {
+      authEventListener?.('logout');
+      throw new ApiClientError(data?.message || data?.error || 'Account is not active', res.status, { ...data, code: data?.code });
+    }
+
+    if (!res.ok) {
+      const fieldErrors = data?.details?.fieldErrors;
+      const firstFieldError = fieldErrors
+        ? Object.values(fieldErrors).flat().find(Boolean)
+        : null;
+      throw new ApiClientError(
+        String(firstFieldError || data?.message || data?.error || 'Request failed'),
+        res.status,
+        { ...data?.details, code: data?.code }
+      );
+    }
+
+    if (method === 'GET' && cacheTtlMs > 0) {
+      responseCache.set(cacheKey, {
+        value: data,
+        expiresAt: Date.now() + cacheTtlMs,
+        storedAt: Date.now(),
+      });
+    } else {
+      invalidateApiCacheAfterMutation(path, method);
+    }
+
+    return data as T;
+  };
+
+  const requestPromise = runRequest();
   if (method === 'GET' && cacheTtlMs > 0 && !options.forceRefresh) {
-    inFlightRequests.set(cacheKey, networkPromise.then(({ data }) => data));
+    inFlightRequests.set(cacheKey, requestPromise);
   }
 
-  let res: Response;
-  let data: any;
   try {
-    const result = await networkPromise;
-    res = result.res;
-    data = result.data;
+    return await requestPromise;
   } finally {
     if (method === 'GET') inFlightRequests.delete(cacheKey);
   }
-
-  // Handle 403 PROFILE_REQUIRED
-  if (res.status === 403 && data?.code === 'PROFILE_REQUIRED') {
-    authEventListener?.('profile_required');
-    throw new ApiClientError(data?.message || 'Profile required', res.status, { ...data, code: data?.code });
-  }
-
-  if (res.status === 403 && data?.code === 'ACCOUNT_PENDING_APPROVAL') {
-    authEventListener?.('pending_approval');
-    throw new ApiClientError(data?.message || 'Account pending approval', res.status, { ...data, code: data?.code });
-  }
-
-  // Handle 401 — try token refresh once
-  if (res.status === 401 && retry) {
-    const refreshed = await tryRefreshToken();
-    if (refreshed) {
-      return request<T>(path, method, body, { ...options, retry: false });
-    }
-    authEventListener?.('logout');
-    throw new ApiClientError('Unauthorized', 401);
-  }
-
-  if (res.status === 401) {
-    authEventListener?.('logout');
-    throw new ApiClientError('Unauthorized', res.status);
-  }
-
-  if (res.status === 403 && ['ACCOUNT_REJECTED', 'ACCOUNT_BLOCKED', 'ACCOUNT_DELETED'].includes(String(data?.code || ''))) {
-    authEventListener?.('logout');
-    throw new ApiClientError(data?.message || data?.error || 'Account is not active', res.status, { ...data, code: data?.code });
-  }
-
-  if (!res.ok) {
-    const fieldErrors = data?.details?.fieldErrors;
-    const firstFieldError = fieldErrors
-      ? Object.values(fieldErrors).flat().find(Boolean)
-      : null;
-    throw new ApiClientError(
-      String(firstFieldError || data?.message || data?.error || 'Request failed'),
-      res.status,
-      { ...data?.details, code: data?.code }
-    );
-  }
-
-  if (method === 'GET' && cacheTtlMs > 0) {
-    responseCache.set(cacheKey, {
-      value: data,
-      expiresAt: Date.now() + cacheTtlMs,
-      storedAt: Date.now(),
-    });
-  }
-
-  return data as T;
 }
 
 // ─── Public API Methods ───
@@ -442,6 +458,6 @@ export async function apiPut<T>(path: string, body: any, options?: RequestOption
   return request<T>(path, 'PUT', body, options);
 }
 
-export async function apiDelete<T>(path: string): Promise<T> {
-  return request<T>(path, 'DELETE');
+export async function apiDelete<T>(path: string, options?: RequestOptions): Promise<T> {
+  return request<T>(path, 'DELETE', undefined, options);
 }
