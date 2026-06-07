@@ -34,6 +34,7 @@ import {
   BoardingHouse,
   RentalRoom,
   ContractView,
+  loadServiceConfigs,
 } from '@/lib/rentalOps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -80,6 +81,29 @@ export default function BulkInvoiceScreen() {
   const initData = useCallback(async () => {
     try {
       setLoading(true);
+
+      const services = await loadServiceConfigs(false);
+      if (services.length === 0) {
+        Alert.alert(
+          'Chưa cấu hình dịch vụ',
+          'Bạn chưa cấu hình bảng giá dịch vụ. Vui lòng thiết lập bảng giá dịch vụ trước khi tạo hóa đơn.',
+          [
+            {
+              text: 'Thiết lập ngay',
+              onPress: () => router.replace('/services' as any),
+            },
+            {
+              text: 'Quay lại',
+              onPress: () => handleBack(),
+              style: 'cancel',
+            },
+          ]
+        );
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
       const bhs = await loadBoardingHouses();
       setBoardingHouses(bhs);
 

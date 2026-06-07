@@ -308,7 +308,8 @@ export default function ProfileTab() {
         </View>
       )}
 
-      {/* ⚙️ Security Settings */}
+      {/* ⚙️ Security Settings (Hidden) */}
+      {/*
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Bảo mật tài khoản</Text>
         <TouchableOpacity 
@@ -325,6 +326,7 @@ export default function ProfileTab() {
           <Text style={styles.btnChangePasswordText}>Thay đổi mật khẩu đăng nhập</Text>
         </TouchableOpacity>
       </View>
+      */}
 
       {/* 🔴 Control Button */}
       <TouchableOpacity style={styles.btnLogout} onPress={handleLogout} activeOpacity={0.8}>

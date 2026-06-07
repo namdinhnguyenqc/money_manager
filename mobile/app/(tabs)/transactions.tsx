@@ -222,6 +222,13 @@ export default function TransactionsScreen() {
       );
       const roomIds = new Set(bhRooms.map((r: any) => r.id));
       result = result.filter((tx) => {
+        const txBhId = tx.metadata?.boarding_house_id
+          ?? tx.metadata?.boardingHouseId
+          ?? tx.boarding_house_id
+          ?? tx.boardingHouseId
+          ?? tx.facility_id
+          ?? tx.facilityId;
+        if (txBhId && String(txBhId) === String(selectedBhId)) return true;
         if (tx.invoice_id) {
           const inv = invoices.find((i: any) => i.id === tx.invoice_id);
           if (inv && roomIds.has(inv.room_id)) return true;

@@ -58,6 +58,36 @@ const insertEvent = async (payload: Record<string, unknown>) => {
   return { data, error };
 };
 
+const notifyOwnerPaymentReceived = async (
+  ownerId: string,
+  invoice: any,
+  roomName: string | null,
+  amount: number,
+  status: "paid" | "partial",
+) => {
+  const formattedAmount = new Intl.NumberFormat("vi-VN").format(Math.round(amount));
+  const fullyPaid = status === "paid";
+  const { error } = await supabaseAdmin.from("rental_notifications").insert({
+    user_id: ownerId,
+    channel: "in_app",
+    event_type: "INVOICE_PAID",
+    payload: {
+      title: fullyPaid ? "Khách thuê đã thanh toán hóa đơn" : "Khách thuê đã thanh toán một phần",
+      body: `${roomName || "Phòng"} đã thanh toán ${formattedAmount} ₫ cho hóa đơn tháng ${invoice.month}/${invoice.year}.`,
+      invoiceId: invoice.id,
+      roomId: invoice.room_id,
+      transactionStatus: status,
+      paymentStatus: status,
+      amount,
+    },
+    delivered_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    console.error("Failed to create owner payment notification:", error.message);
+  }
+};
+
 sepayWebhookRoutes.post("/", async (c) => {
   const rawBody = await c.req.text();
   const signature = c.req.header("x-sepay-signature");
@@ -256,6 +286,14 @@ sepayWebhookRoutes.post("/", async (c) => {
     });
     return jsonOk();
   }
+
+  await notifyOwnerPaymentReceived(
+    String(invoice.user_id),
+    invoice,
+    roomRes.data?.name || null,
+    transferAmount,
+    paymentRes.data.status,
+  );
 
   // Success path: Trigger FCM notification and create auto expense for tenant
   try {

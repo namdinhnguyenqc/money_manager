@@ -20,7 +20,6 @@ import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
 import EmptyState from '@/components/ui/EmptyState';
-import Toast from '@/components/ui/Toast';
 import { apiGet, apiPost } from '@/lib/api';
 
 export default function NotificationsScreen() {
@@ -28,13 +27,10 @@ export default function NotificationsScreen() {
 
   // State
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-  };
+  const [loadError, setLoadError] = useState(false);
 
   const fetchNotifications = async (isRef = false) => {
     try {
@@ -44,8 +40,12 @@ export default function NotificationsScreen() {
       const res = await apiGet<any>('/owner/notifications');
       const list = res?.data ?? res ?? [];
       setNotifications(list);
-    } catch (e: any) {
-      showToast(e?.message || 'Không thể tải thông báo.', 'error');
+      setUnreadCount(Number(res?.unreadCount ?? list.filter((item: any) => !item.readAt).length));
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+      setNotifications([]);
+      setUnreadCount(0);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -64,6 +64,7 @@ export default function NotificationsScreen() {
         setNotifications((prev) =>
           prev.map((n) => (n.id === item.id ? { ...n, readAt: new Date().toISOString() } : n))
         );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
         await apiPost(`/owner/notifications/${item.id}/read`, {});
       } catch (e: any) {
         console.warn('Failed to mark notification as read:', e);
@@ -156,11 +157,32 @@ export default function NotificationsScreen() {
             refreshing={refreshing}
             onRefresh={() => fetchNotifications(true)}
             contentContainerStyle={styles.list}
+            ListHeaderComponent={
+              notifications.length > 0 ? (
+                <View style={styles.summaryBar}>
+                  <View>
+                    <Text style={styles.summaryTitle}>Thông báo</Text>
+                    <Text style={styles.summaryText}>
+                      {unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : 'Tất cả thông báo đã được đọc'}
+                    </Text>
+                  </View>
+                  {unreadCount > 0 ? (
+                    <View style={styles.summaryBadge}>
+                      <Text style={styles.summaryBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null
+            }
             ListEmptyComponent={
               <EmptyState
-                title="Không có thông báo nào"
-                description="Hệ thống sẽ gửi thông báo đến bạn khi có giao dịch, hợp đồng hoặc yêu cầu đặt phòng mới."
-                icon="notifications-outline"
+                title={loadError ? 'Chưa tải được thông báo' : 'Không có thông báo nào'}
+                description={
+                  loadError
+                    ? 'Kéo xuống để thử tải lại.'
+                    : 'Hệ thống sẽ gửi thông báo đến bạn khi có giao dịch, hợp đồng hoặc yêu cầu đặt phòng mới.'
+                }
+                icon={loadError ? 'cloud-offline-outline' : 'notifications-outline'}
               />
             }
             renderItem={({ item }) => {
@@ -194,12 +216,6 @@ export default function NotificationsScreen() {
         )}
       </View>
 
-      <Toast
-        visible={!!toast}
-        message={toast?.message || ''}
-        type={toast?.type}
-        onDismiss={() => setToast(null)}
-      />
     </SafeAreaView>
   );
 }
@@ -210,6 +226,41 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
   list: { padding: 16, gap: 12 },
+  summaryBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  summaryTitle: {
+    fontSize: 15,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textPrimary,
+  },
+  summaryText: {
+    marginTop: 2,
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textSecondary,
+  },
+  summaryBadge: {
+    minWidth: 28,
+    height: 28,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.danger,
+  },
+  summaryBadgeText: {
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textWhite,
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'flex-start',

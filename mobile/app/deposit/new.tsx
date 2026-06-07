@@ -8,7 +8,7 @@
  * - Internal notes
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -17,9 +17,10 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  SafeAreaView,
+  BackHandler,
 } from 'react-native';
-import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
+import { Stack, useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
@@ -57,6 +58,21 @@ export default function NewDepositScreen() {
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
   };
+
+  const handleBack = useCallback(() => {
+    router.replace('/deposit' as any);
+  }, [router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        handleBack();
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, [handleBack])
+  );
 
   const selectedWallet = wallets.find((w) => String(w.id) === String(selectedWalletId));
   const selectedRoomPrice = Number(selectedRoom?.price || 0);
@@ -189,6 +205,11 @@ export default function NewDepositScreen() {
           title: 'Nhận cọc giữ phòng',
           headerBackTitle: 'Quay lại',
           headerTitleStyle: { fontFamily: Typography.fontFamily.bold },
+          headerLeft: () => (
+            <TouchableOpacity onPress={handleBack} hitSlop={12} style={styles.headerBackButton}>
+              <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
+            </TouchableOpacity>
+          ),
         }}
       />
 
@@ -373,6 +394,7 @@ export default function NewDepositScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
+  headerBackButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   container: { flex: 1 },
   scroll: { padding: 16, paddingBottom: 40, gap: 14 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },

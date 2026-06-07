@@ -4,15 +4,62 @@
  * Premium bottom tab bar with icons matching web-admin sidebar navigation.
  */
 
-import { Tabs } from 'expo-router';
-import { useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Tabs, useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, Image, TouchableOpacity } from 'react-native';
+import { Platform, Image, TouchableOpacity, View, StyleSheet, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
+import { apiGet } from '@/lib/api';
+
+type TabIconProps = {
+  name: keyof typeof Ionicons.glyphMap;
+  color: string;
+  focused: boolean;
+};
+
+function TabIcon({ name, color, focused }: TabIconProps) {
+  return (
+    <View style={[styles.tabIconShell, focused && styles.tabIconShellActive]}>
+      <Ionicons name={name} size={focused ? 22 : 21} color={color} />
+    </View>
+  );
+}
+
+function HomeNotificationButton() {
+  const router = useRouter();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      apiGet<any>('/owner/notifications')
+        .then((res) => setUnreadCount(Number(res?.unreadCount || 0)))
+        .catch(() => setUnreadCount(0));
+    }, []),
+  );
+
+  return (
+    <TouchableOpacity
+      onPress={() => router.push('/notifications' as any)}
+      style={styles.headerNotificationButton}
+      activeOpacity={0.72}
+      accessibilityRole="button"
+      accessibilityLabel="Thông báo"
+    >
+      <Ionicons name="notifications-outline" size={22} color={Colors.primary} />
+      {unreadCount > 0 ? (
+        <View style={styles.headerNotificationBadge}>
+          <Text style={styles.headerNotificationBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+}
 
 export default function TabLayout() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -44,23 +91,25 @@ export default function TabLayout() {
           fontFamily: Typography.fontFamily.bold,
           fontSize: 9.5,
           letterSpacing: -0.1,
+          marginTop: 0,
         },
+        tabBarItemStyle: styles.tabBarItem,
         tabBarStyle: {
           position: 'absolute',
-          bottom: Platform.OS === 'ios' ? 24 : 16,
-          left: 14,
-          right: 14,
+          bottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 10) : 10,
+          left: 10,
+          right: 10,
           backgroundColor: Colors.surface, // Pure white porcelain dock
-          borderRadius: 22,
-          borderWidth: 1.5,
-          borderColor: 'rgba(0, 113, 227, 0.12)', // Glowing royal blue outline
-          height: 64,
-          paddingBottom: Platform.OS === 'ios' ? 12 : 8,
-          paddingTop: 8,
+          borderRadius: 20,
+          borderWidth: 1,
+          borderColor: Colors.borderLight,
+          height: 62,
+          paddingBottom: 6,
+          paddingTop: 6,
           shadowColor: Colors.primary, // Ethereal blue shadow glow!
           shadowOffset: { width: 0, height: 8 },
           shadowOpacity: 0.1,
-          shadowRadius: 12,
+          shadowRadius: 14,
           elevation: 8,
         },
       }}
@@ -70,8 +119,9 @@ export default function TabLayout() {
         options={{
           title: 'Trang chủ',
           headerTitle: 'TrọCare',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+          headerRight: () => <HomeNotificationButton />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="home-outline" color={color} focused={focused} />
           ),
         }}
       />
@@ -89,8 +139,8 @@ export default function TabLayout() {
               <Ionicons name="add-circle" size={24} color={Colors.primary} />
             </TouchableOpacity>
           ),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="business-outline" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="business-outline" color={color} focused={focused} />
           ),
         }}
       />
@@ -105,8 +155,8 @@ export default function TabLayout() {
         options={{
           title: 'Thu/Chi',
           headerTitle: 'Sổ quỹ thu chi',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="receipt-outline" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="receipt-outline" color={color} focused={focused} />
           ),
         }}
       />
@@ -121,8 +171,8 @@ export default function TabLayout() {
         options={{
           title: 'Báo cáo',
           headerTitle: 'Báo cáo quản lý',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="stats-chart-outline" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="stats-chart-outline" color={color} focused={focused} />
           ),
         }}
       />
@@ -131,11 +181,57 @@ export default function TabLayout() {
         options={{
           title: 'Tài khoản',
           headerTitle: 'Cài đặt tài khoản',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="settings-outline" color={color} focused={focused} />
           ),
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBarItem: {
+    paddingVertical: 0,
+  },
+  tabIconShell: {
+    width: 38,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabIconShellActive: {
+    backgroundColor: Colors.primaryAlpha20,
+  },
+  headerNotificationButton: {
+    width: 40,
+    height: 40,
+    marginRight: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  headerNotificationBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.danger,
+    borderWidth: 2,
+    borderColor: Colors.surface,
+  },
+  headerNotificationBadgeText: {
+    fontSize: 9,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textWhite,
+  },
+});

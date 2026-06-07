@@ -40,6 +40,46 @@ type MonthlyTrend = {
   expense: number;
 };
 
+type UtilityComparison = {
+  key: string;
+  label: string;
+  electricityIncome: number;
+  electricityExpense: number;
+  waterIncome: number;
+  waterExpense: number;
+};
+
+type UtilityCostMonth = {
+  key: string;
+  label: string;
+  electricity: number | null;
+  water: number | null;
+  wifi: number | null;
+  total: number | null;
+};
+
+const getMonthKeyFromTransaction = (tx: any) => {
+  const period = String(tx.metadata?.period || tx.period || '');
+  if (/^\d{4}-\d{2}$/.test(period)) return period;
+
+  const date = new Date(tx.date);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const getUtilityCostType = (tx: any): 'electricity' | 'water' | 'wifi' | null => {
+  const text = [
+    tx.category_name,
+    tx.metadata?.utility_type,
+    tx.description,
+  ].map((value) => String(value || '').toLowerCase()).join(' ');
+
+  if (text.includes('wifi') || text.includes('fpt') || text.includes('internet') || text.includes('mạng')) return 'wifi';
+  if (text.includes('điện') || text.includes('dien') || text.includes('electric')) return 'electricity';
+  if (text.includes('nước') || text.includes('nuoc') || text.includes('water')) return 'water';
+  return null;
+};
+
 function normalizeRoomStatus(room: any): string {
   const stat = String(room.status || '').toLowerCase();
   if (stat === 'occupied' || stat === 'occupied_soon') return 'occupied';
@@ -71,8 +111,8 @@ export default function RedesignedReportsTab() {
       const [facRes, roomRes, invRes, txRes, conRes] = await Promise.all([
         apiGet<any>('/owner/boarding-houses'),
         apiGet<any>('/rental/rooms'),
-        apiGet<any>('/invoices'),
-        apiGet<any>('/transactions?limit=250'),
+        apiGet<any>('/invoices?includeItems=true'),
+        apiGet<any>('/transactions?limit=1000'),
         apiGet<any>('/rental/contracts').catch(() => ({ data: [] })),
       ]);
 
@@ -126,6 +166,13 @@ export default function RedesignedReportsTab() {
       const bhRooms = filteredRooms;
       const roomIds = new Set(bhRooms.map((r: any) => String(r.id)));
       result = result.filter((tx) => {
+        const txBhId = tx.metadata?.boarding_house_id
+          ?? tx.metadata?.boardingHouseId
+          ?? tx.boarding_house_id
+          ?? tx.boardingHouseId
+          ?? tx.facility_id
+          ?? tx.facilityId;
+        if (txBhId && String(txBhId) === String(selectedBhId)) return true;
         if (tx.invoice_id) {
           const inv = invoices.find((i: any) => String(i.id) === String(tx.invoice_id));
           if (inv && roomIds.has(String(inv.room_id))) return true;
@@ -251,6 +298,125 @@ export default function RedesignedReportsTab() {
       { name: 'Chi phí khác', value: others, percentage: (others / total) * 100, color: '#6B7280' }
     ].filter(item => item.value > 0);
   }, [periodTxs]);
+
+  const utilityComparison = useMemo(() => {
+    const now = new Date();
+    const rows: UtilityComparison[] = Array.from({ length: 8 }, (_, index) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - 7 + index, 1);
+      return {
+        key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+        label: `${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`,
+        electricityIncome: 0,
+        electricityExpense: 0,
+        waterIncome: 0,
+        waterExpense: 0,
+      };
+    });
+    const byKey = new Map(rows.map((row) => [row.key, row]));
+
+    filteredInvoices.forEach((invoice: any) => {
+      const row = byKey.get(`${invoice.year}-${String(invoice.month).padStart(2, '0')}`);
+      if (!row) return;
+      const total = Number(invoice.total_amount || 0);
+      const paidRatio = total > 0 ? Math.min(1, Number(invoice.paid_amount || 0) / total) : 0;
+      (invoice.items || []).forEach((item: any) => {
+        const name = String(item.name || '').toLowerCase();
+        const received = Number(item.amount || 0) * paidRatio;
+        if (name.includes('điện') || name.includes('dien')) row.electricityIncome += received;
+        if (name.includes('nước') || name.includes('nuoc')) row.waterIncome += received;
+      });
+    });
+
+    filteredTxs.filter((tx: any) => tx.type === 'expense').forEach((tx: any) => {
+      const monthKey = getMonthKeyFromTransaction(tx);
+      if (!monthKey) return;
+      const row = byKey.get(monthKey);
+      if (!row) return;
+      const category = [
+        tx.category_name,
+        tx.metadata?.utility_type,
+        tx.description,
+      ].map((value) => String(value || '').toLowerCase()).join(' ');
+      if (category.includes('điện') || category.includes('dien')) row.electricityExpense += Number(tx.amount || 0);
+      if (category.includes('nước') || category.includes('nuoc')) row.waterExpense += Number(tx.amount || 0);
+    });
+
+    return rows;
+  }, [filteredInvoices, filteredTxs]);
+
+  const utilityCostStats = useMemo(() => {
+    const now = new Date();
+    const rows: UtilityCostMonth[] = Array.from({ length: 6 }, (_, index) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1);
+      return {
+        key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+        label: `${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`,
+        electricity: null,
+        water: null,
+        wifi: null,
+        total: null,
+      };
+    });
+    const byKey = new Map(rows.map((row) => [row.key, row]));
+
+    filteredTxs.filter((tx: any) => tx.type === 'expense').forEach((tx: any) => {
+      const monthKey = getMonthKeyFromTransaction(tx);
+      if (!monthKey) return;
+      const row = byKey.get(monthKey);
+      if (!row) return;
+
+      const type = getUtilityCostType(tx);
+      if (!type) return;
+      const amount = Number(tx.amount || 0);
+
+      if (type === 'electricity') {
+        row.electricity = Math.max(row.electricity || 0, amount);
+      } else if (type === 'water') {
+        row.water = (row.water || 0) + amount;
+      } else {
+        row.wifi = (row.wifi || 0) + amount;
+      }
+    });
+
+    rows.forEach((row) => {
+      const values = [row.electricity, row.water, row.wifi].filter((value): value is number => value !== null);
+      row.total = values.length > 0 ? values.reduce((sum, value) => sum + value, 0) : null;
+    });
+
+    const current = rows[rows.length - 1];
+    const previous = rows[rows.length - 2];
+    const delta = current?.total !== null && previous?.total !== null
+      ? Number(current.total || 0) - Number(previous.total || 0)
+      : null;
+    const validRows = rows.filter((row) => row.total !== null);
+    const highest = validRows.reduce<UtilityCostMonth | null>(
+      (best, row) => (!best || Number(row.total || 0) > Number(best.total || 0) ? row : best),
+      null
+    );
+    const lowest = validRows.reduce<UtilityCostMonth | null>(
+      (best, row) => (!best || Number(row.total || 0) < Number(best.total || 0) ? row : best),
+      null
+    );
+    const average = validRows.length
+      ? validRows.reduce((sum, row) => sum + Number(row.total || 0), 0) / validRows.length
+      : null;
+    const electricityIncreasePct = current?.electricity !== null && previous?.electricity
+      ? ((Number(current.electricity || 0) - previous.electricity) / previous.electricity) * 100
+      : null;
+    const maxTotal = Math.max(...rows.map((row) => Number(row.total || 0)), 1);
+
+    return {
+      rows,
+      current,
+      previous,
+      delta,
+      highest,
+      lowest,
+      average,
+      electricityIncreasePct: electricityIncreasePct !== null && electricityIncreasePct > 30 ? electricityIncreasePct : null,
+      maxTotal,
+    };
+  }, [filteredTxs]);
 
   // Compute Debts & Paid rooms list based on all active/historical invoices
   const roomDebtList = useMemo(() => {
@@ -662,6 +828,137 @@ export default function RedesignedReportsTab() {
                             </View>
                           </>
                         )}
+                      </Card>
+
+                      <Card style={styles.porcelainCard}>
+                        <View style={styles.chartHeader}>
+                          <View style={[styles.iconBadge, { backgroundColor: Colors.primaryLight }]}>
+                            <Ionicons name="flash" size={16} color={Colors.primary} />
+                          </View>
+                          <View style={styles.chartHeaderText}>
+                            <Text style={styles.cardTitle}>Thống kê tiện ích</Text>
+                            <Text style={styles.cardSubtitle}>Chi phí điện, nước, Wifi/FPT theo bill thực tế 6 tháng gần nhất</Text>
+                          </View>
+                        </View>
+
+                        {utilityCostStats.current?.total === null ? (
+                          <View style={styles.utilitySafeEmpty}>
+                            <Ionicons name="document-text-outline" size={28} color={Colors.textMuted} />
+                            <Text style={styles.emptyTitle}>Chưa có dữ liệu tiện ích cho khoảng thời gian này.</Text>
+                            <Text style={styles.emptyDesc}>Hãy thêm bill hoặc kiểm tra lại bộ lọc dãy trọ.</Text>
+                          </View>
+                        ) : (
+                          <>
+                            <View style={styles.utilitySafeHero}>
+                              <View>
+                                <Text style={styles.utilitySafeHeroLabel}>Tổng tháng này</Text>
+                                <Text style={styles.utilitySafeHeroValue}>{formatMoney(utilityCostStats.current?.total)}</Text>
+                              </View>
+                              <View style={styles.utilitySafeDelta}>
+                                <Text style={[
+                                  styles.utilitySafeDeltaText,
+                                  Number(utilityCostStats.delta || 0) >= 0 ? styles.utilitySafeDeltaUp : styles.utilitySafeDeltaDown
+                                ]}>
+                                  {utilityCostStats.delta === null
+                                    ? 'Chưa so sánh'
+                                    : `${utilityCostStats.delta >= 0 ? '+' : ''}${formatMoney(utilityCostStats.delta)}`}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <View style={styles.utilitySafeKpiRow}>
+                              <View style={styles.utilitySafeKpi}>
+                                <Text style={styles.utilitySafeKpiLabel}>Điện</Text>
+                                <Text style={styles.utilitySafeKpiValue}>
+                                  {utilityCostStats.current?.electricity === null ? 'Chưa có dữ liệu' : formatMoney(utilityCostStats.current?.electricity)}
+                                </Text>
+                              </View>
+                              <View style={styles.utilitySafeKpi}>
+                                <Text style={styles.utilitySafeKpiLabel}>Nước</Text>
+                                <Text style={styles.utilitySafeKpiValue}>
+                                  {utilityCostStats.current?.water === null ? 'Chưa có dữ liệu' : formatMoney(utilityCostStats.current?.water)}
+                                </Text>
+                              </View>
+                              <View style={styles.utilitySafeKpi}>
+                                <Text style={styles.utilitySafeKpiLabel}>Wifi</Text>
+                                <Text style={styles.utilitySafeKpiValue}>
+                                  {utilityCostStats.current?.wifi === null ? 'Chưa có dữ liệu' : formatMoney(utilityCostStats.current?.wifi)}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <View style={styles.utilitySafeInsight}>
+                              <Text style={styles.utilitySafeInsightText}>Cao nhất: {utilityCostStats.highest?.label || 'Chưa có dữ liệu'}</Text>
+                              <Text style={styles.utilitySafeInsightText}>Thấp nhất: {utilityCostStats.lowest?.label || 'Chưa có dữ liệu'}</Text>
+                              <Text style={styles.utilitySafeInsightText}>TB/tháng: {utilityCostStats.average === null ? 'Chưa có dữ liệu' : formatMoney(utilityCostStats.average)}</Text>
+                              {utilityCostStats.electricityIncreasePct !== null && (
+                                <Text style={styles.utilitySafeAlert}>Cảnh báo: Điện tăng {utilityCostStats.electricityIncreasePct.toFixed(0)}% so với tháng trước</Text>
+                              )}
+                            </View>
+
+                            <View style={styles.utilitySafeMonthList}>
+                              {utilityCostStats.rows.map((row) => (
+                                <View key={row.key} style={styles.utilitySafeMonthRow}>
+                                  <View style={styles.utilitySafeMonthTop}>
+                                    <Text style={styles.utilitySafeMonthLabel}>{row.label}</Text>
+                                    <Text style={styles.utilitySafeMonthValue}>
+                                      {row.total === null ? 'Chưa có dữ liệu' : formatMoney(row.total)}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.utilitySafeMonthTrack}>
+                                    <View
+                                      style={[
+                                        styles.utilitySafeMonthFill,
+                                        { width: `${Math.max(4, (Number(row.total || 0) / utilityCostStats.maxTotal) * 100)}%` }
+                                      ]}
+                                    />
+                                  </View>
+                                </View>
+                              ))}
+                            </View>
+                          </>
+                        )}
+                      </Card>
+
+                      <Card style={styles.porcelainCard}>
+                        <View style={styles.chartHeader}>
+                          <View style={[styles.iconBadge, { backgroundColor: '#EFF6FF' }]}>
+                            <Ionicons name="swap-horizontal" size={16} color="#2563EB" />
+                          </View>
+                          <View style={styles.chartHeaderText}>
+                            <Text style={styles.cardTitle}>Thực nhận và thực chi điện nước</Text>
+                            <Text style={styles.cardSubtitle}>So sánh theo tháng, thực nhận tính theo phần hóa đơn đã thu</Text>
+                          </View>
+                        </View>
+
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                          <View style={styles.utilityTable}>
+                            <View style={[styles.utilityRow, styles.utilityHeaderRow]}>
+                              <Text style={[styles.utilityHeaderText, styles.utilityMonthCell]}>Tháng</Text>
+                              <Text style={styles.utilityHeaderText}>Điện thu</Text>
+                              <Text style={styles.utilityHeaderText}>Điện chi</Text>
+                              <Text style={styles.utilityHeaderText}>Nước thu</Text>
+                              <Text style={styles.utilityHeaderText}>Nước chi</Text>
+                              <Text style={styles.utilityHeaderText}>Chênh lệch</Text>
+                            </View>
+                            {utilityComparison.map((item) => {
+                              const margin = item.electricityIncome + item.waterIncome
+                                - item.electricityExpense - item.waterExpense;
+                              return (
+                                <View key={item.key} style={styles.utilityRow}>
+                                  <Text style={[styles.utilityMonth, styles.utilityMonthCell]}>{item.label}</Text>
+                                  <Text style={styles.utilityValue}>{formatMoney(item.electricityIncome)}</Text>
+                                  <Text style={styles.utilityExpense}>{formatMoney(item.electricityExpense)}</Text>
+                                  <Text style={styles.utilityValue}>{formatMoney(item.waterIncome)}</Text>
+                                  <Text style={styles.utilityExpense}>{formatMoney(item.waterExpense)}</Text>
+                                  <Text style={[styles.utilityMargin, margin < 0 && styles.utilityMarginNegative]}>
+                                    {formatMoney(margin)}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        </ScrollView>
                       </Card>
 
                       {/* Báo cáo Chi phí Vận hành */}
@@ -1131,6 +1428,193 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     marginBottom: 12,
+  },
+  chartHeaderText: {
+    flex: 1,
+  },
+  utilitySafeEmpty: {
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 18,
+  },
+  utilitySafeHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: Colors.primaryLight,
+    borderWidth: 1,
+    borderColor: Colors.primaryAlpha20,
+  },
+  utilitySafeHeroLabel: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.primary,
+    textTransform: 'uppercase',
+  },
+  utilitySafeHeroValue: {
+    marginTop: 4,
+    fontSize: 24,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  utilitySafeDelta: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: Colors.surface,
+  },
+  utilitySafeDeltaText: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.bold,
+  },
+  utilitySafeDeltaUp: {
+    color: Colors.danger,
+  },
+  utilitySafeDeltaDown: {
+    color: Colors.successDark,
+  },
+  utilitySafeKpiRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  utilitySafeKpi: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 14,
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  utilitySafeKpiLabel: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textMuted,
+  },
+  utilitySafeKpiValue: {
+    marginTop: 4,
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textPrimary,
+  },
+  utilitySafeInsight: {
+    gap: 5,
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+  },
+  utilitySafeInsightText: {
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textSecondary,
+  },
+  utilitySafeAlert: {
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.danger,
+  },
+  utilitySafeMonthList: {
+    gap: 8,
+    marginTop: 12,
+  },
+  utilitySafeMonthRow: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  utilitySafeMonthTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  utilitySafeMonthLabel: {
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textPrimary,
+  },
+  utilitySafeMonthValue: {
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textSecondary,
+  },
+  utilitySafeMonthTrack: {
+    height: 7,
+    marginTop: 7,
+    borderRadius: 999,
+    backgroundColor: Colors.background,
+    overflow: 'hidden',
+  },
+  utilitySafeMonthFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: Colors.primary,
+  },
+  utilityTable: {
+    minWidth: 820,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  utilityRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  utilityHeaderRow: {
+    backgroundColor: '#F1F5F9',
+  },
+  utilityHeaderText: {
+    width: 130,
+    paddingHorizontal: 8,
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.bold,
+    color: '#475569',
+    textAlign: 'right',
+  },
+  utilityMonthCell: {
+    width: 90,
+    textAlign: 'left',
+  },
+  utilityMonth: {
+    paddingHorizontal: 8,
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.bold,
+    color: '#0F172A',
+  },
+  utilityValue: {
+    width: 130,
+    paddingHorizontal: 8,
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.semibold,
+    color: '#059669',
+    textAlign: 'right',
+  },
+  utilityExpense: {
+    width: 130,
+    paddingHorizontal: 8,
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.semibold,
+    color: '#D97706',
+    textAlign: 'right',
+  },
+  utilityMargin: {
+    width: 130,
+    paddingHorizontal: 8,
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.bold,
+    color: '#059669',
+    textAlign: 'right',
+  },
+  utilityMarginNegative: {
+    color: '#DC2626',
   },
   barChartContainer3D: {
     flexDirection: 'row',
