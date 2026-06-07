@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ScrollView, Alert,
+  View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ScrollView, Alert, Modal, Pressable,
 } from 'react-native';
 import { useFocusEffect, useRouter, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +17,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import { ListItemSkeleton } from '@/components/ui/Skeleton';
 import { apiGet, getAccessToken } from '@/lib/api';
 import { loadPendingBilling } from '@/lib/rentalOps';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import Config from '@/constants/Config';
 
@@ -53,6 +53,7 @@ export default function InvoicesScreen() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('Tất cả');
   const [pendingCount, setPendingCount] = useState(0);
   const [selectedPeriod, setSelectedPeriod] = useState(() => {
@@ -71,9 +72,12 @@ export default function InvoicesScreen() {
       
       const url = `${Config.API_URL}/invoices/export-excel?months=${encodeURIComponent(months)}`;
       const filename = `Hoa_don_${selectedPeriodLabel.replace(/[\/\s]/g, '_')}.xlsx`;
-      const fileUri = `${(FileSystem as any).documentDirectory}${filename}`;
+      if (!FileSystem.documentDirectory) {
+        throw new Error('Thiết bị không có thư mục lưu tệp khả dụng.');
+      }
+      const fileUri = `${FileSystem.documentDirectory}${filename}`;
 
-      const downloadRes = await (FileSystem as any).downloadAsync(url, fileUri, {
+      const downloadRes = await FileSystem.downloadAsync(url, fileUri, {
         headers
       });
 
@@ -98,47 +102,19 @@ export default function InvoicesScreen() {
   };
 
   const handleExcelExportOptions = () => {
-    Alert.alert(
-      'Xuất báo cáo Excel',
-      'Chọn khoảng thời gian muốn xuất báo cáo:',
-      [
-        {
-          text: `Tháng hiện tại (T${selectedPeriod.month}/${selectedPeriod.year})`,
-          onPress: () => {
-            const months = `${selectedPeriod.month}/${selectedPeriod.year}`;
-            exportInvoicesToExcelMobile(months, `Tháng_${selectedPeriod.month}_${selectedPeriod.year}`);
-          }
-        },
-        {
-          text: '3 tháng gần nhất',
-          onPress: () => {
-            const p1 = `${selectedPeriod.month}/${selectedPeriod.year}`;
-            const date2 = new Date(selectedPeriod.year, selectedPeriod.month - 2, 1);
-            const p2 = `${date2.getMonth() + 1}/${date2.getFullYear()}`;
-            const date3 = new Date(selectedPeriod.year, selectedPeriod.month - 3, 1);
-            const p3 = `${date3.getMonth() + 1}/${date3.getFullYear()}`;
-            
-            const months = `${p1},${p2},${p3}`;
-            exportInvoicesToExcelMobile(months, 'Bao_cao_3_thang');
-          }
-        },
-        {
-          text: '6 tháng gần nhất',
-          onPress: () => {
-            const list = [];
-            for (let i = 0; i < 6; i++) {
-              const d = new Date(selectedPeriod.year, selectedPeriod.month - 1 - i, 1);
-              list.push(`${d.getMonth() + 1}/${d.getFullYear()}`);
-            }
-            exportInvoicesToExcelMobile(list.join(','), 'Bao_cao_6_thang');
-          }
-        },
-        {
-          text: 'Hủy',
-          style: 'cancel'
-        }
-      ]
-    );
+    setShowExportOptions(true);
+  };
+
+  const exportPeriod = (range: 1 | 3 | 6) => {
+    setShowExportOptions(false);
+    const periods = Array.from({ length: range }, (_, index) => {
+      const date = new Date(selectedPeriod.year, selectedPeriod.month - 1 - index, 1);
+      return `${date.getMonth() + 1}/${date.getFullYear()}`;
+    });
+    const label = range === 1
+      ? `Tháng_${selectedPeriod.month}_${selectedPeriod.year}`
+      : `Bao_cao_${range}_thang`;
+    exportInvoicesToExcelMobile(periods.join(','), label);
   };
 
   const fetchData = useCallback(async () => {
@@ -205,32 +181,7 @@ export default function InvoicesScreen() {
           headerShown: true,
           title: 'Hóa đơn',
           headerTitle: 'Quản lý hóa đơn',
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={() => router.push({
-                pathname: '/invoice/bulk',
-                params: { month: selectedPeriod.month, year: selectedPeriod.year }
-              })}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 4,
-                marginRight: 16,
-                backgroundColor: 'rgba(138, 63, 252, 0.08)',
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: 'rgba(138, 63, 252, 0.15)',
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="copy-outline" size={14} color={Colors.primary} />
-              <Text style={{ fontSize: 11, fontFamily: Typography.fontFamily.bold, color: Colors.primary }}>
-                Lập hàng loạt
-              </Text>
-            </TouchableOpacity>
-          ),
+          headerRight: () => null,
         }}
       />
       {/* Period Picker Header */}
@@ -350,7 +301,39 @@ export default function InvoicesScreen() {
           );
         }}
       />
+
+      <Modal visible={showExportOptions} transparent animationType="fade" onRequestClose={() => setShowExportOptions(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowExportOptions(false)}>
+          <Pressable style={styles.exportModal} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.exportModalHeader}>
+              <View>
+                <Text style={styles.exportModalTitle}>Xuất báo cáo Excel</Text>
+                <Text style={styles.exportModalSubtitle}>Chọn khoảng thời gian muốn xuất</Text>
+              </View>
+              <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowExportOptions(false)}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ExportOption label={`Tháng hiện tại (T${selectedPeriod.month}/${selectedPeriod.year})`} onPress={() => exportPeriod(1)} />
+            <ExportOption label="3 tháng gần nhất" onPress={() => exportPeriod(3)} />
+            <ExportOption label="6 tháng gần nhất" onPress={() => exportPeriod(6)} />
+            <TouchableOpacity style={styles.cancelExportButton} onPress={() => setShowExportOptions(false)}>
+              <Text style={styles.cancelExportText}>Hủy</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
+  );
+}
+
+function ExportOption({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.exportOption} onPress={onPress}>
+      <Ionicons name="document-outline" size={20} color={Colors.primary} />
+      <Text style={styles.exportOptionText}>{label}</Text>
+      <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+    </TouchableOpacity>
   );
 }
 
@@ -484,4 +467,46 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.bold,
     color: Colors.primary,
   },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  exportModal: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 18,
+    gap: 10,
+  },
+  exportModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  exportModalTitle: { fontSize: 18, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  exportModalSubtitle: { marginTop: 4, fontSize: 12, fontFamily: Typography.fontFamily.regular, color: Colors.textMuted },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+  },
+  exportOption: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    backgroundColor: '#F8FAFC',
+  },
+  exportOptionText: { flex: 1, fontSize: 14, fontFamily: Typography.fontFamily.semibold, color: Colors.textPrimary },
+  cancelExportButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  cancelExportText: { fontSize: 14, fontFamily: Typography.fontFamily.semibold, color: Colors.textSecondary },
 });

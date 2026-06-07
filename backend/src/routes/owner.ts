@@ -1039,14 +1039,16 @@ ownerRoutes.post("/bookings/:id/reject", async (c) => {
 
 ownerRoutes.get("/notifications", async (c) => {
   const currentUser = c.get("user");
-  const { data, error } = await c
-    .get("supabase")
+  const { data, error } = await supabaseAdmin
     .from("rental_notifications")
     .select("*")
     .eq("user_id", currentUser.id)
     .order("created_at", { ascending: false });
 
-  if (error) return c.json({ error: "Failed to fetch notifications" }, 500);
+  if (error) {
+    console.error("Failed to fetch owner notifications:", error.message);
+    return c.json({ error: "Failed to fetch notifications" }, 500);
+  }
   const rows = (data ?? []).map((item: any) => ({
     id: item.id,
     eventType: item.event_type,
@@ -1067,8 +1069,7 @@ ownerRoutes.post("/notifications/:id/read", async (c) => {
   const currentUser = c.get("user");
   const notificationId = c.req.param("id");
 
-  const { data, error } = await c
-    .get("supabase")
+  const { data, error } = await supabaseAdmin
     .from("rental_notifications")
     .update({ read_at: new Date().toISOString() })
     .eq("id", notificationId)
@@ -1076,7 +1077,10 @@ ownerRoutes.post("/notifications/:id/read", async (c) => {
     .select()
     .single();
 
-  if (error) return c.json({ error: "Failed to mark notification as read" }, 500);
+  if (error) {
+    console.error("Failed to mark owner notification as read:", error.message);
+    return c.json({ error: "Failed to mark notification as read" }, 500);
+  }
   return c.json({ data });
 });
 

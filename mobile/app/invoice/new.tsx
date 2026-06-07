@@ -34,6 +34,7 @@ import {
   formatMoney,
   describeServiceType,
   getServiceUnitLabel,
+  loadServiceConfigs,
 } from '@/lib/rentalOps';
 
 const period = currentPeriod();
@@ -67,6 +68,34 @@ export default function NewInvoiceScreen() {
     async function init() {
       try {
         setLoading(true);
+
+        const services = await loadServiceConfigs(false);
+        if (services.length === 0) {
+          Alert.alert(
+            'Chưa cấu hình dịch vụ',
+            'Bạn chưa cấu hình bảng giá dịch vụ. Vui lòng thiết lập bảng giá dịch vụ trước khi tạo hóa đơn.',
+            [
+              {
+                text: 'Thiết lập ngay',
+                onPress: () => router.replace('/services' as any),
+              },
+              {
+                text: 'Quay lại',
+                onPress: () => {
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else {
+                    router.replace('/(tabs)/settings' as any);
+                  }
+                },
+                style: 'cancel',
+              },
+            ]
+          );
+          setLoading(false);
+          return;
+        }
+
         const data = await loadContracts();
         const active = data.filter((c: any) => c.status === 'active' || c.status === 'expiring_soon');
         setContracts(active);

@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
   Alert,
-  Linking,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,11 +12,11 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
-import Config from '@/constants/Config';
 import { useAuthStore } from '@/store/authStore';
 import { loadProfile, type OwnerProfile } from '@/lib/profile';
 
 type RoutePath = Parameters<ReturnType<typeof useRouter>['push']>[0];
+const comingSoonRoutes = new Set(['/marketplace', '/messages', '/bookings']);
 
 const sections: Array<{
   title: string;
@@ -27,7 +26,7 @@ const sections: Array<{
     detail?: string;
     route?: RoutePath;
     tone?: 'default' | 'success' | 'warning' | 'danger';
-    action?: 'security' | 'support' | 'deleteAccount' | 'logout';
+    action?: 'logout';
   }>;
 }> = [
   {
@@ -44,9 +43,7 @@ const sections: Array<{
     title: 'Thanh toán và đối soát',
     items: [
       { icon: 'wallet-outline', label: 'Ví và tài khoản', detail: 'Nguồn tiền, số dư, giao dịch', route: '/wallets' as any },
-      { icon: 'shield-checkmark-outline', label: 'SePay', detail: 'QR ACB, webhook, mã thanh toán', route: '/sepay' as any },
       { icon: 'trending-up-outline', label: 'Kinh doanh hàng hóa', detail: 'Thu bán thêm dịch vụ, vật tư', route: '/trading' as any },
-      { icon: 'document-text-outline', label: 'Nhật ký thao tác', detail: 'Lịch sử thay đổi trên hệ thống', route: '/audit-logs' as any },
     ],
   },
   {
@@ -55,14 +52,11 @@ const sections: Array<{
       { icon: 'search-outline', label: 'Marketplace phòng trống', detail: 'Tin đăng và phòng khả dụng', route: '/marketplace' as any },
       { icon: 'chatbubbles-outline', label: 'Tin nhắn', detail: 'Trao đổi với khách thuê', route: '/messages' as any },
       { icon: 'calendar-outline', label: 'Lịch xem phòng', detail: 'Yêu cầu đặt lịch và xác nhận', route: '/bookings' as any },
-      { icon: 'notifications-outline', label: 'Thông báo', detail: 'Nhắc hạn, cập nhật hệ thống', route: '/notifications' as any, tone: 'warning' },
     ],
   },
   {
     title: 'Tài khoản',
     items: [
-      { icon: 'lock-closed-outline', label: 'Bảo mật tài khoản', detail: 'Mật khẩu và xác thực', action: 'security' },
-      { icon: 'trash-outline', label: 'Yêu cầu xóa tài khoản', detail: 'Xóa tài khoản và dữ liệu liên quan', action: 'deleteAccount', tone: 'danger' },
       { icon: 'help-circle-outline', label: 'Báo cáo lỗi / Góp ý', detail: 'Gửi góp ý và báo lỗi hệ thống', route: '/feedback' as any },
       { icon: 'log-out-outline', label: 'Đăng xuất', detail: 'Thoát khỏi tài khoản hiện tại', action: 'logout', tone: 'danger' },
     ],
@@ -113,38 +107,16 @@ export default function SettingsScreen() {
 
   const handleItemPress = (item: (typeof sections)[number]['items'][number]) => {
     if (item.route) {
+      const routeStr = typeof item.route === 'string' ? item.route : (item.route as any).pathname;
+      if (typeof routeStr === 'string' && comingSoonRoutes.has(routeStr)) {
+        Alert.alert('Coming soon', 'Tính năng đang được phát triển và sẽ sớm ra mắt.');
+        return;
+      }
       router.push(item.route);
       return;
     }
     if (item.action === 'logout') {
       handleLogout();
-      return;
-    }
-    if (item.action === 'security') {
-      Alert.alert('Bảo mật', 'Tính năng đổi mật khẩu và xác thực 2 lớp đang được phát triển.');
-      return;
-    }
-    if (item.action === 'deleteAccount') {
-      Alert.alert(
-        'Xóa tài khoản',
-        'Bạn sẽ được chuyển đến trang hướng dẫn yêu cầu xóa tài khoản và dữ liệu TroCare.',
-        [
-          { text: 'Hủy', style: 'cancel' },
-          {
-            text: 'Mở hướng dẫn',
-            style: 'destructive',
-            onPress: () => {
-              Linking.openURL(`${Config.WEB_URL}/delete-account`).catch(() => {
-                Alert.alert('Không thể mở liên kết', 'Vui lòng thử lại sau.');
-              });
-            },
-          },
-        ],
-      );
-      return;
-    }
-    if (item.action === 'support') {
-      Alert.alert('Hỗ trợ', 'Vui lòng liên hệ support@trocare.vn hoặc hotline 1900 xxxx.');
     }
   };
 
@@ -178,7 +150,7 @@ export default function SettingsScreen() {
       <View style={styles.quickGrid}>
         <QuickAction icon="person-outline" label="Hồ sơ" onPress={() => router.push('/profile' as any)} />
         <QuickAction icon="cash-outline" label="Nhận cọc" onPress={() => router.push('/deposit/new' as any)} />
-        <QuickAction icon="qr-code-outline" label="SePay" onPress={() => router.push('/sepay' as any)} />
+        <QuickAction icon="wallet-outline" label="Ví" onPress={() => router.push('/wallets' as any)} />
       </View>
 
       {sections.map((section) => (
@@ -380,6 +352,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: Typography.fontFamily.semibold,
     color: Colors.textPrimary,
+    flexShrink: 1,
   },
   menuDetail: {
     marginTop: 3,
