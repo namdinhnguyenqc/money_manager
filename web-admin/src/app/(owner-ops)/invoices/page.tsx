@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { RefreshCw, Trash2, Calendar, ChevronLeft, ChevronRight, FileSpreadsheet, AlertTriangle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -21,9 +22,10 @@ import PageHeader from "@/components/ui/PageHeader";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
-import BulkInvoiceModal from "@/components/ops/BulkInvoiceModal";
-import ExportExcelModal from "@/components/ops/ExportExcelModal";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+
+const BulkInvoiceModal = dynamic(() => import("@/components/ops/BulkInvoiceModal"), { ssr: false });
+const ExportExcelModal = dynamic(() => import("@/components/ops/ExportExcelModal"), { ssr: false });
 
 const statusTabs = ["Tất cả", "Chưa lập HĐ", "Chưa gửi", "Đã gửi", "Quá hạn", "Đã thanh toán"];
 const pageSize = 10;
