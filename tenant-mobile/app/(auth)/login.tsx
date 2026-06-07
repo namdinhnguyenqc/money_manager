@@ -22,13 +22,9 @@ export default function LoginScreen() {
   const router = useRouter();
   const { setUser } = useAuthStore();
 
-  const devPhone = '0927368772';
-  const devPassword = '0927368772';
-
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [bypassLoading, setBypassLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const submitLogin = async (loginPhone: string, loginPassword: string) => {
@@ -67,14 +63,7 @@ export default function LoginScreen() {
     }
   };
 
-  const handleBypassLogin = async () => {
-    setBypassLoading(true);
-    try {
-      await submitLogin(devPhone, devPassword);
-    } catch {
-      setBypassLoading(false);
-    }
-  };
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -157,25 +146,8 @@ export default function LoginScreen() {
               title={loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
               onPress={handleLogin}
               loading={loading}
-              disabled={bypassLoading}
               style={{ marginTop: 24 }}
             />
-
-            <TouchableOpacity
-              onPress={handleBypassLogin}
-              disabled={loading || bypassLoading}
-              style={[styles.bypassButton, (loading || bypassLoading) && styles.disabledButton]}
-              activeOpacity={0.8}
-            >
-              {bypassLoading ? (
-                <ActivityIndicator size="small" color={Colors.primary} />
-              ) : (
-                <Ionicons name="flash-outline" size={18} color={Colors.primary} />
-              )}
-              <Text style={styles.bypassButtonText}>
-                {bypassLoading ? 'Đang vào app test...' : 'Vào app test không cần nhập'}
-              </Text>
-            </TouchableOpacity>
           </View>
 
           {/* Footer */}
@@ -310,24 +282,5 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontFamily: Typography.fontFamily.semibold,
   },
-  bypassButton: {
-    marginTop: 12,
-    minHeight: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 113, 227, 0.18)',
-    backgroundColor: 'rgba(0, 113, 227, 0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  bypassButtonText: {
-    fontSize: 13.5,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.primary,
-  },
-  disabledButton: {
-    opacity: 0.55,
-  },
+
 });
