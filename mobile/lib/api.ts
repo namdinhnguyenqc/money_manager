@@ -258,6 +258,7 @@ function getDefaultCacheTtlMs(path: string, method: HttpMethod): number {
   if (path.startsWith('/rental/services')) return 10 * 60 * 1000;
   if (path.startsWith('/bank-config')) return 10 * 60 * 1000;
   if (path.startsWith('/owner/dashboard-init')) return 60 * 1000;
+  if (path.startsWith('/owner/dashboard-summary')) return 60 * 1000;
   if (path.startsWith('/owner/boarding-houses')) return 5 * 60 * 1000;
   if (path.startsWith('/rental/rooms')) return 2 * 60 * 1000;
   if (path.startsWith('/wallets')) return 60 * 1000;
@@ -357,7 +358,7 @@ async function request<T>(path: string, method: HttpMethod, body?: any, options:
 
       return { res, data };
     } catch (error: any) {
-      logPerfEvent("API_REQUEST_DONE", {
+      logPerfEvent("API_REQUEST_FAILED", {
         path,
         method,
         status: error?.status ?? 0,

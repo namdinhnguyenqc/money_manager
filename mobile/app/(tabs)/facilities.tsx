@@ -51,8 +51,15 @@ export default function FacilitiesScreen() {
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
 
   const fetchData = useCallback(async (force = false) => {
+    const tab = "facilities";
+    logPerfEvent("SECONDARY_DATA_START", { tab, forceRefresh: force });
     try {
       await fetchFacilities(force);
+      logPerfEvent("TAB_DATA_READY_FACILITIES", { success: true, itemCount: useFacilityStore.getState().facilities.length });
+      logPerfEvent("SECONDARY_DATA_READY", { tab, success: true });
+    } catch (error: any) {
+      logPerfEvent("TAB_DATA_READY_FACILITIES", { success: false, message: String(error?.message || error) });
+      logPerfEvent("SECONDARY_DATA_READY", { tab, success: false });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -187,6 +194,11 @@ export default function FacilitiesScreen() {
       <FlatList
         data={filteredFacilities}
         keyExtractor={(item) => item.id}
+        initialNumToRender={8}
+        windowSize={7}
+        maxToRenderPerBatch={8}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews
         ListHeaderComponent={renderHeader}
         onContentSizeChange={() => logPerfEvent("LIST_RENDER_DONE", { screen: "facilities", itemCount: filteredFacilities.length })}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}

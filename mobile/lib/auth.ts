@@ -15,6 +15,7 @@ import {
   ApiClientError,
 } from './api';
 import { markLoginTimeline } from './telemetry/loginTimeline';
+import { logPerfEvent } from './telemetry/appPerformance';
 
 export type UserRole = 'OWNER' | 'TENANT' | 'GUEST' | 'ADMIN' | 'SUPER_ADMIN';
 
@@ -121,13 +122,19 @@ export async function loginWithGoogle(
  */
 export async function checkAuth(): Promise<AuthUser | null> {
   markLoginTimeline("AUTH_ME_START");
+  logPerfEvent("AUTH_ME_START");
   try {
     const res = await apiGet<any>('/auth/me');
     const data = res?.data ?? res;
     markLoginTimeline("AUTH_ME_DONE", { success: true });
+    logPerfEvent("AUTH_ME_DONE", { success: true });
     return (data?.user ?? data) as AuthUser;
   } catch (error) {
     markLoginTimeline("AUTH_ME_DONE", {
+      success: false,
+      status: error instanceof ApiClientError ? error.status : null,
+    });
+    logPerfEvent("AUTH_ME_DONE", {
       success: false,
       status: error instanceof ApiClientError ? error.status : null,
     });

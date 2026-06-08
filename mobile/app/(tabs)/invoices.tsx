@@ -141,15 +141,22 @@ export default function InvoicesScreen() {
   };
 
   const fetchData = useCallback(async (forceRefresh = false) => {
+    const tab = "invoices";
+    logPerfEvent("SECONDARY_DATA_START", { tab, forceRefresh, month: selectedPeriod.month, year: selectedPeriod.year });
     try {
       const [res, pending] = await Promise.all([
         apiGet<any>(`/invoices?month=${selectedPeriod.month}&year=${selectedPeriod.year}&includeOverdueCarryover=true`, { forceRefresh }),
         loadPendingBilling(selectedPeriod.month, selectedPeriod.year),
       ]);
-      setInvoices(res?.data ?? []);
+      const items = res?.data ?? [];
+      setInvoices(items);
       setPendingCount(pending?.length ?? 0);
-    } catch (e) {
+      logPerfEvent("TAB_DATA_READY_INVOICES", { success: true, itemCount: items.length, pendingCount: pending?.length ?? 0 });
+      logPerfEvent("SECONDARY_DATA_READY", { tab, success: true });
+    } catch (e: any) {
       console.error('Failed to load invoices or pending count:', e);
+      logPerfEvent("TAB_DATA_READY_INVOICES", { success: false, message: String(e?.message || e) });
+      logPerfEvent("SECONDARY_DATA_READY", { tab, success: false });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -305,6 +312,11 @@ export default function InvoicesScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
+        initialNumToRender={10}
+        windowSize={7}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews
         onContentSizeChange={() => logPerfEvent("LIST_RENDER_DONE", { screen: "invoices", itemCount: filtered.length })}
         extraData={`${activeTab}-${selectedPeriod.month}-${selectedPeriod.year}-${overdueCarryCount}`}
         contentContainerStyle={styles.list}

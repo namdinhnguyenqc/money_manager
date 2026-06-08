@@ -27,6 +27,7 @@ import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
 import { apiGet } from '@/lib/api';
+import { logPerfEvent } from '@/lib/telemetry/appPerformance';
 
 const formatMoney = (v?: number | null) =>
   `${new Intl.NumberFormat('vi-VN').format(Math.round(Number(v || 0)))} ₫`;
@@ -107,6 +108,8 @@ export default function RedesignedReportsTab() {
 
   // Fetch Database Information
   const fetchReportData = useCallback(async (forceRefresh = false) => {
+    const tab = "reports";
+    logPerfEvent("SECONDARY_DATA_START", { tab, forceRefresh });
     try {
       const [facRes, roomRes, invRes, txRes, conRes] = await Promise.all([
         apiGet<any>('/owner/boarding-houses', { forceRefresh }),
@@ -121,8 +124,18 @@ export default function RedesignedReportsTab() {
       setInvoices(invRes?.data ?? []);
       setTransactions(txRes?.data ?? []);
       setContracts(conRes?.data ?? []);
-    } catch (e) {
+      logPerfEvent("TAB_DATA_READY_REPORTS", {
+        success: true,
+        facilities: (facRes?.data ?? []).length,
+        rooms: (roomRes?.data ?? []).length,
+        invoices: (invRes?.data ?? []).length,
+        transactions: (txRes?.data ?? []).length,
+      });
+      logPerfEvent("SECONDARY_DATA_READY", { tab, success: true });
+    } catch (e: any) {
       console.error('Failed to load analytical reports data:', e);
+      logPerfEvent("TAB_DATA_READY_REPORTS", { success: false, message: String(e?.message || e) });
+      logPerfEvent("SECONDARY_DATA_READY", { tab, success: false });
     } finally {
       setLoading(false);
       setRefreshing(false);
