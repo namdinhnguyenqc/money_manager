@@ -53,7 +53,7 @@ function checkRateLimit(ip: string, endpoint: string): boolean {
   return true;
 }
 
-const tokenCache = new Map<string, { userContext: any; exp: number; isAppToken: boolean }>();
+const tokenCache = new Map<string, { userContext: any; exp: number; isAppToken: boolean; dbUser?: any; preFetchedProfile?: any }>();
 const revokedAccessTokens = new Map<string, number>();
 
 const hashAccessToken = (token: string) => createHash("sha256").update(token).digest("hex");
@@ -141,6 +141,12 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
   if (cachedAuth && cachedAuth.exp > now) {
     c.set("user", cachedAuth.userContext);
     c.set("authDbQueryCount", 0);
+    if (cachedAuth.dbUser) {
+      c.set("authDbUser", cachedAuth.dbUser);
+    }
+    if (cachedAuth.preFetchedProfile) {
+      c.set("authPreFetchedProfile", cachedAuth.preFetchedProfile);
+    }
     // If it's an app JWT (our custom token), use supabaseAdmin
     // If it's a real Supabase token, use the user client
     if (cachedAuth.isAppToken) {
@@ -171,8 +177,7 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
       return await next();
     }
 
-    const shouldPrefetchAuthMeProfile = c.req.path === "/auth/me";
-    const userSelect = shouldPrefetchAuthMeProfile ? "*, user_profiles(*)" : "*";
+    const userSelect = "*, user_profiles(*)";
 
     // Parallel fetch: session check + user data in one round-trip instead of two
     const [sessionRes, userRes] = await Promise.all([
@@ -234,17 +239,16 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
       onboardingStep: (dbUser as any)?.onboarding_step ?? appJwt.onboardingStep ?? "COMPLETE_PROFILE",
     };
 
+    const preFetchedProfile = (dbUser as any)?.user_profiles
+      ? (Array.isArray((dbUser as any).user_profiles) ? (dbUser as any).user_profiles[0] : (dbUser as any).user_profiles)
+      : null;
+
     c.set("user", userContext);
     c.set("supabase", supabaseAdmin);
     c.set("authDbUser", dbUser);
+    c.set("authPreFetchedProfile", preFetchedProfile);
     c.set("authDbQueryCount", appJwt.sessionId ? 2 : 1);
-    if (shouldPrefetchAuthMeProfile) {
-      const preFetchedProfile = (dbUser as any)?.user_profiles
-        ? (Array.isArray((dbUser as any).user_profiles) ? (dbUser as any).user_profiles[0] : (dbUser as any).user_profiles)
-        : null;
-      c.set("authPreFetchedProfile", preFetchedProfile);
-    }
-    tokenCache.set(token, { userContext, exp: now + 5 * 60 * 1000, isAppToken: true });
+    tokenCache.set(token, { userContext, exp: now + 5 * 60 * 1000, isAppToken: true, dbUser, preFetchedProfile });
 
     if (tokenCache.size > 1000) {
       for (const [k, v] of tokenCache.entries()) {
@@ -255,9 +259,9 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
     return await next();
   }
 
-  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // Verify Supabase JWT â€” láº¥y user tá»« auth.users
-  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ————————————————————————————————————————————————————————
+  // Verify Supabase JWT — lấy user từ auth.users
+  // ————————————————————————————————————————————————————————
   if (!isSupabaseAuthTokenCandidate(token)) {
     logAuthReject(c, "APP_JWT_INVALID_OR_EXPIRED");
     return c.json({ error: "Invalid or expired token", code: "APP_JWT_INVALID" }, 401);
@@ -271,11 +275,11 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
     return c.json({ error: "Invalid or expired token" }, 401);
   }
 
-  // Láº¥y thÃ´ng tin user tá»« báº£ng public.users (náº¿u cÃ³)
+  // Lấy thông tin user từ bảng public.users (nếu có)
   // We select only existing columns and handle potential missing ones
   let { data: dbUser, error: dbError } = await supabaseAdmin
     .from("users")
-    .select("*") // Select all to avoid explicitly naming missing columns
+    .select("*, user_profiles(*)") // Select all to avoid explicitly naming missing columns
     .or(`id.eq.${supaUser.id},email.eq.${supaUser.email}`)
     .single();
 
@@ -283,7 +287,7 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
     console.error("Database error fetching user:", dbError.message);
   }
 
-  // Auto-create user náº¿u chÆ°a cÃ³ trong public.users
+  // Auto-create user nếu chưa có trong public.users
   if (!dbUser) {
     console.log(`User ${supaUser.id} / ${supaUser.email} missing from public.users. Auto-creating...`);
     const insertPayload: any = {
@@ -311,9 +315,9 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
          const { data: fallbackUser, error: fallbackError } = await supabaseAdmin.from("users").insert(insertPayload).select().single();
          if (fallbackError) {
            console.error("Critical error auto-creating user:", fallbackError.message);
-          return c.json({ error: "[AUTH_MID_001] Lá»—i lÆ°u thÃ´ng tin ngÆ°á»i dÃ¹ng: " + fallbackError.message }, 500);
+          return c.json({ error: "[AUTH_MID_001] Lỗi lưu thông tin người dùng: " + fallbackError.message }, 500);
         }
-        return c.json({ error: "[AUTH_MID_002] Lá»—i lÆ°u thÃ´ng tin ngÆ°á»i dÃ¹ng: " + createError.message }, 500);
+        return c.json({ error: "[AUTH_MID_002] Lỗi lưu thông tin người dùng: " + createError.message }, 500);
       }
     } else {
       dbUser = newUser;
@@ -361,16 +365,22 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
     onboardingStep: (dbUser as any)?.onboarding_step ?? "COMPLETE_PROFILE",
   };
 
-  // Set user info vÃ o context
-  c.set("user", userContext);
+  const preFetchedProfile = dbUser?.user_profiles
+    ? (Array.isArray(dbUser.user_profiles) ? dbUser.user_profiles[0] : dbUser.user_profiles)
+    : null;
 
-  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // Táº¡o per-request Supabase client Vá»šI user token
-  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Set user info vào context
+  c.set("user", userContext);
+  c.set("authDbUser", dbUser);
+  c.set("authPreFetchedProfile", preFetchedProfile);
+
+  // ————————————————————————————————————————————————————————
+  // Tạo per-request Supabase client VỚI user token
+  // ————————————————————————————————————————————————————————
   c.set("supabase", createUserClient(token));
 
   // Cache for 5 minutes
-  tokenCache.set(token, { userContext, exp: now + 5 * 60 * 1000, isAppToken: false });
+  tokenCache.set(token, { userContext, exp: now + 5 * 60 * 1000, isAppToken: false, dbUser, preFetchedProfile });
 
   // Cleanup old cache occasionally
   if (tokenCache.size > 1000) {
