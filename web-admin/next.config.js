@@ -1,3 +1,9 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 /** Next.js config for Web Admin */
 const productionApiUrl = 'https://money-manager-xdem.onrender.com';
 const localApiUrl = 'http://localhost:8787';

@@ -376,35 +376,18 @@ async function upsertOwnerGoogleUser(input: {
   const avatar = input.avatar;
   const isProfileCompleted = input.isProfileCompleted ?? false;
   let existingUser: any = null;
-  const { data: userByGoogleId, error: googleFindError } = await supabaseAdmin
+  const { data: matchedUser, error: findError } = await supabaseAdmin
     .from("users")
     .select("*, user_profiles(*)")
-    .eq("google_id", googleId)
-    .limit(1)
+    .or(`google_id.eq.${googleId},email.eq.${email}`)
     .maybeSingle();
 
-  if (googleFindError && googleFindError.code !== "PGRST116") {
-    console.error("Error finding owner google user by google_id:", safeSupabaseError(googleFindError));
+  if (findError && findError.code !== "PGRST116") {
+    console.error("Error finding owner google user:", safeSupabaseError(findError));
     return { error: { code: "SERVER_ERROR", message: "Không thể kiểm tra tài khoản owner." }, status: 500 };
   }
 
-  existingUser = userByGoogleId;
-
-  if (!existingUser) {
-    const { data: userByEmail, error: emailFindError } = await supabaseAdmin
-      .from("users")
-      .select("*, user_profiles(*)")
-      .eq("email", email)
-      .limit(1)
-      .maybeSingle();
-
-    if (emailFindError && emailFindError.code !== "PGRST116") {
-      console.error("Error finding owner google user by email:", safeSupabaseError(emailFindError));
-      return { error: { code: "SERVER_ERROR", message: "Không thể kiểm tra tài khoản owner." }, status: 500 };
-    }
-
-    existingUser = userByEmail;
-  }
+  existingUser = matchedUser;
 
   let preFetchedProfile = existingUser?.user_profiles
     ? (Array.isArray(existingUser.user_profiles) ? existingUser.user_profiles[0] : existingUser.user_profiles)

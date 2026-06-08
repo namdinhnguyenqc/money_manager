@@ -14,11 +14,10 @@
     "start": "npm --prefix backend start"
   },
   "dependencies": {
-    "metro-runtime": "^0.83.3",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "metro-runtime": "^0.83.3"
   },
-  "devDependencies": {
-    "@types/react": "~19.1.0"
+  "overrides": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   }
 }
