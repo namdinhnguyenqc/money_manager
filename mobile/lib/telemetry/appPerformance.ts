@@ -30,4 +30,5 @@ export function markFirstScreenReady(fields: PerfFields = {}) {
 
 export function markScreenFocus(screen: string, fields: PerfFields = {}) {
   logPerfEvent("SCREEN_FOCUS", { screen, ...fields });
+  logPerfEvent(`TAB_FOCUS_${screen.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}`, fields);
 }

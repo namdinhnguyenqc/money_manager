@@ -25,7 +25,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/store/authStore';
 import { setAuthEventListener } from '@/lib/api';
-import { markAppStart } from '@/lib/telemetry/appPerformance';
+import { logPerfEvent, markAppStart } from '@/lib/telemetry/appPerformance';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 
@@ -104,8 +104,9 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded && isHydrated) {
       SplashScreen.hideAsync();
+      logPerfEvent("NAVIGATION_READY", { authenticated: isAuthenticated });
     }
-  }, [fontsLoaded, isHydrated]);
+  }, [fontsLoaded, isHydrated, isAuthenticated]);
 
   // Auth-based routing guard
   useEffect(() => {

@@ -139,6 +139,8 @@ export default function TransactionsScreen() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchData = useCallback(async (isRef = false) => {
+    const tab = "transactions";
+    logPerfEvent("SECONDARY_DATA_START", { tab, forceRefresh: isRef, walletId: activeWalletId || null });
     try {
       if (isRef) setRefreshing(true);
       else setLoading(true);
@@ -158,8 +160,17 @@ export default function TransactionsScreen() {
       setRooms(roomsRes?.data ?? []);
       setInvoices(invRes?.data ?? []);
       setContracts(conRes?.data ?? []);
+      logPerfEvent("TAB_DATA_READY_TRANSACTIONS", {
+        success: true,
+        itemCount: txList.length,
+        wallets: walletList.length,
+        facilities: (bhList ?? []).length,
+      });
+      logPerfEvent("SECONDARY_DATA_READY", { tab, success: true });
     } catch (e: any) {
       setToast({ message: e?.message || 'Không tải được sổ quỹ.', type: 'error' });
+      logPerfEvent("TAB_DATA_READY_TRANSACTIONS", { success: false, message: String(e?.message || e) });
+      logPerfEvent("SECONDARY_DATA_READY", { tab, success: false });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -172,7 +183,7 @@ export default function TransactionsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchData(true);
+      fetchData(false);
     }, [fetchData])
   );
 
@@ -421,6 +432,11 @@ export default function TransactionsScreen() {
         <FlatList
           data={groupedTransactions}
           keyExtractor={(item) => item.key}
+          initialNumToRender={8}
+          windowSize={7}
+          maxToRenderPerBatch={8}
+          updateCellsBatchingPeriod={50}
+          removeClippedSubviews
           onContentSizeChange={() => logPerfEvent("LIST_RENDER_DONE", { screen: "transactions", groupCount: groupedTransactions.length, itemCount: filtered.length })}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={Colors.primary} />

@@ -13,7 +13,6 @@ import {
   RefreshControl,
   TouchableOpacity,
   Platform,
-  ActivityIndicator,
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -40,34 +39,49 @@ interface DashboardData {
   deposits: any[];
 }
 
+interface DashboardSummary {
+  roomStats?: {
+    total: number;
+    occupied: number;
+    vacant: number;
+    reserved: number;
+    maintenance: number;
+    occupancyRate: number;
+  };
+  financialStats?: {
+    income: number;
+    expense: number;
+    profit: number;
+    chartData?: any[];
+  };
+  overdueInvoices?: {
+    count: number;
+    amount: number;
+  };
+}
+
 const formatMoney = (value?: number | null) =>
   `${new Intl.NumberFormat('vi-VN').format(Math.round(Number(value || 0)))} ₫`;
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data] = useState<DashboardData | null>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hideBalance, setHideBalance] = useState(false);
   const [ledgerTab, setLedgerTab] = useState<'paid' | 'cashflow'>('paid');
 
   const fetchData = useCallback(async (forceRefresh = false) => {
     try {
-      const res = await apiGet<any>('/owner/dashboard-init', { forceRefresh });
-
-      setData({
-        facilities: res?.boardingHouses ?? [],
-        rooms: res?.rooms ?? [],
-        invoices: res?.invoices ?? [],
-        wallets: res?.wallets ?? [],
-        tradingStats: res?.tradingStats ?? null,
-        recentTransactions: res?.transactions ?? [],
-        deposits: res?.deposits ?? [],
-      });
-    } catch {
-      // Silently handle
+      logPerfEvent("HOME_SUMMARY_START", { forceRefresh });
+      const res = await apiGet<any>('/owner/dashboard-summary', { forceRefresh, cacheTtlMs: 60 * 1000 });
+      setSummary(res ?? null);
+      logPerfEvent("HOME_SUMMARY_READY", { success: true });
+    } catch (error: any) {
+      logPerfEvent("HOME_SUMMARY_READY", { success: false, message: String(error?.message || error) });
     } finally {
-      setLoading(false);
+      setSummaryLoading(false);
       setRefreshing(false);
     }
   }, []);
@@ -77,43 +91,22 @@ export default function DashboardScreen() {
   }, [fetchData]);
 
   useEffect(() => {
-    if (!loading) {
-      markFirstScreenReady({ screen: "dashboard", hasData: Boolean(data) });
-    }
-  }, [data, loading]);
+    markFirstScreenReady({ screen: "dashboard", hasSummary: Boolean(summary) });
+  }, [summary]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchData(true);
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingScreen}>
-        <View style={styles.loadingLogoBadge}>
-          <Image
-            source={require('@/assets/brand/transparent/trocare-symbol-tc-transparent-256.png')}
-            style={styles.loadingLogo}
-            resizeMode="contain"
-            onLoadStart={() => logPerfEvent("IMAGE_LOAD_START", { image: "dashboard_loading_logo" })}
-            onLoadEnd={() => logPerfEvent("IMAGE_LOAD_DONE", { image: "dashboard_loading_logo" })}
-          />
-        </View>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingTitle}>Đang tải dữ liệu</Text>
-        <Text style={styles.loadingSubtitle}>Chuẩn bị dashboard quản lý của bạn...</Text>
-      </View>
-    );
-  }
-
   // Room Rental calculations
   const rooms = data?.rooms || [];
   const invoices = data?.invoices || [];
-  const totalRooms = rooms.length;
-  const vacant = rooms.filter((r: any) => r.status === 'vacant').length;
-  const occupied = rooms.filter((r: any) => r.status === 'occupied').length;
-  const maintenance = rooms.filter((r: any) => r.status === 'maintenance').length;
-  const reserved = rooms.filter((r: any) => r.status === 'reserved').length;
+  const totalRooms = summary?.roomStats?.total ?? rooms.length;
+  const vacant = summary?.roomStats?.vacant ?? rooms.filter((r: any) => r.status === 'vacant').length;
+  const occupied = summary?.roomStats?.occupied ?? rooms.filter((r: any) => r.status === 'occupied').length;
+  const maintenance = summary?.roomStats?.maintenance ?? rooms.filter((r: any) => r.status === 'maintenance').length;
+  const reserved = summary?.roomStats?.reserved ?? rooms.filter((r: any) => r.status === 'reserved').length;
 
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
@@ -138,9 +131,9 @@ export default function DashboardScreen() {
     const td = new Date(t.date);
     return td.getMonth() + 1 === currentMonth && td.getFullYear() === currentYear;
   });
-  const totalIncome = thisMonthTxs.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
-  const totalExpense = thisMonthTxs.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
-  const netProfit = totalIncome - totalExpense;
+  const totalIncome = summary?.financialStats?.income ?? thisMonthTxs.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+  const totalExpense = summary?.financialStats?.expense ?? thisMonthTxs.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+  const netProfit = summary?.financialStats?.profit ?? totalIncome - totalExpense;
 
   const totalDepositsHeld = (data?.deposits || [])
     .filter((d: any) => d.status === 'holding')
@@ -163,7 +156,7 @@ export default function DashboardScreen() {
     const isPastPeriod = Number(i.year || 0) < currentYear || (Number(i.year || 0) === currentYear && Number(i.month || 0) < currentMonth);
     return isPastPeriod && total > 0 && paid < total;
   });
-  const overdueAmount = overdueInvoices.reduce((sum: number, i: any) => (
+  const overdueAmount = summary?.overdueInvoices?.amount ?? overdueInvoices.reduce((sum: number, i: any) => (
     sum + Math.max(0, Number(i.total_amount || 0) - Number(i.paid_amount || 0))
   ), 0);
 
@@ -178,6 +171,12 @@ export default function DashboardScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
     >
       <View style={styles.subContainer}>
+        {summaryLoading ? (
+          <View style={styles.inlineLoading}>
+            <Text style={styles.inlineLoadingText}>Đang cập nhật tổng quan...</Text>
+          </View>
+        ) : null}
+
         {/* Premium Balance Header Card */}
         <View style={styles.headerBalanceCard}>
           <View style={styles.balanceHeaderRow}>
@@ -631,6 +630,19 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 110,
     gap: 16,
+  },
+  inlineLoading: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  inlineLoadingText: {
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.semibold,
+    color: Colors.textMuted,
   },
   loadingScreen: {
     flex: 1,

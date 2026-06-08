@@ -28,6 +28,18 @@ function TabIcon({ name, color, focused }: TabIconProps) {
   );
 }
 
+function getTabNameFromTarget(target?: string | null) {
+  const value = String(target || "unknown");
+  if (value.startsWith("index")) return "home";
+  if (value.startsWith("facilities")) return "facilities";
+  if (value.startsWith("invoices")) return "invoices";
+  if (value.startsWith("transactions")) return "transactions";
+  if (value.startsWith("contracts")) return "contracts";
+  if (value.startsWith("reports")) return "reports";
+  if (value.startsWith("settings")) return "settings";
+  return value;
+}
+
 function HomeNotificationButton() {
   const router = useRouter();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -72,8 +84,9 @@ export default function TabLayout() {
         },
         focus: (event) => {
           const durationMs = lastTabPressAt.current ? Date.now() - lastTabPressAt.current : undefined;
-          logPerfEvent("TAB_SWITCH_DONE", { target: event.target || null, ...(durationMs !== undefined ? { durationMs } : {}) });
-          markScreenFocus(String(event.target || "unknown"));
+          const tabName = getTabNameFromTarget(event.target);
+          logPerfEvent("TAB_SWITCH_DONE", { target: event.target || null, tab: tabName, ...(durationMs !== undefined ? { durationMs } : {}) });
+          markScreenFocus(tabName);
           lastTabPressAt.current = null;
         },
       }}

@@ -51,10 +51,18 @@ export default function ContractsScreen() {
   const [activeTab, setActiveTab] = useState<FilterTab>('Tất cả');
 
   const fetchData = useCallback(async (forceRefresh = false) => {
+    const tab = "contracts";
+    logPerfEvent("SECONDARY_DATA_START", { tab, forceRefresh });
     try {
       const res = await apiGet<any>('/rental/contracts', { forceRefresh });
-      setContracts(res?.data ?? []);
-    } catch {} finally { setLoading(false); setRefreshing(false); }
+      const items = res?.data ?? [];
+      setContracts(items);
+      logPerfEvent("TAB_DATA_READY_CONTRACTS", { success: true, itemCount: items.length });
+      logPerfEvent("SECONDARY_DATA_READY", { tab, success: true });
+    } catch (error: any) {
+      logPerfEvent("TAB_DATA_READY_CONTRACTS", { success: false, message: String(error?.message || error) });
+      logPerfEvent("SECONDARY_DATA_READY", { tab, success: false });
+    } finally { setLoading(false); setRefreshing(false); }
   }, []);
 
   useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
@@ -79,6 +87,11 @@ export default function ContractsScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
+        initialNumToRender={10}
+        windowSize={7}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews
         onContentSizeChange={() => logPerfEvent("LIST_RENDER_DONE", { screen: "contracts", itemCount: filtered.length })}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
