@@ -21,7 +21,7 @@ import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { apiGet } from '@/lib/api';
+import { ApiClientError, apiGet } from '@/lib/api';
 import { logPerfEvent, markFirstScreenReady } from '@/lib/telemetry/appPerformance';
 
 interface DashboardData {
@@ -63,6 +63,62 @@ interface DashboardSummary {
 const formatMoney = (value?: number | null) =>
   `${new Intl.NumberFormat('vi-VN').format(Math.round(Number(value || 0)))} ₫`;
 
+function buildSummaryFromDashboardInit(res: any): DashboardSummary {
+  const rooms = res?.rooms ?? [];
+  const invoices = res?.invoices ?? [];
+  const transactions = res?.transactions ?? [];
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
+  const occupied = rooms.filter((r: any) => r.status === 'occupied').length;
+  const vacant = rooms.filter((r: any) => r.status === 'vacant').length;
+  const reserved = rooms.filter((r: any) => r.status === 'reserved').length;
+  const maintenance = rooms.filter((r: any) => r.status === 'maintenance').length;
+  const thisMonthTxs = transactions.filter((t: any) => {
+    if (!t.date) return false;
+    const txDate = new Date(t.date);
+    return txDate.getMonth() + 1 === currentMonth && txDate.getFullYear() === currentYear;
+  });
+  const income = thisMonthTxs
+    .filter((t: any) => t.type === 'income')
+    .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+  const expense = thisMonthTxs
+    .filter((t: any) => t.type === 'expense')
+    .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+  const overdueInvoices = invoices.filter((i: any) => {
+    const total = Number(i.total_amount || 0);
+    const paid = Number(i.paid_amount || 0);
+    const invoiceYear = Number(i.year || 0);
+    const invoiceMonth = Number(i.month || 0);
+    const isPastPeriod = invoiceYear < currentYear || (invoiceYear === currentYear && invoiceMonth < currentMonth);
+    return isPastPeriod && total > 0 && paid < total;
+  });
+  const overdueAmount = overdueInvoices.reduce((sum: number, i: any) => (
+    sum + Math.max(0, Number(i.total_amount || 0) - Number(i.paid_amount || 0))
+  ), 0);
+
+  return {
+    roomStats: {
+      total: rooms.length,
+      occupied,
+      vacant,
+      reserved,
+      maintenance,
+      occupancyRate: rooms.length > 0 ? Math.round((occupied / rooms.length) * 100) : 0,
+    },
+    financialStats: {
+      income,
+      expense,
+      profit: income - expense,
+    },
+    overdueInvoices: {
+      count: overdueInvoices.length,
+      amount: overdueAmount,
+    },
+  };
+}
+
 export default function DashboardScreen() {
   const router = useRouter();
   const [data] = useState<DashboardData | null>(null);
@@ -79,7 +135,24 @@ export default function DashboardScreen() {
       setSummary(res ?? null);
       logPerfEvent("HOME_SUMMARY_READY", { success: true });
     } catch (error: any) {
-      logPerfEvent("HOME_SUMMARY_READY", { success: false, message: String(error?.message || error) });
+      const canFallback = error instanceof ApiClientError && error.status === 404;
+      if (!canFallback) {
+        logPerfEvent("HOME_SUMMARY_READY", { success: false, message: String(error?.message || error) });
+        return;
+      }
+
+      try {
+        logPerfEvent("HOME_SUMMARY_FALLBACK_START", { reason: "dashboard_summary_404" });
+        const fallback = await apiGet<any>('/owner/dashboard-init', { forceRefresh, cacheTtlMs: 60 * 1000 });
+        setSummary(buildSummaryFromDashboardInit(fallback));
+        logPerfEvent("HOME_SUMMARY_READY", { success: true, source: "dashboard-init-fallback" });
+      } catch (fallbackError: any) {
+        logPerfEvent("HOME_SUMMARY_READY", {
+          success: false,
+          source: "dashboard-init-fallback",
+          message: String(fallbackError?.message || fallbackError),
+        });
+      }
     } finally {
       setSummaryLoading(false);
       setRefreshing(false);

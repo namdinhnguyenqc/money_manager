@@ -355,6 +355,17 @@ async function request<T>(path: string, method: HttpMethod, body?: any, options:
         durationMs: Date.now() - requestStartedAt,
         cacheKey,
       });
+      if (!res.ok) {
+        logPerfEvent("API_REQUEST_FAILED", {
+          path,
+          method,
+          status: res.status,
+          ok: false,
+          durationMs: Date.now() - requestStartedAt,
+          cacheKey,
+          message: String(data?.message || data?.error || 'Request failed'),
+        });
+      }
 
       return { res, data };
     } catch (error: any) {
