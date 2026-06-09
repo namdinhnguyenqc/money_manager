@@ -1,0 +1,2137 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TroCare | Quản lý nhà trọ miễn phí & vận hành an tâm</title>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <style>
+    /* ----------------------------------------------------
+       DESIGN SYSTEM (TroCare Green Brand)
+       ---------------------------------------------------- */
+    :root {
+      --brand: #0EA66B;
+      --brand-hover: #0C9460;
+      --brand-light: #F0FDF4;
+      --bg-page: #F8FAF9;
+      --bg-card: #FFFFFF;
+      --text-primary: #111827;
+      --text-secondary: #6B7280;
+      --text-muted: #9CA3AF;
+      --border-color: #E5E7EB;
+      
+      --danger: #EF4444;
+      --warning: #F59E0B;
+      --info: #3B82F6;
+      
+      --radius-comp: 8px;
+      --radius-card: 12px;
+      --radius-badge: 20px;
+      
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+      
+      --transition-base: all 0.2s ease;
+    }
+
+    /* Base Reset */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--text-primary);
+      background-color: var(--bg-page);
+    }
+
+    body {
+      min-height: 100vh;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    /* Accessibility Focus Ring */
+    a:focus-visible, button:focus-visible, input:focus-visible {
+      outline: 2px solid var(--brand);
+      outline-offset: 2px;
+    }
+
+    /* Layout Spacing Containers */
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Custom Button Tokens */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: var(--radius-comp);
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: var(--transition-base);
+      border: 1px solid transparent;
+      height: 48px;
+    }
+
+    .btn-primary {
+      background-color: var(--brand);
+      color: #FFFFFF;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--brand-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-outline {
+      background-color: transparent;
+      border-color: var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .btn-outline:hover {
+      background-color: #F3F4F6;
+      border-color: var(--text-muted);
+    }
+
+    .btn-ghost {
+      background-color: transparent;
+      color: var(--text-secondary);
+    }
+
+    .btn-ghost:hover {
+      color: var(--brand);
+    }
+
+    /* Eyebrow Label styles */
+    .eyebrow {
+      display: inline-block;
+      color: var(--brand);
+      font-weight: 600;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    /* ----------------------------------------------------
+       SECTION 1 — NAVBAR (Sticky with Scroll Spy)
+       ---------------------------------------------------- */
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 80px;
+      background-color: rgba(248, 250, 249, 0.8);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border-color);
+      z-index: 1000;
+      transition: var(--transition-base);
+    }
+
+    .navbar.scrolled {
+      height: 70px;
+      background-color: rgba(255, 255, 255, 0.95);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .navbar .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 100%;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      text-decoration: none;
+      color: var(--brand);
+      font-weight: 600;
+      font-size: 24px;
+      letter-spacing: -0.5px;
+    }
+
+    .logo::after {
+      content: ".";
+      color: var(--brand);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 15px;
+      transition: var(--transition-base);
+      border-bottom: 2px solid transparent;
+      padding: 6px 0;
+    }
+
+    .nav-links a:hover,
+    .nav-links a.active {
+      color: var(--brand);
+    }
+
+    .nav-links a.active {
+      border-bottom-color: var(--brand);
+    }
+
+    .nav-cta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .mobile-nav-toggle {
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-primary);
+    }
+
+    /* Mobile Drawer */
+    .mobile-drawer {
+      position: fixed;
+      top: 0;
+      right: -280px;
+      width: 280px;
+      height: 100vh;
+      background-color: #FFFFFF;
+      box-shadow: var(--shadow-lg);
+      z-index: 2000;
+      padding: 32px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      transition: right 0.3s ease;
+    }
+
+    .mobile-drawer.active {
+      right: 0;
+    }
+
+    .mobile-drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(0, 0, 0, 0.4);
+      z-index: 1999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .mobile-drawer-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .mobile-drawer-close {
+      align-self: flex-end;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+
+    .mobile-nav-links {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .mobile-nav-links a {
+      text-decoration: none;
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .mobile-nav-links a:hover {
+      color: var(--brand);
+    }
+
+    /* ----------------------------------------------------
+       SECTION 2 — HERO
+       ---------------------------------------------------- */
+    .hero {
+      padding: 160px 0 96px;
+      overflow: hidden;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background-color: var(--brand-light);
+      color: var(--brand);
+      padding: 6px 16px;
+      border-radius: var(--radius-badge);
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 24px;
+      border: 1px solid rgba(14, 166, 107, 0.15);
+    }
+
+    .hero h1 {
+      font-size: 48px;
+      line-height: 1.15;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+
+    .hero h1 span {
+      color: var(--brand);
+    }
+
+    .hero-subtext {
+      font-size: 18px;
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+      max-width: 520px;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+
+    /* Stat Mini Bar */
+    .hero-stats {
+      display: flex;
+      gap: 40px;
+      border-top: 1px solid var(--border-color);
+      padding-top: 24px;
+    }
+
+    .stat-item h3 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .stat-item p {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* APP MOCKUP (HTML/CSS Dashboard UI) */
+    .mockup-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      box-shadow: var(--shadow-md);
+      padding: 24px;
+      opacity: 0;
+      transform: translateY(16px);
+      animation: fadeUp 0.4s ease forwards;
+    }
+
+    .mockup-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+
+    .mockup-header h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .mockup-header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--brand);
+    }
+
+    .mockup-header-badge::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--brand);
+    }
+
+    /* Metrics Cards */
+    .mockup-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .metric-card {
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-comp);
+      padding: 10px;
+      background-color: var(--bg-page);
+    }
+
+    .metric-card span {
+      display: block;
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .metric-card strong {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    /* Room Rows */
+    .mockup-rooms {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .room-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-comp);
+      background-color: var(--bg-card);
+    }
+
+    .room-row-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .room-row h5 {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .room-row-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: var(--radius-badge);
+    }
+
+    .badge-rented {
+      background-color: #DCFCE7;
+      color: #16A34A;
+    }
+
+    .badge-empty {
+      background-color: #FEF3C7;
+      color: #D97706;
+    }
+
+    .badge-waiting {
+      background-color: #DBEAFE;
+      color: #2563EB;
+    }
+
+    .room-price {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .mockup-footer {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      border-top: 1px solid var(--border-color);
+      padding-top: 12px;
+      text-align: center;
+    }
+
+    /* ----------------------------------------------------
+       SECTION 3 — SOCIAL PROOF BAR
+       ---------------------------------------------------- */
+    .social-proof {
+      background-color: var(--brand-light);
+      border-top: 1px solid #BBF7D0;
+      border-bottom: 1px solid #BBF7D0;
+      padding: 24px 0;
+      text-align: center;
+    }
+
+    .social-proof-content {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .social-proof p {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--brand-hover);
+    }
+
+    .social-logos {
+      display: flex;
+      align-items: center;
+      gap: 48px;
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--brand);
+      opacity: 0.8;
+    }
+
+    .social-logos span {
+      position: relative;
+    }
+
+    /* ----------------------------------------------------
+       SECTION 4 — FEATURES
+       ---------------------------------------------------- */
+    .features {
+      padding: 96px 0;
+    }
+
+    .features-header {
+      text-align: center;
+      max-width: 600px;
+      margin: 0 auto 64px;
+    }
+
+    .features-header h2 {
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      letter-spacing: -0.5px;
+    }
+
+    .features-header p {
+      color: var(--text-secondary);
+      font-size: 16px;
+    }
+
+    .features-layout {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+    }
+
+    .feature-group-column {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .feature-group-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 12px;
+      margin-bottom: 8px;
+    }
+
+    .feature-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      padding: 24px;
+      transition: var(--transition-base);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .feature-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--brand);
+    }
+
+    .feature-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .feature-card-header h4 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .feature-card-header i {
+      color: var(--brand);
+    }
+
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Accordion mobile view placeholder structures */
+    .features-mobile-accordion {
+      display: none;
+    }
+
+    /* ----------------------------------------------------
+       SECTION 5 — WORKFLOW
+       ---------------------------------------------------- */
+    .workflow {
+      padding: 96px 0;
+      background-color: #FFFFFF;
+      border-top: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    /* Workflow Horizontal Bar (Desktop) */
+    .workflow-bar-wrapper {
+      position: relative;
+      margin: 64px 0 32px;
+    }
+
+    .workflow-bar-line {
+      position: absolute;
+      top: 16px;
+      left: 7%;
+      right: 7%;
+      height: 3px;
+      background-color: var(--border-color);
+      z-index: 1;
+    }
+
+    .workflow-bar-progress {
+      position: absolute;
+      top: 16px;
+      left: 7%;
+      width: 0%;
+      height: 3px;
+      background-color: var(--brand);
+      z-index: 2;
+      transition: var(--transition-base);
+    }
+
+    .workflow-steps {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      position: relative;
+      z-index: 3;
+    }
+
+    .workflow-step-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .workflow-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background-color: #FFFFFF;
+      border: 3px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text-secondary);
+      transition: var(--transition-base);
+      margin-bottom: 12px;
+    }
+
+    .workflow-step-node:hover .workflow-circle {
+      border-color: var(--brand);
+      color: var(--brand);
+    }
+
+    .workflow-step-node.active .workflow-circle {
+      border-color: var(--brand);
+      background-color: var(--brand);
+      color: #FFFFFF;
+    }
+
+    .workflow-step-node span {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      transition: var(--transition-base);
+    }
+
+    .workflow-step-node.active span {
+      color: var(--brand);
+      font-weight: 700;
+    }
+
+    /* Workflow Description Box */
+    .workflow-desc-box {
+      max-width: 600px;
+      margin: 24px auto 0;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      padding: 24px;
+      background-color: var(--bg-page);
+      text-align: center;
+      min-height: 120px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .workflow-desc-box h4 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .workflow-desc-box p {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .mobile-workflow-timeline {
+      display: none;
+    }
+
+    /* ----------------------------------------------------
+       SECTION 6 — QR PAYMENT
+       ---------------------------------------------------- */
+    .qr-payment {
+      padding: 96px 0;
+    }
+
+    .qr-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+    }
+
+    .qr-text h2 {
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      line-height: 1.25;
+    }
+
+    .qr-text p {
+      font-size: 16px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    .qr-bullets {
+      list-style: none;
+      display: grid;
+      gap: 16px;
+    }
+
+    .qr-bullet {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .qr-bullet i {
+      color: var(--brand);
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+
+    /* Invoice Mockup Card */
+    .invoice-card {
+      background-color: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-md);
+      padding: 28px;
+      max-width: 400px;
+      margin-left: auto;
+    }
+
+    .invoice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+    }
+
+    .invoice-header h4 {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .invoice-header span {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .invoice-card-lines {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .invoice-card-line {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .invoice-card-line.total {
+      border-top: 1px dashed var(--border-color);
+      padding-top: 12px;
+      margin-top: 4px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--brand);
+    }
+
+    .invoice-qr-section {
+      background-color: var(--bg-page);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-comp);
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .invoice-qr-desc h5 {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .invoice-qr-desc p {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .invoice-qr-box {
+      width: 80px;
+      height: 80px;
+      background-color: #F3F4F6;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-comp);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .invoice-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 16px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .badge-warning-custom {
+      background-color: #FEF3C7;
+      color: #D97706;
+      padding: 2px 8px;
+      border-radius: var(--radius-badge);
+      font-weight: 600;
+    }
+
+    /* ----------------------------------------------------
+       SECTION 7 — AI
+       ---------------------------------------------------- */
+    .ai-section {
+      padding: 96px 0;
+      background-color: #FFFFFF;
+      border-top: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .ai-header {
+      text-align: center;
+      max-width: 600px;
+      margin: 0 auto 56px;
+    }
+
+    .ai-header h2 {
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .ai-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+    }
+
+    .ai-card {
+      background-color: var(--bg-page);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      padding: 24px;
+      transition: var(--transition-base);
+    }
+
+    .ai-card:hover {
+      border-color: var(--brand);
+      transform: translateY(-2px);
+    }
+
+    .ai-card-icon {
+      width: 42px;
+      height: 42px;
+      background-color: var(--brand-light);
+      border-radius: var(--radius-comp);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--brand);
+      margin-bottom: 16px;
+    }
+
+    .ai-card h4 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .ai-card p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* ----------------------------------------------------
+       SECTION 8 — FINAL CTA
+       ---------------------------------------------------- */
+    .final-cta {
+      padding: 96px 0;
+      background-color: var(--brand);
+      color: #FFFFFF;
+      text-align: center;
+    }
+
+    .final-cta-content {
+      max-width: 620px;
+      margin: 0 auto;
+    }
+
+    .final-cta h2 {
+      font-size: 38px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      letter-spacing: -0.5px;
+    }
+
+    .final-cta p {
+      font-size: 18px;
+      margin-bottom: 32px;
+      opacity: 0.9;
+    }
+
+    .final-cta .btn-primary {
+      background-color: #FFFFFF;
+      color: var(--brand);
+    }
+
+    .final-cta .btn-primary:hover {
+      background-color: var(--brand-light);
+    }
+
+    .final-cta span {
+      display: block;
+      margin-top: 12px;
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    /* ----------------------------------------------------
+       SECTION 9 — FOOTER
+       ---------------------------------------------------- */
+    .footer {
+      background-color: #FFFFFF;
+      padding: 80px 0 40px;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 1fr 1fr;
+      gap: 48px;
+      margin-bottom: 56px;
+    }
+
+    .footer-brand p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: 16px;
+      max-width: 300px;
+    }
+
+    .footer-col h4 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .footer-links {
+      list-style: none;
+      display: grid;
+      gap: 12px;
+    }
+
+    .footer-links a {
+      text-decoration: none;
+      color: var(--text-secondary);
+      font-size: 14px;
+      transition: var(--transition-base);
+    }
+
+    .footer-links a:hover {
+      color: var(--brand);
+    }
+
+    .footer-bottom {
+      border-top: 1px solid var(--border-color);
+      padding-top: 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* ----------------------------------------------------
+       SCROLL REVEAL ANIMATIONS
+       ---------------------------------------------------- */
+    .reveal {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Accessibility: reduced motion settings */
+    @media (prefers-reduced-motion: reduce) {
+      .reveal {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+      }
+      .mockup-container {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+      * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    /* ----------------------------------------------------
+       RESPONSIVE DESIGN BREAKPOINTS
+       ---------------------------------------------------- */
+    @media (max-width: 1024px) {
+      .hero-grid {
+        grid-template-columns: 1fr;
+        gap: 48px;
+      }
+
+      .mockup-container {
+        max-width: 500px;
+        margin: 0 auto;
+      }
+
+      .features-layout {
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+
+      .qr-grid {
+        grid-template-columns: 1fr;
+        gap: 48px;
+      }
+
+      .invoice-card {
+        margin: 0 auto;
+      }
+
+      .ai-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      /* Mobile Menu Toggle button */
+      .mobile-nav-toggle {
+        display: block;
+      }
+
+      .nav-links,
+      .nav-cta .btn-outline {
+        display: none;
+      }
+
+      /* Hide Mockup on screen size smaller than 768px */
+      .hero-grid .mockup-container {
+        display: none;
+      }
+
+      .hero h1 {
+        font-size: 32px;
+      }
+
+      .hero-stats {
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      /* Features Section Accordion implementation */
+      .features-layout {
+        display: none;
+      }
+
+      .features-mobile-accordion {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .accordion-item {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-card);
+        overflow: hidden;
+      }
+
+      .accordion-trigger {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 24px;
+        background: none;
+        border: none;
+        font-family: inherit;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        text-align: left;
+        color: var(--text-primary);
+      }
+
+      .accordion-trigger i {
+        color: var(--brand);
+        transition: transform 0.2s ease;
+      }
+
+      .accordion-item.active .accordion-trigger i {
+        transform: rotate(90deg);
+      }
+
+      .accordion-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.2s ease-out;
+        padding: 0 24px;
+      }
+
+      .accordion-item.active .accordion-content {
+        padding-bottom: 24px;
+      }
+
+      .mobile-feature-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      /* Workflow Section Mobile Timeline */
+      .workflow-bar-wrapper {
+        display: none;
+      }
+
+      .mobile-workflow-timeline {
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        padding-left: 28px;
+        margin-top: 40px;
+      }
+
+      .mobile-workflow-timeline::before {
+        content: "";
+        position: absolute;
+        top: 8px;
+        left: 10px;
+        bottom: 8px;
+        width: 2px;
+        background-color: var(--border-color);
+      }
+
+      .mobile-timeline-item {
+        position: relative;
+        padding-bottom: 28px;
+      }
+
+      .mobile-timeline-item:last-child {
+        padding-bottom: 0;
+      }
+
+      .mobile-timeline-circle {
+        position: absolute;
+        left: -28px;
+        top: 2px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background-color: #FFFFFF;
+        border: 2px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--text-secondary);
+        z-index: 2;
+      }
+
+      .mobile-timeline-item.active .mobile-timeline-circle {
+        background-color: var(--brand);
+        border-color: var(--brand);
+        color: #FFFFFF;
+      }
+
+      .mobile-timeline-content h4 {
+        font-size: 15px;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+
+      .mobile-timeline-content p {
+        font-size: 13px;
+        color: var(--text-secondary);
+      }
+
+      /* AI and Footer Grid */
+      .ai-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-grid {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SECTION 1 — NAVBAR -->
+  <header class="navbar" id="navbar">
+    <div class="container">
+      <a href="/" class="logo">TroCare</a>
+      
+      <nav class="nav-links" id="navLinks">
+        <a href="#features">Tính năng</a>
+        <a href="#workflow">Quy trình</a>
+        <a href="#payment">Thanh toán</a>
+        <a href="#ai">AI</a>
+      </nav>
+      
+      <div class="nav-cta">
+        <a href="/login" class="btn btn-outline" data-cta="secondary">Đăng nhập</a>
+        <a href="/login" class="btn btn-primary" data-cta="primary">Dùng miễn phí</a>
+        <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Mở trình đơn">
+          <i data-lucide="menu" size="24"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Menu Drawer -->
+  <div class="mobile-drawer-overlay" id="mobileDrawerOverlay"></div>
+  <div class="mobile-drawer" id="mobileDrawer">
+    <button class="mobile-drawer-close" id="mobileDrawerClose" aria-label="Đóng trình đơn">
+      <i data-lucide="x" size="24"></i>
+    </button>
+    <nav class="mobile-nav-links">
+      <a href="#features">Tính năng</a>
+      <a href="#workflow">Quy trình</a>
+      <a href="#payment">Thanh toán</a>
+      <a href="#ai">AI</a>
+    </nav>
+    <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 24px;">
+      <a href="/login" class="btn btn-outline" style="width: 100%;" data-cta="secondary">Đăng nhập</a>
+      <a href="/login" class="btn btn-primary" style="width: 100%;" data-cta="primary">Dùng miễn phí</a>
+    </div>
+  </div>
+
+  <!-- SECTION 2 — HERO -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-grid">
+        <div class="hero-left">
+          <div class="hero-badge">
+            <span>✦ Miễn phí · Không cần cài đặt</span>
+          </div>
+          <h1>Quản lý nhà trọ miễn phí, nhìn rõ <span>từng phòng từng đồng</span>.</h1>
+          <p class="hero-subtext">TroCare giúp chủ trọ quản lý phòng, hóa đơn, thu chi và nhắc nợ — trong một màn hình, không cần Excel.</p>
+          
+          <div class="hero-actions">
+            <a href="/login" class="btn btn-primary" data-cta="primary">Bắt đầu miễn phí →</a>
+            <a href="#features" class="btn btn-ghost" data-cta="secondary">Xem tính năng ↓</a>
+          </div>
+          
+          <div class="hero-stats">
+            <div class="stat-item">
+              <h3>0đ</h3>
+              <p>chi phí bắt đầu</p>
+            </div>
+            <div class="stat-item">
+              <h3>7 bước</h3>
+              <p>từ phòng đến thu tiền</p>
+            </div>
+            <div class="stat-item">
+              <h3>Tự động</h3>
+              <p>đối soát QR SePay</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hero Right Column: CSS-based App Mockup -->
+        <div class="hero-right">
+          <div class="mockup-container">
+            <div class="mockup-header">
+              <h4>Vận hành T06/2026</h4>
+              <span class="mockup-header-badge">Đang vận hành</span>
+            </div>
+            
+            <div class="mockup-metrics">
+              <div class="metric-card">
+                <span>phòng thuê</span>
+                <strong>28</strong>
+              </div>
+              <div class="metric-card">
+                <span>đã thu</span>
+                <strong>84%</strong>
+              </div>
+              <div class="metric-card">
+                <span>cần nhắc</span>
+                <strong>5</strong>
+              </div>
+            </div>
+            
+            <div class="mockup-rooms">
+              <div class="room-row">
+                <div class="room-row-info">
+                  <h5>P101</h5>
+                  <span class="room-row-badge badge-rented">Đang thuê</span>
+                </div>
+                <span class="room-price">3.500.000đ</span>
+              </div>
+              <div class="room-row">
+                <div class="room-row-info">
+                  <h5>P102</h5>
+                  <span class="room-row-badge badge-empty">Trống</span>
+                </div>
+                <span class="room-price">2.800.000đ</span>
+              </div>
+              <div class="room-row">
+                <div class="room-row-info">
+                  <h5>P103</h5>
+                  <span class="room-row-badge badge-waiting">Chờ cọc</span>
+                </div>
+                <span class="room-price">3.200.000đ</span>
+              </div>
+              <div class="room-row">
+                <div class="room-row-info">
+                  <h5>P104</h5>
+                  <span class="room-row-badge badge-rented">Đang thuê</span>
+                </div>
+                <span class="room-price">2.500.000đ</span>
+              </div>
+            </div>
+            
+            <div class="mockup-footer">
+              <span>3 hóa đơn cần nhắc · QR ACB sẵn sàng</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 3 — SOCIAL PROOF BAR -->
+  <section class="social-proof">
+    <div class="container">
+      <div class="social-proof-content">
+        <p>Đang được dùng bởi 200+ chủ trọ trên cả nước</p>
+        <div class="social-logos">
+          <span>ACB Bank</span>
+          <span>SePay</span>
+          <span>Zalo OA</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 4 — FEATURES -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="features-header reveal">
+        <span class="eyebrow">Tất cả trong một màn hình</span>
+        <h2>TroCare quản lý toàn bộ vòng đời cho thuê.</h2>
+        <p>Giúp chủ trọ Việt Nam số hóa quy trình và tự động hóa các khâu thu chi phức tạp.</p>
+      </div>
+
+      <!-- Desktop 3-column Layout -->
+      <div class="features-layout">
+        
+        <!-- Column 1: Quản lý cơ bản -->
+        <div class="feature-group-column">
+          <div class="feature-group-header">
+            <i data-lucide="building-2" size="20"></i>
+            <h3>Quản lý cơ bản</h3>
+          </div>
+          
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <i data-lucide="door-open" size="18"></i>
+              <h4>Dãy trọ & phòng</h4>
+            </div>
+            <p>Theo dõi chi tiết giá thuê phòng, số người ở và cập nhật trạng thái thuê linh hoạt.</p>
+          </div>
+          
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <i data-lucide="users" size="18"></i>
+              <h4>Khách thuê</h4>
+            </div>
+            <p>Lưu giữ thông tin liên hệ, căn cước công dân và lịch sử lưu trú của từng khách thuê.</p>
+          </div>
+          
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <i data-lucide="file-text" size="18"></i>
+              <h4>Hợp đồng</h4>
+            </div>
+            <p>Quản lý kỳ hạn thuê, các điều khoản ràng buộc và đối soát tiền đặt cọc khi tất toán.</p>
+          </div>
+        </div>
+
+        <!-- Column 2: Thu chi & Thanh toán -->
+        <div class="feature-group-column">
+          <div class="feature-group-header">
+            <i data-lucide="credit-card" size="20"></i>
+            <h3>Thu chi & Thanh toán</h3>
+          </div>
+          
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <i data-lucide="receipt" size="18"></i>
+              <h4>Hóa đơn</h4>
+            </div>
+            <p>Tính tự động tiền điện nước, dịch vụ kèm theo, cấn trừ nợ cũ và xuất biên nhận online.</p>
+          </div>
+          
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <i data-lucide="wallet" size="18"></i>
+              <h4>Sổ quỹ</h4>
+            </div>
+            <p>Theo dõi chính xác dòng tiền vào ra, phân loại danh mục thu chi phòng trọ rõ ràng.</p>
+          </div>
+          
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <i data-lucide="qr-code" size="18"></i>
+              <h4>QR SePay</h4>
+            </div>
+            <p>Xuất mã QR riêng biệt cho từng hóa đơn, nhận thông báo chuyển khoản đối soát tức thì.</p>
+          </div>
+        </div>
+
+        <!-- Column 3: Giao tiếp & Nhắc việc -->
+        <div class="feature-group-column">
+          <div class="feature-group-header">
+            <i data-lucide="bell" size="20"></i>
+            <h3>Giao tiếp & Nhắc việc</h3>
+          </div>
+          
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <i data-lucide="calendar-check" size="18"></i>
+              <h4>Nhắc việc</h4>
+            </div>
+            <p>Nhận cảnh báo sớm về các hóa đơn trễ hạn và các hợp đồng sắp sửa hết hiệu lực.</p>
+          </div>
+          
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <i data-lucide="message-circle" size="18"></i>
+              <h4>Zalo OA</h4>
+            </div>
+            <p>Gửi tin nhắn thông báo hóa đơn tự động trực tiếp đến tài khoản Zalo của từng khách hàng.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile Accordion Layout -->
+      <div class="features-mobile-accordion" id="featuresAccordion">
+        
+        <!-- Accordion Item 1 -->
+        <div class="accordion-item active">
+          <button class="accordion-trigger">
+            <span>Quản lý cơ bản</span>
+            <i data-lucide="chevron-right" size="18"></i>
+          </button>
+          <div class="accordion-content" style="max-height: 1000px;">
+            <div class="mobile-feature-list">
+              <div class="feature-card">
+                <div class="feature-card-header">
+                  <i data-lucide="door-open" size="18"></i>
+                  <h4>Dãy trọ & phòng</h4>
+                </div>
+                <p>Theo dõi chi tiết giá thuê phòng, số người ở và cập nhật trạng thái thuê linh hoạt.</p>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-header">
+                  <i data-lucide="users" size="18"></i>
+                  <h4>Khách thuê</h4>
+                </div>
+                <p>Lưu giữ thông tin liên hệ, căn cước công dân và lịch sử lưu trú của từng khách thuê.</p>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-header">
+                  <i data-lucide="file-text" size="18"></i>
+                  <h4>Hợp đồng</h4>
+                </div>
+                <p>Quản lý kỳ hạn thuê, các điều khoản ràng buộc và đối soát tiền đặt cọc khi tất toán.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Accordion Item 2 -->
+        <div class="accordion-item">
+          <button class="accordion-trigger">
+            <span>Thu chi & Thanh toán</span>
+            <i data-lucide="chevron-right" size="18"></i>
+          </button>
+          <div class="accordion-content">
+            <div class="mobile-feature-list">
+              <div class="feature-card">
+                <div class="feature-card-header">
+                  <i data-lucide="receipt" size="18"></i>
+                  <h4>Hóa đơn</h4>
+                </div>
+                <p>Tính tự động tiền điện nước, dịch vụ kèm theo, cấn trừ nợ cũ và xuất biên nhận online.</p>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-header">
+                  <i data-lucide="wallet" size="18"></i>
+                  <h4>Sổ quỹ</h4>
+                </div>
+                <p>Theo dõi chính xác dòng tiền vào ra, phân loại danh mục thu chi phòng trọ rõ ràng.</p>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-header">
+                  <i data-lucide="qr-code" size="18"></i>
+                  <h4>QR SePay</h4>
+                </div>
+                <p>Xuất mã QR riêng biệt cho từng hóa đơn, nhận thông báo chuyển khoản đối soát tức thì.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Accordion Item 3 -->
+        <div class="accordion-item">
+          <button class="accordion-trigger">
+            <span>Giao tiếp & Nhắc việc</span>
+            <i data-lucide="chevron-right" size="18"></i>
+          </button>
+          <div class="accordion-content">
+            <div class="mobile-feature-list">
+              <div class="feature-card">
+                <div class="feature-card-header">
+                  <i data-lucide="calendar-check" size="18"></i>
+                  <h4>Nhắc việc</h4>
+                </div>
+                <p>Nhận cảnh báo sớm về các hóa đơn trễ hạn và các hợp đồng sắp sửa hết hiệu lực.</p>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-header">
+                  <i data-lucide="message-circle" size="18"></i>
+                  <h4>Zalo OA</h4>
+                </div>
+                <p>Gửi tin nhắn thông báo hóa đơn tự động trực tiếp đến Zalo của từng khách hàng.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- SECTION 5 — WORKFLOW -->
+  <section class="workflow" id="workflow">
+    <div class="container">
+      <div class="features-header reveal">
+        <span class="eyebrow">Bắt đầu trong 15 phút</span>
+        <h2>Vào app lần đầu vẫn biết phải làm gì tiếp theo.</h2>
+      </div>
+
+      <!-- Desktop Visual Step Bar -->
+      <div class="workflow-bar-wrapper reveal">
+        <div class="workflow-bar-line"></div>
+        <div class="workflow-bar-progress" id="stepProgress"></div>
+        
+        <div class="workflow-steps" id="stepsIndicator">
+          <button class="workflow-step-node active" data-step="1">
+            <div class="workflow-circle">1</div>
+            <span>Tạo dãy trọ</span>
+          </button>
+          <button class="workflow-step-node" data-step="2">
+            <div class="workflow-circle">2</div>
+            <span>Thêm phòng</span>
+          </button>
+          <button class="workflow-step-node" data-step="3">
+            <div class="workflow-circle">3</div>
+            <span>Nhập khách thuê</span>
+          </button>
+          <button class="workflow-step-node" data-step="4">
+            <div class="workflow-circle">4</div>
+            <span>Ký hợp đồng</span>
+          </button>
+          <button class="workflow-step-node" data-step="5">
+            <div class="workflow-circle">5</div>
+            <span>Lập hóa đơn</span>
+          </button>
+          <button class="workflow-step-node" data-step="6">
+            <div class="workflow-circle">6</div>
+            <span>Nhận thanh toán</span>
+          </button>
+          <button class="workflow-step-node" data-step="7">
+            <div class="workflow-circle">7</div>
+            <span>Xem sổ quỹ</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Detail Card Box -->
+      <div class="workflow-desc-box reveal" id="workflowDescBox">
+        <h4 id="workflowDescTitle">Bước 1: Tạo dãy trọ</h4>
+        <p id="workflowDescText">Thiết lập các thông tin cơ bản về dãy nhà trọ, vị trí và các quy tắc chung quy định trong khu vực cho thuê.</p>
+      </div>
+
+      <!-- Mobile Vertical Timeline -->
+      <div class="mobile-workflow-timeline" id="mobileTimeline">
+        <div class="mobile-timeline-item active" data-step="1">
+          <div class="mobile-timeline-circle">1</div>
+          <div class="mobile-timeline-content">
+            <h4>Tạo dãy trọ</h4>
+            <p>Thiết lập các thông tin cơ bản về dãy nhà trọ, vị trí và các quy tắc chung.</p>
+          </div>
+        </div>
+        <div class="mobile-timeline-item" data-step="2">
+          <div class="mobile-timeline-circle">2</div>
+          <div class="mobile-timeline-content">
+            <h4>Thêm phòng</h4>
+            <p>Tạo chi tiết các phòng đơn lẻ, cập nhật đơn giá cho thuê mặc định và định lượng dịch vụ.</p>
+          </div>
+        </div>
+        <div class="mobile-timeline-item" data-step="3">
+          <div class="mobile-timeline-circle">3</div>
+          <div class="mobile-timeline-content">
+            <h4>Nhập khách thuê</h4>
+            <p>Ghi chép hồ sơ căn cước, số điện thoại liên hệ của khách hàng khi chuyển đến ở.</p>
+          </div>
+        </div>
+        <div class="mobile-timeline-item" data-step="4">
+          <div class="mobile-timeline-circle">4</div>
+          <div class="mobile-timeline-content">
+            <h4>Ký hợp đồng</h4>
+            <p>Xác lập thời hạn giao kèo, mức đặt cọc giữ phòng và ngày kết thúc hợp đồng.</p>
+          </div>
+        </div>
+        <div class="mobile-timeline-item" data-step="5">
+          <div class="mobile-timeline-circle">5</div>
+          <div class="mobile-timeline-content">
+            <h4>Lập hóa đơn</h4>
+            <p>Tính lượng điện nước đã dùng, các phí phụ thu và tổng hợp bảng thông báo thanh toán.</p>
+          </div>
+        </div>
+        <div class="mobile-timeline-item" data-step="6">
+          <div class="mobile-timeline-circle">6</div>
+          <div class="mobile-timeline-content">
+            <h4>Nhận thanh toán</h4>
+            <p>Hệ thống hỗ trợ quét mã chuyển khoản ACB và tự động đối soát giao dịch qua SePay.</p>
+          </div>
+        </div>
+        <div class="mobile-timeline-item" data-step="7">
+          <div class="mobile-timeline-circle">7</div>
+          <div class="mobile-timeline-content">
+            <h4>Xem sổ quỹ</h4>
+            <p>Báo cáo tức thời dòng tiền ra vào, tổng kết doanh số thực nhận sạch sẽ từng tháng.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- SECTION 6 — QR PAYMENT -->
+  <section class="qr-payment" id="payment">
+    <div class="container">
+      <div class="qr-grid">
+        <div class="qr-text reveal">
+          <span class="eyebrow">Thu tiền rõ ràng</span>
+          <h2>Mỗi hóa đơn có mã riêng, QR riêng, trạng thái riêng.</h2>
+          <p>Hạn chế tối đa sai lệch thông tin và nhầm lẫn đối soát chuyển khoản của từng phòng hàng tháng.</p>
+          
+          <ul class="qr-bullets">
+            <li class="qr-bullet">
+              <i data-lucide="check" size="18"></i>
+              <span>Khách thấy ngay số tiền, từng khoản chi tiết điện nước rõ ràng.</span>
+            </li>
+            <li class="qr-bullet">
+              <i data-lucide="check" size="18"></i>
+              <span>Mã QR chuyển khoản ACB được mã hóa tự động riêng biệt cho từng hóa đơn.</span>
+            </li>
+            <li class="qr-bullet">
+              <i data-lucide="check" size="18"></i>
+              <span>SePay nhận giao dịch báo có ngay lập tức → tự đối soát chuẩn xác theo mã hóa đơn.</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="qr-visual reveal">
+          <div class="invoice-card">
+            <div class="invoice-header">
+              <h4>Thông báo tiền phòng T6/2026</h4>
+              <span>Phòng P109 — Dãy A</span>
+            </div>
+            
+            <div class="invoice-card-lines">
+              <div class="invoice-card-line">
+                <span>Phòng:</span>
+                <span>2.300.000đ</span>
+              </div>
+              <div class="invoice-card-line">
+                <span>Điện (234 số):</span>
+                <span>234.600đ</span>
+              </div>
+              <div class="invoice-card-line">
+                <span>Nước:</span>
+                <span>100.000đ</span>
+              </div>
+              <div class="invoice-card-line">
+                <span>Rác:</span>
+                <span>36.500đ</span>
+              </div>
+              <div class="invoice-card-line total">
+                <span>Tổng:</span>
+                <span>2.671.100đ</span>
+              </div>
+            </div>
+
+            <div class="invoice-qr-section">
+              <div class="invoice-qr-desc">
+                <h5>Quét chuyển khoản</h5>
+                <p>Nội dung: TCINV-P109</p>
+              </div>
+              <div class="invoice-qr-box">
+                <span>QR</span>
+              </div>
+            </div>
+
+            <div class="invoice-footer">
+              <span>ACB · TCINV-P109</span>
+              <span class="badge-warning-custom">Chờ thanh toán</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 7 — AI -->
+  <section class="ai-section" id="ai">
+    <div class="container">
+      <div class="ai-header reveal">
+        <span class="eyebrow">AI cho vận hành cho thuê</span>
+        <h2>Không thay chủ trọ quyết định, chỉ giúp nhìn việc nhanh hơn.</h2>
+        <p>Tích hợp mô hình AI gợi ý xử lý các vấn đề quản lý, tính toán dòng tiền tối ưu.</p>
+      </div>
+
+      <div class="ai-grid reveal">
+        <div class="ai-card">
+          <div class="ai-card-icon">
+            <i data-lucide="bell-ring" size="20"></i>
+          </div>
+          <h4>Gợi ý nhắc nợ</h4>
+          <p>Tự động phân tích lịch sử trả tiền và đề xuất danh sách phòng trọ cần nhắc thanh toán sớm.</p>
+        </div>
+
+        <div class="ai-card">
+          <div class="ai-card-icon">
+            <i data-lucide="trending-up" size="20"></i>
+          </div>
+          <h4>Tóm tắt dòng tiền</h4>
+          <p>Tổng hợp biểu đồ doanh thu chi tiết, đưa ra dự báo luồng tiền nhận được vào cuối tháng.</p>
+        </div>
+
+        <div class="ai-card">
+          <div class="ai-card-icon">
+            <i data-lucide="alert-triangle" size="20"></i>
+          </div>
+          <h4>Cảnh báo bất thường</h4>
+          <p>Nhận diện nhanh chóng các biến động đột biến về chỉ số tiêu thụ điện nước của từng dãy trọ.</p>
+        </div>
+
+        <div class="ai-card">
+          <div class="ai-card-icon">
+            <i data-lucide="message-square-text" size="20"></i>
+          </div>
+          <h4>Soạn tin Zalo</h4>
+          <p>AI hỗ trợ viết biểu mẫu thông báo tiền phòng bằng văn phong nhã nhặn, lịch sự tự động.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 8 — FINAL CTA -->
+  <section class="final-cta">
+    <div class="container reveal">
+      <div class="final-cta-content">
+        <h2>Bắt đầu miễn phí, chuẩn hóa vận hành từ hôm nay.</h2>
+        <p>Nhập phòng trọ một lần. Từ tháng sau, hóa đơn và nhắc nợ tự chạy.</p>
+        <a href="/login" class="btn btn-primary" data-cta="primary">Dùng TroCare miễn phí →</a>
+        <span>Không cần thẻ tín dụng · Miễn phí mãi mãi</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 9 — FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="/" class="logo" style="text-decoration: none; color: var(--text-primary);">TroCare</a>
+          <p>Quản lý trọ thông minh, vận hành an tâm.</p>
+        </div>
+        
+        <div class="footer-col">
+          <h4>Sản phẩm</h4>
+          <ul class="footer-links">
+            <li><a href="#features">Tính năng</a></li>
+            <li><a href="#workflow">Quy trình</a></li>
+            <li><a href="#payment">Thanh toán QR</a></li>
+            <li><a href="#ai">AI vận hành</a></li>
+          </ul>
+        </div>
+        
+        <div class="footer-col">
+          <h4>Hỗ trợ</h4>
+          <ul class="footer-links">
+            <li><a href="#faq">Hỏi đáp</a></li>
+            <li><a href="mailto:support@trocare.com">Liên hệ hỗ trợ</a></li>
+            <li><a href="#guide">Hướng dẫn bắt đầu</a></li>
+          </ul>
+        </div>
+        
+        <div class="footer-col">
+          <h4>Pháp lý</h4>
+          <ul class="footer-links">
+            <li><a href="/privacy">Chính sách bảo mật</a></li>
+            <li><a href="/terms">Điều khoản sử dụng</a></li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="footer-bottom">
+        <span>© 2026 TroCare. Miễn phí cho chủ trọ Việt Nam.</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ----------------------------------------------------
+       VANILLA JAVASCRIPT
+       ---------------------------------------------------- -->
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // 1. MOBILE DRAWER INTERACTION
+    const mobileNavToggle = document.getElementById("mobileNavToggle");
+    const mobileDrawer = document.getElementById("mobileDrawer");
+    const mobileDrawerOverlay = document.getElementById("mobileDrawerOverlay");
+    const mobileDrawerClose = document.getElementById("mobileDrawerClose");
+
+    const openDrawer = () => {
+      mobileDrawer.classList.add("active");
+      mobileDrawerOverlay.classList.add("active");
+    };
+
+    const closeDrawer = () => {
+      mobileDrawer.classList.remove("active");
+      mobileDrawerOverlay.classList.remove("active");
+    };
+
+    mobileNavToggle.addEventListener("click", openDrawer);
+    mobileDrawerClose.addEventListener("click", closeDrawer);
+    mobileDrawerOverlay.addEventListener("click", closeDrawer);
+
+    // Close drawer when clicking nav link
+    const drawerLinks = mobileDrawer.querySelectorAll(".mobile-nav-links a");
+    drawerLinks.forEach(link => {
+      link.addEventListener("click", closeDrawer);
+    });
+
+    // 2. NAV SCROLL SHADOW
+    const navbar = document.getElementById("navbar");
+    window.addEventListener("scroll", () => {
+      if (window.scrollY > 80) {
+        navbar.classList.add("scrolled");
+      } else {
+        navbar.classList.remove("scrolled");
+      }
+    });
+
+    // 3. SCROLL REVEAL (IntersectionObserver)
+    const revealElements = document.querySelectorAll(".reveal");
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("visible");
+        }
+      });
+    }, { threshold: 0.1 });
+
+    revealElements.forEach(el => revealObserver.observe(el));
+
+    // 4. SCROLL SPY FOR NAVBAR ACTIVE LINKS
+    const sections = document.querySelectorAll("section[id]");
+    const navAnchors = document.querySelectorAll(".nav-links a");
+    
+    window.addEventListener("scroll", () => {
+      let currentSectionId = "";
+      sections.forEach(sec => {
+        const secTop = sec.offsetTop - 120;
+        if (window.scrollY >= secTop) {
+          currentSectionId = sec.getAttribute("id");
+        }
+      });
+      
+      navAnchors.forEach(a => {
+        a.classList.remove("active");
+        if (a.getAttribute("href") === `#${currentSectionId}`) {
+          a.classList.add("active");
+        }
+      });
+    });
+
+    // 5. WORKFLOW STEPS INTERACTIVE STATE MACHINE
+    const stepNodes = document.querySelectorAll(".workflow-step-node");
+    const mobileTimelineItems = document.querySelectorAll(".mobile-timeline-item");
+    const progressLine = document.getElementById("stepProgress");
+    const descTitle = document.getElementById("workflowDescTitle");
+    const descText = document.getElementById("workflowDescText");
+
+    const stepsData = {
+      1: {
+        title: "Bước 1: Tạo dãy trọ",
+        text: "Thiết lập các thông tin cơ bản về dãy nhà trọ, vị trí và các quy tắc chung quy định trong khu vực cho thuê."
+      },
+      2: {
+        title: "Bước 2: Thêm phòng",
+        text: "Tạo chi tiết các phòng đơn lẻ, cập nhật đơn giá cho thuê mặc định và các tiện ích dịch vụ đi kèm."
+      },
+      3: {
+        title: "Bước 3: Nhập khách thuê",
+        text: "Ghi chép thông tin lý lịch cá nhân, số căn cước công dân và liên hệ của người thuê phòng."
+      },
+      4: {
+        title: "Bước 4: Ký hợp đồng",
+        text: "Kích hoạt thời hạn cho thuê chính thức, mức đặt cọc phòng và điều khoản phạt nếu có."
+      },
+      5: {
+        title: "Bước 5: Lập hóa đơn",
+        text: "Tổng hợp các phí phát sinh thực tế (điện nước dùng trong tháng, wifi, rác) và in biểu mẫu hóa đơn."
+      },
+      6: {
+        title: "Bước 6: Nhận thanh toán",
+        text: "Hệ thống tự động liên kết với ngân hàng ACB xuất QR thanh toán hóa đơn riêng, đối soát qua SePay."
+      },
+      7: {
+        title: "Bước 7: Xem sổ quỹ",
+        text: "Biểu diễn trực quan dòng tiền thu chi tức thời, tổng kết lợi nhuận kinh doanh sạch sẽ của từng tháng."
+      }
+    };
+
+    const updateWorkflowState = (stepNum) => {
+      // Update line indicator progress
+      const progressPercent = ((stepNum - 1) / 6) * 100;
+      progressLine.style.width = `${progressPercent}%`;
+
+      // Active node states (Desktop)
+      stepNodes.forEach(node => {
+        const step = parseInt(node.getAttribute("data-step"));
+        if (step <= stepNum) {
+          node.classList.add("active");
+        } else {
+          node.classList.remove("active");
+        }
+      });
+
+      // Active item states (Mobile Timeline)
+      mobileTimelineItems.forEach(item => {
+        const step = parseInt(item.getAttribute("data-step"));
+        if (step === stepNum) {
+          item.classList.add("active");
+        } else {
+          item.classList.remove("active");
+        }
+      });
+
+      // Update descriptions
+      const currentStepInfo = stepsData[stepNum];
+      if (currentStepInfo) {
+        descTitle.innerText = currentStepInfo.title;
+        descText.innerText = currentStepInfo.text;
+      }
+    };
+
+    // Bind Desktop events
+    stepNodes.forEach(node => {
+      node.addEventListener("click", () => {
+        const stepNum = parseInt(node.getAttribute("data-step"));
+        updateWorkflowState(stepNum);
+      });
+    });
+
+    // Bind Mobile Timeline events
+    mobileTimelineItems.forEach(item => {
+      item.addEventListener("click", () => {
+        const stepNum = parseInt(item.getAttribute("data-step"));
+        updateWorkflowState(stepNum);
+      });
+    });
+
+    // 6. FEATURES ACCORDION INTERACTION (Mobile Only)
+    const accordionItems = document.querySelectorAll(".accordion-item");
+    accordionItems.forEach(item => {
+      const trigger = item.querySelector(".accordion-trigger");
+      const content = item.querySelector(".accordion-content");
+      
+      trigger.addEventListener("click", () => {
+        const isActive = item.classList.contains("active");
+        
+        // Close all active ones
+        accordionItems.forEach(acc => {
+          acc.classList.remove("active");
+          acc.querySelector(".accordion-content").style.maxHeight = null;
+        });
+
+        // Toggle current one
+        if (!isActive) {
+          item.classList.add("active");
+          content.style.maxHeight = content.scrollHeight + "px";
+        }
+      });
+    });
+  </script>
+</body>
+</html>
