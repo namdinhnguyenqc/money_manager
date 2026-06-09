@@ -232,6 +232,12 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
+/* Hide Mobile Components on Desktop by Default */
+.trocare-landing .features-mobile-accordion,
+.trocare-landing .mobile-workflow-timeline {
+  display: none;
+}
+
 /* Container */
 .trocare-landing .container {
   width: 100%;
