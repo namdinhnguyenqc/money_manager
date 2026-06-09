@@ -1386,6 +1386,23 @@ button:focus-visible {
 }
 
 @media (max-width: 768px) {
+  .trocare-landing .navbar .logo-slogan {
+    display: none;
+  }
+
+  .trocare-landing .navbar .logo-text {
+    font-size: 20px;
+  }
+
+  .trocare-landing .navbar .logo-container {
+    gap: 8px;
+  }
+
+  .trocare-landing .navbar .logo-container img {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
   .trocare-landing .mobile-nav-toggle {
     display: block;
   }
@@ -1566,19 +1583,48 @@ button:focus-visible {
   }
 }
 
-@media (max-width: 420px) {
-  .trocare-landing .navbar .container {
+@media (max-width: 576px) {
+  .trocare-landing .container {
     padding: 0 16px;
   }
+}
 
-  .trocare-landing .logo img {
-    width: 160px;
-    height: auto;
+@media (max-width: 480px) {
+  .trocare-landing .navbar .container {
+    padding: 0 12px;
   }
 
   .trocare-landing .nav-cta > .btn-primary {
-    padding-inline: 12px;
+    padding-inline: 10px;
+    font-size: 13px;
+    height: 40px;
+  }
+
+  .trocare-landing .hero h1 {
+    font-size: 26px;
+    line-height: 1.25;
+  }
+
+  .trocare-landing .hero-subtext {
     font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .trocare-landing .hero {
+    padding: 120px 0 60px;
+  }
+
+  .trocare-landing .invoice-card {
+    padding: 16px;
+    width: 100%;
+  }
+
+  .trocare-landing .final-cta h2 {
+    font-size: 26px;
+  }
+  
+  .trocare-landing .final-cta p {
+    font-size: 15px;
   }
 }
 
