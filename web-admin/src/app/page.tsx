@@ -4,13 +4,18 @@ import LandingPageClient from "./LandingPageClient";
 export const metadata: Metadata = {
   title: "Phần Mềm Quản Lý Trọ Miễn Phí, Quản Lý Phòng Trọ - TroCare",
   description:
-    "TroCare là phần mềm quản lý trọ miễn phí tốt nhất hiện nay. Hỗ trợ quản lý phòng trọ, dãy trọ, khách thuê, hợp đồng, hóa đơn tự động, quét mã QR thanh toán SePay và sổ quỹ thu chi chủ trọ.",
+    "TroCare là phần mềm quản lý trọ miễn phí uy tín và bảo mật tốt nhất hiện nay. Hỗ trợ quản lý phòng trọ, dãy trọ, khách thuê, hợp đồng, hóa đơn tự động, quét mã QR thanh toán SePay và sổ quỹ thu chi chủ trọ an toàn.",
   keywords: [
     "TroCare",
     "quản lý trọ miễn phí",
     "quan ly tro mien phi",
     "phần mềm quản lý phòng trọ miễn phí",
     "phan mem quan ly phong tro mien phi",
+    "quản lý trọ uy tín",
+    "quản lý trọ bảo mật",
+    "phần mềm quản lý trọ uy tín",
+    "phần mềm quản lý trọ bảo mật",
+    "quản lý phòng trọ bảo mật",
     "quản lý nhà trọ miễn phí",
     "phần mềm quản lý nhà trọ",
     "app quản lý phòng trọ miễn phí",
