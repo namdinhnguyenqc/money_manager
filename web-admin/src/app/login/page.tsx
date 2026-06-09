@@ -139,7 +139,7 @@ export default function LoginPage() {
           <div className="absolute w-[260px] h-[260px] -right-20 -top-20 bg-gradient-to-br from-blue-600/15 to-cyan-500/16 rounded-full blur-[4px]" />
           
           <header className="relative flex flex-col items-center gap-3 mb-10">
-            <Image src="/brand/transparent/trocare-symbol-tc-transparent-256.png" width={72} height={72} alt="Logo" className="drop-shadow-[0_18px_26px_rgba(37,99,235,0.16)]" />
+            <Image src="/brand/app-icons/app-icon-gradient-256.png" width={72} height={72} alt="Logo" className="drop-shadow-[0_18px_26px_rgba(37,99,235,0.16)]" />
             <div className="text-3xl font-bold tracking-[-0.06em] font-['Plus_Jakarta_Sans']">
               <span>Trọ</span><span className="text-[#2563EB] font-black">Care</span>
             </div>

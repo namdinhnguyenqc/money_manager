@@ -44,8 +44,8 @@ export default function Logo({
     return (
       <div className={`flex items-center ${className}`}>
         <Image 
-          src="/brand/transparent/trocare-symbol-tc-transparent-256.png" 
-          alt="TroCare Symbol"
+          src="/brand/app-icons/app-icon-gradient-256.png" 
+          alt="TrọCare Symbol"
           width={pixelSize}
           height={pixelSize}
           className="object-contain"
@@ -58,8 +58,8 @@ export default function Logo({
     <div className={`flex items-center gap-3 ${className}`}>
       <div className="shrink-0">
         <Image 
-          src="/brand/transparent/trocare-symbol-tc-transparent-128.png" 
-          alt="TroCare"
+          src="/brand/app-icons/app-icon-gradient-128.png" 
+          alt="TrọCare"
           width={pixelSize}
           height={pixelSize}
           className="object-contain"
