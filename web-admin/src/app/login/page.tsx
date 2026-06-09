@@ -70,7 +70,7 @@ export default function LoginPage() {
               Quản lý trọ thông minh<br />Vận hành an tâm
             </h1>
             <p className="mt-3 max-w-[500px] text-slate-200/86 text-sm leading-relaxed font-medium">
-              TroCare giúp chủ trọ quản lý phòng, khách thuê, thu chi và hợp đồng dễ dàng — mọi lúc, mọi nơi.
+              TrọCare giúp chủ trọ quản lý phòng, khách thuê, thu chi và hợp đồng dễ dàng — mọi lúc, mọi nơi.
             </p>
           </div>
 
@@ -141,13 +141,13 @@ export default function LoginPage() {
           <header className="relative flex flex-col items-center gap-3 mb-10">
             <Image src="/brand/transparent/trocare-symbol-tc-transparent-256.png" width={72} height={72} alt="Logo" className="drop-shadow-[0_18px_26px_rgba(37,99,235,0.16)]" />
             <div className="text-3xl font-bold tracking-[-0.06em] font-['Plus_Jakarta_Sans']">
-              <span>Tro</span><span className="text-[#2563EB] font-black">Care</span>
+              <span>Trọ</span><span className="text-[#2563EB] font-black">Care</span>
             </div>
           </header>
 
           <div className="relative text-center mb-8">
             <h2 className="text-[28px] leading-tight font-extrabold tracking-[-0.055em] font-['Plus_Jakarta_Sans'] text-[#0F172A]">
-              Đăng nhập vào TroCare Owner
+              Đăng nhập vào TrọCare Owner
             </h2>
             <p className="mt-3 text-slate-500 text-sm font-semibold">
               Quản lý trọ thông minh, vận hành an tâm
@@ -183,7 +183,7 @@ export default function LoginPage() {
           </div>
 
           <footer className="mt-8 text-center text-slate-500 text-[11px] font-medium">
-            © {new Date().getFullYear()} TroCare Platform. <br/>
+            © {new Date().getFullYear()} TrọCare Platform. <br/>
             <a href="/terms" className="text-[#2563EB] font-extrabold hover:underline">Điều khoản</a> & <a href="/privacy" className="text-[#2563EB] font-extrabold hover:underline">Bảo mật</a>
           </footer>
         </section>

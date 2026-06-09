@@ -367,7 +367,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
             <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-700 transition hover:bg-slate-100" onClick={() => setSidebarOpen(true)} aria-label="Mở menu">
               <Menu size={20} />
             </button>
-            <div className="text-sm font-black tracking-tight text-slate-900">TroCare Vận hành</div>
+            <div className="text-sm font-black tracking-tight text-slate-900">TrọCare Vận hành</div>
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-500"></span>

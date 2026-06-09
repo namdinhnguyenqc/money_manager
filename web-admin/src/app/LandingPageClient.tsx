@@ -144,15 +144,19 @@ export default function LandingPageClient() {
       {/* SECTION 1 — NAVBAR */}
       <header className={`navbar ${isScrolled ? "scrolled" : ""}`}>
         <div className="container">
-          <Link href="/" className="logo">
+          <Link href="/" className="logo-container">
             <Image
-              src="/brand/transparent/trocare-logo-full-transparent-2000.png"
-              alt="TroCare - Phần mềm quản lý trọ miễn phí"
-              width={200}
-              height={55}
+              src="/brand/transparent/trocare-symbol-tc-transparent-256.png"
+              alt="TrọCare - Phần mềm quản lý trọ miễn phí"
+              width={42}
+              height={42}
               priority
               style={{ objectFit: "contain" }}
             />
+            <div className="logo-text-wrapper">
+              <span className="logo-text"><span className="text-dark">Trọ</span><span className="text-blue">Care</span></span>
+              <span className="logo-slogan">Quản lý trọ thông minh, vận hành an tâm</span>
+            </div>
           </Link>
           
           <nav className="nav-links">
@@ -222,7 +226,7 @@ export default function LandingPageClient() {
                 <span>✦ Uy Tín · Bảo Mật · Miễn Phí Mãi Mãi</span>
               </div>
               <h1>Phần mềm quản lý trọ miễn phí, nhìn rõ <span>từng phòng từng đồng</span>.</h1>
-              <p className="hero-subtext">TroCare là phần mềm quản lý phòng trọ miễn phí chuyên nghiệp giúp chủ trọ quản lý dãy trọ, phòng, khách thuê, hợp đồng, hóa đơn và doanh thu thu chi tự động.</p>
+              <p className="hero-subtext">TrọCare là phần mềm quản lý phòng trọ miễn phí chuyên nghiệp giúp chủ trọ quản lý dãy trọ, phòng, khách thuê, hợp đồng, hóa đơn và doanh thu thu chi tự động.</p>
               
               <div className="hero-actions">
                 <Link href="/login" className="btn btn-primary" data-cta="primary">Bắt đầu miễn phí →</Link>
@@ -750,16 +754,16 @@ export default function LandingPageClient() {
           </div>
           <div className="faq-list reveal">
             <details>
-              <summary>TroCare có thực sự miễn phí không?</summary>
+              <summary>TrọCare có thực sự miễn phí không?</summary>
               <p>Có. Bạn có thể bắt đầu quản lý phòng, khách thuê, hợp đồng, hóa đơn và thu chi mà không cần thẻ tín dụng.</p>
             </details>
             <details>
               <summary>Tôi có cần cài phần mềm không?</summary>
-              <p>Không. TroCare chạy trên trình duyệt, bạn chỉ cần đăng nhập để sử dụng trên máy tính hoặc điện thoại.</p>
+              <p>Không. TrọCare chạy trên trình duyệt, bạn chỉ cần đăng nhập để sử dụng trên máy tính hoặc điện thoại.</p>
             </details>
             <details>
               <summary>Dữ liệu quản lý trọ có được bảo mật và an toàn không?</summary>
-              <p>Có. TroCare cam kết bảo mật thông tin tuyệt đối bằng mã hóa SSL/HTTPS kết hợp cơ chế xác thực tài khoản nghiêm ngặt, đảm bảo dữ liệu quản lý phòng trọ của bạn luôn an toàn, uy tín và riêng tư.</p>
+              <p>Có. TrọCare cam kết bảo mật thông tin tuyệt đối bằng mã hóa SSL/HTTPS kết hợp cơ chế xác thực tài khoản nghiêm ngặt, đảm bảo dữ liệu quản lý phòng trọ của bạn luôn an toàn, uy tín và riêng tư.</p>
             </details>
             <details>
               <summary>Tôi bắt đầu từ đâu?</summary>
@@ -776,7 +780,7 @@ export default function LandingPageClient() {
             <h2>Bắt đầu miễn phí, chuẩn hóa vận hành từ hôm nay.</h2>
             <p>Nhập phòng trọ một lần. Từ tháng sau, hóa đơn và nhắc nợ tự chạy.</p>
             <Link href="/login" className="btn btn-primary" data-cta="primary">
-              Dùng TroCare miễn phí →
+              Dùng TrọCare miễn phí →
             </Link>
             <span>Không cần thẻ tín dụng · Miễn phí mãi mãi</span>
           </div>
@@ -788,16 +792,19 @@ export default function LandingPageClient() {
         <div className="container">
           <div className="footer-grid">
             <div className="footer-brand">
-              <Link href="/" className="logo">
+              <Link href="/" className="logo-container">
                 <Image
-                  src="/brand/transparent/trocare-logo-full-transparent-2000.png"
-                  alt="TroCare - Phần mềm quản lý phòng trọ miễn phí"
-                  width={200}
-                  height={55}
+                  src="/brand/transparent/trocare-symbol-tc-transparent-256.png"
+                  alt="TrọCare - Phần mềm quản lý phòng trọ miễn phí"
+                  width={42}
+                  height={42}
                   style={{ objectFit: "contain" }}
                 />
+                <div className="logo-text-wrapper">
+                  <span className="logo-text"><span className="text-dark">Trọ</span><span className="text-blue">Care</span></span>
+                  <span className="logo-slogan">Quản lý trọ thông minh, vận hành an tâm</span>
+                </div>
               </Link>
-              <p>Quản lý trọ thông minh, vận hành an tâm.</p>
             </div>
             
             <div className="footer-col">
@@ -829,7 +836,7 @@ export default function LandingPageClient() {
           </div>
           
           <div className="footer-bottom">
-            <span>© 2026 TroCare. Miễn phí cho chủ trọ Việt Nam.</span>
+            <span>© 2026 TrọCare. Miễn phí cho chủ trọ Việt Nam.</span>
           </div>
         </div>
       </footer>

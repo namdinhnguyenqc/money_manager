@@ -68,7 +68,7 @@ export default function Logo({
       {showText && (
         <div className="flex flex-col">
           <span className={`tracking-tight ${textClassName} font-medium`}>
-            <span className="text-[#0F172A]">Tro</span>
+            <span className="text-[#0F172A]">Trọ</span>
             <span className="text-[#2563EB] font-black">Care</span>
           </span>
           <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 -mt-0.5">
