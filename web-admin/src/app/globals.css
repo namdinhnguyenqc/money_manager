@@ -348,6 +348,60 @@ button:focus-visible {
   color: var(--brand);
 }
 
+.trocare-landing .logo-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.trocare-landing .logo-text-wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.trocare-landing .logo-text {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+
+.trocare-landing .logo-text .text-dark {
+  color: #0F172A;
+}
+
+.trocare-landing .logo-text .text-blue {
+  color: #2563EB;
+}
+
+.trocare-landing .logo-text::after {
+  content: ".";
+  color: #2563EB;
+}
+
+.trocare-landing .logo-slogan {
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+.trocare-landing .navbar.scrolled .logo-slogan {
+  display: none;
+}
+
+.trocare-landing .navbar.scrolled .logo-text {
+  font-size: 22px;
+}
+
+.trocare-landing .navbar.scrolled .logo-container img {
+  width: 32px !important;
+  height: 32px !important;
+}
+
 .trocare-landing .nav-links {
   display: flex;
   align-items: center;
