@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -39,6 +39,8 @@ export default function LandingPageClient() {
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
   const [activeAccordion, setActiveAccordion] = useState<number>(0);
   const [activeSection, setActiveSection] = useState<string>("");
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuCloseRef = useRef<HTMLButtonElement>(null);
 
   // Track window scroll for Navbar height & background transition
   useEffect(() => {
@@ -86,6 +88,25 @@ export default function LandingPageClient() {
     window.addEventListener("scroll", handleScrollSpy);
     return () => window.removeEventListener("scroll", handleScrollSpy);
   }, []);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsMobileMenuOpen(false);
+    };
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKeyDown);
+    mobileMenuCloseRef.current?.focus();
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+      mobileMenuButtonRef.current?.focus();
+    };
+  }, [isMobileMenuOpen]);
 
   const stepsData: Record<number, StepData> = {
     1: {
@@ -145,9 +166,12 @@ export default function LandingPageClient() {
             <Link href="/login" className="btn btn-outline" data-cta="secondary">Đăng nhập</Link>
             <Link href="/login" className="btn btn-primary" data-cta="primary">Dùng miễn phí</Link>
             <button 
+              ref={mobileMenuButtonRef}
               className="mobile-nav-toggle" 
               onClick={() => setIsMobileMenuOpen(true)}
               aria-label="Mở trình đơn"
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-navigation"
             >
               <Menu size={24} />
             </button>
@@ -155,32 +179,39 @@ export default function LandingPageClient() {
         </div>
       </header>
 
-      {/* Mobile Menu Drawer Overlay */}
-      <div 
-        className={`mobile-drawer-overlay ${isMobileMenuOpen ? "active" : ""}`}
-        onClick={() => setIsMobileMenuOpen(false)}
-      ></div>
-      
-      {/* Mobile Menu Drawer */}
-      <div className={`mobile-drawer ${isMobileMenuOpen ? "active" : ""}`}>
-        <button 
-          className="mobile-drawer-close" 
-          onClick={() => setIsMobileMenuOpen(false)}
-          aria-label="Đóng trình đơn"
-        >
-          <X size={24} />
-        </button>
-        <nav className="mobile-nav-links">
-          <a href="#features" onClick={() => setIsMobileMenuOpen(false)}>Tính năng</a>
-          <a href="#workflow" onClick={() => setIsMobileMenuOpen(false)}>Quy trình</a>
-          <a href="#payment" onClick={() => setIsMobileMenuOpen(false)}>Thanh toán</a>
-          <a href="#ai" onClick={() => setIsMobileMenuOpen(false)}>AI</a>
-        </nav>
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "24px" }}>
-          <Link href="/login" className="btn btn-outline" style={{ width: "100%" }} data-cta="secondary">Đăng nhập</Link>
-          <Link href="/login" className="btn btn-primary" style={{ width: "100%" }} data-cta="primary">Dùng miễn phí</Link>
-        </div>
-      </div>
+      {isMobileMenuOpen && (
+        <>
+          <button
+            className="mobile-drawer-overlay active"
+            onClick={() => setIsMobileMenuOpen(false)}
+            aria-label="Đóng trình đơn"
+          />
+          <aside
+            id="mobile-navigation"
+            className="mobile-drawer active"
+            aria-label="Trình đơn di động"
+          >
+            <button
+              ref={mobileMenuCloseRef}
+              className="mobile-drawer-close"
+              onClick={() => setIsMobileMenuOpen(false)}
+              aria-label="Đóng trình đơn"
+            >
+              <X size={24} />
+            </button>
+            <nav className="mobile-nav-links" aria-label="Điều hướng di động">
+              <a href="#features" onClick={() => setIsMobileMenuOpen(false)}>Tính năng</a>
+              <a href="#workflow" onClick={() => setIsMobileMenuOpen(false)}>Quy trình</a>
+              <a href="#payment" onClick={() => setIsMobileMenuOpen(false)}>Thanh toán</a>
+              <a href="#ai" onClick={() => setIsMobileMenuOpen(false)}>AI</a>
+            </nav>
+            <div className="mobile-drawer-actions">
+              <Link href="/login" className="btn btn-outline" data-cta="secondary">Đăng nhập</Link>
+              <Link href="/login" className="btn btn-primary" data-cta="primary">Dùng miễn phí</Link>
+            </div>
+          </aside>
+        </>
+      )}
 
       {/* SECTION 2 — HERO */}
       <section className="hero">
@@ -395,12 +426,19 @@ export default function LandingPageClient() {
           <div className="features-mobile-accordion">
             {/* Accordion Item 1 */}
             <div className={`accordion-item ${activeAccordion === 0 ? "active" : ""}`}>
-              <button className="accordion-trigger" onClick={() => setActiveAccordion(activeAccordion === 0 ? -1 : 0)}>
+              <button
+                className="accordion-trigger"
+                onClick={() => setActiveAccordion(activeAccordion === 0 ? -1 : 0)}
+                aria-expanded={activeAccordion === 0}
+                aria-controls="feature-panel-basic"
+              >
                 <span>Quản lý cơ bản</span>
                 <ChevronRight size={18} />
               </button>
               <div 
+                id="feature-panel-basic"
                 className="accordion-content" 
+                aria-hidden={activeAccordion !== 0}
                 style={{ maxHeight: activeAccordion === 0 ? "1000px" : "0" }}
               >
                 <div className="mobile-feature-list">
@@ -431,12 +469,19 @@ export default function LandingPageClient() {
 
             {/* Accordion Item 2 */}
             <div className={`accordion-item ${activeAccordion === 1 ? "active" : ""}`}>
-              <button className="accordion-trigger" onClick={() => setActiveAccordion(activeAccordion === 1 ? -1 : 1)}>
+              <button
+                className="accordion-trigger"
+                onClick={() => setActiveAccordion(activeAccordion === 1 ? -1 : 1)}
+                aria-expanded={activeAccordion === 1}
+                aria-controls="feature-panel-payment"
+              >
                 <span>Thu chi & Thanh toán</span>
                 <ChevronRight size={18} />
               </button>
               <div 
+                id="feature-panel-payment"
                 className="accordion-content" 
+                aria-hidden={activeAccordion !== 1}
                 style={{ maxHeight: activeAccordion === 1 ? "1000px" : "0" }}
               >
                 <div className="mobile-feature-list">
@@ -467,12 +512,19 @@ export default function LandingPageClient() {
 
             {/* Accordion Item 3 */}
             <div className={`accordion-item ${activeAccordion === 2 ? "active" : ""}`}>
-              <button className="accordion-trigger" onClick={() => setActiveAccordion(activeAccordion === 2 ? -1 : 2)}>
+              <button
+                className="accordion-trigger"
+                onClick={() => setActiveAccordion(activeAccordion === 2 ? -1 : 2)}
+                aria-expanded={activeAccordion === 2}
+                aria-controls="feature-panel-communication"
+              >
                 <span>Giao tiếp & Nhắc việc</span>
                 <ChevronRight size={18} />
               </button>
               <div 
+                id="feature-panel-communication"
                 className="accordion-content" 
+                aria-hidden={activeAccordion !== 2}
                 style={{ maxHeight: activeAccordion === 2 ? "1000px" : "0" }}
               >
                 <div className="mobile-feature-list">
@@ -519,6 +571,7 @@ export default function LandingPageClient() {
                   key={num}
                   className={`workflow-step-node ${activeStep >= num ? "active" : ""}`}
                   onClick={() => setActiveStep(num)}
+                  aria-pressed={activeStep === num}
                 >
                   <div className="workflow-circle">{num}</div>
                   <span>
@@ -688,7 +741,35 @@ export default function LandingPageClient() {
         </div>
       </section>
 
-      {/* SECTION 8 — FINAL CTA */}
+      {/* SECTION 8 — FAQ */}
+      <section className="faq-section" id="faq">
+        <div className="container">
+          <div className="features-header reveal">
+            <span className="eyebrow">Hỏi nhanh, đáp rõ</span>
+            <h2>Những điều chủ trọ thường hỏi trước khi bắt đầu.</h2>
+          </div>
+          <div className="faq-list reveal">
+            <details>
+              <summary>TroCare có thực sự miễn phí không?</summary>
+              <p>Có. Bạn có thể bắt đầu quản lý phòng, khách thuê, hợp đồng, hóa đơn và thu chi mà không cần thẻ tín dụng.</p>
+            </details>
+            <details>
+              <summary>Tôi có cần cài phần mềm không?</summary>
+              <p>Không. TroCare chạy trên trình duyệt, bạn chỉ cần đăng nhập để sử dụng trên máy tính hoặc điện thoại.</p>
+            </details>
+            <details>
+              <summary>Dữ liệu nhà trọ có được bảo vệ không?</summary>
+              <p>TroCare sử dụng kết nối HTTPS và cơ chế xác thực tài khoản. Chi tiết được công bố tại trang Chính sách bảo mật.</p>
+            </details>
+            <details>
+              <summary>Tôi bắt đầu từ đâu?</summary>
+              <p>Tạo dãy trọ, thêm phòng, nhập khách thuê và hợp đồng. Quy trình 7 bước phía trên hướng dẫn đầy đủ thứ tự cần làm.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 9 — FINAL CTA */}
       <section className="final-cta">
         <div className="container reveal">
           <div className="final-cta-content">
@@ -702,17 +783,17 @@ export default function LandingPageClient() {
         </div>
       </section>
 
-      {/* SECTION 9 — FOOTER */}
+      {/* SECTION 10 — FOOTER */}
       <footer className="footer">
         <div className="container">
           <div className="footer-grid">
             <div className="footer-brand">
-              <Link href="/" className="logo" style={{ textDecoration: "none" }}>
+              <Link href="/" className="logo">
                 <Image
-                  src="/brand/transparent/trocare-wordmark-transparent-1600.png"
+                  src="/brand/transparent/trocare-logo-full-transparent-2000.png"
                   alt="TroCare"
-                  width={150}
-                  height={45}
+                  width={200}
+                  height={55}
                   style={{ objectFit: "contain" }}
                 />
               </Link>
@@ -734,7 +815,7 @@ export default function LandingPageClient() {
               <ul className="footer-links">
                 <li><a href="#faq">Hỏi đáp</a></li>
                 <li><a href="mailto:support@trocare.com">Liên hệ hỗ trợ</a></li>
-                <li><a href="#guide">Hướng dẫn bắt đầu</a></li>
+                <li><a href="#workflow">Hướng dẫn bắt đầu</a></li>
               </ul>
             </div>
             
