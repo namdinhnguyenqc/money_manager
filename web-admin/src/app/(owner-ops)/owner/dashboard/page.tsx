@@ -269,7 +269,7 @@ export default function OwnerDashboard() {
         {overdueInvoices.length > 0 && (
           <Link
             href="/invoices"
-            className="flex items-start gap-4 rounded-[28px] border border-red-200 bg-red-50 p-5 text-red-800 shadow-lg shadow-red-100/50 transition hover:bg-red-100"
+            className="flex items-start gap-4 rounded-2xl sm:rounded-[28px] border border-red-200 bg-red-50 p-4 sm:p-5 text-red-800 shadow-lg shadow-red-100/50 transition hover:bg-red-100"
           >
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-red-600 shadow-sm">
               <AlertCircle size={20} />
@@ -324,7 +324,7 @@ export default function OwnerDashboard() {
 
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Cashflow Trend Chart (AreaChart) */}
-          <div className="col-span-1 flex flex-col rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40 lg:col-span-2">
+          <div className="col-span-1 flex flex-col rounded-2xl sm:rounded-[32px] border border-slate-200 bg-white p-4 sm:p-8 shadow-xl shadow-slate-200/40 lg:col-span-2">
             <div className="mb-8 flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-extrabold text-slate-900">Biến động dòng tiền</h3>
@@ -390,7 +390,7 @@ export default function OwnerDashboard() {
           </div>
 
           {/* Room Status Donut Chart */}
-          <div className="flex flex-col rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
+          <div className="flex flex-col rounded-2xl sm:rounded-[32px] border border-slate-200 bg-white p-4 sm:p-8 shadow-xl shadow-slate-200/40">
             <h3 className="text-xl font-extrabold text-slate-900">Trạng thái phòng</h3>
             <p className="mb-6 text-xs text-slate-500 font-medium">Tình trạng phòng cho thuê hiện tại</p>
             
@@ -450,7 +450,7 @@ export default function OwnerDashboard() {
             {/* Cột 1: Chỉ số tháng này */}
             <div className="flex flex-col gap-6 lg:col-span-1">
               {/* Thẻ Điện */}
-              <div className="relative group overflow-hidden rounded-[32px] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-100/50 transition-all hover:-translate-y-1 hover:shadow-2xl">
+              <div className="relative group overflow-hidden rounded-2xl sm:rounded-[32px] border border-slate-200 bg-white p-5 sm:p-6 shadow-xl shadow-slate-100/50 transition-all hover:-translate-y-1 hover:shadow-2xl">
                 <div className="absolute top-0 right-0 h-24 w-24 translate-x-8 -translate-y-8 rounded-full bg-amber-50/50 group-hover:bg-amber-50 transition-colors"></div>
                 <div className="relative flex items-center justify-between mb-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-lg shadow-amber-100">
@@ -477,7 +477,7 @@ export default function OwnerDashboard() {
               </div>
 
               {/* Thẻ Nước */}
-              <div className="relative group overflow-hidden rounded-[32px] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-100/50 transition-all hover:-translate-y-1 hover:shadow-2xl">
+              <div className="relative group overflow-hidden rounded-2xl sm:rounded-[32px] border border-slate-200 bg-white p-5 sm:p-6 shadow-xl shadow-slate-100/50 transition-all hover:-translate-y-1 hover:shadow-2xl">
                 <div className="absolute top-0 right-0 h-24 w-24 translate-x-8 -translate-y-8 rounded-full bg-blue-50/50 group-hover:bg-blue-50 transition-colors"></div>
                 <div className="relative flex items-center justify-between mb-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-400 to-blue-500 text-white shadow-lg shadow-blue-100">
@@ -505,7 +505,7 @@ export default function OwnerDashboard() {
             </div>
 
             {/* Cột 2 & 3: Biểu đồ xu hướng */}
-            <div className="flex flex-col rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40 lg:col-span-2">
+            <div className="flex flex-col rounded-2xl sm:rounded-[32px] border border-slate-200 bg-white p-4 sm:p-8 shadow-xl shadow-slate-200/40 lg:col-span-2">
               <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-xl font-extrabold text-slate-900">Biến động tiêu thụ điện nước</h3>
@@ -590,7 +590,7 @@ export default function OwnerDashboard() {
 
         <div className="grid gap-8 lg:grid-cols-5">
           {/* Vacant Rooms List */}
-          <div className="lg:col-span-3 flex flex-col rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40 overflow-hidden">
+          <div className="lg:col-span-3 flex flex-col rounded-2xl sm:rounded-[32px] border border-slate-200 bg-white p-4 sm:p-8 shadow-xl shadow-slate-200/40 overflow-hidden">
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-extrabold text-slate-900">Phòng trống cần cho thuê</h3>
@@ -623,7 +623,7 @@ export default function OwnerDashboard() {
           </div>
 
           {/* Quick Actions */}
-          <div className="lg:col-span-2 flex flex-col rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
+          <div className="lg:col-span-2 flex flex-col rounded-2xl sm:rounded-[32px] border border-slate-200 bg-white p-4 sm:p-8 shadow-xl shadow-slate-200/40">
             <h3 className="mb-6 text-xl font-extrabold text-slate-900">Truy cập nhanh</h3>
             <div className="grid grid-cols-2 gap-4">
               <QuickAction title="Hóa đơn" href="/invoices" icon={<FileText />} color="indigo" />
@@ -656,11 +656,11 @@ export default function OwnerDashboard() {
 }
 
 function StatCard({ title, value, icon, color, trend, subValue }: any) {
-  const colors: any = {
-    indigo: 'from-indigo-500 to-indigo-600 shadow-indigo-100 text-indigo-600 bg-indigo-50/50 border-indigo-100/50',
-    rose: 'from-rose-500 to-rose-600 shadow-rose-100 text-rose-600 bg-rose-50/50 border-rose-100/50',
-    emerald: 'from-emerald-500 to-emerald-600 shadow-emerald-100 text-emerald-600 bg-emerald-50/50 border-emerald-100/50',
-    amber: 'from-amber-500 to-amber-600 shadow-amber-100 text-amber-600 bg-amber-50/50 border-amber-100/50',
+  const hoverBorders: any = {
+    indigo: 'hover:border-indigo-300 hover:shadow-indigo-100/40',
+    rose: 'hover:border-rose-300 hover:shadow-rose-100/40',
+    emerald: 'hover:border-emerald-300 hover:shadow-emerald-100/40',
+    amber: 'hover:border-amber-300 hover:shadow-amber-100/40',
   };
   
   const iconGradients: any = {
@@ -671,7 +671,7 @@ function StatCard({ title, value, icon, color, trend, subValue }: any) {
   };
   
   return (
-    <div className="relative group overflow-hidden rounded-[32px] border border-slate-200 bg-white p-7 shadow-xl shadow-slate-100/50 transition-all hover:-translate-y-1 hover:shadow-2xl">
+    <div className={`relative group overflow-hidden rounded-2xl sm:rounded-[32px] border border-slate-200 bg-white p-5 sm:p-7 shadow-xl shadow-slate-100/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl ${hoverBorders[color]}`}>
       <div className="absolute top-0 right-0 h-32 w-32 translate-x-12 -translate-y-12 rounded-full bg-slate-50 transition-colors group-hover:bg-slate-100/60"></div>
       
       <div className="relative flex items-center justify-between mb-6">
@@ -685,7 +685,7 @@ function StatCard({ title, value, icon, color, trend, subValue }: any) {
       </div>
       
       <div className="relative">
-        <div className="text-2xl font-black text-slate-950 tracking-tight">{value}</div>
+        <div className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight">{value}</div>
         <div className="mt-1 text-xs font-bold text-slate-400">{subValue}</div>
       </div>
     </div>
@@ -706,17 +706,17 @@ function Legend({ color, label, value }: any) {
 
 function QuickAction({ title, href, icon, color }: any) {
   const colors: any = {
-    indigo: 'bg-indigo-50/50 text-indigo-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 border-indigo-100/50',
-    emerald: 'bg-emerald-50/50 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 border-emerald-100/50',
-    amber: 'bg-amber-50/50 text-amber-600 hover:bg-amber-600 hover:text-white hover:border-amber-600 border-amber-100/50',
-    rose: 'bg-rose-50/50 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 border-rose-100/50',
-    blue: 'bg-blue-50/50 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 border-blue-100/50',
-    slate: 'bg-slate-50/50 text-slate-600 hover:bg-slate-600 hover:text-white hover:border-slate-600 border-slate-100/50',
+    indigo: 'bg-indigo-50/40 text-indigo-600 border-indigo-100/70 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 hover:shadow-md hover:shadow-indigo-100/60',
+    emerald: 'bg-emerald-50/40 text-emerald-600 border-emerald-100/70 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 hover:shadow-md hover:shadow-emerald-100/60',
+    amber: 'bg-amber-50/40 text-amber-600 border-amber-100/70 hover:bg-amber-600 hover:text-white hover:border-amber-600 hover:shadow-md hover:shadow-amber-100/60',
+    rose: 'bg-rose-50/40 text-rose-600 border-rose-100/70 hover:bg-rose-600 hover:text-white hover:border-rose-600 hover:shadow-md hover:shadow-rose-100/60',
+    blue: 'bg-blue-50/40 text-blue-600 border-blue-100/70 hover:bg-blue-600 hover:text-white hover:border-blue-600 hover:shadow-md hover:shadow-blue-100/60',
+    slate: 'bg-slate-50/40 text-slate-600 border-slate-100/70 hover:bg-slate-600 hover:text-white hover:border-slate-600 hover:shadow-md hover:shadow-slate-100/60',
   };
 
   return (
-    <a href={href} className={`flex flex-col items-center gap-3 rounded-2xl p-5 transition-all duration-300 border shadow-sm group ${colors[color]}`}>
-      <div className="transition-transform group-hover:scale-110">{icon}</div>
+    <a href={href} className={`flex flex-col items-center justify-center gap-3 rounded-2xl p-4 sm:p-5 transition-all duration-300 border shadow-sm hover:-translate-y-0.5 group ${colors[color]}`}>
+      <div className="transition-transform duration-300 group-hover:scale-110">{icon}</div>
       <span className="text-[10px] font-black uppercase tracking-widest">{title}</span>
     </a>
   );
