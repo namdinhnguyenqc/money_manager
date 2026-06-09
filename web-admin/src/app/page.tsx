@@ -46,10 +46,10 @@ export const metadata: Metadata = {
     locale: "vi_VN",
     images: [
       {
-        url: "/brand/transparent/trocare-logo-full-transparent-2000.png",
-        width: 2000,
-        height: 612,
-        alt: "Logo TroCare quản lý trọ thông minh",
+        url: "/brand/trocare-og-banner.png",
+        width: 1200,
+        height: 630,
+        alt: "TroCare - Quản lý trọ thông minh, vận hành an tâm",
       },
     ],
   },
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "TroCare | Quản lý cho thuê miễn phí",
     description: "Phần mềm quản lý phòng trọ, hợp đồng, hóa đơn, thu chi và thanh toán cho chủ trọ.",
-    images: ["/brand/transparent/trocare-logo-full-transparent-2000.png"],
+    images: ["/brand/trocare-og-banner.png"],
   },
 };
 
