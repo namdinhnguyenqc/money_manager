@@ -193,15 +193,17 @@ button:focus-visible {
 }
 
 .trocare-landing {
-  --brand: #0EA66B;
-  --brand-hover: #0C9460;
-  --brand-light: #F0FDF4;
-  --bg-page: #F8FAF9;
+  --brand: #2563EB;
+  --brand-hover: #1D4ED8;
+  --brand-light: #EFF6FF;
+  --accent: #06B6D4;
+  --accent-dark: #0891B2;
+  --bg-page: #F8FAFC;
   --bg-card: #FFFFFF;
-  --text-primary: #111827;
-  --text-secondary: #5E6977;
-  --text-muted: #9CA3AF;
-  --border-color: #E5E7EB;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --border-color: #E2E8F0;
 
   --danger: #EF4444;
   --warning: #F59E0B;
