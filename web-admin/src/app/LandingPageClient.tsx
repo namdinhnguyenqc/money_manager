@@ -219,7 +219,7 @@ export default function LandingPageClient() {
           <div className="hero-grid">
             <div className="hero-left">
               <div className="hero-badge">
-                <span>✦ Miễn Phí · Vận Hành Không Giới Hạn</span>
+                <span>✦ Uy Tín · Bảo Mật · Miễn Phí Mãi Mãi</span>
               </div>
               <h1>Phần mềm quản lý trọ miễn phí, nhìn rõ <span>từng phòng từng đồng</span>.</h1>
               <p className="hero-subtext">TroCare là phần mềm quản lý phòng trọ miễn phí chuyên nghiệp giúp chủ trọ quản lý dãy trọ, phòng, khách thuê, hợp đồng, hóa đơn và doanh thu thu chi tự động.</p>
@@ -758,8 +758,8 @@ export default function LandingPageClient() {
               <p>Không. TroCare chạy trên trình duyệt, bạn chỉ cần đăng nhập để sử dụng trên máy tính hoặc điện thoại.</p>
             </details>
             <details>
-              <summary>Dữ liệu nhà trọ có được bảo vệ không?</summary>
-              <p>TroCare sử dụng kết nối HTTPS và cơ chế xác thực tài khoản. Chi tiết được công bố tại trang Chính sách bảo mật.</p>
+              <summary>Dữ liệu quản lý trọ có được bảo mật và an toàn không?</summary>
+              <p>Có. TroCare cam kết bảo mật thông tin tuyệt đối bằng mã hóa SSL/HTTPS kết hợp cơ chế xác thực tài khoản nghiêm ngặt, đảm bảo dữ liệu quản lý phòng trọ của bạn luôn an toàn, uy tín và riêng tư.</p>
             </details>
             <details>
               <summary>Tôi bắt đầu từ đâu?</summary>
