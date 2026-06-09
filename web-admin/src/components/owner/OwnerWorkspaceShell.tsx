@@ -273,10 +273,15 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      {sidebarOpen && <div className="fixed inset-0 z-20 bg-slate-950/30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-slate-950/40 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-slate-200 bg-white transition-transform lg:pointer-events-auto lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-300 ease-out lg:pointer-events-auto lg:static lg:translate-x-0 ${
           sidebarOpen ? "pointer-events-auto translate-x-0" : "pointer-events-none -translate-x-full"
         }`}
       >
@@ -357,11 +362,17 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
-          <button className="text-slate-600" onClick={() => setSidebarOpen(true)} aria-label="Mở menu">
-            <Menu size={22} />
-          </button>
-          <div className="text-sm font-semibold text-slate-900">Quản lý nhà trọ</div>
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/85 px-4 py-3 backdrop-blur-md lg:hidden">
+          <div className="flex items-center gap-3">
+            <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-700 transition hover:bg-slate-100" onClick={() => setSidebarOpen(true)} aria-label="Mở menu">
+              <Menu size={20} />
+            </button>
+            <div className="text-sm font-black tracking-tight text-slate-900">TroCare Vận hành</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-500"></span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Chủ trọ</span>
+          </div>
         </header>
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
