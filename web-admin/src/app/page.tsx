@@ -2,14 +2,20 @@ import type { Metadata } from "next";
 import LandingPageClient from "./LandingPageClient";
 
 export const metadata: Metadata = {
-  title: "TroCare | Quản lý cho thuê miễn phí cho chủ trọ",
+  title: "Phần Mềm Quản Lý Trọ Miễn Phí, Quản Lý Phòng Trọ - TroCare",
   description:
-    "TroCare là phần mềm quản lý phòng trọ miễn phí: dãy trọ, phòng, khách thuê, hợp đồng, hóa đơn, thu chi, QR SePay, nhắc thanh toán và vận hành chủ trọ.",
+    "TroCare là phần mềm quản lý trọ miễn phí tốt nhất hiện nay. Hỗ trợ quản lý phòng trọ, dãy trọ, khách thuê, hợp đồng, hóa đơn tự động, quét mã QR thanh toán SePay và sổ quỹ thu chi chủ trọ.",
   keywords: [
     "TroCare",
+    "quản lý trọ miễn phí",
+    "quan ly tro mien phi",
+    "phần mềm quản lý phòng trọ miễn phí",
+    "phan mem quan ly phong tro mien phi",
     "quản lý nhà trọ miễn phí",
-    "phần mềm quản lý phòng trọ",
-    "quản lý cho thuê",
+    "phần mềm quản lý nhà trọ",
+    "app quản lý phòng trọ miễn phí",
+    "phần mềm quản lý nhà trọ miễn phí",
+    "phần mềm quản lý nhà cho thuê",
     "quản lý hợp đồng thuê trọ",
     "lập hóa đơn phòng trọ",
     "thu chi nhà trọ",
@@ -21,9 +27,9 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "TroCare | Quản lý cho thuê miễn phí",
+    title: "Phần Mềm Quản Lý Trọ Miễn Phí, Quản Lý Phòng Trọ - TroCare",
     description:
-      "Một nơi để chủ trọ quản lý phòng, hợp đồng, hóa đơn, thu chi, thanh toán và nhắc việc mỗi tháng.",
+      "TroCare giúp chủ trọ quản lý phòng, khách thuê, hợp đồng, hóa đơn, thu chi, thanh toán QR tự động.",
     type: "website",
     locale: "vi_VN",
     images: [
@@ -31,14 +37,14 @@ export const metadata: Metadata = {
         url: "/brand/trocare-og-banner.png?v=1",
         width: 1200,
         height: 630,
-        alt: "TroCare - Quản lý trọ thông minh, vận hành an tâm",
+        alt: "TroCare - Phần mềm quản lý trọ miễn phí, vận hành an tâm",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "TroCare | Quản lý cho thuê miễn phí",
-    description: "Phần mềm quản lý phòng trọ, hợp đồng, hóa đơn, thu chi và thanh toán cho chủ trọ.",
+    title: "Phần Mềm Quản Lý Trọ Miễn Phí, Quản Lý Phòng Trọ - TroCare",
+    description: "Phần mềm quản lý phòng trọ, hợp đồng, hóa đơn, thu chi và thanh toán QR tự động cho chủ trọ.",
     images: ["/brand/trocare-og-banner.png?v=1"],
   },
 };

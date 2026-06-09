@@ -147,7 +147,7 @@ export default function LandingPageClient() {
           <Link href="/" className="logo">
             <Image
               src="/brand/transparent/trocare-logo-full-transparent-2000.png"
-              alt="TroCare"
+              alt="TroCare - Phần mềm quản lý trọ miễn phí"
               width={200}
               height={55}
               priority
@@ -219,10 +219,10 @@ export default function LandingPageClient() {
           <div className="hero-grid">
             <div className="hero-left">
               <div className="hero-badge">
-                <span>✦ Miễn phí · Không cần cài đặt</span>
+                <span>✦ Miễn Phí · Vận Hành Không Giới Hạn</span>
               </div>
-              <h1>Quản lý nhà trọ miễn phí, nhìn rõ <span>từng phòng từng đồng</span>.</h1>
-              <p className="hero-subtext">TroCare giúp chủ trọ quản lý phòng, hóa đơn, thu chi và nhắc nợ — trong một màn hình, không cần Excel.</p>
+              <h1>Phần mềm quản lý trọ miễn phí, nhìn rõ <span>từng phòng từng đồng</span>.</h1>
+              <p className="hero-subtext">TroCare là phần mềm quản lý phòng trọ miễn phí chuyên nghiệp giúp chủ trọ quản lý dãy trọ, phòng, khách thuê, hợp đồng, hóa đơn và doanh thu thu chi tự động.</p>
               
               <div className="hero-actions">
                 <Link href="/login" className="btn btn-primary" data-cta="primary">Bắt đầu miễn phí →</Link>
@@ -326,9 +326,9 @@ export default function LandingPageClient() {
       <section className="features" id="features">
         <div className="container">
           <div className="features-header reveal">
-            <span className="eyebrow">Tất cả trong một màn hình</span>
-            <h2>TroCare quản lý toàn bộ vòng đời cho thuê.</h2>
-            <p>Giúp chủ trọ Việt Nam số hóa quy trình và tự động hóa các khâu thu chi phức tạp.</p>
+            <span className="eyebrow">Tính năng phần mềm quản lý trọ miễn phí</span>
+            <h2>Giải pháp quản lý phòng trọ miễn phí toàn diện</h2>
+            <p>Giúp chủ dãy trọ và nhà cho thuê số hóa quy trình vận hành, tự động lập hóa đơn và đối soát thanh toán.</p>
           </div>
 
           {/* Desktop 3-column Layout */}
@@ -791,7 +791,7 @@ export default function LandingPageClient() {
               <Link href="/" className="logo">
                 <Image
                   src="/brand/transparent/trocare-logo-full-transparent-2000.png"
-                  alt="TroCare"
+                  alt="TroCare - Phần mềm quản lý phòng trọ miễn phí"
                   width={200}
                   height={55}
                   style={{ objectFit: "contain" }}
