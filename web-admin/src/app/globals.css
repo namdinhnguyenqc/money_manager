@@ -193,43 +193,40 @@ button:focus-visible {
 }
 
 .trocare-landing {
-  --primary: #2563EB;
-  --primary-hover: #1D4ED8;
-  --primary-light: #EFF6FF;
-  --accent: #06B6D4;
-  --accent-dark: #0891B2;
-  --bg-main: #F8FAFC;
+  --brand: #0EA66B;
+  --brand-hover: #0C9460;
+  --brand-light: #F0FDF4;
+  --bg-page: #F8FAF9;
   --bg-card: #FFFFFF;
-  --text-main: #0F172A;
-  --text-muted: #394452;
-  --border-color: #E2E8F0;
+  --text-primary: #111827;
+  --text-secondary: #5E6977;
+  --text-muted: #9CA3AF;
+  --border-color: #E5E7EB;
 
-  --status-success: #10B981;
-  --status-success-bg: #ECFDF5;
-  --status-warning: #F59E0B;
-  --status-warning-bg: #FFFBEB;
-  --status-info: #3B82F6;
-  --status-info-bg: #EFF6FF;
-  --status-danger: #EF4444;
-  --status-danger-bg: #FEF2F2;
+  --danger: #EF4444;
+  --warning: #F59E0B;
+  --info: #3B82F6;
+
+  --radius-comp: 8px;
+  --radius-card: 12px;
+  --radius-badge: 20px;
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-premium: 0 20px 25px -5px rgba(37, 99, 235, 0.1), 0 10px 10px -5px rgba(37, 99, 235, 0.04);
-  
-  --transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+
+  --transition-base: all 0.2s ease;
 
   min-height: 100vh;
-  background-color: var(--bg-main);
-  color: var(--text-main);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .trocare-landing a:focus-visible, 
 .trocare-landing button:focus-visible {
-  outline: 3px solid var(--accent);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 
@@ -248,37 +245,55 @@ button:focus-visible {
   justify-content: center;
   gap: 8px;
   padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 700;
+  border-radius: var(--radius-comp);
+  font-weight: 600;
   font-size: 15px;
   cursor: pointer;
   text-decoration: none;
   transition: var(--transition-base);
   border: 1px solid transparent;
+  height: 48px;
 }
 
 .trocare-landing .btn-primary {
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+  background-color: var(--brand);
   color: #FFFFFF;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .trocare-landing .btn-primary:hover {
-  background: linear-gradient(135deg, var(--primary-hover), var(--accent-dark));
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-premium);
+  background-color: var(--brand-hover);
+  transform: translateY(-1px);
 }
 
-.trocare-landing .btn-secondary {
-  background-color: var(--bg-card);
+.trocare-landing .btn-outline {
+  background-color: transparent;
   border-color: var(--border-color);
-  color: var(--text-main);
+  color: var(--text-primary);
 }
 
-.trocare-landing .btn-secondary:hover {
-  background-color: var(--primary-light);
-  border-color: var(--primary);
-  transform: translateY(-2px);
+.trocare-landing .btn-outline:hover {
+  background-color: #F3F4F6;
+  border-color: var(--text-muted);
+}
+
+.trocare-landing .btn-ghost {
+  background-color: transparent;
+  color: var(--text-secondary);
+}
+
+.trocare-landing .btn-ghost:hover {
+  color: var(--brand);
+}
+
+.trocare-landing .eyebrow {
+  display: inline-block;
+  color: var(--brand);
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
 }
 
 /* 1. NAVBAR */
@@ -288,18 +303,18 @@ button:focus-visible {
   left: 0;
   right: 0;
   height: 80px;
-  background-color: rgba(248, 250, 252, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+  background-color: rgba(248, 250, 249, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border-color);
   z-index: 1000;
   transition: var(--transition-base);
 }
 
 .trocare-landing .navbar.scrolled {
-  background-color: rgba(255, 255, 255, 0.9);
-  box-shadow: var(--shadow-sm);
   height: 70px;
+  background-color: rgba(255, 255, 255, 0.95);
+  box-shadow: var(--shadow-sm);
 }
 
 .trocare-landing .navbar .container {
@@ -312,24 +327,17 @@ button:focus-visible {
 .trocare-landing .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
   text-decoration: none;
-  color: var(--primary);
-  font-weight: 850;
+  color: var(--brand);
+  font-weight: 600;
   font-size: 24px;
   letter-spacing: -0.5px;
 }
 
-.trocare-landing .logo-symbol {
-  width: 38px;
-  height: 38px;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #FFFFFF;
-  font-weight: 900;
+.trocare-landing .logo::after {
+  content: ".";
+  color: var(--brand);
 }
 
 .trocare-landing .nav-links {
@@ -340,41 +348,107 @@ button:focus-visible {
 
 .trocare-landing .nav-links a {
   text-decoration: none;
-  color: var(--text-muted);
-  font-weight: 600;
+  color: var(--text-secondary);
+  font-weight: 500;
   font-size: 15px;
   transition: var(--transition-base);
+  border-bottom: 2px solid transparent;
+  padding: 6px 0;
 }
 
-.trocare-landing .nav-links a:hover {
-  color: var(--primary);
+.trocare-landing .nav-links a:hover,
+.trocare-landing .nav-links a.active {
+  color: var(--brand);
+}
+
+.trocare-landing .nav-links a.active {
+  border-bottom-color: var(--brand);
 }
 
 .trocare-landing .nav-cta {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
-.trocare-landing .mobile-menu-toggle {
+.trocare-landing .mobile-nav-toggle {
   display: none;
   background: none;
   border: none;
-  color: var(--text-main);
   cursor: pointer;
+  color: var(--text-primary);
+}
+
+/* Mobile Drawer */
+.trocare-landing .mobile-drawer {
+  position: fixed;
+  top: 0;
+  right: -280px;
+  width: 280px;
+  height: 100vh;
+  background-color: #FFFFFF;
+  box-shadow: var(--shadow-lg);
+  z-index: 2000;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  transition: right 0.3s ease;
+}
+
+.trocare-landing .mobile-drawer.active {
+  right: 0;
+}
+
+.trocare-landing .mobile-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  z-index: 1999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.trocare-landing .mobile-drawer-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.trocare-landing .mobile-drawer-close {
+  align-self: flex-end;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.trocare-landing .mobile-nav-links {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.trocare-landing .mobile-nav-links a {
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.trocare-landing .mobile-nav-links a:hover {
+  color: var(--brand);
 }
 
 /* 2. HERO SECTION */
 .trocare-landing .hero {
-  padding: 160px 0 100px;
-  background: radial-gradient(circle at 90% 10%, rgba(6, 182, 212, 0.08), transparent 40%),
-              radial-gradient(circle at 10% 90%, rgba(37, 99, 235, 0.06), transparent 40%);
+  padding: 160px 0 96px;
+  overflow: hidden;
 }
 
 .trocare-landing .hero-grid {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
-  gap: 60px;
+  gap: 48px;
   align-items: center;
 }
 
@@ -382,36 +456,34 @@ button:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background-color: var(--primary-light);
-  color: var(--primary);
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-weight: 700;
+  background-color: var(--brand-light);
+  color: var(--brand);
+  padding: 6px 16px;
+  border-radius: var(--radius-badge);
   font-size: 13px;
+  font-weight: 600;
   margin-bottom: 24px;
-  border: 1px solid rgba(37, 99, 235, 0.15);
+  border: 1px solid rgba(14, 166, 107, 0.15);
 }
 
 .trocare-landing .hero h1 {
-  font-size: clamp(38px, 4.5vw, 54px);
+  font-size: 48px;
   line-height: 1.15;
-  font-weight: 900;
-  color: var(--text-main);
+  font-weight: 700;
+  color: var(--text-primary);
   letter-spacing: -1px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .trocare-landing .hero h1 span {
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--brand);
 }
 
 .trocare-landing .hero-subtext {
   font-size: 18px;
-  color: var(--text-muted);
-  margin-bottom: 36px;
-  max-width: 540px;
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+  max-width: 520px;
 }
 
 .trocare-landing .hero-actions {
@@ -423,24 +495,22 @@ button:focus-visible {
 
 /* Stat Mini Bar */
 .trocare-landing .hero-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  display: flex;
+  gap: 40px;
   border-top: 1px solid var(--border-color);
-  padding-top: 32px;
+  padding-top: 24px;
 }
 
 .trocare-landing .stat-item h3 {
-  font-size: 24px;
-  font-weight: 800;
-  color: var(--primary);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .trocare-landing .stat-item p {
   font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 /* Interactive Mockup Dashboard */
@@ -448,10 +518,11 @@ button:focus-visible {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  box-shadow: var(--shadow-premium);
+  box-shadow: var(--shadow-md);
   padding: 24px;
-  position: relative;
-  transition: var(--transition-base);
+  opacity: 0;
+  transform: translateY(16px);
+  animation: fadeUp 0.4s ease forwards;
 }
 
 .trocare-landing .mockup-header {
@@ -459,767 +530,619 @@ button:focus-visible {
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--border-color);
-  padding-bottom: 16px;
-  margin-bottom: 20px;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
 }
 
-.trocare-landing .mockup-header-info {
-  display: flex;
+.trocare-landing .mockup-header h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.trocare-landing .mockup-header-badge {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-}
-
-.trocare-landing .mockup-title {
-  font-weight: 800;
-  font-size: 16px;
-  color: var(--text-main);
-  transition: var(--transition-base);
-}
-
-.trocare-landing .mockup-title.highlight {
-  color: var(--accent);
-  transform: scale(1.05);
-}
-
-.trocare-landing .mockup-badge {
-  background-color: var(--status-success-bg);
-  color: var(--status-success);
-  padding: 4px 10px;
-  border-radius: 999px;
+  gap: 6px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
+  color: var(--brand);
 }
 
-/* Mockup Room Grid */
-.trocare-landing .mockup-grid {
+.trocare-landing .mockup-header-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--brand);
+}
+
+/* Metrics Cards */
+.trocare-landing .mockup-metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-bottom: 20px;
-  transition: var(--transition-base);
 }
 
-.trocare-landing .mockup-grid.highlight {
-  border: 2px dashed var(--accent);
-  border-radius: 12px;
-  padding: 6px;
-  background-color: var(--primary-light);
-}
-
-.trocare-landing .mockup-room {
+.trocare-landing .metric-card {
   border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 12px;
-  text-align: center;
-  background-color: var(--bg-main);
-  transition: var(--transition-base);
+  border-radius: var(--radius-comp);
+  padding: 10px;
+  background-color: var(--bg-page);
 }
 
-.trocare-landing .mockup-room.active-room {
-  border-color: var(--primary);
-  background-color: #FFFFFF;
-  box-shadow: var(--shadow-md);
+.trocare-landing .metric-card span {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
 }
 
-.trocare-landing .mockup-room h4 {
-  font-size: 14px;
+.trocare-landing .metric-card strong {
+  font-size: 16px;
   font-weight: 700;
-  margin-bottom: 4px;
+  color: var(--text-primary);
 }
 
-.trocare-landing .room-status {
-  font-size: 10px;
-  font-weight: 800;
-  padding: 2px 6px;
-  border-radius: 4px;
-  display: inline-block;
-}
-
-.trocare-landing .status-rented {
-  background-color: var(--status-info-bg);
-  color: var(--status-info);
-}
-
-.trocare-landing .status-empty {
-  background-color: #E2E8F0;
-  color: var(--text-muted);
-}
-
-.trocare-landing .status-waiting {
-  background-color: var(--status-warning-bg);
-  color: var(--status-warning);
-}
-
-/* Mockup Invoice Sample */
-.trocare-landing .mockup-invoice {
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 16px;
-  background-color: var(--bg-main);
-  position: relative;
-  overflow: hidden;
-  transition: var(--transition-base);
-}
-
-.trocare-landing .mockup-invoice.highlight {
-  box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
-  border-color: var(--accent);
-  background-color: #FFFFFF;
-}
-
-.trocare-landing .invoice-title {
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-}
-
-.trocare-landing .invoice-line {
+/* Room Rows */
+.trocare-landing .mockup-rooms {
   display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  margin-bottom: 4px;
-}
-
-.trocare-landing .invoice-total {
-  display: flex;
-  justify-content: space-between;
-  border-top: 1px dashed var(--border-color);
-  padding-top: 8px;
-  margin-top: 8px;
-  font-weight: 800;
-  font-size: 14px;
-}
-
-.trocare-landing .paid-stamp {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  border: 3px double var(--status-success);
-  color: var(--status-success);
-  font-weight: 900;
-  font-size: 14px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transform: rotate(15deg);
-  opacity: 0;
-  transition: var(--transition-base);
-}
-
-.trocare-landing .paid-stamp.show {
-  opacity: 1;
-  transform: scale(1.1) rotate(15deg);
-}
-
-/* Customer Info Panel */
-.trocare-landing .mockup-customer {
-  position: absolute;
-  bottom: -15px;
-  left: -15px;
-  background-color: #FFFFFF;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 10px 14px;
-  box-shadow: var(--shadow-lg);
-  display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 10px;
-  opacity: 0;
-  transform: translateY(10px);
-  transition: var(--transition-base);
-  z-index: 10;
+  margin-bottom: 20px;
 }
 
-.trocare-landing .mockup-customer.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.trocare-landing .avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background-color: var(--primary-light);
+.trocare-landing .room-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: var(--primary);
-  font-weight: 800;
-  font-size: 12px;
-}
-
-.trocare-landing .customer-details h5 {
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.trocare-landing .customer-details p {
-  font-size: 10px;
-  color: var(--text-muted);
-}
-
-/* Cash Log Notify */
-.trocare-landing .mockup-cash-log {
-  position: absolute;
-  right: -15px;
-  bottom: -15px;
-  background-color: #FFFFFF;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
+  justify-content: space-between;
   padding: 10px 14px;
-  box-shadow: var(--shadow-lg);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  opacity: 0;
-  transform: translateY(10px);
-  transition: var(--transition-base);
-  z-index: 10;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-comp);
+  background-color: var(--bg-card);
 }
 
-.trocare-landing .mockup-cash-log.show {
-  opacity: 1;
-  transform: translateY(0);
+.trocare-landing .room-row-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.trocare-landing .room-row h5 {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.trocare-landing .room-row-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-badge);
+}
+
+.trocare-landing .badge-rented {
+  background-color: #DCFCE7;
+  color: #16A34A;
+}
+
+.trocare-landing .badge-empty {
+  background-color: #FEF3C7;
+  color: #D97706;
+}
+
+.trocare-landing .badge-waiting {
+  background-color: #DBEAFE;
+  color: #2563EB;
+}
+
+.trocare-landing .room-price {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.trocare-landing .mockup-footer {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-color);
+  padding-top: 12px;
+  text-align: center;
 }
 
 /* 3. SOCIAL PROOF BAR */
 .trocare-landing .social-proof {
-  background-color: #FFFFFF;
-  border-top: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color);
-  padding: 32px 0;
+  background-color: var(--brand-light);
+  border-top: 1px solid #BBF7D0;
+  border-bottom: 1px solid #BBF7D0;
+  padding: 24px 0;
+  text-align: center;
 }
 
 .trocare-landing .social-proof-content {
   display: flex;
+  flex-direction: column;
+  gap: 16px;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 24px;
 }
 
-.trocare-landing .social-proof-text {
+.trocare-landing .social-proof p {
   font-size: 14px;
-  font-weight: 700;
-  color: var(--text-muted);
+  font-weight: 600;
+  color: var(--brand-hover);
 }
 
-.trocare-landing .partner-logos {
+.trocare-landing .social-logos {
   display: flex;
   align-items: center;
   gap: 48px;
-  flex-wrap: wrap;
-}
-
-.trocare-landing .partner-logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 800;
+  font-weight: 700;
   font-size: 18px;
-  color: var(--text-muted);
-  opacity: 0.7;
-  transition: var(--transition-base);
+  color: var(--brand);
+  opacity: 0.8;
 }
 
-.trocare-landing .partner-logo:hover {
-  opacity: 1;
-  color: var(--text-main);
-}
-
-.trocare-landing .partner-logo.acb svg { color: var(--primary); }
-.trocare-landing .partner-logo.sepay svg { color: var(--accent); }
-.trocare-landing .partner-logo.zalo svg { color: #0068FF; }
-
-/* 4. FEATURES SECTION */
+/* 4. FEATURES */
 .trocare-landing .features {
-  padding: 100px 0;
-  background-color: var(--bg-main);
+  padding: 96px 0;
 }
 
-.trocare-landing .section-header {
+.trocare-landing .features-header {
   text-align: center;
   max-width: 600px;
-  margin: 0 auto 60px;
+  margin: 0 auto 64px;
 }
 
-.trocare-landing .section-header h2 {
+.trocare-landing .features-header h2 {
   font-size: 36px;
-  font-weight: 850;
-  letter-spacing: -0.5px;
+  font-weight: 700;
   margin-bottom: 16px;
+  letter-spacing: -0.5px;
 }
 
-.trocare-landing .section-header p {
-  color: var(--text-muted);
+.trocare-landing .features-header p {
+  color: var(--text-secondary);
   font-size: 16px;
-  font-weight: 500;
 }
 
-.trocare-landing .features-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 48px;
-}
-
-.trocare-landing .features-group-title {
-  font-size: 18px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: var(--primary);
-  border-bottom: 2px solid var(--border-color);
-  padding-bottom: 12px;
-  margin-bottom: 24px;
-}
-
-.trocare-landing .features-grid {
+.trocare-landing .features-layout {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+}
+
+.trocare-landing .feature-group-column {
+  display: flex;
+  flex-direction: column;
   gap: 24px;
+}
+
+.trocare-landing .feature-group-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .trocare-landing .feature-card {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   padding: 24px;
   transition: var(--transition-base);
   box-shadow: var(--shadow-sm);
 }
 
 .trocare-landing .feature-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--brand);
 }
 
-.trocare-landing .feature-icon-wrapper {
-  width: 46px;
-  height: 46px;
-  background-color: var(--primary-light);
-  border-radius: 10px;
+.trocare-landing .feature-card-header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: var(--primary);
-  margin-bottom: 18px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
-.trocare-landing .feature-card h4 {
-  font-size: 18px;
-  font-weight: 800;
-  margin-bottom: 10px;
+.trocare-landing .feature-card-header h4 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.trocare-landing .feature-card-header svg {
+  color: var(--brand);
 }
 
 .trocare-landing .feature-card p {
   font-size: 14px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
-/* 5. WORKFLOW SECTION */
+/* 5. WORKFLOW */
 .trocare-landing .workflow {
-  padding: 100px 0;
+  padding: 96px 0;
   background-color: #FFFFFF;
   border-top: 1px solid var(--border-color);
   border-bottom: 1px solid var(--border-color);
 }
 
-.trocare-landing .step-indicator-wrapper {
+.trocare-landing .workflow-bar-wrapper {
   position: relative;
-  margin: 60px 0 40px;
+  margin: 64px 0 32px;
 }
 
-.trocare-landing .step-line {
+.trocare-landing .workflow-bar-line {
   position: absolute;
-  top: 24px;
-  left: 6%;
-  right: 6%;
+  top: 16px;
+  left: 7%;
+  right: 7%;
   height: 3px;
   background-color: var(--border-color);
   z-index: 1;
 }
 
-.trocare-landing .step-line-active {
+.trocare-landing .workflow-bar-progress {
   position: absolute;
-  top: 24px;
-  left: 6%;
+  top: 16px;
+  left: 7%;
   width: 0%;
   height: 3px;
-  background: linear-gradient(90deg, var(--primary), var(--accent));
+  background-color: var(--brand);
   z-index: 2;
   transition: var(--transition-base);
 }
 
-.trocare-landing .step-indicator {
+.trocare-landing .workflow-steps {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   position: relative;
   z-index: 3;
 }
 
-.trocare-landing .step-node {
+.trocare-landing .workflow-step-node {
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
-  cursor: pointer;
   background: none;
   border: none;
+  cursor: pointer;
   font-family: inherit;
 }
 
-.trocare-landing .step-number {
-  width: 50px;
-  height: 50px;
+.trocare-landing .workflow-circle {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background-color: #FFFFFF;
   border: 3px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
-  font-size: 16px;
-  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-secondary);
   transition: var(--transition-base);
   margin-bottom: 12px;
 }
 
-.trocare-landing .step-node:hover .step-number {
-  border-color: var(--primary);
-  color: var(--primary);
+.trocare-landing .workflow-step-node:hover .workflow-circle {
+  border-color: var(--brand);
+  color: var(--brand);
 }
 
-.trocare-landing .step-node.active .step-number {
-  border-color: var(--primary);
-  background-color: var(--primary);
+.trocare-landing .workflow-step-node.active .workflow-circle {
+  border-color: var(--brand);
+  background-color: var(--brand);
   color: #FFFFFF;
-  box-shadow: 0 0 0 6px var(--primary-light);
 }
 
-.trocare-landing .step-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-muted);
+.trocare-landing .workflow-step-node span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
   transition: var(--transition-base);
 }
 
-.trocare-landing .step-node.active .step-title {
-  color: var(--primary);
-  font-weight: 800;
+.trocare-landing .workflow-step-node.active span {
+  color: var(--brand);
+  font-weight: 700;
 }
 
-.trocare-landing .step-description-box {
-  background-color: var(--bg-main);
+.trocare-landing .workflow-desc-box {
+  max-width: 600px;
+  margin: 24px auto 0;
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   padding: 24px;
-  max-width: 680px;
-  margin: 20px auto 0;
+  background-color: var(--bg-page);
   text-align: center;
-  min-height: 100px;
+  min-height: 120px;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  box-shadow: var(--shadow-sm);
 }
 
-.trocare-landing .step-desc-title {
+.trocare-landing .workflow-desc-box h4 {
   font-size: 16px;
-  font-weight: 800;
-  color: var(--text-main);
-  margin-bottom: 6px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
 }
 
-.trocare-landing .step-desc-text {
+.trocare-landing .workflow-desc-box p {
   font-size: 14px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
-/* 6. QR PAYMENT SHOWCASE */
-.trocare-landing .payment-showcase {
-  padding: 100px 0;
-  background-color: var(--bg-main);
+/* 6. QR PAYMENT */
+.trocare-landing .qr-payment {
+  padding: 96px 0;
 }
 
-.trocare-landing .payment-grid {
+.trocare-landing .qr-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 60px;
+  gap: 64px;
   align-items: center;
 }
 
-.trocare-landing .payment-tagline {
-  display: inline-block;
-  color: var(--accent-dark);
-  font-weight: 800;
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 16px;
-}
-
-.trocare-landing .payment-text h2 {
+.trocare-landing .qr-text h2 {
   font-size: 36px;
-  font-weight: 850;
+  font-weight: 700;
   margin-bottom: 20px;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
-.trocare-landing .payment-text p {
+.trocare-landing .qr-text p {
   font-size: 16px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin-bottom: 24px;
 }
 
-.trocare-landing .feature-check-list {
+.trocare-landing .qr-bullets {
   list-style: none;
   display: grid;
   gap: 16px;
 }
 
-.trocare-landing .check-item {
+.trocare-landing .qr-bullet {
   display: flex;
   align-items: flex-start;
   gap: 12px;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
-.trocare-landing .check-icon {
-  color: var(--status-success);
+.trocare-landing .qr-bullet svg {
+  color: var(--brand);
   flex-shrink: 0;
   margin-top: 3px;
 }
 
-/* Mockup Invoice Detail Card */
+/* Invoice Mockup Card */
 .trocare-landing .invoice-card {
   background-color: #FFFFFF;
   border: 1px solid var(--border-color);
-  border-radius: 16px;
-  box-shadow: var(--shadow-lg);
-  padding: 32px;
-  max-width: 440px;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-md);
+  padding: 28px;
+  max-width: 400px;
   margin-left: auto;
 }
 
-.trocare-landing .invoice-card-header {
+.trocare-landing .invoice-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   border-bottom: 1px solid var(--border-color);
-  padding-bottom: 16px;
+  padding-bottom: 12px;
 }
 
-.trocare-landing .invoice-card-logo {
-  font-weight: 800;
-  font-size: 18px;
-  color: var(--primary);
-}
-
-.trocare-landing .invoice-card-code {
-  font-size: 12px;
+.trocare-landing .invoice-header h4 {
+  font-size: 14px;
   font-weight: 700;
-  background-color: var(--bg-main);
-  padding: 4px 8px;
-  border-radius: 6px;
-  color: var(--text-muted);
+}
+
+.trocare-landing .invoice-header span {
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 
 .trocare-landing .invoice-card-lines {
   display: grid;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 8px;
+  margin-bottom: 20px;
 }
 
 .trocare-landing .invoice-card-line {
   display: flex;
   justify-content: space-between;
-  font-size: 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .trocare-landing .invoice-card-line.total {
   border-top: 1px dashed var(--border-color);
   padding-top: 12px;
-  font-weight: 800;
-  font-size: 16px;
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--brand);
 }
 
-.trocare-landing .invoice-card-qr-section {
-  background-color: var(--bg-main);
+.trocare-landing .invoice-qr-section {
+  background-color: var(--bg-page);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: var(--radius-comp);
+  padding: 16px;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
 }
 
-.trocare-landing .qr-desc h5 {
-  font-size: 14px;
-  font-weight: 800;
+.trocare-landing .invoice-qr-desc h5 {
+  font-size: 13px;
+  font-weight: 700;
   margin-bottom: 4px;
 }
 
-.trocare-landing .qr-desc p {
-  font-size: 12px;
-  color: var(--text-muted);
+.trocare-landing .invoice-qr-desc p {
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 
-.trocare-landing .qr-placeholder {
-  width: 90px;
-  height: 90px;
-  background-color: #FFFFFF;
+.trocare-landing .invoice-qr-box {
+  width: 80px;
+  height: 80px;
+  background-color: #F3F4F6;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-comp);
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-muted);
-  font-size: 10px;
-  text-align: center;
-  font-weight: 700;
+}
+
+.trocare-landing .invoice-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.trocare-landing .badge-warning-custom {
+  background-color: #FEF3C7;
+  color: #D97706;
+  padding: 2px 8px;
+  border-radius: var(--radius-badge);
+  font-weight: 600;
 }
 
 /* 7. AI SECTION */
 .trocare-landing .ai-section {
-  padding: 100px 0;
+  padding: 96px 0;
   background-color: #FFFFFF;
-  position: relative;
-  overflow: hidden;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
 }
 
-.trocare-landing .ai-section::before {
-  content: "";
-  position: absolute;
-  top: -100px;
-  right: -100px;
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, rgba(6, 182, 212, 0.15), transparent 70%);
-  z-index: 1;
+.trocare-landing .ai-header {
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto 56px;
+}
+
+.trocare-landing .ai-header h2 {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 16px;
 }
 
 .trocare-landing .ai-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 60px;
-  align-items: center;
-  position: relative;
-  z-index: 2;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
 }
 
-.trocare-landing .ai-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background-color: #F0FDFA;
-  color: #0D9488;
-  border: 1px solid rgba(13, 148, 136, 0.15);
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 700;
-  margin-bottom: 20px;
-}
-
-.trocare-landing .ai-text h2 {
-  font-size: 36px;
-  font-weight: 850;
-  margin-bottom: 20px;
-  line-height: 1.2;
-}
-
-.trocare-landing .ai-text p {
-  font-size: 16px;
-  color: var(--text-muted);
-  margin-bottom: 32px;
-}
-
-.trocare-landing .ai-bullets {
-  display: grid;
-  gap: 16px;
-}
-
-.trocare-landing .ai-bullet-card {
-  background-color: var(--bg-main);
+.trocare-landing .ai-card {
+  background-color: var(--bg-page);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
+  border-radius: var(--radius-card);
+  padding: 24px;
   transition: var(--transition-base);
 }
 
-.trocare-landing .ai-bullet-card:hover {
-  border-color: var(--accent);
-  transform: translateX(4px);
+.trocare-landing .ai-card:hover {
+  border-color: var(--brand);
+  transform: translateY(-2px);
 }
 
-.trocare-landing .ai-icon-box {
-  width: 40px;
-  height: 40px;
-  background-color: #FFFFFF;
-  border-radius: 8px;
+.trocare-landing .ai-card-icon {
+  width: 42px;
+  height: 42px;
+  background-color: var(--brand-light);
+  border-radius: var(--radius-comp);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent);
-  flex-shrink: 0;
-  box-shadow: var(--shadow-sm);
+  color: var(--brand);
+  margin-bottom: 16px;
 }
 
-.trocare-landing .ai-bullet-card span {
+.trocare-landing .ai-card h4 {
+  font-size: 16px;
   font-weight: 700;
-  font-size: 14px;
-  color: var(--text-main);
+  margin-bottom: 8px;
 }
 
-/* 8. FINAL CTA SECTION */
+.trocare-landing .ai-card p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* 8. FINAL CTA */
 .trocare-landing .final-cta {
-  padding: 100px 0;
-  background: linear-gradient(135deg, var(--primary-hover), var(--accent-dark));
+  padding: 96px 0;
+  background-color: var(--brand);
   color: #FFFFFF;
   text-align: center;
 }
 
 .trocare-landing .final-cta-content {
-  max-width: 680px;
+  max-width: 620px;
   margin: 0 auto;
 }
 
 .trocare-landing .final-cta h2 {
-  font-size: 42px;
-  font-weight: 900;
-  margin-bottom: 20px;
-  letter-spacing: -1px;
+  font-size: 38px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  letter-spacing: -0.5px;
 }
 
 .trocare-landing .final-cta p {
   font-size: 18px;
-  margin-bottom: 36px;
+  margin-bottom: 32px;
   opacity: 0.9;
 }
 
 .trocare-landing .final-cta .btn-primary {
-  background: #FFFFFF;
-  color: var(--primary);
-  box-shadow: var(--shadow-lg);
+  background-color: #FFFFFF;
+  color: var(--brand);
 }
 
 .trocare-landing .final-cta .btn-primary:hover {
-  background-color: var(--primary-light);
-  transform: translateY(-2px);
+  background-color: var(--brand-light);
+}
+
+.trocare-landing .final-cta span {
+  display: block;
+  margin-top: 12px;
+  font-size: 12px;
+  opacity: 0.8;
 }
 
 /* 9. FOOTER */
 .trocare-landing .footer {
   background-color: #FFFFFF;
-  border-top: 1px solid var(--border-color);
   padding: 80px 0 40px;
 }
 
@@ -1227,41 +1150,40 @@ button:focus-visible {
   display: grid;
   grid-template-columns: 1.5fr 1fr 1fr 1fr;
   gap: 48px;
-  margin-bottom: 60px;
+  margin-bottom: 56px;
 }
 
 .trocare-landing .footer-brand p {
   font-size: 14px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin-top: 16px;
-  max-width: 320px;
+  max-width: 300px;
 }
 
 .trocare-landing .footer-col h4 {
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
   margin-bottom: 20px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.trocare-landing .footer-links-list {
+.trocare-landing .footer-links {
   list-style: none;
   display: grid;
   gap: 12px;
 }
 
-.trocare-landing .footer-links-list a {
+.trocare-landing .footer-links a {
   text-decoration: none;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 14px;
-  font-weight: 600;
   transition: var(--transition-base);
 }
 
-.trocare-landing .footer-links-list a:hover {
-  color: var(--primary);
+.trocare-landing .footer-links a:hover {
+  color: var(--brand);
 }
 
 .trocare-landing .footer-bottom {
@@ -1271,151 +1193,219 @@ button:focus-visible {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 20px;
-}
-
-.trocare-landing .copyright {
+  gap: 16px;
   font-size: 13px;
-  font-weight: 650;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
-/* SCROLL REVEAL CLASS */
+/* SCROLL REVEAL */
 .trocare-landing .reveal {
   opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 0.8s ease, transform 0.8s ease;
+  transform: translateY(16px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
-.trocare-landing .reveal.active {
+.trocare-landing .reveal.visible {
   opacity: 1;
   transform: translateY(0);
 }
 
-/* RESPONSIVE DESIGN MEDIA QUERIES */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* RESPONSIVE LAYOUTS */
 @media (max-width: 1024px) {
   .trocare-landing .hero-grid {
     grid-template-columns: 1fr;
-    gap: 60px;
+    gap: 48px;
   }
+
   .trocare-landing .mockup-container {
     max-width: 500px;
     margin: 0 auto;
   }
-  .trocare-landing .payment-grid, 
-  .trocare-landing .ai-grid {
+
+  .trocare-landing .features-layout {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+
+  .trocare-landing .qr-grid {
     grid-template-columns: 1fr;
     gap: 48px;
   }
+
   .trocare-landing .invoice-card {
     margin: 0 auto;
   }
-  .trocare-landing .features-grid {
+
+  .trocare-landing .ai-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 768px) {
-  .trocare-landing .navbar {
-    height: 70px;
-  }
-  .trocare-landing .nav-links {
-    display: none;
-    position: absolute;
-    top: 70px;
-    left: 0;
-    right: 0;
-    background-color: #FFFFFF;
-    flex-direction: column;
-    padding: 24px;
-    gap: 20px;
-    border-bottom: 1px solid var(--border-color);
-    box-shadow: var(--shadow-lg);
-  }
-  .trocare-landing .nav-links.active {
-    display: flex;
-  }
-  .trocare-landing .mobile-menu-toggle {
+  .trocare-landing .mobile-nav-toggle {
     display: block;
   }
-  .trocare-landing .hero {
-    padding: 120px 0 60px;
-  }
-  .trocare-landing .hero-stats {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-  .trocare-landing .features-grid {
-    grid-template-columns: 1fr;
-  }
-  .trocare-landing .footer-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 32px;
-  }
-  
-  /* Vertical Timeline */
-  .trocare-landing .step-indicator-wrapper {
+
+  .trocare-landing .nav-links,
+  .trocare-landing .nav-cta .btn-outline {
     display: none;
   }
-  .trocare-landing .mobile-timeline {
+
+  .trocare-landing .hero-grid .mockup-container {
+    display: none;
+  }
+
+  .trocare-landing .hero h1 {
+    font-size: 32px;
+  }
+
+  .trocare-landing .hero-stats {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .trocare-landing .features-layout {
+    display: none;
+  }
+
+  .trocare-landing .features-mobile-accordion {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    margin: 40px 0 20px;
-  }
-  .trocare-landing .timeline-item {
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 20px;
-    background-color: var(--bg-card);
-    cursor: pointer;
-    display: flex;
     gap: 16px;
+  }
+
+  .trocare-landing .accordion-item {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+  }
+
+  .trocare-landing .accordion-trigger {
+    width: 100%;
+    display: flex;
     align-items: center;
-    transition: var(--transition-base);
+    justify-content: space-between;
+    padding: 18px 24px;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text-primary);
   }
-  .trocare-landing .timeline-item.active {
-    border-color: var(--primary);
-    background-color: var(--primary-light);
+
+  .trocare-landing .accordion-trigger svg {
+    color: var(--brand);
+    transition: transform 0.2s ease;
   }
-  .trocare-landing .timeline-num {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
+
+  .trocare-landing .accordion-item.active .accordion-trigger svg {
+    transform: rotate(90deg);
+  }
+
+  .trocare-landing .accordion-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease-out;
+    padding: 0 24px;
+  }
+
+  .trocare-landing .accordion-item.active .accordion-content {
+    padding-bottom: 24px;
+  }
+
+  .trocare-landing .mobile-feature-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .trocare-landing .workflow-bar-wrapper {
+    display: none;
+  }
+
+  .trocare-landing .mobile-workflow-timeline {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    padding-left: 28px;
+    margin-top: 40px;
+  }
+
+  .trocare-landing .mobile-workflow-timeline::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 10px;
+    bottom: 8px;
+    width: 2px;
     background-color: var(--border-color);
-    color: var(--text-muted);
+  }
+
+  .trocare-landing .mobile-timeline-item {
+    position: relative;
+    padding-bottom: 28px;
+  }
+
+  .trocare-landing .mobile-timeline-item:last-child {
+    padding-bottom: 0;
+  }
+
+  .trocare-landing .mobile-timeline-circle {
+    position: absolute;
+    left: -28px;
+    top: 2px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background-color: #FFFFFF;
+    border: 2px solid var(--border-color);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 800;
-    font-size: 14px;
-    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    z-index: 2;
   }
-  .trocare-landing .timeline-item.active .timeline-num {
-    background-color: var(--primary);
+
+  .trocare-landing .mobile-timeline-item.active .mobile-timeline-circle {
+    background-color: var(--brand);
+    border-color: var(--brand);
     color: #FFFFFF;
   }
-  .trocare-landing .timeline-content h4 {
-    font-size: 15px;
-    font-weight: 800;
-    margin-bottom: 4px;
-  }
-  .trocare-landing .timeline-content p {
-    font-size: 13px;
-    color: var(--text-muted);
-  }
-}
 
-@media (max-width: 480px) {
-  .trocare-landing .footer-grid {
+  .trocare-landing .mobile-timeline-content h4 {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .trocare-landing .mobile-timeline-content p {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .trocare-landing .ai-grid {
     grid-template-columns: 1fr;
   }
-  .trocare-landing .hero-actions {
-    flex-direction: column;
-    width: 100%;
-  }
-  .trocare-landing .hero-actions .btn {
-    width: 100%;
+
+  .trocare-landing .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
   }
 }
-
