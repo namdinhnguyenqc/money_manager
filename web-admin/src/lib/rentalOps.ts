@@ -105,6 +105,16 @@ export type RentalRoom = {
   outstanding_amount?: number;
   is_expired?: boolean;
   boarding_house_id?: string;
+  is_public?: boolean;
+  listing_title?: string | null;
+  listing_description?: string | null;
+  image_urls?: string[];
+  amenities?: string[];
+  deposit_amount?: number;
+  available_from?: string | null;
+  contact_phone?: string | null;
+  contact_zalo?: string | null;
+  allows_pets?: boolean;
 };
 
 export type ContractView = {
@@ -492,7 +502,21 @@ export async function loadOwnerRooms(buildingId: string) {
   return (res?.data ?? []) as OwnerRoom[];
 }
 
-export async function createOwnerRoom(buildingId: string, input: { name: string; price: number; area?: number; maxPeople?: number; status?: "AVAILABLE" | "OCCUPIED" | "MAINTENANCE"; isPublic?: boolean }) {
+export async function createOwnerRoom(buildingId: string, input: {
+  name: string;
+  price: number;
+  area?: number;
+  maxPeople?: number;
+  status?: "AVAILABLE" | "OCCUPIED" | "MAINTENANCE";
+  isPublic?: boolean;
+  listingTitle?: string;
+  listingDescription?: string;
+  amenities?: string[];
+  depositAmount?: number;
+  contactPhone?: string;
+  contactZalo?: string;
+  allowsPets?: boolean;
+}) {
   const res = await apiPost<any>(`/owner/boarding-houses/${buildingId}/rooms`, {
     name: input.name,
     price: Number(input.price || 0),
@@ -500,8 +524,19 @@ export async function createOwnerRoom(buildingId: string, input: { name: string;
     maxPeople: Number(input.maxPeople || 1),
     status: input.status || "AVAILABLE",
     isPublic: Boolean(input.isPublic),
+    listingTitle: input.listingTitle || "",
+    listingDescription: input.listingDescription || "",
+    amenities: input.amenities || [],
+    depositAmount: Number(input.depositAmount || 0),
+    contactPhone: input.contactPhone || "",
+    contactZalo: input.contactZalo || "",
+    allowsPets: Boolean(input.allowsPets),
   });
   return (res?.data ?? res) as OwnerRoom;
+}
+
+export async function uploadOwnerRoomImage(roomId: string, dataUrl: string) {
+  return apiPost<any>(`/owner/rooms/${roomId}/images`, { dataUrl });
 }
 
 export async function loadRentalRooms(buildingId?: string) {

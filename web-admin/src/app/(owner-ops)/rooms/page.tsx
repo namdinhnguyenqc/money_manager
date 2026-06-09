@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Edit3, Trash2, Plus, X } from "lucide-react";
+import { Edit3, ImagePlus, Trash2, Plus, X } from "lucide-react";
 import {
   RentalRoom,
   formatMoney,
@@ -16,6 +16,7 @@ import {
   deleteRoom,
   currentPeriod,
   createOwnerRoom,
+  uploadOwnerRoomImage,
 } from "@/lib/rentalOps";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Button from "@/components/ui/Button";
@@ -252,24 +253,61 @@ function AddRoomModal({ houses, defaultFacilityId, onClose, onSaved }: { houses:
     price: "",
     area: "20",
     maxPeople: "3",
+    status: "vacant",
+    depositAmount: "",
+    listingTitle: "",
+    listingDescription: "",
+    contactPhone: "",
+    contactZalo: "",
+    amenities: [] as string[],
+    allowsPets: false,
+    isPublic: false,
   });
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imageError, setImageError] = useState("");
   const [saving, setSaving] = useState(false);
+  const amenityOptions = ["WC riêng", "Máy lạnh", "Gác lửng", "Bếp", "Ban công", "Giữ xe", "Wifi", "Camera", "Máy giặt"];
+
+  const uploadImageFile = async (roomId: string, file: File) => {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    await uploadOwnerRoomImage(roomId, dataUrl);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.facilityId) return alert("Vui lòng chọn cơ sở!");
+    if (!form.facilityId || !form.name.trim() || !form.price || !form.area || !form.maxPeople || !form.status) {
+      return alert("Vui lòng nhập đầy đủ thông tin phòng.");
+    }
+    if (form.isPublic && imageFiles.length === 0) return alert("Đăng tin cần ít nhất 1 hình phòng.");
+    if (form.isPublic && !form.listingTitle.trim()) return alert("Đăng tin cần tiêu đề tin.");
     setSaving(true);
     try {
-      await createOwnerRoom(form.facilityId, {
+      const room = await createOwnerRoom(form.facilityId, {
         name: form.name,
         price: Number(form.price),
         area: Number(form.area),
         maxPeople: Number(form.maxPeople),
-        status: "AVAILABLE",
+        status: form.status === "occupied" ? "OCCUPIED" : form.status === "maintenance" ? "MAINTENANCE" : "AVAILABLE",
+        isPublic: form.isPublic,
+        listingTitle: form.listingTitle.trim(),
+        listingDescription: form.listingDescription.trim(),
+        depositAmount: Number(form.depositAmount || 0),
+        contactPhone: form.contactPhone.trim(),
+        contactZalo: form.contactZalo.trim(),
+        amenities: form.amenities,
+        allowsPets: form.allowsPets,
       });
+      for (const file of imageFiles) {
+        await uploadImageFile(room.id, file);
+      }
       onSaved();
-    } catch (err) {
-      alert("Lỗi khi thêm phòng. Vui lòng thử lại!");
+    } catch (err: any) {
+      alert(err?.message || "Lỗi khi thêm phòng. Vui lòng thử lại!");
     } finally {
       setSaving(false);
     }
@@ -277,7 +315,7 @@ function AddRoomModal({ houses, defaultFacilityId, onClose, onSaved }: { houses:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-300">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-300">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-bold text-slate-900">Thêm phòng mới</h2>
           <button onClick={onClose} className="rounded-lg bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 transition-colors">
@@ -323,6 +361,111 @@ function AddRoomModal({ houses, defaultFacilityId, onClose, onSaved }: { houses:
                 onChange={(e) => setForm(p => ({ ...p, area: e.target.value }))}
                 required
               />
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <label className="flex items-start gap-3">
+              <input type="checkbox" className="mt-1" checked={form.isPublic} onChange={(e) => setForm(p => ({ ...p, isPublic: e.target.checked }))} />
+              <span>
+                <span className="block text-sm font-bold text-slate-900">Đăng tin tìm khách ngay</span>
+                <span className="text-xs text-slate-500">Bật mục này để nhập đủ ảnh, tiện ích và thông tin liên hệ ngay khi tạo phòng.</span>
+              </span>
+            </label>
+          </div>
+          {form.isPublic && (
+            <div className="space-y-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+              <div>
+                <Label>Tiêu đề tin đăng *</Label>
+                <Input value={form.listingTitle} onChange={(e) => setForm(p => ({ ...p, listingTitle: e.target.value }))} placeholder="Phòng có gác, WC riêng gần trường..." required />
+              </div>
+              <div>
+                <Label>Mô tả</Label>
+                <textarea className="min-h-24 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value={form.listingDescription} onChange={(e) => setForm(p => ({ ...p, listingDescription: e.target.value }))} placeholder="Mô tả lối đi, giờ giấc, điện nước..." />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>Tiền cọc</Label>
+                  <Input type="number" min={0} value={form.depositAmount} onChange={(e) => setForm(p => ({ ...p, depositAmount: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Điện thoại</Label>
+                  <Input value={form.contactPhone} onChange={(e) => setForm(p => ({ ...p, contactPhone: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Zalo</Label>
+                  <Input value={form.contactZalo} onChange={(e) => setForm(p => ({ ...p, contactZalo: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <Label>Ảnh phòng *</Label>
+                  <span className="text-xs text-slate-500">{imageFiles.length}/6 ảnh</span>
+                </div>
+                <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-white px-4 py-6 text-sm font-semibold text-slate-500 hover:border-blue-400 hover:text-blue-600">
+                  <ImagePlus size={22} />
+                  <span className="mt-2">Chọn ảnh phòng</span>
+                  <input
+                    hidden
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      const valid = files.filter((file) => file.size <= 5 * 1024 * 1024).slice(0, 6);
+                      setImageFiles(valid);
+                      setImageError(files.length !== valid.length ? "Mỗi ảnh nhỏ hơn 5 MB, tối đa 6 ảnh." : "");
+                    }}
+                  />
+                </label>
+                {imageError && <p className="mt-2 text-sm text-red-600">{imageError}</p>}
+                {imageFiles.length > 0 && <p className="mt-2 text-xs text-slate-600">{imageFiles.map((file) => file.name).join(", ")}</p>}
+              </div>
+              <div>
+                <Label>Tiện ích</Label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {amenityOptions.map((amenity) => (
+                    <button
+                      key={amenity}
+                      type="button"
+                      onClick={() => setForm(p => ({
+                        ...p,
+                        amenities: p.amenities.includes(amenity) ? p.amenities.filter((item) => item !== amenity) : [...p.amenities, amenity],
+                      }))}
+                      className={`rounded-full border px-3 py-2 text-sm font-semibold ${form.amenities.includes(amenity) ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600"}`}
+                    >
+                      {amenity}
+                    </button>
+                  ))}
+                </div>
+                <label className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <input type="checkbox" checked={form.allowsPets} onChange={(e) => setForm(p => ({ ...p, allowsPets: e.target.checked }))} />
+                  Cho phép nuôi thú cưng
+                </label>
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Số người tối đa</Label>
+              <Input
+                type="number"
+                min={1}
+                value={form.maxPeople}
+                onChange={(e) => setForm(p => ({ ...p, maxPeople: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <Label>Trạng thái</Label>
+              <Select
+                value={form.status}
+                onChange={(e) => setForm(p => ({ ...p, status: e.target.value }))}
+                required
+              >
+                <option value="vacant">Còn trống</option>
+                <option value="occupied">Đang ở</option>
+                <option value="maintenance">Bảo trì</option>
+              </Select>
             </div>
           </div>
           <Button 
