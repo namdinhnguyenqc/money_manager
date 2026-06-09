@@ -171,6 +171,20 @@ export async function refreshAccessToken() {
   return refreshPromise;
 }
 
+function isTokenExpired(token: string | null): boolean {
+  if (!token) return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (typeof payload.exp !== 'number') return true;
+    // Refresh if it's already expired, or expiring in the next 15 seconds (grace window)
+    return payload.exp * 1000 - 15000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
 const pendingRequests = new Map<string, Promise<Response>>();
 
 export async function authFetch(input: string, init: AuthFetchOptions = {}) {
@@ -192,7 +206,14 @@ export async function authFetch(input: string, init: AuthFetchOptions = {}) {
     }
 
     if (init.auth !== false) {
-      const token = getStoredAccessToken();
+      let token = getStoredAccessToken();
+      if (token && isTokenExpired(token)) {
+        logAuthEvent("AUTH_PREEMPTIVE_REFRESH", { url });
+        const nextToken = await refreshAccessToken();
+        if (nextToken) {
+          token = nextToken;
+        }
+      }
       if (token) headers.set("Authorization", `Bearer ${token}`);
     }
 
