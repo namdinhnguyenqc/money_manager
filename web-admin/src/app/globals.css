@@ -197,7 +197,7 @@ button:focus-visible {
   --tc-blue-deep: oklch(0.27 0.105 258);
   --tc-cyan: oklch(0.72 0.15 191);
   --tc-ink: oklch(0.21 0.038 255);
-  --tc-muted: oklch(0.47 0.032 252);
+  --tc-muted: oklch(0.39 0.028 252);
   --tc-line: oklch(0.88 0.025 229);
   --tc-surface: oklch(0.992 0.006 220);
   min-height: 100vh;
@@ -317,7 +317,7 @@ button:focus-visible {
 .tc-hero h1,
 .tc-section h2,
 .tc-final h2 {
-  max-width: 16ch;
+  max-width: 25ch;
   color: var(--tc-blue-deep);
   font-size: clamp(38px, 5vw, 66px);
   line-height: 1.12;
@@ -587,7 +587,7 @@ button:focus-visible {
 .tc-ai h2,
 .tc-seo-copy h2,
 .tc-final h2 {
-  max-width: 17ch;
+  max-width: 25ch;
   font-size: clamp(30px, 3.8vw, 50px);
   line-height: 1.14;
 }
@@ -981,6 +981,29 @@ button:focus-visible {
   .tc-feature-wall,
   .tc-mini-grid {
     grid-template-columns: 1fr;
+  }
+
+  .tc-flow {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    overflow-x: visible;
+  }
+
+  .tc-flow li {
+    min-height: auto;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 18px;
+    padding: 20px;
+  }
+
+  .tc-flow li::after {
+    display: none;
+  }
+
+  .tc-flow strong {
+    margin-top: 0;
   }
 
   .tc-hero-stage {
