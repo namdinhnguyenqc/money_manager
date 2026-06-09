@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from "react";
-import Image from "next/image";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Building2,
@@ -11,53 +10,39 @@ import {
   Bot,
   Sparkles,
   Cpu,
-  CheckCircle,
-  CheckCircle2,
+  Check,
   Menu,
   X,
-  ArrowRight,
   ChevronRight,
-  Landmark,
-  MessageSquare,
-  Home,
+  DoorOpen,
   Users,
-  FileSignature,
+  FileText,
+  CreditCard,
   Wallet,
-  Bell,
-  MessageSquareText,
-  BrainCircuit,
-  TrendingUp
+  CalendarCheck,
+  MessageCircle,
+  BellRing,
+  TrendingUp,
+  AlertTriangle,
+  MessageSquareText
 } from "lucide-react";
 
 interface StepData {
   title: string;
   text: string;
-  action: () => void;
 }
 
 export default function LandingPageClient() {
   const [activeStep, setActiveStep] = useState<number>(1);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
-  const [hasUserInteracted, setHasUserInteracted] = useState<boolean>(false);
+  const [activeAccordion, setActiveAccordion] = useState<number>(0);
+  const [activeSection, setActiveSection] = useState<string>("");
 
-  // Simulation states for Mockup Dashboard
-  const [mockupTitle, setMockupTitle] = useState<string>("Dãy trọ Tân Bình A");
-  const [mockupTitleHighlight, setMockupTitleHighlight] = useState<boolean>(false);
-  const [mockupGridHighlight, setMockupGridHighlight] = useState<boolean>(false);
-  const [showCustomer, setShowCustomer] = useState<boolean>(false);
-  const [showCashLog, setShowCashLog] = useState<boolean>(false);
-  const [showPaidStamp, setShowPaidStamp] = useState<boolean>(false);
-  const [room102Rented, setRoom102Rented] = useState<boolean>(false);
-  const [invoiceHighlight, setInvoiceHighlight] = useState<boolean>(false);
-  const [invoiceTitleText, setInvoiceTitleText] = useState<string>("HÓA ĐƠN TIỀN PHÒNG T6");
-  const [invoiceBasePriceText, setInvoiceBasePriceText] = useState<string>("2.500.000đ");
-  const [invoiceTotalPriceText, setInvoiceTotalPriceText] = useState<string>("2.850.000đ");
-
-  // Track window scroll for Navbar background
+  // Track window scroll for Navbar height & background transition
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 50) {
+      if (window.scrollY > 80) {
         setIsScrolled(true);
       } else {
         setIsScrolled(false);
@@ -67,257 +52,216 @@ export default function LandingPageClient() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // IntersectionObserver for scroll-reveal animations
+  // IntersectionObserver for Scroll Reveal animations
   useEffect(() => {
     const revealElements = document.querySelectorAll(".reveal");
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            entry.target.classList.add("active");
+            entry.target.classList.add("visible");
           }
         });
       },
-      { threshold: 0.15 }
+      { threshold: 0.1 }
     );
     revealElements.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
   }, []);
 
-  // Reset function to clear mockup interactive classes
-  const resetMockup = () => {
-    setMockupTitle("Dãy trọ Tân Bình A");
-    setMockupTitleHighlight(false);
-    setMockupGridHighlight(false);
-    setShowCustomer(false);
-    setShowCashLog(false);
-    setShowPaidStamp(false);
-    setRoom102Rented(false);
-    setInvoiceHighlight(false);
-    setInvoiceTitleText("HÓA ĐƠN TIỀN PHÒNG T6");
-    setInvoiceBasePriceText("2.500.000đ");
-    setInvoiceTotalPriceText("2.850.000đ");
-  };
-
-  // Run mockup updates corresponding to the current step
+  // Scroll Spy to highlight active section in Navbar
   useEffect(() => {
-    resetMockup();
-    switch (activeStep) {
-      case 1:
-        setMockupTitleHighlight(true);
-        setMockupTitle("Dãy trọ Tân Bình A (Đã Tạo)");
-        break;
-      case 2:
-        setMockupGridHighlight(true);
-        break;
-      case 3:
-        setShowCustomer(true);
-        break;
-      case 4:
-        setRoom102Rented(true);
-        setShowCustomer(true);
-        break;
-      case 5:
-        setInvoiceHighlight(true);
-        setInvoiceTitleText("HÓA ĐƠN P.102 - T6");
-        setInvoiceBasePriceText("2.500.000đ");
-        setInvoiceTotalPriceText("2.850.000đ");
-        break;
-      case 6:
-        setInvoiceHighlight(true);
-        setInvoiceTitleText("HÓA ĐƠN P.102 - T6");
-        setInvoiceBasePriceText("2.500.000đ");
-        setInvoiceTotalPriceText("2.850.000đ");
-        setShowPaidStamp(true);
-        break;
-      case 7:
-        setShowCashLog(true);
-        break;
-      default:
-        break;
-    }
-  }, [activeStep]);
-
-  // Autoplay loop rotating steps every 4.5s (pauses on user interaction)
-  useEffect(() => {
-    if (hasUserInteracted) return;
-    const interval = setInterval(() => {
-      setActiveStep((prev) => (prev % 7) + 1);
-    }, 4500);
-    return () => clearInterval(interval);
-  }, [hasUserInteracted]);
-
-  const handleStepClick = (stepNum: number) => {
-    setHasUserInteracted(true);
-    setActiveStep(stepNum);
-  };
+    const sections = document.querySelectorAll("section[id]");
+    const handleScrollSpy = () => {
+      let currentSectionId = "";
+      sections.forEach((sec) => {
+        const secTop = (sec as HTMLElement).offsetTop - 120;
+        if (window.scrollY >= secTop) {
+          currentSectionId = sec.getAttribute("id") || "";
+        }
+      });
+      setActiveSection(currentSectionId);
+    };
+    window.addEventListener("scroll", handleScrollSpy);
+    return () => window.removeEventListener("scroll", handleScrollSpy);
+  }, []);
 
   const stepsData: Record<number, StepData> = {
     1: {
       title: "Bước 1: Tạo dãy trọ",
-      text: "Thiết lập các thông tin cơ bản nhất như tên khu trọ, địa chỉ khu vực và quy định chung.",
-      action: () => {}
+      text: "Thiết lập các thông tin cơ bản về dãy nhà trọ, vị trí và các quy tắc chung quy định trong khu vực cho thuê."
     },
     2: {
       title: "Bước 2: Thêm phòng",
-      text: "Cập nhật mã số phòng, thiết lập đơn giá cho thuê mặc định và các chỉ số dịch vụ.",
-      action: () => {}
+      text: "Tạo chi tiết các phòng đơn lẻ, cập nhật đơn giá cho thuê mặc định và các tiện ích dịch vụ đi kèm."
     },
     3: {
       title: "Bước 3: Nhập khách thuê",
-      text: "Lưu giữ hồ sơ lý lịch, số định danh công dân và thông tin liên lạc của người ở.",
-      action: () => {}
+      text: "Ghi chép thông tin lý lịch cá nhân, số căn cước công dân và liên hệ của người thuê phòng."
     },
     4: {
       title: "Bước 4: Ký hợp đồng",
-      text: "Ký kết giao kèo điện tử, ghi nhận cọc phòng và kích hoạt thời hạn thuê chính thức.",
-      action: () => {}
+      text: "Kích hoạt thời hạn cho thuê chính thức, mức đặt cọc phòng và điều khoản phạt nếu có."
     },
     5: {
       title: "Bước 5: Lập hóa đơn",
-      text: "Hệ thống tự động cộng dồn tiền phòng, điện nước thực tế sử dụng và xuất biểu mẫu hóa đơn.",
-      action: () => {}
+      text: "Tổng hợp các phí phát sinh thực tế (điện nước dùng trong tháng, wifi, rác) và in biểu mẫu hóa đơn."
     },
     6: {
-      title: "Bước 6: Thu tiền thông minh",
-      text: "Khách chỉ cần quét mã QR có sẵn trên hóa đơn, đối soát SePay nhận thông báo có tức thì.",
-      action: () => {}
+      title: "Bước 6: Nhận thanh toán",
+      text: "Hệ thống tự động liên kết với ngân hàng ACB xuất QR thanh toán hóa đơn riêng, đối soát qua SePay."
     },
     7: {
       title: "Bước 7: Xem sổ quỹ",
-      text: "Biểu đồ thu chi trực quan và dòng tiền thực tế tự động cộng dồn báo cáo chính xác.",
-      action: () => {}
+      text: "Biểu diễn trực quan dòng tiền thu chi tức thời, tổng kết lợi nhuận kinh doanh sạch sẽ của từng tháng."
     }
   };
 
   return (
     <main className="trocare-landing">
-      {/* 1. NAVBAR */}
+      {/* SECTION 1 — NAVBAR */}
       <header className={`navbar ${isScrolled ? "scrolled" : ""}`}>
         <div className="container">
           <Link href="/" className="logo">
-            <div className="logo-symbol">T</div>
-            <span>TroCare</span>
+            TroCare
           </Link>
           
-          <nav className={`nav-links ${isMobileMenuOpen ? "active" : ""}`}>
-            <a href="#features" onClick={() => setIsMobileMenuOpen(false)}>Tính năng</a>
-            <a href="#workflow" onClick={() => setIsMobileMenuOpen(false)}>Quy trình</a>
-            <a href="#payment" onClick={() => setIsMobileMenuOpen(false)}>Thanh toán QR</a>
-            <a href="#ai" onClick={() => setIsMobileMenuOpen(false)}>Trí tuệ AI</a>
+          <nav className="nav-links">
+            <a href="#features" className={activeSection === "features" ? "active" : ""}>Tính năng</a>
+            <a href="#workflow" className={activeSection === "workflow" ? "active" : ""}>Quy trình</a>
+            <a href="#payment" className={activeSection === "payment" ? "active" : ""}>Thanh toán</a>
+            <a href="#ai" className={activeSection === "ai" ? "active" : ""}>AI</a>
           </nav>
           
           <div className="nav-cta">
-            <Link href="/login" className="btn btn-secondary">Đăng nhập</Link>
+            <Link href="/login" className="btn btn-outline" data-cta="secondary">Đăng nhập</Link>
+            <Link href="/login" className="btn btn-primary" data-cta="primary">Dùng miễn phí</Link>
             <button 
-              className="mobile-menu-toggle" 
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              aria-label="Toggle Navigation Menu"
+              className="mobile-nav-toggle" 
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Mở trình đơn"
             >
-              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              <Menu size={24} />
             </button>
           </div>
         </div>
       </header>
 
-      {/* 2. HERO SECTION */}
+      {/* Mobile Menu Drawer Overlay */}
+      <div 
+        className={`mobile-drawer-overlay ${isMobileMenuOpen ? "active" : ""}`}
+        onClick={() => setIsMobileMenuOpen(false)}
+      ></div>
+      
+      {/* Mobile Menu Drawer */}
+      <div className={`mobile-drawer ${isMobileMenuOpen ? "active" : ""}`}>
+        <button 
+          className="mobile-drawer-close" 
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-label="Đóng trình đơn"
+        >
+          <X size={24} />
+        </button>
+        <nav className="mobile-nav-links">
+          <a href="#features" onClick={() => setIsMobileMenuOpen(false)}>Tính năng</a>
+          <a href="#workflow" onClick={() => setIsMobileMenuOpen(false)}>Quy trình</a>
+          <a href="#payment" onClick={() => setIsMobileMenuOpen(false)}>Thanh toán</a>
+          <a href="#ai" onClick={() => setIsMobileMenuOpen(false)}>AI</a>
+        </nav>
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "24px" }}>
+          <Link href="/login" className="btn btn-outline" style={{ width: "100%" }} data-cta="secondary">Đăng nhập</Link>
+          <Link href="/login" className="btn btn-primary" style={{ width: "100%" }} data-cta="primary">Dùng miễn phí</Link>
+        </div>
+      </div>
+
+      {/* SECTION 2 — HERO */}
       <section className="hero">
         <div className="container">
           <div className="hero-grid">
-            <div className="hero-content">
+            <div className="hero-left">
               <div className="hero-badge">
-                <Sparkles size={14} />
-                Miễn phí cho chủ trọ Việt Nam
+                <span>✦ Miễn phí · Không cần cài đặt</span>
               </div>
-              <h1>Quản lý nhà trọ miễn phí, <span>nhìn rõ từng phòng từng đồng</span>.</h1>
-              <p className="hero-subtext">TroCare giúp chủ trọ số hóa quy trình quản lý dãy trọ, hợp đồng, lập hóa đơn tự động và nhận thanh toán QR thông minh không cần Excel.</p>
+              <h1>Quản lý nhà trọ miễn phí, nhìn rõ <span>từng phòng từng đồng</span>.</h1>
+              <p className="hero-subtext">TroCare giúp chủ trọ quản lý phòng, hóa đơn, thu chi và nhắc nợ — trong một màn hình, không cần Excel.</p>
               
               <div className="hero-actions">
-                <Link href="/login" className="btn btn-primary" data-cta="hero-start">
-                  Bắt đầu miễn phí <ArrowRight size={16} />
-                </Link>
-                <a href="#workflow" className="btn btn-secondary">Xem demo trực quan</a>
+                <Link href="/login" className="btn btn-primary" data-cta="primary">Bắt đầu miễn phí →</Link>
+                <a href="#features" className="btn btn-ghost" data-cta="secondary">Xem tính năng ↓</a>
               </div>
               
               <div className="hero-stats">
                 <div className="stat-item">
                   <h3>0đ</h3>
-                  <p>Chi phí bắt đầu</p>
+                  <p>chi phí bắt đầu</p>
                 </div>
                 <div className="stat-item">
                   <h3>7 bước</h3>
-                  <p>Từ thiết lập đến thu tiền</p>
+                  <p>từ phòng đến thu tiền</p>
                 </div>
                 <div className="stat-item">
-                  <h3>ACB + SePay</h3>
-                  <p>QR đối soát tự động</p>
+                  <h3>Tự động</h3>
+                  <p>đối soát QR SePay</p>
                 </div>
               </div>
             </div>
 
-            {/* Right Side: Interactive Mockup Dashboard */}
-            <div className="mockup-container">
-              <div className="mockup-header">
-                <div className="mockup-header-info">
-                  <Building2 size={18} className="text-primary" />
-                  <span className={`mockup-title ${mockupTitleHighlight ? "highlight" : ""}`}>
-                    {mockupTitle}
-                  </span>
+            {/* App Mockup */}
+            <div className="hero-right">
+              <div className="mockup-container">
+                <div className="mockup-header">
+                  <h4>Vận hành T06/2026</h4>
+                  <span className="mockup-header-badge">Đang vận hành</span>
                 </div>
-                <span className="mockup-badge">Đang vận hành</span>
-              </div>
-
-              {/* Room Grid */}
-              <div className={`mockup-grid ${mockupGridHighlight ? "highlight" : ""}`}>
-                <div className="mockup-room active-room">
-                  <h4>P.101</h4>
-                  <span className="room-status status-rented">Đang thuê</span>
+                
+                <div className="mockup-metrics">
+                  <div className="metric-card">
+                    <span>phòng thuê</span>
+                    <strong>28</strong>
+                  </div>
+                  <div className="metric-card">
+                    <span>đã thu</span>
+                    <strong>84%</strong>
+                  </div>
+                  <div className="metric-card">
+                    <span>cần nhắc</span>
+                    <strong>5</strong>
+                  </div>
                 </div>
-                <div className="mockup-room">
-                  <h4>P.102</h4>
-                  <span className={`room-status ${room102Rented ? "status-rented" : "status-empty"}`}>
-                    {room102Rented ? "Đang thuê" : "Trống"}
-                  </span>
+                
+                <div className="mockup-rooms">
+                  <div className="room-row">
+                    <div className="room-row-info">
+                      <h5>P101</h5>
+                      <span className="room-row-badge badge-rented">Đang thuê</span>
+                    </div>
+                    <span className="room-price">3.500.000đ</span>
+                  </div>
+                  <div className="room-row">
+                    <div className="room-row-info">
+                      <h5>P102</h5>
+                      <span className="room-row-badge badge-empty">Trống</span>
+                    </div>
+                    <span className="room-price">2.800.000đ</span>
+                  </div>
+                  <div className="room-row">
+                    <div className="room-row-info">
+                      <h5>P103</h5>
+                      <span className="room-row-badge badge-waiting">Chờ cọc</span>
+                    </div>
+                    <span className="room-price">3.200.000đ</span>
+                  </div>
+                  <div className="room-row">
+                    <div className="room-row-info">
+                      <h5>P104</h5>
+                      <span className="room-row-badge badge-rented">Đang thuê</span>
+                    </div>
+                    <span className="room-price">2.500.000đ</span>
+                  </div>
                 </div>
-                <div className="mockup-room">
-                  <h4>P.103</h4>
-                  <span className="room-status status-waiting">Chờ cọc</span>
-                </div>
-              </div>
-
-              {/* Sample Invoice */}
-              <div className={`mockup-invoice ${invoiceHighlight ? "highlight" : ""}`}>
-                <div className={`paid-stamp ${showPaidStamp ? "show" : ""}`}>ĐÃ THU</div>
-                <h5 className="invoice-title">{invoiceTitleText}</h5>
-                <div className="invoice-line">
-                  <span>Tiền phòng:</span>
-                  <strong>{invoiceBasePriceText}</strong>
-                </div>
-                <div className="invoice-line">
-                  <span>Điện nước dịch vụ:</span>
-                  <strong>350.000đ</strong>
-                </div>
-                <div className="invoice-total">
-                  <span>Cần thu:</span>
-                  <span className="text-primary">{invoiceTotalPriceText}</span>
-                </div>
-              </div>
-
-              {/* Floating Customer Info Widget */}
-              <div className={`mockup-customer ${showCustomer ? "show" : ""}`}>
-                <div className="avatar">AN</div>
-                <div className="customer-details">
-                  <h5>Nguyễn Văn An</h5>
-                  <p>Khách thuê P.102</p>
-                </div>
-              </div>
-
-              {/* Floating Cash Log Widget */}
-              <div className={`mockup-cash-log ${showCashLog ? "show" : ""}`}>
-                <CheckCircle className="text-success" size={18} />
-                <div>
-                  <h5 style={{ fontSize: "11px", fontWeight: 800 }}>Sổ quỹ +2.850.000đ</h5>
-                  <p style={{ fontSize: "9px", color: "var(--text-muted)" }}>Hóa đơn P.102 thành công</p>
+                
+                <div className="mockup-footer">
+                  <span>3 hóa đơn cần nhắc · QR ACB sẵn sàng</span>
                 </div>
               </div>
             </div>
@@ -325,120 +269,219 @@ export default function LandingPageClient() {
         </div>
       </section>
 
-      {/* 3. SOCIAL PROOF BAR */}
+      {/* SECTION 3 — SOCIAL PROOF BAR */}
       <section className="social-proof">
         <div className="container">
           <div className="social-proof-content">
-            <div className="social-proof-text">
-              Đang hỗ trợ vận hành <span className="text-primary" style={{ fontWeight: 800 }}>1.200+</span> phòng cho thuê trên toàn quốc
-            </div>
-            <div className="partner-logos">
-              <div className="partner-logo acb">
-                <Landmark size={20} />
-                <span>ACB Bank</span>
-              </div>
-              <div className="partner-logo sepay">
-                <QrCode size={20} />
-                <span>SePay</span>
-              </div>
-              <div className="partner-logo zalo">
-                <MessageSquare size={20} />
-                <span>Zalo OA</span>
-              </div>
+            <p>Đang được dùng bởi 200+ chủ trọ trên cả nước</p>
+            <div className="social-logos">
+              <span>ACB Bank</span>
+              <span>SePay</span>
+              <span>Zalo OA</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 4. FEATURES SECTION */}
+      {/* SECTION 4 — FEATURES */}
       <section className="features" id="features">
         <div className="container">
-          <div className="section-header reveal">
-            <h2>Số hóa toàn bộ việc quản lý phòng trọ</h2>
-            <p>Giải quyết mọi nỗi lo quản lý thủ công trong cùng một nền tảng tinh gọn nhất.</p>
+          <div className="features-header reveal">
+            <span className="eyebrow">Tất cả trong một màn hình</span>
+            <h2>TroCare quản lý toàn bộ vòng đời cho thuê.</h2>
+            <p>Giúp chủ trọ Việt Nam số hóa quy trình và tự động hóa các khâu thu chi phức tạp.</p>
           </div>
 
-          <div className="features-groups">
-            {/* Group 1 */}
-            <div className="features-group reveal">
-              <h3 className="features-group-title">1. Quản lý cơ bản</h3>
-              <div className="features-grid">
-                <div className="feature-card">
-                  <div className="feature-icon-wrapper">
-                    <Home size={22} />
-                  </div>
-                  <h4>Dãy trọ & Phòng</h4>
-                  <p>Tổ chức theo từng dãy, quản lý trạng thái thuê/trống, giá phòng và số lượng khách chi tiết.</p>
+          {/* Desktop 3-column Layout */}
+          <div className="features-layout">
+            {/* Column 1: Quản lý cơ bản */}
+            <div className="feature-group-column">
+              <div className="feature-group-header">
+                <Building2 size={20} />
+                <h3>Quản lý cơ bản</h3>
+              </div>
+              
+              <div className="feature-card">
+                <div className="feature-card-header">
+                  <DoorOpen size={18} />
+                  <h4>Dãy trọ & phòng</h4>
                 </div>
-                <div className="feature-card">
-                  <div className="feature-icon-wrapper">
-                    <Users size={22} />
-                  </div>
+                <p>Theo dõi chi tiết giá thuê phòng, số người ở và cập nhật trạng thái thuê linh hoạt.</p>
+              </div>
+              
+              <div className="feature-card">
+                <div className="feature-card-header">
+                  <Users size={18} />
                   <h4>Khách thuê</h4>
-                  <p>Lưu giữ thông tin liên lạc, hồ sơ tùy thân đầy đủ và lịch sử ở trọ chi tiết của từng khách hàng.</p>
                 </div>
-                <div className="feature-card">
-                  <div className="feature-icon-wrapper">
-                    <FileSignature size={22} />
-                  </div>
-                  <h4>Hợp đồng thuê</h4>
-                  <p>Tạo hợp đồng rõ ràng, quản lý tiền đặt cọc, thời hạn thuê, các dịch vụ đính kèm và điều khoản ràng buộc.</p>
+                <p>Lưu giữ thông tin liên hệ, căn cước công dân và lịch sử lưu trú của từng khách thuê.</p>
+              </div>
+              
+              <div className="feature-card">
+                <div className="feature-card-header">
+                  <FileText size={18} />
+                  <h4>Hợp đồng</h4>
                 </div>
+                <p>Quản lý kỳ hạn thuê, các điều khoản ràng buộc và đối soát tiền đặt cọc khi tất toán.</p>
               </div>
             </div>
 
-            {/* Group 2 */}
-            <div className="features-group reveal">
-              <h3 className="features-group-title">2. Thu chi & thanh toán</h3>
-              <div className="features-grid">
-                <div className="feature-card">
-                  <div className="feature-icon-wrapper">
-                    <Receipt size={22} />
-                  </div>
-                  <h4>Hóa đơn tháng</h4>
-                  <p>Lập hóa đơn nhanh chóng, cộng dồn tiền phòng, điện nước dịch vụ, nợ cũ và gửi biên nhận số hóa.</p>
+            {/* Column 2: Thu chi & Thanh toán */}
+            <div className="feature-group-column">
+              <div className="feature-group-header">
+                <CreditCard size={20} />
+                <h3>Thu chi & Thanh toán</h3>
+              </div>
+              
+              <div className="feature-card">
+                <div className="feature-card-header">
+                  <Receipt size={18} />
+                  <h4>Hóa đơn</h4>
                 </div>
-                <div className="feature-card">
-                  <div className="feature-icon-wrapper">
-                    <Wallet size={22} />
-                  </div>
-                  <h4>Sổ quỹ thu chi</h4>
-                  <p>Theo dõi luồng tiền vào ra thực tế từ tiền cọc, tiền sửa chữa phòng, thu chi cân đối minh bạch.</p>
+                <p>Tính tự động tiền điện nước, dịch vụ kèm theo, cấn trừ nợ cũ và xuất biên nhận online.</p>
+              </div>
+              
+              <div className="feature-card">
+                <div className="feature-card-header">
+                  <Wallet size={18} />
+                  <h4>Sổ quỹ</h4>
                 </div>
-                <div className="feature-card">
-                  <div className="feature-icon-wrapper">
-                    <QrCode size={22} />
-                  </div>
+                <p>Theo dõi chính xác dòng tiền vào ra, phân loại danh mục thu chi phòng trọ rõ ràng.</p>
+              </div>
+              
+              <div className="feature-card">
+                <div className="feature-card-header">
+                  <QrCode size={18} />
                   <h4>QR SePay</h4>
-                  <p>Tự động tạo QR chuyển khoản ACB chứa mã hóa đơn riêng biệt, hỗ trợ đối soát báo khoản có tức thì.</p>
+                </div>
+                <p>Xuất mã QR riêng biệt cho từng hóa đơn, nhận thông báo chuyển khoản đối soát tức thì.</p>
+              </div>
+            </div>
+
+            {/* Column 3: Giao tiếp & Nhắc việc */}
+            <div className="feature-group-column">
+              <div className="feature-group-header">
+                <BellRing size={20} />
+                <h3>Giao tiếp & Nhắc việc</h3>
+              </div>
+              
+              <div className="feature-card">
+                <div className="feature-card-header">
+                  <CalendarCheck size={18} />
+                  <h4>Nhắc việc</h4>
+                </div>
+                <p>Nhận cảnh báo sớm về các hóa đơn trễ hạn và các hợp đồng sắp sửa hết hiệu lực.</p>
+              </div>
+              
+              <div className="feature-card">
+                <div className="feature-card-header">
+                  <MessageCircle size={18} />
+                  <h4>Zalo OA</h4>
+                </div>
+                <p>Gửi tin nhắn thông báo hóa đơn tự động trực tiếp đến tài khoản Zalo của từng khách hàng.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile Accordion Layout */}
+          <div className="features-mobile-accordion">
+            {/* Accordion Item 1 */}
+            <div className={`accordion-item ${activeAccordion === 0 ? "active" : ""}`}>
+              <button className="accordion-trigger" onClick={() => setActiveAccordion(activeAccordion === 0 ? -1 : 0)}>
+                <span>Quản lý cơ bản</span>
+                <ChevronRight size={18} />
+              </button>
+              <div 
+                className="accordion-content" 
+                style={{ maxHeight: activeAccordion === 0 ? "1000px" : "0" }}
+              >
+                <div className="mobile-feature-list">
+                  <div className="feature-card">
+                    <div className="feature-card-header">
+                      <DoorOpen size={18} />
+                      <h4>Dãy trọ & phòng</h4>
+                    </div>
+                    <p>Theo dõi chi tiết giá thuê phòng, số người ở và cập nhật trạng thái thuê linh hoạt.</p>
+                  </div>
+                  <div className="feature-card">
+                    <div className="feature-card-header">
+                      <Users size={18} />
+                      <h4>Khách thuê</h4>
+                    </div>
+                    <p>Lưu giữ thông tin liên hệ, căn cước công dân và lịch sử lưu trú của từng khách thuê.</p>
+                  </div>
+                  <div className="feature-card">
+                    <div className="feature-card-header">
+                      <FileText size={18} />
+                      <h4>Hợp đồng</h4>
+                    </div>
+                    <p>Quản lý kỳ hạn thuê, các điều khoản ràng buộc và đối soát tiền đặt cọc khi tất toán.</p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Group 3 */}
-            <div className="features-group reveal">
-              <h3 className="features-group-title">3. Giao tiếp & nhắc việc</h3>
-              <div className="features-grid">
-                <div className="feature-card">
-                  <div className="feature-icon-wrapper">
-                    <Bell size={22} />
+            {/* Accordion Item 2 */}
+            <div className={`accordion-item ${activeAccordion === 1 ? "active" : ""}`}>
+              <button className="accordion-trigger" onClick={() => setActiveAccordion(activeAccordion === 1 ? -1 : 1)}>
+                <span>Thu chi & Thanh toán</span>
+                <ChevronRight size={18} />
+              </button>
+              <div 
+                className="accordion-content" 
+                style={{ maxHeight: activeAccordion === 1 ? "1000px" : "0" }}
+              >
+                <div className="mobile-feature-list">
+                  <div className="feature-card">
+                    <div className="feature-card-header">
+                      <Receipt size={18} />
+                      <h4>Hóa đơn</h4>
+                    </div>
+                    <p>Tính tự động tiền điện nước, dịch vụ kèm theo, cấn trừ nợ cũ và xuất biên nhận online.</p>
                   </div>
-                  <h4>Nhắc việc thông minh</h4>
-                  <p>Hệ thống tự động nhắc nhở các công việc định kỳ: thu tiền phòng, gia hạn hợp đồng, báo cáo tháng.</p>
+                  <div className="feature-card">
+                    <div className="feature-card-header">
+                      <Wallet size={18} />
+                      <h4>Sổ quỹ</h4>
+                    </div>
+                    <p>Theo dõi chính xác dòng tiền vào ra, phân loại danh mục thu chi phòng trọ rõ ràng.</p>
+                  </div>
+                  <div className="feature-card">
+                    <div className="feature-card-header">
+                      <QrCode size={18} />
+                      <h4>QR SePay</h4>
+                    </div>
+                    <p>Xuất mã QR riêng biệt cho từng hóa đơn, nhận thông báo chuyển khoản đối soát tức thì.</p>
+                  </div>
                 </div>
-                <div className="feature-card">
-                  <div className="feature-icon-wrapper">
-                    <MessageSquareText size={22} />
+              </div>
+            </div>
+
+            {/* Accordion Item 3 */}
+            <div className={`accordion-item ${activeAccordion === 2 ? "active" : ""}`}>
+              <button className="accordion-trigger" onClick={() => setActiveAccordion(activeAccordion === 2 ? -1 : 2)}>
+                <span>Giao tiếp & Nhắc việc</span>
+                <ChevronRight size={18} />
+              </button>
+              <div 
+                className="accordion-content" 
+                style={{ maxHeight: activeAccordion === 2 ? "1000px" : "0" }}
+              >
+                <div className="mobile-feature-list">
+                  <div className="feature-card">
+                    <div className="feature-card-header">
+                      <CalendarCheck size={18} />
+                      <h4>Nhắc việc</h4>
+                    </div>
+                    <p>Nhận cảnh báo sớm về các hóa đơn trễ hạn và các hợp đồng sắp sửa hết hiệu lực.</p>
                   </div>
-                  <h4>Zalo OA</h4>
-                  <p>Kết nối gửi tin nhắn hóa đơn phòng tự động trực tiếp vào tài khoản Zalo của khách thuê cực nhanh chóng.</p>
-                </div>
-                <div className="feature-card">
-                  <div className="feature-icon-wrapper">
-                    <BrainCircuit size={22} />
+                  <div className="feature-card">
+                    <div className="feature-card-header">
+                      <MessageCircle size={18} />
+                      <h4>Zalo OA</h4>
+                    </div>
+                    <p>Gửi tin nhắn thông báo hóa đơn tự động trực tiếp đến tài khoản Zalo của từng khách hàng.</p>
                   </div>
-                  <h4>Trợ lý AI</h4>
-                  <p>Gợi ý tối ưu hóa dòng tiền, viết mẫu thông báo thông minh và hỗ trợ phân tích hiệu quả cho thuê.</p>
                 </div>
               </div>
             </div>
@@ -446,37 +489,37 @@ export default function LandingPageClient() {
         </div>
       </section>
 
-      {/* 5. WORKFLOW SECTION */}
+      {/* SECTION 5 — WORKFLOW */}
       <section className="workflow" id="workflow">
         <div className="container">
-          <div className="section-header reveal">
-            <h2>Vận hành dễ dàng sau vài bước</h2>
-            <p>Bắt đầu ngay hôm nay và xem cách TroCare đơn giản hóa các tác vụ quản lý thủ công khó nhằn nhất.</p>
+          <div className="features-header reveal">
+            <span className="eyebrow">Bắt đầu trong 15 phút</span>
+            <h2>Vào app lần đầu vẫn biết phải làm gì tiếp theo.</h2>
           </div>
 
-          {/* Desktop Steps (Step Line Indicators) */}
-          <div className="step-indicator-wrapper reveal">
-            <div className="step-line"></div>
+          {/* Desktop Visual Step Bar */}
+          <div className="workflow-bar-wrapper reveal">
+            <div className="workflow-bar-line"></div>
             <div 
-              className="step-line-active" 
+              className="workflow-bar-progress" 
               style={{ width: `${((activeStep - 1) / 6) * 100}%` }}
             ></div>
             
-            <div className="step-indicator">
+            <div className="workflow-steps">
               {[1, 2, 3, 4, 5, 6, 7].map((num) => (
                 <button 
                   key={num}
-                  className={`step-node ${activeStep >= num ? "active" : ""}`}
-                  onClick={() => handleStepClick(num)}
+                  className={`workflow-step-node ${activeStep >= num ? "active" : ""}`}
+                  onClick={() => setActiveStep(num)}
                 >
-                  <div className="step-number">{num}</div>
-                  <span className="step-title">
+                  <div className="workflow-circle">{num}</div>
+                  <span>
                     {num === 1 && "Tạo dãy trọ"}
                     {num === 2 && "Thêm phòng"}
-                    {num === 3 && "Nhập khách"}
+                    {num === 3 && "Nhập khách thuê"}
                     {num === 4 && "Ký hợp đồng"}
                     {num === 5 && "Lập hóa đơn"}
-                    {num === 6 && "Thu tiền"}
+                    {num === 6 && "Nhận thanh toán"}
                     {num === 7 && "Xem sổ quỹ"}
                   </span>
                 </button>
@@ -484,29 +527,29 @@ export default function LandingPageClient() {
             </div>
           </div>
 
-          {/* Step Description Box */}
-          <div className="step-description-box reveal">
-            <h4 className="step-desc-title">{stepsData[activeStep]?.title}</h4>
-            <p className="step-desc-text">{stepsData[activeStep]?.text}</p>
+          {/* Detail Card Box */}
+          <div className="workflow-desc-box reveal">
+            <h4>{stepsData[activeStep]?.title}</h4>
+            <p>{stepsData[activeStep]?.text}</p>
           </div>
 
-          {/* Mobile Timeline */}
-          <div className="mobile-timeline">
+          {/* Mobile Vertical Timeline */}
+          <div className="mobile-workflow-timeline">
             {[1, 2, 3, 4, 5, 6, 7].map((num) => (
               <div 
                 key={num}
-                className={`timeline-item ${activeStep === num ? "active" : ""}`}
-                onClick={() => handleStepClick(num)}
+                className={`mobile-timeline-item ${activeStep === num ? "active" : ""}`}
+                onClick={() => setActiveStep(num)}
               >
-                <div className="timeline-num">{num}</div>
-                <div className="timeline-content">
+                <div className="mobile-timeline-circle">{num}</div>
+                <div className="mobile-timeline-content">
                   <h4>
                     {num === 1 && "Tạo dãy trọ"}
                     {num === 2 && "Thêm phòng"}
                     {num === 3 && "Nhập khách thuê"}
                     {num === 4 && "Ký hợp đồng"}
                     {num === 5 && "Lập hóa đơn"}
-                    {num === 6 && "Thu tiền thông minh"}
+                    {num === 6 && "Nhận thanh toán"}
                     {num === 7 && "Xem sổ quỹ"}
                   </h4>
                   <p>{stepsData[num]?.text}</p>
@@ -517,70 +560,74 @@ export default function LandingPageClient() {
         </div>
       </section>
 
-      {/* 6. QR PAYMENT SHOWCASE */}
-      <section className="payment-showcase" id="payment">
+      {/* SECTION 6 — QR PAYMENT */}
+      <section className="qr-payment" id="payment">
         <div className="container">
-          <div className="payment-grid">
-            <div className="payment-text reveal">
-              <span className="payment-tagline">Thanh toán thông minh</span>
-              <h2>Đối soát tự động qua cổng SePay linh hoạt</h2>
-              <p>Mỗi hóa đơn tiền phòng được xuất ra sẽ đi kèm một mã thanh toán duy nhất (`TCINV-XXXX`) và hiển thị thông tin QR chính xác. Khi khách thuê chuyển khoản qua ACB, giao dịch được khớp tự động chỉ trong vài giây.</p>
+          <div className="qr-grid">
+            <div className="qr-text reveal">
+              <span className="eyebrow">Thu tiền rõ ràng</span>
+              <h2>Mỗi hóa đơn có mã riêng, QR riêng, trạng thái riêng.</h2>
+              <p>Hạn chế tối đa sai lệch thông tin và nhầm lẫn đối soát chuyển khoản của từng phòng hàng tháng.</p>
               
-              <ul className="feature-check-list">
-                <li className="check-item">
-                  <CheckCircle2 className="check-icon" size={18} />
-                  <span>Không cần chụp màn hình chuyển khoản gửi Zalo thủ công.</span>
+              <ul className="qr-bullets">
+                <li className="qr-bullet">
+                  <Check size={18} />
+                  <span>Khách thấy ngay số tiền, từng khoản chi tiết điện nước rõ ràng.</span>
                 </li>
-                <li className="check-item">
-                  <CheckCircle2 className="check-icon" size={18} />
-                  <span>Cập nhật trạng thái "Đã thu" tức thì trên bảng điều khiển.</span>
+                <li className="qr-bullet">
+                  <Check size={18} />
+                  <span>Mã QR chuyển khoản ACB được mã hóa tự động riêng biệt cho từng hóa đơn.</span>
                 </li>
-                <li className="check-item">
-                  <CheckCircle2 className="check-icon" size={18} />
-                  <span>Rõ ràng, minh bạch, hạn chế nhầm lẫn số lẻ hoặc sai nội dung.</span>
+                <li className="qr-bullet">
+                  <Check size={18} />
+                  <span>SePay nhận giao dịch báo có ngay lập tức → tự đối soát chuẩn xác theo mã hóa đơn.</span>
                 </li>
               </ul>
             </div>
 
-            <div className="reveal">
+            <div className="qr-visual reveal">
               <div className="invoice-card">
-                <div className="invoice-card-header">
-                  <span className="invoice-card-logo">
-                    <ShieldCheck size={18} style={{ verticalAlign: "middle", marginRight: "6px" }} /> 
-                    TroCare Invoice
-                  </span>
-                  <span className="invoice-card-code">Mã: TCINV-1092</span>
+                <div className="invoice-header">
+                  <h4>Thông báo tiền phòng T6/2026</h4>
+                  <span>Phòng P109 — Dãy A</span>
                 </div>
                 
                 <div className="invoice-card-lines">
                   <div className="invoice-card-line">
-                    <span>Phòng P.109:</span>
-                    <strong>2.500.000đ</strong>
+                    <span>Phòng:</span>
+                    <span>2.300.000đ</span>
                   </div>
                   <div className="invoice-card-line">
-                    <span>Số điện (52kWh x 3.5k):</span>
-                    <span>182.000đ</span>
+                    <span>Điện (234 số):</span>
+                    <span>234.600đ</span>
                   </div>
                   <div className="invoice-card-line">
-                    <span>Nước sinh hoạt:</span>
-                    <span>80.000đ</span>
+                    <span>Nước:</span>
+                    <span>100.000đ</span>
+                  </div>
+                  <div className="invoice-card-line">
+                    <span>Rác:</span>
+                    <span>36.500đ</span>
                   </div>
                   <div className="invoice-card-line total">
-                    <span>Tổng cộng:</span>
-                    <span className="text-primary">2.762.000đ</span>
+                    <span>Tổng:</span>
+                    <span>2.671.100đ</span>
                   </div>
                 </div>
 
-                <div className="invoice-card-qr-section">
-                  <div className="qr-desc">
-                    <h5>Quét mã chuyển khoản</h5>
-                    <p>Nội dung: TCINV-1092</p>
-                    <p style={{ fontWeight: 700, marginTop: "4px", color: "var(--primary)" }}>Ngân hàng ACB</p>
+                <div className="invoice-qr-section">
+                  <div className="invoice-qr-desc">
+                    <h5>Quét chuyển khoản</h5>
+                    <p>Nội dung: TCINV-P109</p>
                   </div>
-                  <div className="qr-placeholder">
-                    <QrCode size={48} style={{ color: "var(--text-main)", marginBottom: "4px" }} />
-                    <span>QR SEPAY</span>
+                  <div className="invoice-qr-box">
+                    <span>QR</span>
                   </div>
+                </div>
+
+                <div className="invoice-footer">
+                  <span>ACB · TCINV-P109</span>
+                  <span className="badge-warning-custom">Chờ thanh toán</span>
                 </div>
               </div>
             </div>
@@ -588,125 +635,106 @@ export default function LandingPageClient() {
         </div>
       </section>
 
-      {/* 7. AI SECTION */}
+      {/* SECTION 7 — AI */}
       <section className="ai-section" id="ai">
         <div className="container">
-          <div className="ai-grid">
-            <div className="ai-visual reveal">
-              <div style={{ background: "linear-gradient(135deg, rgba(6, 182, 212, 0.05), rgba(37, 99, 235, 0.05))", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "32px", boxShadow: "var(--shadow-md)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
-                  <div style={{ width: "42px", height: "42px", backgroundColor: "var(--primary-light)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
-                    <Bot size={22} />
-                  </div>
-                  <div>
-                    <h4 style={{ fontWeight: 800 }}>Gợi ý vận hành AI</h4>
-                    <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>Trợ lý vận hành tự động</p>
-                  </div>
-                </div>
-                
-                <div style={{ backgroundColor: "#FFFFFF", border: "1px solid var(--border-color)", borderRadius: "10px", padding: "16px", fontSize: "13px", fontWeight: 600, lineHeight: 1.5, boxShadow: "var(--shadow-sm)", marginBottom: "12px" }}>
-                  <Sparkles size={14} className="text-accent" style={{ color: "var(--accent)", marginRight: "6px", display: "inline-block", verticalAlign: "middle" }} />
-                  "Phòng 104 sắp hết hợp đồng vào ngày 25 tới. Gợi ý gửi tin nhắn liên hệ gia hạn cho khách thuê Nguyễn Thị Bình."
-                </div>
-                <div style={{ backgroundColor: "#FFFFFF", border: "1px solid var(--border-color)", borderRadius: "10px", padding: "16px", fontSize: "13px", fontWeight: 600, lineHeight: 1.5, boxShadow: "var(--shadow-sm)" }}>
-                  <TrendingUp size={14} className="text-primary" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }} />
-                  "Dòng tiền thực thu tháng này tăng trưởng 12% so với tháng trước nhờ việc nhắc hóa đơn tự động."
-                </div>
+          <div className="ai-header reveal">
+            <span className="eyebrow">AI cho vận hành cho thuê</span>
+            <h2>Không thay chủ trọ quyết định, chỉ giúp nhìn việc nhanh hơn.</h2>
+            <p>Tích hợp mô hình AI gợi ý xử lý các vấn đề quản lý, tính toán dòng tiền tối ưu.</p>
+          </div>
+
+          <div className="ai-grid reveal">
+            <div className="ai-card">
+              <div className="ai-card-icon">
+                <BellRing size={20} />
               </div>
+              <h4>Gợi ý nhắc nợ</h4>
+              <p>Tự động phân tích lịch sử trả tiền và đề xuất danh sách phòng trọ cần nhắc thanh toán sớm.</p>
             </div>
 
-            <div className="ai-text reveal">
-              <div className="ai-badge">
-                <Cpu size={14} style={{ marginRight: "6px" }} />
-                Trí tuệ nhân tạo (AI)
+            <div className="ai-card">
+              <div className="ai-card-icon">
+                <TrendingUp size={20} />
               </div>
-              <h2>Tự động nhận diện công việc, tối ưu dòng tiền</h2>
-              <p>Không can thiệp sâu vào quyết định của chủ trọ, Trợ lý ảo của TroCare giúp thống kê dữ liệu nhanh chóng và đưa ra các đề xuất giải quyết công việc hữu ích.</p>
-              
-              <div className="ai-bullets">
-                <div className="ai-bullet-card">
-                  <div className="ai-icon-box">
-                    <CheckCircle size={18} />
-                  </div>
-                  <span>Phân tích cảnh báo phòng trống lâu dựa trên xu hướng mùa vụ.</span>
-                </div>
-                <div className="ai-bullet-card">
-                  <div className="ai-icon-box">
-                    <CheckCircle size={18} />
-                  </div>
-                  <span>Phác thảo mẫu tin nhắn nhắc đóng tiền thông minh qua Zalo.</span>
-                </div>
-                <div className="ai-bullet-card">
-                  <div className="ai-icon-box">
-                    <CheckCircle size={18} />
-                  </div>
-                  <span>Tóm tắt báo cáo tình hình doanh thu thực tế định kỳ hàng tháng.</span>
-                </div>
-                <div className="ai-bullet-card">
-                  <div className="ai-icon-box">
-                    <CheckCircle size={18} />
-                  </div>
-                  <span>Gợi ý điều chỉnh đơn giá dịch vụ hợp lý theo dữ liệu khu vực.</span>
-                </div>
+              <h4>Tóm tắt dòng tiền</h4>
+              <p>Tổng hợp biểu đồ doanh thu chi tiết, đưa ra dự báo luồng tiền nhận được vào cuối tháng.</p>
+            </div>
+
+            <div className="ai-card">
+              <div className="ai-card-icon">
+                <AlertTriangle size={20} />
               </div>
+              <h4>Cảnh báo bất thường</h4>
+              <p>Nhận diện nhanh chóng các biến động đột biến về chỉ số tiêu thụ điện nước của từng dãy trọ.</p>
+            </div>
+
+            <div className="ai-card">
+              <div className="ai-card-icon">
+                <MessageSquareText size={20} />
+              </div>
+              <h4>Soạn tin Zalo</h4>
+              <p>AI hỗ trợ viết biểu mẫu thông báo tiền phòng bằng văn phong nhã nhặn, lịch sự tự động.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 8. FINAL CTA SECTION */}
+      {/* SECTION 8 — FINAL CTA */}
       <section className="final-cta">
         <div className="container reveal">
           <div className="final-cta-content">
-            <h2>Số hóa việc quản lý phòng trọ của bạn ngay hôm nay</h2>
-            <p>Bắt đầu miễn phí hoàn toàn, tối giản hóa quy trình vận hành và hạn chế tối đa sai sót dòng tiền mỗi tháng.</p>
-            <Link href="/login" className="btn btn-primary" data-cta="final-start">
-              Đăng ký sử dụng miễn phí <ChevronRight size={16} />
+            <h2>Bắt đầu miễn phí, chuẩn hóa vận hành từ hôm nay.</h2>
+            <p>Nhập phòng trọ một lần. Từ tháng sau, hóa đơn và nhắc nợ tự chạy.</p>
+            <Link href="/login" className="btn btn-primary" data-cta="primary">
+              Dùng TroCare miễn phí →
             </Link>
+            <span>Không cần thẻ tín dụng · Miễn phí mãi mãi</span>
           </div>
         </div>
       </section>
 
-      {/* 9. FOOTER */}
+      {/* SECTION 9 — FOOTER */}
       <footer className="footer">
         <div className="container">
           <div className="footer-grid">
             <div className="footer-brand">
-              <Link href="/" className="logo">
-                <div className="logo-symbol">T</div>
-                <span>TroCare</span>
+              <Link href="/" className="logo" style={{ textDecoration: "none", color: "var(--text-primary)" }}>
+                TroCare
               </Link>
-              <p>Phần mềm quản lý phòng trọ miễn phí thông minh, nâng cao hiệu quả vận hành tối ưu cho chủ trọ Việt Nam.</p>
+              <p>Quản lý trọ thông minh, vận hành an tâm.</p>
             </div>
             
             <div className="footer-col">
               <h4>Sản phẩm</h4>
-              <ul className="footer-links-list">
+              <ul className="footer-links">
                 <li><a href="#features">Tính năng</a></li>
                 <li><a href="#workflow">Quy trình</a></li>
                 <li><a href="#payment">Thanh toán QR</a></li>
-              </ul>
-            </div>
-            
-            <div className="footer-col">
-              <h4>Pháp lý</h4>
-              <ul className="footer-links-list">
-                <li><Link href="/terms">Điều khoản sử dụng</Link></li>
-                <li><Link href="/privacy">Chính sách bảo mật</Link></li>
+                <li><a href="#ai">AI vận hành</a></li>
               </ul>
             </div>
             
             <div className="footer-col">
               <h4>Hỗ trợ</h4>
-              <ul className="footer-links-list">
-                <li><a href="#faq">Câu hỏi thường gặp</a></li>
+              <ul className="footer-links">
+                <li><a href="#faq">Hỏi đáp</a></li>
                 <li><a href="mailto:support@trocare.com">Liên hệ hỗ trợ</a></li>
+                <li><a href="#guide">Hướng dẫn bắt đầu</a></li>
+              </ul>
+            </div>
+            
+            <div className="footer-col">
+              <h4>Pháp lý</h4>
+              <ul className="footer-links">
+                <li><Link href="/privacy">Chính sách bảo mật</Link></li>
+                <li><Link href="/terms">Điều khoản sử dụng</Link></li>
               </ul>
             </div>
           </div>
           
           <div className="footer-bottom">
-            <span className="copyright">© 2026 TroCare. Thiết kế và phát triển tại Việt Nam. All rights reserved.</span>
+            <span>© 2026 TroCare. Miễn phí cho chủ trọ Việt Nam.</span>
           </div>
         </div>
       </footer>
