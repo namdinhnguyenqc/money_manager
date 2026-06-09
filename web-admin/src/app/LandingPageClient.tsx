@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Building2,
   Receipt,
@@ -123,7 +124,14 @@ export default function LandingPageClient() {
       <header className={`navbar ${isScrolled ? "scrolled" : ""}`}>
         <div className="container">
           <Link href="/" className="logo">
-            TroCare
+            <Image
+              src="/brand/transparent/trocare-logo-full-transparent-2000.png"
+              alt="TroCare"
+              width={200}
+              height={55}
+              priority
+              style={{ objectFit: "contain" }}
+            />
           </Link>
           
           <nav className="nav-links">
@@ -699,8 +707,14 @@ export default function LandingPageClient() {
         <div className="container">
           <div className="footer-grid">
             <div className="footer-brand">
-              <Link href="/" className="logo" style={{ textDecoration: "none", color: "var(--text-primary)" }}>
-                TroCare
+              <Link href="/" className="logo" style={{ textDecoration: "none" }}>
+                <Image
+                  src="/brand/transparent/trocare-wordmark-transparent-1600.png"
+                  alt="TroCare"
+                  width={150}
+                  height={45}
+                  style={{ objectFit: "contain" }}
+                />
               </Link>
               <p>Quản lý trọ thông minh, vận hành an tâm.</p>
             </div>
