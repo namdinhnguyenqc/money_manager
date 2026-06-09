@@ -7,11 +7,18 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Building2 } from "lucide-react";
 import { createBoardingHouse } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+import VietnamAddressFields from "@/components/VietnamAddressFields";
 
 export default function NewFacilityPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ name: "", address: "", description: "" });
+  const [form, setForm] = useState({
+    name: "",
+    streetAddress: "",
+    ward: "",
+    province: "",
+    description: "",
+  });
   const [error, setError] = useState("");
 
   const mutation = useMutation({
@@ -26,13 +33,16 @@ export default function NewFacilityPage() {
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
-    if (!form.name.trim()) {
-      setError("Tên cơ sở là bắt buộc.");
+    if (!form.name.trim() || !form.streetAddress.trim() || !form.ward.trim() || !form.province.trim()) {
+      setError("Vui lòng nhập đầy đủ tên cơ sở và địa chỉ.");
       return;
     }
+    const address = [form.streetAddress, form.ward, form.province]
+      .map((part) => part.trim())
+      .join(", ");
     mutation.mutate({
       name: form.name.trim(),
-      address: form.address.trim(),
+      address,
       description: form.description.trim(),
     });
   };
@@ -59,10 +69,12 @@ export default function NewFacilityPage() {
             <span className="mb-1 block text-sm font-medium text-slate-700">Tên cơ sở *</span>
             <input className="input" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Ví dụ: Nhà trọ Lương Thế Vinh" />
           </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Địa chỉ</span>
-            <input className="input" value={form.address} onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))} placeholder="Số nhà, đường, phường/xã, quận/huyện" />
-          </label>
+          <VietnamAddressFields
+            streetAddress={form.streetAddress}
+            ward={form.ward}
+            province={form.province}
+            onChange={(address) => setForm((prev) => ({ ...prev, ...address }))}
+          />
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700">Ghi chú</span>
             <textarea className="input min-h-[96px]" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} placeholder="Thông tin nội bộ cho cơ sở này" />

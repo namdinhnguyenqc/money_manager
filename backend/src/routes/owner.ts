@@ -135,7 +135,7 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
 
 const boardingHouseSchema = z.object({
   name: z.string().min(1),
-  address: z.string().optional(),
+  address: z.string().trim().min(8, "Vui lòng nhập địa chỉ đầy đủ"),
   description: z.string().optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
@@ -152,9 +152,56 @@ const roomSchema = z.object({
   maxPeople: z.number().int().positive().optional(),
   status: z.enum(["AVAILABLE", "OCCUPIED", "MAINTENANCE"]).default("AVAILABLE"),
   isPublic: z.boolean().default(false),
+  listingTitle: z.string().trim().max(120).optional().nullable(),
+  listingDescription: z.string().trim().max(2000).optional().nullable(),
+  imageUrls: z.array(z.string().url()).max(6).optional(),
+  amenities: z.array(z.string().trim().min(1).max(60)).max(20).optional(),
+  depositAmount: z.number().nonnegative().optional(),
+  availableFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  contactPhone: z.string().trim().max(30).optional().nullable(),
+  contactZalo: z.string().trim().max(30).optional().nullable(),
+  allowsPets: z.boolean().optional(),
 });
 
 const updateRoomSchema = roomSchema.partial();
+
+const roomImageSchema = z.object({
+  dataUrl: z.string().startsWith("data:image/"),
+});
+
+const toOwnerRoom = (room: any) => ({
+  id: room.id,
+  name: room.name,
+  boardingHouseId: room.boarding_house_id,
+  price: Number(room.price || 0),
+  area: Number(room.area || 0),
+  maxPeople: Number(room.max_people || 1),
+  status: mapRentalStatusToOwner(room.status),
+  isPublic: Boolean(room.is_public),
+  listingTitle: room.listing_title ?? "",
+  listingDescription: room.listing_description ?? "",
+  imageUrls: Array.isArray(room.image_urls) ? room.image_urls : [],
+  amenities: Array.isArray(room.amenities) ? room.amenities : [],
+  depositAmount: Number(room.deposit_amount || 0),
+  availableFrom: room.available_from,
+  contactPhone: room.contact_phone ?? "",
+  contactZalo: room.contact_zalo ?? "",
+  allowsPets: Boolean(room.allows_pets),
+  publishedAt: room.published_at,
+  createdAt: room.created_at,
+});
+
+const marketplaceFields = (input: z.infer<typeof updateRoomSchema>) => ({
+  ...(input.listingTitle !== undefined && { listing_title: input.listingTitle || null }),
+  ...(input.listingDescription !== undefined && { listing_description: input.listingDescription || null }),
+  ...(input.imageUrls !== undefined && { image_urls: input.imageUrls }),
+  ...(input.amenities !== undefined && { amenities: input.amenities }),
+  ...(input.depositAmount !== undefined && { deposit_amount: input.depositAmount }),
+  ...(input.availableFrom !== undefined && { available_from: input.availableFrom || null }),
+  ...(input.contactPhone !== undefined && { contact_phone: input.contactPhone || null }),
+  ...(input.contactZalo !== undefined && { contact_zalo: input.contactZalo || null }),
+  ...(input.allowsPets !== undefined && { allows_pets: input.allowsPets }),
+});
 
 const messageSchema = z.object({
   body: z.string().trim().min(1).max(2000),
@@ -476,15 +523,7 @@ ownerRoutes.get("/boarding-houses/:id/rooms", async (c) => {
   }
 
   return c.json({
-    data: data?.map((r) => ({
-      id: r.id,
-      name: r.name,
-      boardingHouseId: r.boarding_house_id,
-      price: r.price,
-      status: r.status,
-      isPublic: r.is_public,
-      createdAt: r.created_at,
-    })),
+    data: data?.map(toOwnerRoom),
   });
 });
 
@@ -537,7 +576,7 @@ ownerRoutes.post("/boarding-houses/:id/rooms", async (c) => {
   }
   // ──────────────────────────────────────────────────────────
 
-  const { name, price, status, isPublic } = validation.data;
+  const { name, price, status, isPublic, area, maxPeople } = validation.data;
 
   const { data: room, error } = await c
     .get("supabase")
@@ -547,10 +586,12 @@ ownerRoutes.post("/boarding-houses/:id/rooms", async (c) => {
       name,
       boarding_house_id: bhId,
       price,
-      area: 0,
-      max_people: 1,
+      area: area ?? 0,
+      max_people: maxPeople ?? 1,
       status,
       is_public: isPublic,
+      published_at: isPublic ? new Date().toISOString() : null,
+      ...marketplaceFields(validation.data),
     })
     .select()
     .single();
@@ -565,15 +606,7 @@ ownerRoutes.post("/boarding-houses/:id/rooms", async (c) => {
 
   return c.json(
     {
-      id: room.id,
-      name: room.name,
-      boardingHouseId: room.boarding_house_id,
-      price: room.price,
-      area: room.area,
-      maxPeople: room.max_people,
-      status: room.status,
-      isPublic: room.is_public,
-      createdAt: room.created_at,
+      ...toOwnerRoom(room),
     },
     201,
   );
@@ -615,9 +648,26 @@ ownerRoutes.patch("/rooms/:id", async (c) => {
   }
 
   const updateData: Record<string, unknown> = { ...validation.data };
+  Object.assign(updateData, marketplaceFields(validation.data));
+  [
+    "listingTitle",
+    "listingDescription",
+    "imageUrls",
+    "amenities",
+    "depositAmount",
+    "availableFrom",
+    "contactPhone",
+    "contactZalo",
+    "allowsPets",
+    "maxPeople",
+    "isPublic",
+  ].forEach((key) => delete updateData[key]);
+  if (validation.data.maxPeople !== undefined) {
+    updateData.max_people = validation.data.maxPeople;
+  }
   if (validation.data.isPublic !== undefined) {
     updateData.is_public = validation.data.isPublic;
-    delete updateData.isPublic;
+    updateData.published_at = validation.data.isPublic ? new Date().toISOString() : null;
   }
   updateData.updated_at = new Date().toISOString();
 
@@ -631,21 +681,81 @@ ownerRoutes.patch("/rooms/:id", async (c) => {
 
   if (error) {
     console.error("Error updating room:", error);
-    return c.json({ error: "Failed to update room" }, 500);
+    const missingMarketplaceSchema =
+      error.message?.includes("does not exist") &&
+      ["listing_", "image_urls", "amenities", "deposit_amount", "available_from", "contact_", "allows_pets", "published_at"].some(
+        (field) => error.message.includes(field),
+      );
+    return c.json(
+      {
+        error: missingMarketplaceSchema
+          ? "Database chưa áp dụng migration đăng phòng (028_room_marketplace.sql)"
+          : error.message || "Failed to update room",
+      },
+      500,
+    );
+  }
+
+  if (validation.data.isPublic) {
+    const { error: housePublishError } = await c
+      .get("supabase")
+      .from("boarding_houses")
+      .update({ is_public: true, status: "ACTIVE", updated_at: new Date().toISOString() })
+      .eq("id", roomCheck.data.boarding_house_id)
+      .eq("owner_id", currentUser.id);
+    if (housePublishError) {
+      console.error("Error publishing boarding house:", housePublishError);
+      return c.json({ error: housePublishError.message || "Không thể công khai cơ sở" }, 500);
+    }
   }
 
   invalidateCache("/owner/boarding-houses", currentUser.id);
   invalidateCache("/owner/dashboard-init", currentUser.id);
 
-  return c.json({
-    id: data.id,
-    name: data.name,
-    boardingHouseId: data.boarding_house_id,
-    price: data.price,
-    status: data.status,
-    isPublic: data.is_public,
-    createdAt: data.created_at,
-  });
+  return c.json(toOwnerRoom(data));
+});
+
+ownerRoutes.post("/rooms/:id/images", async (c) => {
+  const currentUser = c.get("user");
+  const roomId = c.req.param("id");
+  const validation = roomImageSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!validation.success) return c.json({ error: "Ảnh không hợp lệ" }, 400);
+
+  const { data: room } = await c
+    .get("supabase")
+    .from("rooms")
+    .select("id,user_id,image_urls")
+    .eq("id", roomId)
+    .eq("user_id", currentUser.id)
+    .single();
+  if (!room) return c.json({ error: "Room not found" }, 404);
+
+  const currentImages = Array.isArray(room.image_urls) ? room.image_urls : [];
+  if (currentImages.length >= 6) return c.json({ error: "Mỗi phòng tối đa 6 ảnh" }, 400);
+
+  const match = validation.data.dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
+  if (!match) return c.json({ error: "Chỉ hỗ trợ JPEG, PNG hoặc WebP" }, 400);
+  const buffer = Buffer.from(match[2], "base64");
+  if (buffer.byteLength > 5 * 1024 * 1024) return c.json({ error: "Ảnh phải nhỏ hơn 5 MB" }, 400);
+
+  const extension = match[1] === "image/png" ? "png" : match[1] === "image/webp" ? "webp" : "jpg";
+  const fileName = `${currentUser.id}/${roomId}/${Date.now()}.${extension}`;
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from("room-listings")
+    .upload(fileName, buffer, { contentType: match[1], upsert: false });
+  if (uploadError) return c.json({ error: uploadError.message }, 500);
+
+  const { data: publicData } = supabaseAdmin.storage.from("room-listings").getPublicUrl(fileName);
+  const imageUrls = [...currentImages, publicData.publicUrl];
+  const { error: updateError } = await c
+    .get("supabase")
+    .from("rooms")
+    .update({ image_urls: imageUrls, updated_at: new Date().toISOString() })
+    .eq("id", roomId)
+    .eq("user_id", currentUser.id);
+  if (updateError) return c.json({ error: updateError.message }, 500);
+
+  return c.json({ data: { url: publicData.publicUrl, imageUrls } }, 201);
 });
 
 ownerRoutes.delete("/rooms/:id", async (c) => {

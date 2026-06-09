@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Save, Trash2, Home, Layout, Ruler, Users, CircleDollarSign, CheckCircle2, AlertCircle } from "lucide-react";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import StatusBadge from "@/components/ops/StatusBadge";
+import RoomEditModal, { Room } from "@/components/RoomEditModal";
 import { 
   formatMoney, 
   getFloorFromRoomName, 
@@ -17,6 +18,7 @@ import {
   RentalRoom
 } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+import { apiPatch } from "@/utils/apiClient";
 
 const roomStatuses = [
   { value: "vacant", label: "Còn trống" },
@@ -81,6 +83,49 @@ export default function EditRoomPage() {
       setTimeout(() => setToast(""), 3000);
     } catch (err: any) {
       setError(err?.message || "Lỗi khi cập nhật phòng. Vui lòng thử lại!");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const ownerRoomId = roomQuery.data?.owner_room_id || String(id);
+  const listingRoom: Room | null = roomQuery.data
+    ? {
+        id: ownerRoomId,
+        name: roomQuery.data.name,
+        price: roomQuery.data.price,
+        area: roomQuery.data.area,
+        maxPeople: roomQuery.data.max_people,
+        isPublic: roomQuery.data.is_public,
+        listingTitle: roomQuery.data.listing_title || "",
+        listingDescription: roomQuery.data.listing_description || "",
+        imageUrls: roomQuery.data.image_urls || [],
+        amenities: roomQuery.data.amenities || [],
+        depositAmount: Number(roomQuery.data.deposit_amount || 0),
+        availableFrom: roomQuery.data.available_from || "",
+        contactPhone: roomQuery.data.contact_phone || "",
+        contactZalo: roomQuery.data.contact_zalo || "",
+        allowsPets: Boolean(roomQuery.data.allows_pets),
+        status:
+          form.status === "occupied"
+            ? "OCCUPIED"
+            : form.status === "maintenance"
+              ? "MAINTENANCE"
+              : "AVAILABLE",
+      }
+    : null;
+
+  const saveListing = async (payload: Partial<Room>) => {
+    setSaving(true);
+    setError("");
+    try {
+      await apiPatch(`/owner/rooms/${ownerRoomId}`, payload);
+      setToast(payload.isPublic ? "Đã đăng phòng lên mục Tìm phòng!" : "Đã lưu nội dung tin đăng.");
+      await roomQuery.refetch();
+      await invalidateOwnerOpsQueries(queryClient, { facilityId, roomId: ownerRoomId });
+      setTimeout(() => setToast(""), 3000);
+    } catch (err: any) {
+      setError(err?.message || "Không thể lưu tin đăng.");
     } finally {
       setSaving(false);
     }
@@ -238,6 +283,13 @@ export default function EditRoomPage() {
           </div>
         </div>
       </form>
+      <RoomEditModal
+        open
+        room={listingRoom}
+        onClose={() => undefined}
+        onSave={saveListing}
+        inline
+      />
     </div>
   );
 }

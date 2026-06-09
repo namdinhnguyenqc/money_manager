@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, Lock, PencilLine, Receipt, Wallet } from "lucide-react";
+import { Building2, ExternalLink, Lock, Megaphone, PencilLine, Receipt, Wallet } from "lucide-react";
 import RoomEditModal, { Room } from "@/components/RoomEditModal";
 import RBACGuard from "@/components/RBACGuard";
 import { apiGet, apiPatch, apiPost } from "@/utils/apiClient";
@@ -183,6 +183,16 @@ export default function BoardingHouseRoomsPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {rooms.length > 0 && (
+              <button
+                type="button"
+                onClick={() => openEditFor(rooms.find((room) => !room.isPublic) || rooms[0])}
+                className="inline-flex items-center gap-2 rounded-[8px] bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                <Megaphone size={16} />
+                Đăng phòng
+              </button>
+            )}
             <Link href={`/owner/boarding-houses/${bhId}`} className="rounded-[8px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700">
               Về chi tiết cơ sở
             </Link>
@@ -271,6 +281,12 @@ export default function BoardingHouseRoomsPage() {
                   <div className="text-right">
                     <div className="text-lg font-black text-emerald-700">{fmt(room.price)}</div>
                     <div className="mt-1 text-xs text-slate-500">{room.status ?? "UNKNOWN"}</div>
+                    {room.isPublic && (
+                      <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-800">
+                        <Megaphone size={12} />
+                        Đang đăng
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -303,6 +319,27 @@ export default function BoardingHouseRoomsPage() {
                     <PencilLine size={14} />
                     Edit
                   </button>
+                  <button
+                    className={`inline-flex items-center gap-2 rounded-[8px] px-3 py-2 text-sm font-semibold ${
+                      room.isPublic
+                        ? "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                        : "bg-emerald-600 text-white hover:bg-emerald-700"
+                    }`}
+                    onClick={() => openEditFor(room)}
+                  >
+                    <Megaphone size={14} />
+                    {room.isPublic ? "Sửa tin đăng" : "Đăng phòng"}
+                  </button>
+                  {room.isPublic && (
+                    <Link
+                      href={`/phong-tro/${room.id}`}
+                      target="_blank"
+                      className="inline-flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700"
+                    >
+                      <ExternalLink size={14} />
+                      Xem tin
+                    </Link>
+                  )}
                   <Link href={room.rentalRoomId ? `/owner/rental?roomId=${room.rentalRoomId}` : "/owner/rental"} className="inline-flex items-center gap-2 rounded-[8px] bg-blue-600 px-3 py-2 text-sm font-semibold text-white">
                     <Receipt size={14} />
                     Rental Ops

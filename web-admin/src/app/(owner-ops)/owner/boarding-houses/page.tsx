@@ -7,6 +7,7 @@ import { Building2, Edit2, MapPin, Plus, RefreshCw, Trash2, Lock } from "lucide-
 import { apiPost } from "@/utils/apiClient";
 import { BoardingHouse, loadBoardingHouses, loadOwnerRooms, deleteBoardingHouse, updateBoardingHouse } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+import VietnamAddressFields from "@/components/VietnamAddressFields";
 
 type Summary = { total: number; available: number; occupied: number; maintenance: number };
 
@@ -21,7 +22,13 @@ export default function OwnerBoardingHousesPage() {
   const [planLimit, setPlanLimit] = useState<{ limit: number; current: number } | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ name: "", address: "", description: "" });
+  const [form, setForm] = useState({
+    name: "",
+    streetAddress: "",
+    ward: "",
+    province: "",
+    description: "",
+  });
 
   const load = async () => {
     setLoading(true);
@@ -75,8 +82,8 @@ export default function OwnerBoardingHousesPage() {
 
   const createHouse = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!form.name.trim()) {
-      setError("Tên cơ sở là bắt buộc.");
+    if (!form.name.trim() || !form.streetAddress.trim() || !form.ward.trim() || !form.province.trim()) {
+      setError("Vui lòng nhập đầy đủ tên cơ sở và địa chỉ.");
       return;
     }
     setSubmitting(true);
@@ -85,12 +92,12 @@ export default function OwnerBoardingHousesPage() {
     try {
       await apiPost("/owner/boarding-houses", {
         name: form.name.trim(),
-        address: form.address.trim(),
+        address: [form.streetAddress, form.ward, form.province].map((part) => part.trim()).join(", "),
         description: form.description.trim(),
         status: "ACTIVE",
         isPublic: false,
       });
-      setForm({ name: "", address: "", description: "" });
+      setForm({ name: "", streetAddress: "", ward: "", province: "", description: "" });
       setFormOpen(false);
       await invalidateOwnerOpsQueries(queryClient);
       await load();
@@ -177,13 +184,46 @@ export default function OwnerBoardingHousesPage() {
       </div>
 
       {formOpen && (
-        <form onSubmit={createHouse} className="mb-6 grid gap-3 rounded-[8px] border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[1fr_1.3fr_auto]">
-          <input className="rounded-[8px] border border-slate-300 px-3 py-2.5 text-sm" placeholder="Tên cơ sở" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
-          <input className="rounded-[8px] border border-slate-300 px-3 py-2.5 text-sm" placeholder="Địa chỉ" value={form.address} onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))} />
-          <button disabled={submitting} className="rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
-            {submitting ? "Đang tạo..." : "Lưu cơ sở"}
-          </button>
-          <input className="rounded-[8px] border border-slate-300 px-3 py-2.5 text-sm md:col-span-3" placeholder="Ghi chú nội bộ" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
+        <form onSubmit={createHouse} className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-start gap-3 border-b border-slate-200 px-5 py-4 sm:px-6">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+              <Building2 size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-950">Tạo cơ sở mới</h2>
+              <p className="mt-1 text-sm text-slate-500">Địa chỉ này sẽ được hiển thị trên tin phòng công khai.</p>
+            </div>
+          </div>
+
+          <div className="space-y-6 px-5 py-5 sm:px-6">
+            <div>
+              <label htmlFor="house-name" className="mb-1.5 block text-sm font-medium text-slate-700">
+                Tên cơ sở <span className="text-red-500">*</span>
+              </label>
+              <input id="house-name" required autoFocus className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="Ví dụ: Nhà trọ An Phú" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
+            </div>
+
+            <VietnamAddressFields
+              streetAddress={form.streetAddress}
+              ward={form.ward}
+              province={form.province}
+              onChange={(address) => setForm((prev) => ({ ...prev, ...address }))}
+            />
+
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-slate-700">Ghi chú nội bộ</span>
+              <textarea className="min-h-24 w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="Thông tin chỉ chủ trọ nhìn thấy" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
+            </label>
+          </div>
+
+          <div className="flex flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+            <button type="button" onClick={() => setFormOpen(false)} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              Hủy
+            </button>
+            <button disabled={submitting} className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
+              {submitting ? "Đang tạo cơ sở..." : "Tạo cơ sở"}
+            </button>
+          </div>
         </form>
       )}
 

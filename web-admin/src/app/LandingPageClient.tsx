@@ -160,6 +160,7 @@ export default function LandingPageClient() {
           </Link>
           
           <nav className="nav-links">
+            <Link href="/phong-tro" className="marketplace-nav-link">Tìm phòng</Link>
             <a href="#features" className={activeSection === "features" ? "active" : ""}>Tính năng</a>
             <a href="#workflow" className={activeSection === "workflow" ? "active" : ""}>Quy trình</a>
             <a href="#payment" className={activeSection === "payment" ? "active" : ""}>Thanh toán</a>
@@ -204,6 +205,7 @@ export default function LandingPageClient() {
               <X size={24} />
             </button>
             <nav className="mobile-nav-links" aria-label="Điều hướng di động">
+              <Link href="/phong-tro" onClick={() => setIsMobileMenuOpen(false)}>Tìm phòng</Link>
               <a href="#features" onClick={() => setIsMobileMenuOpen(false)}>Tính năng</a>
               <a href="#workflow" onClick={() => setIsMobileMenuOpen(false)}>Quy trình</a>
               <a href="#payment" onClick={() => setIsMobileMenuOpen(false)}>Thanh toán</a>
@@ -810,6 +812,7 @@ export default function LandingPageClient() {
             <div className="footer-col">
               <h4>Sản phẩm</h4>
               <ul className="footer-links">
+                <li><Link href="/phong-tro">Tìm phòng trọ</Link></li>
                 <li><a href="#features">Tính năng</a></li>
                 <li><a href="#workflow">Quy trình</a></li>
                 <li><a href="#payment">Thanh toán QR</a></li>
