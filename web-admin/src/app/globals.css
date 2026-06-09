@@ -385,6 +385,8 @@ button:focus-visible {
   border: none;
   cursor: pointer;
   color: var(--text-primary);
+  min-width: 44px;
+  min-height: 44px;
 }
 
 /* Mobile Drawer */
@@ -411,6 +413,10 @@ button:focus-visible {
 .trocare-landing .mobile-drawer-overlay {
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
   background-color: rgba(0, 0, 0, 0.4);
   z-index: 1999;
   opacity: 0;
@@ -428,6 +434,8 @@ button:focus-visible {
   background: none;
   border: none;
   cursor: pointer;
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .trocare-landing .mobile-nav-links {
@@ -445,6 +453,17 @@ button:focus-visible {
 
 .trocare-landing .mobile-nav-links a:hover {
   color: var(--brand);
+}
+
+.trocare-landing .mobile-drawer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.trocare-landing .mobile-drawer-actions .btn {
+  width: 100%;
 }
 
 /* 2. HERO SECTION */
@@ -1106,7 +1125,59 @@ button:focus-visible {
   line-height: 1.6;
 }
 
-/* 8. FINAL CTA */
+/* 8. FAQ */
+.trocare-landing .faq-section {
+  padding: 104px 0;
+  background-color: var(--bg-card);
+}
+
+.trocare-landing .faq-list {
+  max-width: 820px;
+  margin: 48px auto 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.trocare-landing .faq-list details {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.trocare-landing .faq-list summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px 4px;
+  color: var(--text-primary);
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.trocare-landing .faq-list summary::-webkit-details-marker {
+  display: none;
+}
+
+.trocare-landing .faq-list summary::after {
+  content: "+";
+  color: var(--brand);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.trocare-landing .faq-list details[open] summary::after {
+  content: "−";
+}
+
+.trocare-landing .faq-list p {
+  max-width: 70ch;
+  padding: 0 48px 22px 4px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+/* 9. FINAL CTA */
 .trocare-landing .final-cta {
   padding: 96px 0;
   background-color: var(--brand);
@@ -1148,7 +1219,7 @@ button:focus-visible {
   opacity: 0.8;
 }
 
-/* 9. FOOTER */
+/* 10. FOOTER */
 .trocare-landing .footer {
   background-color: #FFFFFF;
   padding: 80px 0 40px;
@@ -1270,6 +1341,16 @@ button:focus-visible {
     display: none;
   }
 
+  .trocare-landing .nav-cta {
+    gap: 4px;
+  }
+
+  .trocare-landing .nav-cta > .btn-primary {
+    height: 44px;
+    padding: 10px 16px;
+    white-space: nowrap;
+  }
+
   .trocare-landing .hero-grid .mockup-container {
     display: none;
   }
@@ -1342,7 +1423,8 @@ button:focus-visible {
     gap: 16px;
   }
 
-  .trocare-landing .workflow-bar-wrapper {
+  .trocare-landing .workflow-bar-wrapper,
+  .trocare-landing .workflow-desc-box {
     display: none;
   }
 
@@ -1415,5 +1497,49 @@ button:focus-visible {
   .trocare-landing .footer-grid {
     grid-template-columns: 1fr;
     gap: 32px;
+  }
+
+  .trocare-landing .faq-section {
+    padding: 80px 0;
+  }
+
+  .trocare-landing .faq-list {
+    margin-top: 32px;
+  }
+
+  .trocare-landing .faq-list summary {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 420px) {
+  .trocare-landing .navbar .container {
+    padding: 0 16px;
+  }
+
+  .trocare-landing .logo img {
+    width: 160px;
+    height: auto;
+  }
+
+  .trocare-landing .nav-cta > .btn-primary {
+    padding-inline: 12px;
+    font-size: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trocare-landing *,
+  .trocare-landing *::before,
+  .trocare-landing *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .trocare-landing .reveal {
+    opacity: 1;
+    transform: none;
   }
 }
