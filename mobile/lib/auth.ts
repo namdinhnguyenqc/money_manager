@@ -88,7 +88,7 @@ export async function loginWithGoogle(
       platform: Platform.OS === 'ios' ? 'ios' : 'android',
       deviceId: deviceId || 'unknown',
       fcmToken: fcmToken || undefined,
-    }, { auth: false, retry: false, timeoutMs: 10000 });
+    }, { auth: false, retry: false });
     markLoginTimeline("LOGIN_API_DONE", { success: true, provider: isDevBypass ? "dev_bypass" : "google" });
   } catch (error: any) {
     markLoginTimeline("LOGIN_API_DONE", {

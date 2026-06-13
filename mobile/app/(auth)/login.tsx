@@ -99,7 +99,10 @@ export default function LoginScreen() {
       finishLoginTimeline({ success: true, provider: "google" });
     } catch (error: any) {
       finishLoginTimeline({ success: false, provider: "google", message: String(error?.message || error) });
-      Alert.alert('Đăng nhập thất bại', error?.message || 'Không thể đăng nhập bằng Google. Vui lòng thử lại.');
+      const message = error?.code === 'NETWORK_TIMEOUT' || String(error?.message || '').includes('timed out')
+        ? 'Máy chủ đang khởi động hoặc mạng chậm. Vui lòng bấm đăng nhập lại sau vài giây.'
+        : error?.message || 'Không thể đăng nhập bằng Google. Vui lòng thử lại.';
+      Alert.alert('Đăng nhập thất bại', message);
       setLoading(false);
     }
   };
