@@ -146,10 +146,10 @@ export default function LandingPageClient() {
         <div className="container">
           <Link href="/" className="logo-container">
             <Image
-              src="/brand/optimized/trocare-wordmark-navbar.png"
+              src="/brand/optimized/trocare-logo-full-navbar.png"
               alt="TrọCare - Phần mềm quản lý trọ miễn phí"
-              width={170}
-              height={42}
+              width={190}
+              height={61}
               priority
               style={{ objectFit: "contain" }}
             />
@@ -790,10 +790,10 @@ export default function LandingPageClient() {
             <div className="footer-brand">
               <Link href="/" className="logo-container">
                 <Image
-                  src="/brand/optimized/trocare-wordmark-navbar.png"
+                  src="/brand/optimized/trocare-logo-full-navbar.png"
                   alt="TrọCare - Phần mềm quản lý phòng trọ miễn phí"
-                  width={170}
-                  height={42}
+                  width={190}
+                  height={61}
                   style={{ objectFit: "contain" }}
                 />
               </Link>

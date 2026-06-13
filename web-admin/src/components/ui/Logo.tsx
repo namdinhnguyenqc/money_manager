@@ -29,10 +29,10 @@ export default function Logo({
     return (
       <div className={`flex items-center ${className}`}>
         <Image
-          src="/brand/optimized/trocare-wordmark-navbar.png"
+          src="/brand/optimized/trocare-logo-full-navbar.png"
           alt="TrọCare"
-          width={170}
-          height={42}
+          width={190}
+          height={61}
           className="h-auto object-contain"
           priority
         />

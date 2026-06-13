@@ -15,10 +15,10 @@ export default function PrivacyPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link href="/" className="flex items-center gap-2">
             <Image
-              src="/brand/optimized/trocare-wordmark-navbar.png"
+              src="/brand/optimized/trocare-logo-full-navbar.png"
               alt="TroCare Logo"
-              width={150}
-              height={36}
+              width={170}
+              height={55}
               className="object-contain"
             />
           </Link>
