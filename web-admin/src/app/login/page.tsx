@@ -79,7 +79,7 @@ export default function LoginPage() {
             <div className="grid grid-cols-[170px_1fr] h-full bg-white text-[#0F172A]">
               <nav className="bg-gradient-to-b from-[#071C39] to-[#0B1E3B] p-4 text-white">
                 <div className="flex items-center gap-2 mb-6 font-extrabold tracking-tight">
-                  <Image src="/brand/optimized/trocare-wordmark-navbar.png" width={120} height={24} alt="TrọCare" className="brightness-0 invert" />
+                  <Image src="/brand/optimized/trocare-logo-full-navbar.png" width={126} height={41} alt="TrọCare" />
                 </div>
                 <div className="flex items-center gap-2 h-8 px-3 rounded-lg text-[10px] font-bold bg-[#2563EB] mb-1.5">⌂ Tổng quan</div>
                 <div className="flex items-center gap-2 h-8 px-3 rounded-lg text-[10px] font-bold text-white/60 mb-1.5">▣ Phòng trọ</div>
@@ -138,7 +138,7 @@ export default function LoginPage() {
           <div className="absolute w-[260px] h-[260px] -right-20 -top-20 bg-gradient-to-br from-blue-600/15 to-cyan-500/16 rounded-full blur-[4px]" />
           
           <header className="relative flex flex-col items-center gap-3 mb-10">
-            <Image src="/brand/optimized/trocare-wordmark-navbar.png" width={170} height={42} alt="TrọCare" className="drop-shadow-[0_18px_26px_rgba(37,99,235,0.16)]" />
+            <Image src="/brand/optimized/trocare-logo-full-navbar.png" width={210} height={68} alt="TrọCare" className="drop-shadow-[0_18px_26px_rgba(37,99,235,0.16)]" />
           </header>
 
           <div className="relative text-center mb-8">
