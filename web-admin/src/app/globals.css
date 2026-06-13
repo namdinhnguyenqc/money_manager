@@ -355,6 +355,11 @@ button:focus-visible {
   text-decoration: none;
 }
 
+.trocare-landing .logo-container img {
+  width: 170px;
+  height: auto;
+}
+
 .trocare-landing .logo-text-wrapper {
   display: flex;
   flex-direction: column;
@@ -398,8 +403,8 @@ button:focus-visible {
 }
 
 .trocare-landing .navbar.scrolled .logo-container img {
-  width: 32px !important;
-  height: 32px !important;
+  width: 150px !important;
+  height: auto !important;
 }
 
 .trocare-landing .nav-links {
