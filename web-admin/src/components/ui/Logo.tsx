@@ -8,7 +8,7 @@ export default function Logo({
   showText = true, 
   textClassName = "text-xl",
   size = "md",
-  variant = "monogram"
+  variant = "wordmark"
 }: { 
   className?: string, 
   showText?: boolean, 
@@ -24,6 +24,21 @@ export default function Logo({
   };
 
   const pixelSize = sizeMap[size === "xl" ? "xl" : size];
+
+  if (variant === 'wordmark' || (variant === 'monogram' && showText)) {
+    return (
+      <div className={`flex items-center ${className}`}>
+        <Image
+          src="/brand/optimized/trocare-wordmark-navbar.png"
+          alt="TrọCare"
+          width={170}
+          height={42}
+          className="h-auto object-contain"
+          priority
+        />
+      </div>
+    );
+  }
 
   if (variant === 'full') {
     return (
@@ -54,28 +69,5 @@ export default function Logo({
     );
   }
 
-  return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      <div className="shrink-0">
-        <Image 
-          src="/brand/app-icons/app-icon-gradient-128.png" 
-          alt="TrọCare"
-          width={pixelSize}
-          height={pixelSize}
-          className="object-contain"
-        />
-      </div>
-      {showText && (
-        <div className="flex flex-col">
-          <span className={`tracking-tight ${textClassName} font-medium`}>
-            <span className="text-[#0F172A]">Trọ</span>
-            <span className="text-[#2563EB] font-black">Care</span>
-          </span>
-          <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 -mt-0.5">
-            Quản lý trọ thông minh
-          </span>
-        </div>
-      )}
-    </div>
-  );
+  return null;
 }
