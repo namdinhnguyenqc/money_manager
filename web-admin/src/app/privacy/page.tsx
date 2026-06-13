@@ -15,16 +15,12 @@ export default function PrivacyPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link href="/" className="flex items-center gap-2">
             <Image
-              src="/brand/transparent/trocare-symbol-tc-transparent-128.png"
+              src="/brand/optimized/trocare-wordmark-navbar.png"
               alt="TroCare Logo"
-              width={28}
-              height={28}
+              width={150}
+              height={36}
               className="object-contain"
             />
-            <span className="text-lg tracking-tight font-medium">
-              <span className="text-slate-900">Tro</span>
-              <span className="text-blue-600 font-black">Care</span>
-            </span>
           </Link>
           <div className="flex items-center gap-2">
             <Link href="/" className="rounded-md border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 hover:border-blue-200 hover:text-blue-600">
