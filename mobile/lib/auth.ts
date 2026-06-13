@@ -107,8 +107,10 @@ export async function loginWithGoogle(
     hasAccessToken: Boolean(data.accessToken),
     hasRefreshToken: Boolean(data.refreshToken),
   });
-  if (data.accessToken) await setAccessToken(data.accessToken);
-  if (data.refreshToken) await setRefreshToken(data.refreshToken);
+  await Promise.all([
+    data.accessToken ? setAccessToken(data.accessToken) : Promise.resolve(),
+    data.refreshToken ? setRefreshToken(data.refreshToken) : Promise.resolve(),
+  ]);
   markLoginTimeline("SAVE_TOKEN_DONE", {
     hasAccessToken: Boolean(data.accessToken),
     hasRefreshToken: Boolean(data.refreshToken),

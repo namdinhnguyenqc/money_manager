@@ -25,6 +25,7 @@ import Typography from '@/constants/Typography';
 import Config from '@/constants/Config';
 import { useAuthStore } from '@/store/authStore';
 import { getProfileCompleted, isDashboardReady, isPendingApproval, loginWithGoogle } from '@/lib/auth';
+import { apiGet } from '@/lib/api';
 import { finishLoginTimeline, markLoginTimeline, resetLoginTimeline } from '@/lib/telemetry/loginTimeline';
 
 export default function LoginScreen() {
@@ -50,6 +51,7 @@ export default function LoginScreen() {
         console.warn('Google Sign-in configure failed:', e);
       }
     }
+    apiGet('/health', { auth: false, timeoutMs: 5000 }).catch(() => null);
   }, []);
 
   const handleGoogleLogin = async () => {
@@ -63,7 +65,6 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      await GoogleSignin.signOut().catch(() => null);
       const result = await GoogleSignin.signIn();
 
       if (result.type === 'cancelled') {
