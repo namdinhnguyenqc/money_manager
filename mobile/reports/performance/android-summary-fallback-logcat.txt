@@ -1,0 +1,29 @@
+06-08 23:05:38.495  4190  4239 I ReactNativeJS: {"event":"APP_START","appMs":51}
+06-08 23:05:38.671  4190  4239 I ReactNativeJS: {"event":"TOKEN_HYDRATE_START","totalMs":0}
+06-08 23:05:38.672  4190  4239 I ReactNativeJS: {"event":"TOKEN_HYDRATE_START","appMs":228}
+06-08 23:05:38.718  4190  4239 I ReactNativeJS: {"event":"TOKEN_HYDRATE_DONE","totalMs":47,"durationMs":47,"hasToken":true,"authenticated":true,"source":"token"}
+06-08 23:05:38.718  4190  4239 I ReactNativeJS: {"event":"TOKEN_HYDRATE_DONE","appMs":274,"durationMs":46,"hasToken":true,"authenticated":true,"source":"token"}
+06-08 23:05:38.719  4190  4239 I ReactNativeJS: {"event":"AUTH_ME_START","totalMs":48}
+06-08 23:05:38.719  4190  4239 I ReactNativeJS: {"event":"AUTH_ME_START","appMs":275}
+06-08 23:05:38.720  4190  4239 I ReactNativeJS: {"event":"CACHE_MISS","appMs":276,"path":"/auth/me","method":"GET","reason":"disabled","ttlMs":0}
+06-08 23:05:38.779  4190  4239 I ReactNativeJS: {"event":"API_REQUEST_START","appMs":335,"path":"/auth/me","method":"GET","cacheKey":"GET:/auth/me","cacheTtlMs":0}
+06-08 23:05:38.783  4190  4239 I ReactNativeJS: {"event":"NAVIGATION_READY","appMs":339,"authenticated":true}
+06-08 23:05:39.469  4190  4239 I ReactNativeJS: {"event":"HOME_SUMMARY_START","appMs":1025,"forceRefresh":false}
+06-08 23:05:39.470  4190  4239 I ReactNativeJS: {"event":"CACHE_MISS","appMs":1025,"path":"/owner/dashboard-summary","method":"GET","cacheKey":"GET:/owner/dashboard-summary","reason":"empty","ttlMs":60000}
+06-08 23:05:39.471  4190  4239 I ReactNativeJS: {"event":"FIRST_SCREEN_READY","appMs":1026,"screen":"dashboard","hasSummary":false}
+06-08 23:05:39.480  4190  4239 I ReactNativeJS: {"event":"TAB_FOCUS_HOME","appMs":1036}
+06-08 23:05:39.505  4190  4239 I ReactNativeJS: {"event":"CACHE_MISS","appMs":1060,"path":"/owner/notifications","method":"GET","reason":"disabled","ttlMs":0}
+06-08 23:05:39.542  4190  4239 I ReactNativeJS: {"event":"API_REQUEST_START","appMs":1098,"path":"/owner/dashboard-summary","method":"GET","cacheKey":"GET:/owner/dashboard-summary","cacheTtlMs":60000}
+06-08 23:05:39.544  4190  4239 I ReactNativeJS: {"event":"API_REQUEST_START","appMs":1099,"path":"/owner/notifications","method":"GET","cacheKey":"GET:/owner/notifications","cacheTtlMs":0}
+06-08 23:05:40.228  4190  4239 I ReactNativeJS: {"event":"API_REQUEST_DONE","appMs":1784,"durationMs":1508,"path":"/auth/me","method":"GET","status":200,"ok":true,"cacheKey":"GET:/auth/me"}
+06-08 23:05:40.228  4190  4239 I ReactNativeJS: {"event":"AUTH_ME_DONE","totalMs":1557,"durationMs":1509,"success":true}
+06-08 23:05:40.228  4190  4239 I ReactNativeJS: {"event":"AUTH_ME_DONE","appMs":1784,"durationMs":1509,"success":true}
+06-08 23:05:40.243  4190  4239 I ReactNativeJS: {"event":"API_REQUEST_DONE","appMs":1799,"durationMs":774,"path":"/owner/dashboard-summary","method":"GET","status":404,"ok":false,"cacheKey":"GET:/owner/dashboard-summary"}
+06-08 23:05:40.243  4190  4239 I ReactNativeJS: {"event":"API_REQUEST_FAILED","appMs":1799,"path":"/owner/dashboard-summary","method":"GET","status":404,"ok":false,"durationMs":774,"cacheKey":"GET:/owner/dashboard-summary","message":"Not found"}
+06-08 23:05:40.244  4190  4239 I ReactNativeJS: {"event":"HOME_SUMMARY_FALLBACK_START","appMs":1800,"reason":"dashboard_summary_404"}
+06-08 23:05:40.244  4190  4239 I ReactNativeJS: {"event":"CACHE_MISS","appMs":1800,"path":"/owner/dashboard-init","method":"GET","cacheKey":"GET:/owner/dashboard-init","reason":"empty","ttlMs":60000}
+06-08 23:05:40.247  4190  4239 I ReactNativeJS: {"event":"API_REQUEST_START","appMs":1803,"path":"/owner/dashboard-init","method":"GET","cacheKey":"GET:/owner/dashboard-init","cacheTtlMs":60000}
+06-08 23:05:40.311  4190  4239 I ReactNativeJS: {"event":"API_REQUEST_DONE","appMs":1867,"durationMs":807,"path":"/owner/notifications","method":"GET","status":500,"ok":false,"cacheKey":"GET:/owner/notifications"}
+06-08 23:05:40.311  4190  4239 I ReactNativeJS: {"event":"API_REQUEST_FAILED","appMs":1867,"path":"/owner/notifications","method":"GET","status":500,"ok":false,"durationMs":807,"cacheKey":"GET:/owner/notifications","message":"Failed to fetch notifications"}
+06-08 23:05:40.476  4190  4239 I ReactNativeJS: {"event":"API_REQUEST_DONE","appMs":2032,"durationMs":232,"path":"/owner/dashboard-init","method":"GET","status":200,"ok":true,"cacheKey":"GET:/owner/dashboard-init"}
+06-08 23:05:40.477  4190  4239 I ReactNativeJS: {"event":"HOME_SUMMARY_READY","appMs":2033,"success":true,"source":"dashboard-init-fallback"}

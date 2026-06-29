@@ -549,7 +549,6 @@ export default function BoardingHouseOverviewPage() {
             <Info label="Tên cơ sở" value={house?.name || "-"} />
             <Info label="Địa chỉ" value={house?.address || "-"} />
             <Info label="Trạng thái" value={house?.status || "-"} />
-            <Info label="Công khai" value={house?.isPublic ? "Có" : "Không"} />
           </div>
         </section>
       )}

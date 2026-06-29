@@ -88,7 +88,6 @@ export default function OwnerBoardingHousesPage() {
         address: form.address.trim(),
         description: form.description.trim(),
         status: "ACTIVE",
-        isPublic: false,
       });
       setForm({ name: "", address: "", description: "" });
       setFormOpen(false);

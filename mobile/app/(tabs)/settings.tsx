@@ -16,7 +16,6 @@ import { useAuthStore } from '@/store/authStore';
 import { loadProfile, type OwnerProfile } from '@/lib/profile';
 
 type RoutePath = Parameters<ReturnType<typeof useRouter>['push']>[0];
-const comingSoonRoutes = new Set(['/marketplace', '/messages', '/bookings']);
 
 const sections: Array<{
   title: string;
@@ -44,14 +43,6 @@ const sections: Array<{
     items: [
       { icon: 'wallet-outline', label: 'Ví và tài khoản', detail: 'Nguồn tiền, số dư, giao dịch', route: '/wallets' as any },
       { icon: 'trending-up-outline', label: 'Kinh doanh hàng hóa', detail: 'Thu bán thêm dịch vụ, vật tư', route: '/trading' as any },
-    ],
-  },
-  {
-    title: 'Kênh khách thuê',
-    items: [
-      { icon: 'search-outline', label: 'Marketplace phòng trống', detail: 'Tin đăng và phòng khả dụng', route: '/marketplace' as any },
-      { icon: 'chatbubbles-outline', label: 'Tin nhắn', detail: 'Trao đổi với khách thuê', route: '/messages' as any },
-      { icon: 'calendar-outline', label: 'Lịch xem phòng', detail: 'Yêu cầu đặt lịch và xác nhận', route: '/bookings' as any },
     ],
   },
   {
@@ -107,11 +98,6 @@ export default function SettingsScreen() {
 
   const handleItemPress = (item: (typeof sections)[number]['items'][number]) => {
     if (item.route) {
-      const routeStr = typeof item.route === 'string' ? item.route : (item.route as any).pathname;
-      if (typeof routeStr === 'string' && comingSoonRoutes.has(routeStr)) {
-        Alert.alert('Coming soon', 'Tính năng đang được phát triển và sẽ sớm ra mắt.');
-        return;
-      }
       router.push(item.route);
       return;
     }

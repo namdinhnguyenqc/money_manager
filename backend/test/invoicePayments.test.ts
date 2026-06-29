@@ -16,12 +16,15 @@ class Query {
   mode: "select" | "insert" | "update" = "select";
   payload: any = null;
   wantsSingle = false;
+  wantsMaybeSingle = false;
 
   constructor(private table: string) {}
 
   select() { return this; }
   eq(col: string, value: any) { this.filters.push({ col, value }); return this; }
   single() { this.wantsSingle = true; return this; }
+  maybeSingle() { this.wantsMaybeSingle = true; return this; }
+  limit() { return this; }
   insert(payload: any) { this.mode = "insert"; this.payload = payload; return this; }
   update(payload: any) { this.mode = "update"; this.payload = payload; return this; }
 
@@ -46,6 +49,9 @@ class Query {
       found = rows[this.table].filter((row) => this.filters.every((filter) => row[filter.col] === filter.value));
     }
 
+    if (this.wantsMaybeSingle) {
+      return { data: found[0] ?? null, error: null };
+    }
     if (this.wantsSingle) {
       return found[0] ? { data: found[0], error: null } : { data: null, error: { message: "not found" } };
     }
@@ -136,6 +142,33 @@ describe("applyInvoicePayment", () => {
     expect(rows.invoices[0]).toMatchObject({ paid_amount: 2_000_000, status: "paid" });
     expect(rows.transactions[0]).toMatchObject({ amount: 2_200_000 });
     expect(rows.transactions[0].metadata).toMatchObject({ allocated_amount: 2_000_000, overpaid_amount: 200_000 });
+  });
+
+  it("is idempotent: a repeated externalRef does not credit the wallet twice", async () => {
+    const invoice = seedInvoice();
+
+    const first = await applyInvoicePayment(db as any, {
+      invoice,
+      amount: 1_500_000,
+      walletId: "wallet-1",
+      source: "sepay",
+      externalRef: "SP-DUP",
+    });
+    expect(first.error).toBeUndefined();
+    expect(rows.transactions).toHaveLength(1);
+
+    // Simulate a SePay webhook retry with the same transaction reference.
+    const second = await applyInvoicePayment(db as any, {
+      invoice: rows.invoices[0],
+      amount: 1_500_000,
+      walletId: "wallet-1",
+      source: "sepay",
+      externalRef: "SP-DUP",
+    });
+
+    expect(second.error).toBeUndefined();
+    expect(rows.transactions).toHaveLength(1); // no duplicate transaction
+    expect(updateWalletBalance).toHaveBeenCalledTimes(1); // wallet credited once
   });
 
   it("rolls the invoice back when receipt creation fails", async () => {

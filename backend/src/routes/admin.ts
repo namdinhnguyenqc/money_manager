@@ -111,10 +111,6 @@ const purgeUserData = async (userId: string) => {
     ["rooms"],
     ["room_types"],
     ["boarding_houses", "owner_id"],
-    ["rental_messages"],
-    ["rental_conversations"],
-    ["rental_bookings"],
-    ["rental_leads"],
     ["rental_utility_readings"],
     ["rental_utility_meters"],
     ["rental_room_amenities"],
@@ -931,7 +927,7 @@ adminRoutes.get("/stats", requireAuth, requireAdmin, async (c) => {
 adminRoutes.get("/boarding-houses", requireAuth, requireAdmin, async (c) => {
 
 
-  const { page = "1", limit = "20", search = "", status = "", isPublic = "", ownerId = "" } = c.req.query();
+  const { page = "1", limit = "20", search = "", status = "", ownerId = "" } = c.req.query();
 
   const pageNum = parseInt(page) || 1;
   const limitNum = Math.min(parseInt(limit) || 20, 100);
@@ -944,9 +940,6 @@ adminRoutes.get("/boarding-houses", requireAuth, requireAdmin, async (c) => {
   }
   if (status) {
     query = query.eq("status", status);
-  }
-  if (isPublic !== "") {
-    query = query.eq("is_public", isPublic === "true");
   }
   if (ownerId) {
     query = query.eq("owner_id", ownerId);
@@ -972,7 +965,6 @@ adminRoutes.get("/boarding-houses", requireAuth, requireAdmin, async (c) => {
       latitude: bh.latitude,
       longitude: bh.longitude,
       status: bh.status,
-      isPublic: bh.is_public,
       ownerId: bh.owner_id,
       createdAt: bh.created_at,
     })),
@@ -1008,7 +1000,6 @@ adminRoutes.get("/boarding-houses/:id", requireAuth, requireAdmin, async (c) => 
     latitude: data.latitude,
     longitude: data.longitude,
     status: data.status,
-    isPublic: data.is_public,
     ownerId: data.owner_id,
     createdAt: data.created_at,
   });
@@ -1025,7 +1016,6 @@ adminRoutes.post("/boarding-houses", requireAuth, requireAdmin, async (c) => {
     latitude: z.number().optional(),
     longitude: z.number().optional(),
     status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
-    isPublic: z.boolean().default(false),
     ownerId: z.string().optional(),
   });
 
@@ -1034,7 +1024,7 @@ adminRoutes.post("/boarding-houses", requireAuth, requireAdmin, async (c) => {
     return c.json({ error: "Invalid data", details: validation.error.issues }, 400);
   }
 
-  const { name, address, description, latitude, longitude, status, isPublic, ownerId } = validation.data;
+  const { name, address, description, latitude, longitude, status, ownerId } = validation.data;
 
   const { data: bh, error } = await supabaseAdmin
     .from("boarding_houses")
@@ -1045,7 +1035,6 @@ adminRoutes.post("/boarding-houses", requireAuth, requireAdmin, async (c) => {
       latitude,
       longitude,
       status,
-      is_public: isPublic,
       owner_id: ownerId,
     })
     .select()
@@ -1064,7 +1053,6 @@ adminRoutes.post("/boarding-houses", requireAuth, requireAdmin, async (c) => {
     latitude: bh.latitude,
     longitude: bh.longitude,
     status: bh.status,
-    isPublic: bh.is_public,
     ownerId: bh.owner_id,
     createdAt: bh.created_at,
   }, 201);
@@ -1082,7 +1070,6 @@ adminRoutes.patch("/boarding-houses/:id", requireAuth, requireAdmin, async (c) =
     latitude: z.number().optional(),
     longitude: z.number().optional(),
     status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
-    isPublic: z.boolean().optional(),
     ownerId: z.string().optional(),
   });
 
@@ -1096,11 +1083,6 @@ adminRoutes.patch("/boarding-houses/:id", requireAuth, requireAdmin, async (c) =
     updateData.owner_id = validation.data.ownerId;
     delete updateData.ownerId;
   }
-  if (validation.data.isPublic !== undefined) {
-    updateData.is_public = validation.data.isPublic;
-    delete updateData.isPublic;
-  }
-
   updateData.updated_at = new Date().toISOString();
 
   const { data, error } = await supabaseAdmin
@@ -1123,7 +1105,6 @@ adminRoutes.patch("/boarding-houses/:id", requireAuth, requireAdmin, async (c) =
     latitude: data.latitude,
     longitude: data.longitude,
     status: data.status,
-    isPublic: data.is_public,
     ownerId: data.owner_id,
     createdAt: data.created_at,
   });
@@ -1150,7 +1131,7 @@ adminRoutes.delete("/boarding-houses/:id", requireAuth, requireAdmin, async (c) 
 adminRoutes.get("/rooms", ...adminWithPermission("room.view"), async (c) => {
 
 
-  const { page = "1", limit = "20", search = "", status = "", isPublic = "", boardingHouseId = "" } = c.req.query();
+  const { page = "1", limit = "20", search = "", status = "", boardingHouseId = "" } = c.req.query();
 
   const pageNum = parseInt(page) || 1;
   const limitNum = Math.min(parseInt(limit) || 20, 100);
@@ -1163,9 +1144,6 @@ adminRoutes.get("/rooms", ...adminWithPermission("room.view"), async (c) => {
   }
   if (status) {
     query = query.eq("status", status);
-  }
-  if (isPublic !== "") {
-    query = query.eq("is_public", isPublic === "true");
   }
   if (boardingHouseId) {
     query = query.eq("boarding_house_id", boardingHouseId);
@@ -1189,7 +1167,6 @@ adminRoutes.get("/rooms", ...adminWithPermission("room.view"), async (c) => {
       boardingHouseId: r.boarding_house_id,
       price: r.price,
       status: r.status,
-      isPublic: r.is_public,
       createdAt: r.created_at,
     })),
     pagination: {
@@ -1261,7 +1238,6 @@ adminRoutes.get("/rooms/:id", ...adminWithPermission("room.view"), async (c) => 
     boardingHouseName: boardingHouseName,
     price: roomData.price,
     status: roomData.status,
-    isPublic: roomData.is_public,
     createdAt: roomData.created_at,
     contracts: contractsWithTenantNames,
     invoices: roomInvoices ?? [],
@@ -1277,7 +1253,6 @@ adminRoutes.post("/rooms", ...adminWithPermission("room.update"), async (c) => {
     boardingHouseId: z.string().uuid(),
     price: z.number().min(0),
     status: z.enum(["AVAILABLE", "OCCUPIED", "MAINTENANCE"]).default("AVAILABLE"),
-    isPublic: z.boolean().default(false),
   });
 
   const validation = createSchema.safeParse(parsed);
@@ -1285,7 +1260,7 @@ adminRoutes.post("/rooms", ...adminWithPermission("room.update"), async (c) => {
     return c.json({ error: "Invalid data", details: validation.error.issues }, 400);
   }
 
-  const { name, boardingHouseId, price, status, isPublic } = validation.data;
+  const { name, boardingHouseId, price, status } = validation.data;
 
   const { data: room, error } = await supabaseAdmin
     .from("rooms")
@@ -1294,7 +1269,6 @@ adminRoutes.post("/rooms", ...adminWithPermission("room.update"), async (c) => {
       boarding_house_id: boardingHouseId,
       price,
       status,
-      is_public: isPublic,
     })
     .select()
     .single();
@@ -1310,7 +1284,6 @@ adminRoutes.post("/rooms", ...adminWithPermission("room.update"), async (c) => {
     boardingHouseId: room.boarding_house_id,
     price: room.price,
     status: room.status,
-    isPublic: room.is_public,
     createdAt: room.created_at,
   }, 201);
 });
@@ -1325,7 +1298,6 @@ adminRoutes.patch("/rooms/:id", ...adminWithPermission("room.update"), async (c)
     boardingHouseId: z.string().uuid().optional(),
     price: z.number().min(0).optional(),
     status: z.enum(["AVAILABLE", "OCCUPIED", "MAINTENANCE"]).optional(),
-    isPublic: z.boolean().optional(),
   });
 
   const validation = updateSchema.safeParse(parsed);
@@ -1338,11 +1310,6 @@ adminRoutes.patch("/rooms/:id", ...adminWithPermission("room.update"), async (c)
     updateData.boarding_house_id = validation.data.boardingHouseId;
     delete updateData.boardingHouseId;
   }
-  if (validation.data.isPublic !== undefined) {
-    updateData.is_public = validation.data.isPublic;
-    delete updateData.isPublic;
-  }
-
   updateData.updated_at = new Date().toISOString();
 
   const { data, error } = await supabaseAdmin
@@ -1363,7 +1330,6 @@ adminRoutes.patch("/rooms/:id", ...adminWithPermission("room.update"), async (c)
     boardingHouseId: data.boarding_house_id,
     price: data.price,
     status: data.status,
-    isPublic: data.is_public,
     createdAt: data.created_at,
   });
 });
@@ -1627,7 +1593,7 @@ adminRoutes.get("/owners/:id", ...adminWithPermission("owner.view"), async (c) =
   const id = c.req.param("id");
   const [owner, houses, rooms, tenants, contracts, invoices] = await Promise.all([
     supabaseAdmin.from("users").select("*").eq("id", id).single(),
-    supabaseAdmin.from("boarding_houses").select("id, name, address, status, is_public, created_at").eq("owner_id", id),
+    supabaseAdmin.from("boarding_houses").select("id, name, address, status, created_at").eq("owner_id", id),
     supabaseAdmin.from("rooms").select("id, name, price, status, boarding_house_id, created_at").eq("user_id", id),
     supabaseAdmin.from("tenants").select("id, name, phone, email, status, created_at").eq("user_id", id),
     supabaseAdmin.from("contracts").select("id, room_id, tenant_id, status, start_date, end_date, created_at").eq("user_id", id),

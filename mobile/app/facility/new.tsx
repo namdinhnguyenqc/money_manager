@@ -33,7 +33,6 @@ export default function NewFacilityScreen() {
         address: address.trim() || '',
         description: description.trim() || '',
         status: 'ACTIVE',
-        isPublic: false,
       });
       router.back();
     } catch (error: any) {

@@ -72,7 +72,6 @@ export type BoardingHouse = {
   address?: string;
   description?: string;
   status?: "ACTIVE" | "INACTIVE";
-  isPublic?: boolean;
 };
 
 export type RentalRoom = {
@@ -477,7 +476,6 @@ export async function createBoardingHouse(input: { name: string; address?: strin
     address: input.address || "",
     description: input.description || "",
     status: "ACTIVE",
-    isPublic: false,
   });
   return (res?.data ?? res) as BoardingHouse;
 }
@@ -492,14 +490,13 @@ export async function loadOwnerRooms(buildingId: string) {
   return (res?.data ?? []) as OwnerRoom[];
 }
 
-export async function createOwnerRoom(buildingId: string, input: { name: string; price: number; area?: number; maxPeople?: number; status?: "AVAILABLE" | "OCCUPIED" | "MAINTENANCE"; isPublic?: boolean }) {
+export async function createOwnerRoom(buildingId: string, input: { name: string; price: number; area?: number; maxPeople?: number; status?: "AVAILABLE" | "OCCUPIED" | "MAINTENANCE" }) {
   const res = await apiPost<any>(`/owner/boarding-houses/${buildingId}/rooms`, {
     name: input.name,
     price: Number(input.price || 0),
     area: Number(input.area || 0),
     maxPeople: Number(input.maxPeople || 1),
     status: input.status || "AVAILABLE",
-    isPublic: Boolean(input.isPublic),
   });
   return (res?.data ?? res) as OwnerRoom;
 }

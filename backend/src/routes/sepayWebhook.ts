@@ -4,6 +4,8 @@ import { env } from "../config/env.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 import { applyInvoicePayment } from "../services/invoicePayments.js";
 import { getTenantUserIdByContractId, notifyPaymentSuccess } from "../services/notificationService.js";
+import { extractPaymentCodeFromPayload } from "../utils/paymentCodes.js";
+import { resolveSepayChannel } from "../services/sepayReconcile.js";
 import type { AppEnv } from "../types.js";
 
 const sepayWebhookRoutes = new Hono<AppEnv>();
@@ -39,20 +41,18 @@ const verifyApiKey = (apiKey?: string, customApiKey?: string | null) => {
   return apiKey === activeApiKey;
 };
 
-const findPaymentCode = (payload: any) => {
-  const prefix = env.SEPAY_PAYMENT_PREFIX || "TCINV";
-  const direct = String(payload.code || "").trim();
-  if (direct.toUpperCase().startsWith(prefix.toUpperCase())) return direct.toUpperCase();
-
-  const content = String(payload.content || payload.description || "");
-  const match = content.toUpperCase().match(new RegExp(`${prefix.toUpperCase()}[A-Z0-9]+`));
-  return match?.[0] || "";
+// SePay sends credentials as `Authorization: Apikey <key>` (not Bearer).
+// Accept x-api-key, "Apikey <key>" and "Bearer <key>" forms.
+const extractApiKey = (apiKeyHeader?: string, authHeader?: string) => {
+  if (apiKeyHeader) return apiKeyHeader.trim();
+  if (!authHeader) return undefined;
+  return authHeader.replace(/^(Bearer|Apikey)\s+/i, "").trim();
 };
 
 const insertEvent = async (payload: Record<string, unknown>) => {
   const { data, error } = await supabaseAdmin
     .from("sepay_webhook_events")
-    .insert(payload)
+    .upsert(payload, { onConflict: "sepay_transaction_id" })
     .select("*")
     .single();
   return { data, error };
@@ -92,7 +92,7 @@ sepayWebhookRoutes.post("/", async (c) => {
   const rawBody = await c.req.text();
   const signature = c.req.header("x-sepay-signature");
   const timestamp = c.req.header("x-sepay-timestamp");
-  const apiKey = c.req.header("x-api-key") || c.req.header("authorization")?.replace(/^Bearer\s+/i, "");
+  const apiKey = extractApiKey(c.req.header("x-api-key"), c.req.header("authorization"));
 
   let payload: any;
   try {
@@ -101,7 +101,7 @@ sepayWebhookRoutes.post("/", async (c) => {
     return c.json({ success: false, error: "Invalid JSON payload" }, 400);
   }
 
-  const paymentCode = findPaymentCode(payload);
+  const paymentCode = extractPaymentCodeFromPayload(payload);
   let userWebhookSecret: string | null = null;
   let userApiKey: string | null = null;
 
@@ -133,6 +133,13 @@ sepayWebhookRoutes.post("/", async (c) => {
     }
   }
 
+  // Fail-closed: when enabled, reject webhooks that carry no configured secret at all,
+  // so an unconfigured endpoint cannot be spoofed.
+  const hasAnySecret = !!(userWebhookSecret || env.SEPAY_WEBHOOK_SECRET || userApiKey || env.SEPAY_API_KEY);
+  if (env.SEPAY_REQUIRE_AUTH && !hasAnySecret) {
+    return c.json({ success: false, error: "SePay webhook auth not configured" }, 401);
+  }
+
   if (!verifySignature(rawBody, signature, timestamp, userWebhookSecret) || !verifyApiKey(apiKey, userApiKey)) {
     return c.json({ success: false, error: "Invalid SePay signature" }, 401);
   }
@@ -144,10 +151,12 @@ sepayWebhookRoutes.post("/", async (c) => {
 
   const existing = await supabaseAdmin
     .from("sepay_webhook_events")
-    .select("id")
+    .select("id,status")
     .eq("sepay_transaction_id", sepayTransactionId)
     .maybeSingle();
-  if (existing.data) return jsonOk();
+  if (existing.data && ["paid", "partial", "overpaid", "ignored"].includes(existing.data.status)) {
+    return jsonOk();
+  }
 
   const transferType = String(payload.transferType || payload.transfer_type || "").toLowerCase();
   const transferAmount = Number(payload.transferAmount ?? payload.transfer_amount ?? payload.amount ?? 0);
@@ -203,35 +212,13 @@ sepayWebhookRoutes.post("/", async (c) => {
   }
 
   const invoice = invoiceRes.data;
-  let channel: any = null;
-  if (invoice.payment_channel_id) {
-    const channelRes = await supabaseAdmin
-      .from("payment_channels")
-      .select("*")
-      .eq("id", invoice.payment_channel_id)
-      .eq("user_id", invoice.user_id)
-      .maybeSingle();
-    channel = channelRes.data;
-  }
+  const channel = await resolveSepayChannel(supabaseAdmin, { invoice, accountNumber });
 
-  if (!channel && accountNumber) {
-    const channelRes = await supabaseAdmin
-      .from("payment_channels")
-      .select("*")
-      .eq("user_id", invoice.user_id)
-      .eq("provider", "sepay")
-      .eq("account_no", accountNumber)
-      .eq("enabled", true)
-      .limit(1)
-      .maybeSingle();
-    channel = channelRes.data;
-  }
-
-  if (!channel?.wallet_id || channel.auto_reconcile_enabled === false) {
+  if (!channel) {
     await insertEvent({
       user_id: invoice.user_id,
       invoice_id: invoice.id,
-      payment_channel_id: channel?.id || invoice.payment_channel_id || null,
+      payment_channel_id: invoice.payment_channel_id || null,
       sepay_transaction_id: sepayTransactionId,
       gateway: payload.gateway || null,
       account_number: accountNumber || null,
@@ -240,7 +227,7 @@ sepayWebhookRoutes.post("/", async (c) => {
       payment_code: paymentCode,
       status: "pending_wallet",
       raw_payload: payload,
-      error_message: !channel?.wallet_id ? "Payment channel has no wallet_id" : "Auto reconcile disabled",
+      error_message: "Payment channel not configured (no wallet or auto-reconcile disabled)",
     });
     return jsonOk();
   }

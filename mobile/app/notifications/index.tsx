@@ -74,9 +74,7 @@ export default function NotificationsScreen() {
     // 2. Route based on notification type and payload
     const { eventType, payload } = item;
 
-    if (eventType === 'BOOKING_CREATED' || eventType === 'BOOKING_CONFIRMED') {
-      router.push('/bookings');
-    } else if (eventType === 'CONTRACT_SIGNED' || eventType === 'CONTRACT_TERMINATED') {
+    if (eventType === 'CONTRACT_SIGNED' || eventType === 'CONTRACT_TERMINATED') {
       if (payload?.contractId) {
         router.push(`/contract/${payload.contractId}`);
       } else {
@@ -88,8 +86,6 @@ export default function NotificationsScreen() {
       } else {
         router.push('/(tabs)/invoices');
       }
-    } else if (payload?.conversationId) {
-      router.push(`/messages/${payload.conversationId}`);
     } else if (payload?.roomId) {
       router.push(`/room/${payload.roomId}`);
     } else if (payload?.facilityId) {

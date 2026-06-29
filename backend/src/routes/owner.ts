@@ -62,7 +62,7 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
 
   const [bhRes, roomsRes, walletsRes, settingsRes, transactionsRes, invoicesRes, depositsRes] = await Promise.all([
     supabase.from("boarding_houses").select(`
-      id, name, address, status, is_public, created_at,
+      id, name, address, status, created_at,
       rooms(id, status)
     `).eq("owner_id", currentUser.id),
     supabase.from("rooms").select("id, name, price, status, num_people, has_ac").eq("user_id", currentUser.id),
@@ -140,7 +140,6 @@ const boardingHouseSchema = z.object({
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
-  isPublic: z.boolean().default(false),
 });
 
 const updateBoardingHouseSchema = boardingHouseSchema.partial();
@@ -151,14 +150,9 @@ const roomSchema = z.object({
   area: z.number().nonnegative().optional(),
   maxPeople: z.number().int().positive().optional(),
   status: z.enum(["AVAILABLE", "OCCUPIED", "MAINTENANCE"]).default("AVAILABLE"),
-  isPublic: z.boolean().default(false),
 });
 
 const updateRoomSchema = roomSchema.partial();
-
-const messageSchema = z.object({
-  body: z.string().trim().min(1).max(2000),
-});
 
 const mapRentalStatusToOwner = (status?: string) => {
   if (status === "occupied") return "OCCUPIED";
@@ -217,7 +211,6 @@ ownerRoutes.get("/boarding-houses", cacheMiddleware(30), async (c) => {
         latitude: bh.latitude,
         longitude: bh.longitude,
         status: bh.status,
-        isPublic: bh.is_public,
         ownerId: bh.owner_id,
         createdAt: bh.created_at,
         room_count: rooms.length,
@@ -264,7 +257,6 @@ ownerRoutes.get("/boarding-houses/:id", async (c) => {
     latitude: data.latitude,
     longitude: data.longitude,
     status: data.status,
-    isPublic: data.is_public,
     ownerId: data.owner_id,
     createdAt: data.created_at,
   });
@@ -306,7 +298,7 @@ ownerRoutes.post("/boarding-houses", async (c) => {
   }
   // ──────────────────────────────────────────────────────────
 
-  const { name, address, description, latitude, longitude, status, isPublic } =
+  const { name, address, description, latitude, longitude, status } =
     validation.data;
 
   const { data: bh, error } = await c
@@ -319,7 +311,6 @@ ownerRoutes.post("/boarding-houses", async (c) => {
       latitude,
       longitude,
       status,
-      is_public: isPublic,
       owner_id: currentUser.id,
     })
     .select()
@@ -342,7 +333,6 @@ ownerRoutes.post("/boarding-houses", async (c) => {
       latitude: bh.latitude,
       longitude: bh.longitude,
       status: bh.status,
-      isPublic: bh.is_public,
       ownerId: bh.owner_id,
       createdAt: bh.created_at,
     },
@@ -375,10 +365,6 @@ ownerRoutes.patch("/boarding-houses/:id", async (c) => {
   }
 
   const updateData: Record<string, unknown> = { ...validation.data };
-  if (validation.data.isPublic !== undefined) {
-    updateData.is_public = validation.data.isPublic;
-    delete updateData.isPublic;
-  }
   updateData.updated_at = new Date().toISOString();
 
   const { data, error } = await c
@@ -402,7 +388,6 @@ ownerRoutes.patch("/boarding-houses/:id", async (c) => {
     latitude: data.latitude,
     longitude: data.longitude,
     status: data.status,
-    isPublic: data.is_public,
     ownerId: data.owner_id,
     createdAt: data.created_at,
   });
@@ -442,7 +427,7 @@ ownerRoutes.delete("/boarding-houses/:id", async (c) => {
 ownerRoutes.get("/boarding-houses/:id/rooms", async (c) => {
   const currentUser = c.get("user");
   const bhId = c.req.param("id");
-  const { status = "", isPublic = "" } = c.req.query();
+  const { status = "" } = c.req.query();
 
   const bhCheck = await c
     .get("supabase")
@@ -464,10 +449,6 @@ ownerRoutes.get("/boarding-houses/:id/rooms", async (c) => {
   if (status) {
     query = query.eq("status", status);
   }
-  if (isPublic !== "") {
-    query = query.eq("is_public", isPublic === "true");
-  }
-
   const { data, error } = await query.order("created_at", { ascending: false });
 
   if (error) {
@@ -482,7 +463,6 @@ ownerRoutes.get("/boarding-houses/:id/rooms", async (c) => {
       boardingHouseId: r.boarding_house_id,
       price: r.price,
       status: r.status,
-      isPublic: r.is_public,
       createdAt: r.created_at,
     })),
   });
@@ -537,7 +517,7 @@ ownerRoutes.post("/boarding-houses/:id/rooms", async (c) => {
   }
   // ──────────────────────────────────────────────────────────
 
-  const { name, price, status, isPublic } = validation.data;
+  const { name, price, status } = validation.data;
 
   const { data: room, error } = await c
     .get("supabase")
@@ -550,7 +530,6 @@ ownerRoutes.post("/boarding-houses/:id/rooms", async (c) => {
       area: 0,
       max_people: 1,
       status,
-      is_public: isPublic,
     })
     .select()
     .single();
@@ -572,7 +551,6 @@ ownerRoutes.post("/boarding-houses/:id/rooms", async (c) => {
       area: room.area,
       maxPeople: room.max_people,
       status: room.status,
-      isPublic: room.is_public,
       createdAt: room.created_at,
     },
     201,
@@ -615,10 +593,6 @@ ownerRoutes.patch("/rooms/:id", async (c) => {
   }
 
   const updateData: Record<string, unknown> = { ...validation.data };
-  if (validation.data.isPublic !== undefined) {
-    updateData.is_public = validation.data.isPublic;
-    delete updateData.isPublic;
-  }
   updateData.updated_at = new Date().toISOString();
 
   const { data, error } = await c
@@ -643,7 +617,6 @@ ownerRoutes.patch("/rooms/:id", async (c) => {
     boardingHouseId: data.boarding_house_id,
     price: data.price,
     status: data.status,
-    isPublic: data.is_public,
     createdAt: data.created_at,
   });
 });
@@ -691,385 +664,6 @@ ownerRoutes.delete("/rooms/:id", async (c) => {
   invalidateCache("/owner/dashboard-init", currentUser.id);
 
   return c.json({ success: true });
-});
-
-ownerRoutes.get("/leads", async (c) => {
-  const currentUser = c.get("user");
-  const {
-    page = "1",
-    limit = "20",
-    status = "",
-    boardingHouseId = "",
-  } = c.req.query();
-
-  const { data: boardingHouses } = await c
-    .get("supabase")
-    .from("boarding_houses")
-    .select("id")
-    .eq("owner_id", currentUser.id);
-
-  const bhIds = boardingHouses?.map((bh) => bh.id) || [];
-
-  if (bhIds.length === 0) {
-    return c.json({ data: [], pagination: { page: 1, limit: 20, total: 0 } });
-  }
-
-  const pageNum = parseInt(page) || 1;
-  const limitNum = Math.min(parseInt(limit) || 20, 100);
-  const offset = (pageNum - 1) * limitNum;
-
-  let query = c
-    .get("supabase")
-    .from("leads")
-    .select("*", { count: "exact" })
-    .in("boarding_house_id", bhIds);
-
-  if (boardingHouseId) {
-    query = query.eq("boarding_house_id", boardingHouseId);
-  }
-  if (status) {
-    query = query.eq("status", status);
-  }
-
-  query = query
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limitNum - 1);
-
-  const { data, error, count } = await query;
-
-  if (error) {
-    console.error("Error fetching leads:", error);
-    return c.json({ error: "Failed to fetch leads" }, 500);
-  }
-
-  return c.json({
-    data: data?.map((l) => ({
-      id: l.id,
-      guestName: l.guest_name,
-      guestPhone: l.guest_phone,
-      guestEmail: l.guest_email,
-      boardingHouseId: l.boarding_house_id,
-      status: l.status,
-      message: l.message,
-      createdAt: l.created_at,
-    })),
-    pagination: {
-      page: pageNum,
-      limit: limitNum,
-      total: count || 0,
-    },
-  });
-});
-
-ownerRoutes.get("/bookings", async (c) => {
-  const currentUser = c.get("user");
-  const { boardingHouseId = "", status = "" } = c.req.query();
-
-  const { data: buildings, error: buildingsError } = await c
-    .get("supabase")
-    .from("rental_buildings")
-    .select("id")
-    .eq("owner_id", currentUser.id);
-
-  if (buildingsError) {
-    console.error("Error fetching owner rental buildings:", buildingsError);
-    return c.json({ error: "Failed to fetch bookings" }, 500);
-  }
-
-  const buildingIds = (buildings ?? []).map((building) => building.id);
-  if (buildingIds.length === 0)
-    return c.json({ data: [], pagination: { page: 1, limit: 0, total: 0 } });
-
-  const scopedBuildingIds = boardingHouseId
-    ? buildingIds.filter((id) => id === boardingHouseId)
-    : buildingIds;
-  if (boardingHouseId && scopedBuildingIds.length === 0) {
-    return c.json({ error: "Boarding house not found or access denied" }, 404);
-  }
-
-  let query = c
-    .get("supabase")
-    .from("rental_bookings")
-    .select(
-      `
-      id,
-      room_id,
-      booking_mode,
-      status,
-      desired_move_in,
-      message,
-      expires_at,
-      created_at,
-      updated_at,
-      rental_rooms!inner(id, code, title, building_id)
-    `,
-    )
-    .in("rental_rooms.building_id", scopedBuildingIds)
-    .order("created_at", { ascending: false });
-
-  if (status) query = query.eq("status", status);
-
-  const { data, error } = await query;
-  if (error) {
-    console.error("Error fetching owner bookings:", error);
-    return c.json({ error: "Failed to fetch bookings" }, 500);
-  }
-
-  return c.json({
-    data: (data ?? []).map((booking: any) => ({
-      id: booking.id,
-      boardingHouseId: booking.rental_rooms?.building_id,
-      roomId: booking.room_id,
-      roomName: booking.rental_rooms?.title ?? booking.rental_rooms?.code,
-      guestName: "Tenant",
-      guestPhone: "",
-      message: booking.message,
-      desiredMoveIn: booking.desired_move_in,
-      status: booking.status,
-      expiresAt: booking.expires_at,
-      createdAt: booking.created_at,
-      updatedAt: booking.updated_at,
-    })),
-  });
-});
-
-ownerRoutes.get("/conversations", async (c) => {
-  const currentUser = c.get("user");
-  const { boardingHouseId = "" } = c.req.query();
-
-  const { data: buildings, error: buildingsError } = await c
-    .get("supabase")
-    .from("rental_buildings")
-    .select("id")
-    .eq("owner_id", currentUser.id);
-
-  if (buildingsError)
-    return c.json({ error: "Failed to fetch conversations" }, 500);
-  const buildingIds = (buildings ?? []).map((building) => building.id);
-  if (buildingIds.length === 0) return c.json({ data: [] });
-
-  const scopedBuildingIds = boardingHouseId
-    ? buildingIds.filter((id) => id === boardingHouseId)
-    : buildingIds;
-  if (boardingHouseId && scopedBuildingIds.length === 0)
-    return c.json({ error: "Boarding house not found or access denied" }, 404);
-
-  const { data, error } = await c
-    .get("supabase")
-    .from("rental_conversations")
-    .select(
-      "id,lead_id,booking_id,room_id,topic,created_at,updated_at,rental_rooms!inner(building_id,title,code)",
-    )
-    .in("rental_rooms.building_id", scopedBuildingIds)
-    .order("updated_at", { ascending: false });
-
-  if (error) return c.json({ error: "Failed to fetch conversations" }, 500);
-  return c.json({
-    data: (data ?? []).map((item: any) => ({
-      id: item.id,
-      boardingHouseId: item.rental_rooms?.building_id,
-      roomId: item.room_id,
-      leadId: item.lead_id,
-      bookingId: item.booking_id,
-      guestName: "Guest",
-      guestPhone: "",
-      topic: item.topic ?? item.rental_rooms?.title ?? item.rental_rooms?.code,
-      status: "OPEN",
-      lastMessage: "",
-      updatedAt: item.updated_at,
-      createdAt: item.created_at,
-    })),
-  });
-});
-
-ownerRoutes.get("/conversations/:id/messages", async (c) => {
-  const currentUser = c.get("user");
-  const conversationId = c.req.param("id");
-
-  const { data: buildings, error: buildingsError } = await c
-    .get("supabase")
-    .from("rental_buildings")
-    .select("id")
-    .eq("owner_id", currentUser.id);
-
-  if (buildingsError) return c.json({ error: "Failed to fetch messages" }, 500);
-  const buildingIds = (buildings ?? []).map((building) => building.id);
-  if (buildingIds.length === 0)
-    return c.json({ error: "Conversation not found" }, 404);
-
-  const { data: conversation, error: conversationError } = await c
-    .get("supabase")
-    .from("rental_conversations")
-    .select("id,rental_rooms!inner(building_id)")
-    .eq("id", conversationId)
-    .in("rental_rooms.building_id", buildingIds)
-    .single();
-
-  if (conversationError || !conversation) {
-    return c.json({ error: "Conversation not found" }, 404);
-  }
-
-  const { data, error } = await c
-    .get("supabase")
-    .from("rental_messages")
-    .select("id,conversation_id,sender_user_id,body,sent_at")
-    .eq("conversation_id", conversationId)
-    .order("sent_at", { ascending: true });
-
-  if (error) return c.json({ error: "Failed to fetch messages" }, 500);
-  return c.json({
-    data: (data ?? []).map((item: any) => ({
-      id: item.id,
-      conversationId: item.conversation_id,
-      senderRole: item.sender_user_id ? "OWNER" : "GUEST",
-      senderName: item.sender_user_id ? "Owner" : "Guest",
-      body: item.body,
-      createdAt: item.sent_at,
-    })),
-  });
-});
-
-ownerRoutes.post("/conversations/:id/messages", async (c) => {
-  const currentUser = c.get("user");
-  const conversationId = c.req.param("id");
-  const parsed = messageSchema.safeParse(await c.req.json().catch(() => ({})));
-  if (!parsed.success)
-    return c.json(
-      { error: "Invalid message", details: parsed.error.issues },
-      400,
-    );
-
-  const { data: buildings, error: buildingsError } = await c
-    .get("supabase")
-    .from("rental_buildings")
-    .select("id")
-    .eq("owner_id", currentUser.id);
-
-  if (buildingsError) return c.json({ error: "Failed to send message" }, 500);
-  const buildingIds = (buildings ?? []).map((building) => building.id);
-  if (buildingIds.length === 0)
-    return c.json({ error: "Conversation not found" }, 404);
-
-  const { data: conversation, error: conversationError } = await c
-    .get("supabase")
-    .from("rental_conversations")
-    .select("id,rental_rooms!inner(building_id)")
-    .eq("id", conversationId)
-    .in("rental_rooms.building_id", buildingIds)
-    .single();
-
-  if (conversationError || !conversation) {
-    return c.json({ error: "Conversation not found" }, 404);
-  }
-
-  const { data, error } = await c
-    .get("supabase")
-    .from("rental_messages")
-    .insert({
-      conversation_id: conversationId,
-      sender_user_id: currentUser.id,
-      body: parsed.data.body,
-    })
-    .select()
-    .single();
-
-  if (error || !data) return c.json({ error: "Failed to send message" }, 500);
-  return c.json(
-    {
-      data: {
-        id: data.id,
-        conversationId: data.conversation_id,
-        senderRole: "OWNER",
-        senderName: currentUser.email ?? "Owner",
-        body: data.body,
-        createdAt: data.sent_at,
-      },
-    },
-    201,
-  );
-});
-
-ownerRoutes.post("/bookings/:id/confirm", async (c) => {
-  const currentUser = c.get("user");
-  const bookingId = c.req.param("id");
-
-  const { data: buildings, error: buildingsError } = await c
-    .get("supabase")
-    .from("rental_buildings")
-    .select("id")
-    .eq("owner_id", currentUser.id);
-
-  if (buildingsError)
-    return c.json({ error: "Failed to confirm booking" }, 500);
-  const buildingIds = (buildings ?? []).map((building) => building.id);
-  if (buildingIds.length === 0)
-    return c.json({ error: "Booking not found or cannot be confirmed" }, 404);
-
-  const { data: bookingScope, error: bookingScopeError } = await c
-    .get("supabase")
-    .from("rental_bookings")
-    .select("id,rental_rooms!inner(building_id)")
-    .eq("id", bookingId)
-    .in("rental_rooms.building_id", buildingIds)
-    .single();
-
-  if (bookingScopeError || !bookingScope) {
-    return c.json({ error: "Booking not found or access denied" }, 404);
-  }
-
-  const { data, error } = await c
-    .get("supabase")
-    .from("rental_bookings")
-    .update({ status: "CONFIRMED", updated_at: new Date().toISOString() })
-    .eq("id", bookingId)
-    .in("status", ["PENDING", "HOLD"])
-    .select()
-    .single();
-
-  if (error || !data)
-    return c.json({ error: "Booking not found or cannot be confirmed" }, 404);
-  return c.json({ data });
-});
-
-ownerRoutes.post("/bookings/:id/reject", async (c) => {
-  const currentUser = c.get("user");
-  const bookingId = c.req.param("id");
-
-  const { data: buildings, error: buildingsError } = await c
-    .get("supabase")
-    .from("rental_buildings")
-    .select("id")
-    .eq("owner_id", currentUser.id);
-
-  if (buildingsError) return c.json({ error: "Failed to reject booking" }, 500);
-  const buildingIds = (buildings ?? []).map((building) => building.id);
-  if (buildingIds.length === 0)
-    return c.json({ error: "Booking not found or cannot be rejected" }, 404);
-
-  const { data: bookingScope, error: bookingScopeError } = await c
-    .get("supabase")
-    .from("rental_bookings")
-    .select("id,rental_rooms!inner(building_id)")
-    .eq("id", bookingId)
-    .in("rental_rooms.building_id", buildingIds)
-    .single();
-
-  if (bookingScopeError || !bookingScope) {
-    return c.json({ error: "Booking not found or access denied" }, 404);
-  }
-
-  const { data, error } = await c
-    .get("supabase")
-    .from("rental_bookings")
-    .update({ status: "REJECTED", updated_at: new Date().toISOString() })
-    .eq("id", bookingId)
-    .in("status", ["PENDING", "HOLD"])
-    .select()
-    .single();
-
-  if (error || !data)
-    return c.json({ error: "Booking not found or cannot be rejected" }, 404);
-  return c.json({ data });
 });
 
 ownerRoutes.get("/notifications", async (c) => {
@@ -1210,18 +804,11 @@ ownerRoutes.post("/sepay/events/:id/reprocess", async (c) => {
     return c.json({ error: "Không tìm thấy hóa đơn khớp mã thanh toán. Vui lòng kiểm tra lại mã thanh toán trong nội dung chuyển khoản." }, 404);
   }
 
-  // Find channel
-  let channel: any = null;
-  if (event.payment_channel_id) {
-    const chRes = await db.from("payment_channels").select("*").eq("id", event.payment_channel_id).eq("user_id", user.id).maybeSingle();
-    channel = chRes.data;
-  }
-  if (!channel && event.account_number) {
-    const chRes = await db.from("payment_channels").select("*").eq("user_id", user.id).eq("account_no", event.account_number).eq("enabled", true).limit(1).maybeSingle();
-    channel = chRes.data;
-  }
+  // Find channel (shared resolver keeps webhook + reprocess in sync)
+  const { resolveSepayChannel } = await import("../services/sepayReconcile.js");
+  const channel = await resolveSepayChannel(db, { invoice, accountNumber: event.account_number });
 
-  if (!channel?.wallet_id) {
+  if (!channel) {
     return c.json({ error: "Kênh thanh toán chưa được gán ví hoặc tài khoản ngân hàng chưa được cấu hình. Vui lòng kiểm tra lại thiết lập SePay." }, 400);
   }
 

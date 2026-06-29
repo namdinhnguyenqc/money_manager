@@ -101,36 +101,64 @@ export default function BulkInvoiceModal({ isOpen, onClose, onSuccess, pendingRo
     }));
   };
 
+  // Single source of truth for how one service line is priced + described, so
+  // the preview total and the persisted invoice item always match. Mirrors the
+  // single-invoice page: per_person scales by occupants, metered uses readings,
+  // and every other type (fixed, per_room — wifi/rác/dịch vụ cố định) is a flat
+  // monthly fee. Previously per_room was dropped entirely → its price was never
+  // added to the total nor shown in the detail.
+  const computeServiceLine = (s: AppliedServiceSnapshot, state: RoomBillingState) => {
+    const type = String(s.type || "").toLowerCase();
+    const unitPrice = Number(s.applied_unit_price || 0);
+    // BR-06: identify electricity/water by category first (robust), fall back to
+    // name keywords for older snapshots that don't carry a category.
+    const category = String(s.category || "").toLowerCase();
+    const name = String(s.name || "").toLowerCase();
+    const isElec = category === "electricity" || name.includes("điện") || name.includes("dien") || name.includes("electric");
+    const isWater = category === "water" || name.includes("nước") || name.includes("nuoc") || name.includes("water");
+
+    if (type === "metered" || type === "meter") {
+      const newVal = isElec ? Number(state.elecNew) : isWater ? Number(state.waterNew) : 0;
+      const oldVal = isElec ? state.elecOld : isWater ? state.waterOld : 0;
+      const usage = Math.max(0, newVal - oldVal);
+      return {
+        amount: usage * unitPrice,
+        detail: `${oldVal} → ${newVal} = ${usage} x ${formatMoney(unitPrice)}`,
+        calculationType: type,
+        unitPrice,
+        quantity: usage,
+        startReading: oldVal,
+        endReading: newVal,
+        usageValue: usage,
+      };
+    }
+
+    if (type === "per_person") {
+      const occupants = Number(state.contract?.occupant_count || 1);
+      return {
+        amount: unitPrice * occupants,
+        detail: `${occupants} người x ${formatMoney(unitPrice)}`,
+        calculationType: type,
+        unitPrice,
+        quantity: occupants,
+      };
+    }
+
+    // fixed / per_room / any other flat fee
+    const amount = Number(s.amount ?? unitPrice ?? 0);
+    return {
+      amount,
+      detail: `${formatMoney(amount)} / kỳ`,
+      calculationType: type || "fixed",
+      unitPrice: amount,
+      quantity: 1,
+    };
+  };
+
   const calculateTotal = (state: RoomBillingState) => {
     if (!state.contract) return state.roomFee;
-    
-    let total = state.roomFee;
     const services = (state.contract.applied_services_snapshot || []) as AppliedServiceSnapshot[];
-    
-    services.forEach(s => {
-      const type = String(s.type || "").toLowerCase();
-      const unitPrice = Number(s.applied_unit_price || 0);
-
-      if (type === "fixed") {
-        total += unitPrice;
-      } else if (type === "per_person") {
-        const occupants = Number(state.contract?.occupant_count || 1);
-        total += unitPrice * occupants;
-      } else if (type === "metered" || type === "meter") {
-        const name = String(s.name || "").toLowerCase();
-        const isElec = name.includes("điện") || name.includes("dien") || name.includes("electric");
-        const isWater = name.includes("nước") || name.includes("nuoc") || name.includes("water");
-        
-        const newVal = isElec ? Number(state.elecNew) : isWater ? Number(state.waterNew) : 0;
-        const oldVal = isElec ? state.elecOld : isWater ? state.waterOld : 0;
-        
-        if (newVal > oldVal) {
-          total += (newVal - oldVal) * unitPrice;
-        }
-      }
-    });
-
-    return total;
+    return services.reduce((total, s) => total + computeServiceLine(s, state).amount, state.roomFee);
   };
 
   const buildInvoicePayload = (roomId: string) => {
@@ -138,58 +166,22 @@ export default function BulkInvoiceModal({ isOpen, onClose, onSuccess, pendingRo
     if (!state.contract) return null;
 
     const contract = state.contract;
-    const items: any[] = [];
     const services = (contract.applied_services_snapshot || []) as AppliedServiceSnapshot[];
-    
-    services.forEach(s => {
-      const type = String(s.type || "").toLowerCase();
-      const unitPrice = Number(s.applied_unit_price || 0);
-      const name = String(s.name || "").toLowerCase();
-      const isElec = name.includes("điện") || name.includes("dien") || name.includes("electric");
-      const isWater = name.includes("nước") || name.includes("nuoc") || name.includes("water");
-
-      if (type === "fixed") {
-        items.push({
-          name: s.name,
-          detail: `${formatMoney(unitPrice)} cố định`,
-          amount: unitPrice,
-          serviceId: s.service_id,
-          calculationType: type,
-          unitPrice,
-          quantity: 1,
-          serviceSnapshot: s
-        });
-      } else if (type === "per_person") {
-        const occupants = Number(contract.occupant_count || 1);
-        items.push({
-          name: s.name,
-          detail: `${occupants} người x ${formatMoney(unitPrice)}`,
-          amount: unitPrice * occupants,
-          serviceId: s.service_id,
-          calculationType: type,
-          unitPrice,
-          quantity: occupants,
-          serviceSnapshot: s
-        });
-      } else if (type === "metered" || type === "meter") {
-        const newVal = isElec ? Number(state.elecNew) : isWater ? Number(state.waterNew) : 0;
-        const oldVal = isElec ? state.elecOld : isWater ? state.waterOld : 0;
-        const usage = Math.max(0, newVal - oldVal);
-        
-        items.push({
-          name: s.name,
-          detail: `${oldVal} → ${newVal} = ${usage} x ${formatMoney(unitPrice)}`,
-          amount: usage * unitPrice,
-          serviceId: s.service_id,
-          calculationType: type,
-          unitPrice,
-          quantity: usage,
-          startReading: oldVal,
-          endReading: newVal,
-          usageValue: usage,
-          serviceSnapshot: s
-        });
-      }
+    const items = services.map((s) => {
+      const line = computeServiceLine(s, state);
+      return {
+        name: s.name,
+        detail: line.detail,
+        amount: line.amount,
+        serviceId: s.service_id,
+        calculationType: line.calculationType,
+        unitPrice: line.unitPrice,
+        quantity: line.quantity,
+        startReading: (line as any).startReading,
+        endReading: (line as any).endReading,
+        usageValue: (line as any).usageValue,
+        serviceSnapshot: s,
+      };
     });
 
     return {
@@ -262,14 +254,30 @@ export default function BulkInvoiceModal({ isOpen, onClose, onSuccess, pendingRo
                 const state = billingStates[room.id];
                 if (!state) return null;
 
-                const hasElec = state.contract?.applied_services_snapshot?.some(s => s.name.toLowerCase().includes("điện"));
-                const hasWater = state.contract?.applied_services_snapshot?.some(s => s.name.toLowerCase().includes("nước"));
+                const hasElec = state.contract?.applied_services_snapshot?.some(s => String(s.category || "").toLowerCase() === "electricity" || s.name.toLowerCase().includes("điện"));
+                const hasWater = state.contract?.applied_services_snapshot?.some(s => String(s.category || "").toLowerCase() === "water" || s.name.toLowerCase().includes("nước"));
 
                 return (
                   <tr key={room.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-bold text-slate-800">{room.name}</div>
                       <div className="text-xs text-slate-500 uppercase tracking-tighter font-semibold">{room.tenant_name || "Trống"}</div>
+                      {/* G-05: breakdown so the owner sees exactly what the total includes */}
+                      <div className="mt-2 space-y-0.5">
+                        <div className="flex items-center justify-between gap-3 text-[11px] text-slate-500">
+                          <span>Tiền phòng</span>
+                          <span className="font-semibold text-slate-700">{formatMoney(state.roomFee)}</span>
+                        </div>
+                        {((state.contract?.applied_services_snapshot || []) as AppliedServiceSnapshot[]).map((s, i) => {
+                          const line = computeServiceLine(s, state);
+                          return (
+                            <div key={`${s.service_id}-${i}`} className="flex items-center justify-between gap-3 text-[11px] text-slate-500">
+                              <span className="truncate">{s.name}</span>
+                              <span className="font-semibold text-slate-700 whitespace-nowrap">{formatMoney(line.amount)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       {hasElec ? (

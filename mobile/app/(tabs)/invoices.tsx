@@ -258,35 +258,39 @@ export default function InvoicesScreen() {
         ))}
       </ScrollView>
 
-      {/* Pending Invoices Banner */}
-      {pendingCount > 0 && (
-        <TouchableOpacity
-          style={[styles.pendingBanner, { shadowColor: Colors.primary }]}
-          onPress={() => router.push({
-            pathname: '/invoice/bulk',
-            params: { month: selectedPeriod.month, year: selectedPeriod.year }
-          })}
-          activeOpacity={0.8}
-        >
-          <View style={styles.pendingBannerLeft}>
-            <View style={styles.pendingBadge}>
-              <Ionicons name="alert-circle-outline" size={16} color={Colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.pendingBannerTitle}>
-                Có {pendingCount} phòng chưa lập hóa đơn
-              </Text>
-              <Text style={styles.pendingBannerSub}>
-                Kỳ đóng tiền tháng {selectedPeriod.month}/{selectedPeriod.year}
-              </Text>
-            </View>
+      {/* Bulk Invoice Entry */}
+      <TouchableOpacity
+        style={[styles.pendingBanner, pendingCount === 0 && styles.pendingBannerMuted, { shadowColor: Colors.primary }]}
+        onPress={() => router.push({
+          pathname: '/invoice/bulk',
+          params: { month: selectedPeriod.month, year: selectedPeriod.year }
+        })}
+        activeOpacity={0.8}
+      >
+        <View style={styles.pendingBannerLeft}>
+          <View style={[styles.pendingBadge, pendingCount === 0 && styles.pendingBadgeMuted]}>
+            <Ionicons
+              name={pendingCount > 0 ? 'alert-circle-outline' : 'receipt-outline'}
+              size={16}
+              color={pendingCount > 0 ? Colors.primary : Colors.textSecondary}
+            />
           </View>
-          <View style={styles.pendingBannerAction}>
-            <Text style={styles.pendingActionText}>Lập hàng loạt</Text>
-            <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.pendingBannerTitle}>
+              {pendingCount > 0 ? `Có ${pendingCount} phòng chưa lập hóa đơn` : 'Lập hóa đơn hàng loạt'}
+            </Text>
+            <Text style={styles.pendingBannerSub}>
+              {pendingCount > 0
+                ? `Kỳ đóng tiền tháng ${selectedPeriod.month}/${selectedPeriod.year}`
+                : `Kiểm tra phòng đủ điều kiện trong kỳ ${selectedPeriod.month}/${selectedPeriod.year}`}
+            </Text>
           </View>
-        </TouchableOpacity>
-      )}
+        </View>
+        <View style={styles.pendingBannerAction}>
+          <Text style={styles.pendingActionText}>{pendingCount > 0 ? 'Lập ngay' : 'Mở'}</Text>
+          <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+        </View>
+      </TouchableOpacity>
 
       {overdueCarryCount > 0 && (
         <TouchableOpacity
@@ -511,6 +515,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  pendingBannerMuted: {
+    borderColor: Colors.borderLight,
+    shadowOpacity: 0.04,
+    elevation: 1,
+  },
   pendingBannerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -524,6 +533,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(138, 63, 252, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pendingBadgeMuted: {
+    backgroundColor: '#F8FAFC',
   },
   pendingBannerTitle: {
     fontSize: 13.5,

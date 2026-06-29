@@ -6,7 +6,7 @@ type LogoVariant = 'monogram' | 'full' | 'symbol' | 'wordmark';
 export default function Logo({ 
   className = "", 
   showText = true, 
-  textClassName = "text-xl",
+  textClassName = "",
   size = "md",
   variant = "wordmark"
 }: { 
@@ -24,16 +24,22 @@ export default function Logo({
   };
 
   const pixelSize = sizeMap[size === "xl" ? "xl" : size];
+  const wordmarkWidth = {
+    sm: 112,
+    md: 148,
+    lg: 184,
+    xl: 224,
+  }[size];
 
   if (variant === 'wordmark' || (variant === 'monogram' && showText)) {
     return (
-      <div className={`flex items-center ${className}`}>
+      <div className={`inline-flex items-center ${className}`}>
         <Image
-          src="/brand/optimized/trocare-logo-full-navbar.png"
-          alt="TrọCare"
-          width={190}
-          height={61}
-          className="h-auto object-contain"
+          src="/brand/optimized/trocare-wordmark-navbar.png"
+          alt="TroCare"
+          width={wordmarkWidth}
+          height={Math.round(wordmarkWidth / 3.55)}
+          className="h-auto shrink-0 object-contain"
           priority
         />
       </div>

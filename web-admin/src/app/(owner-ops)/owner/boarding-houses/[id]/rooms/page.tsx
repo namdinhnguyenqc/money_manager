@@ -76,7 +76,6 @@ export default function BoardingHouseRoomsPage() {
     name: "",
     price: 0,
     status: "AVAILABLE",
-    isPublic: false,
   });
 
   useEffect(() => {
@@ -147,9 +146,8 @@ export default function BoardingHouseRoomsPage() {
         name: newRoom.name.trim(),
         price: Number(newRoom.price || 0),
         status: newRoom.status || "AVAILABLE",
-        isPublic: Boolean(newRoom.isPublic),
       });
-      setNewRoom({ name: "", price: 0, status: "AVAILABLE", isPublic: false });
+      setNewRoom({ name: "", price: 0, status: "AVAILABLE" });
       await invalidateOwnerOpsQueries(queryClient, { facilityId: bhId });
       await loadRooms();
     } catch (e: any) {
@@ -246,10 +244,6 @@ export default function BoardingHouseRoomsPage() {
           <button className="rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50" type="submit" disabled={creating}>
             {creating ? "Đang tạo..." : "Thêm phòng"}
           </button>
-          <label className="inline-flex items-center gap-2 text-sm text-slate-600 md:col-span-4">
-            <input type="checkbox" checked={Boolean(newRoom.isPublic)} onChange={(e) => setNewRoom((prev) => ({ ...prev, isPublic: e.target.checked }))} />
-            Hiển thị công khai
-          </label>
         </form>
 
         {loading && <div>Đang tải danh sách phòng...</div>}

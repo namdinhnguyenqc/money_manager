@@ -44,8 +44,7 @@ export default function FacilityDetailPage() {
     price: "", 
     area: "", 
     maxPeople: "2", 
-    status: "AVAILABLE" as "AVAILABLE" | "OCCUPIED" | "MAINTENANCE", 
-    isPublic: false 
+    status: "AVAILABLE" as "AVAILABLE" | "OCCUPIED" | "MAINTENANCE"
   });
   const [roomFormError, setRoomFormError] = useState("");
 
@@ -89,11 +88,10 @@ export default function FacilityDetailPage() {
         area: Number(roomForm.area || 0),
         maxPeople: Number(roomForm.maxPeople || 1),
         status: roomForm.status,
-        isPublic: roomForm.isPublic,
       });
     },
     onSuccess: async () => {
-      setRoomForm({ name: "", price: "", area: "", maxPeople: "2", status: "AVAILABLE", isPublic: false });
+      setRoomForm({ name: "", price: "", area: "", maxPeople: "2", status: "AVAILABLE" });
       setRoomFormOpen(false);
       setRoomFormError("");
       await invalidateOwnerOpsQueries(queryClient, { facilityId });
@@ -190,11 +188,7 @@ export default function FacilityDetailPage() {
                   </select>
                 </label>
               </div>
-              <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-600">
-                  <input type="checkbox" checked={roomForm.isPublic} onChange={(event) => setRoomForm((prev) => ({ ...prev, isPublic: event.target.checked }))} />
-                  Hiển thị công khai
-                </label>
+              <div className="mt-3 flex justify-end">
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setRoomFormOpen(false)} className="rounded-[8px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700">Hủy</button>
                   <button disabled={createRoomMutation.isPending} className="rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
@@ -286,7 +280,6 @@ export default function FacilityDetailPage() {
             <Info label="Tên cơ sở" value={facility?.name || "-"} />
             <Info label="Địa chỉ" value={facility?.address || "-"} />
             <Info label="Trạng thái" value={facility?.status || "-"} />
-            <Info label="Công khai" value={facility?.isPublic ? "Có" : "Không"} />
           </div>
         </section>
       )}

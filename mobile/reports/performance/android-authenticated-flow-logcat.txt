@@ -1,0 +1,37 @@
+06-08 22:54:28.573  4952  5294 I ReactNativeJS: {"event":"APP_START","appMs":67}
+06-08 22:54:28.888  4952  5294 I ReactNativeJS: {"event":"TOKEN_HYDRATE_START","totalMs":0}
+06-08 22:54:28.888  4952  5294 I ReactNativeJS: {"event":"TOKEN_HYDRATE_START","appMs":382}
+06-08 22:54:28.924  4952  5294 I ReactNativeJS: {"event":"CACHE_CLEAR","appMs":418,"scope":"api"}
+06-08 22:54:28.944  4952  5294 I ReactNativeJS: {"event":"TOKEN_HYDRATE_DONE","totalMs":56,"durationMs":56,"hasToken":true,"authenticated":false,"invalidToken":true}
+06-08 22:54:28.945  4952  5294 I ReactNativeJS: {"event":"TOKEN_HYDRATE_DONE","appMs":438,"durationMs":56,"hasToken":true,"authenticated":false,"invalidToken":true}
+06-08 22:54:29.033  4952  5294 I ReactNativeJS: {"event":"NAVIGATION_READY","appMs":526,"authenticated":false}
+06-08 22:54:36.018  4952  5294 I ReactNativeJS: {"event":"LOGIN_API_START","totalMs":3838,"provider":"google"}
+06-08 22:54:36.033  4952  5294 I ReactNativeJS: {"event":"API_REQUEST_START","appMs":7526,"path":"/auth/owner-google","method":"POST","cacheKey":"POST:/auth/owner-google","cacheTtlMs":0}
+06-08 22:54:46.346  4952  5294 I ReactNativeJS: {"event":"API_REQUEST_FAILED","appMs":17821,"path":"/auth/owner-google","method":"POST","status":0,"ok":false,"durationMs":10308,"cacheKey":"POST:/auth/owner-google","message":"Request timed out after 10000ms: https://money-manager-xdem.onrender.com/auth/owner-google"}
+06-08 22:54:46.349  4952  5294 I ReactNativeJS: {"event":"LOGIN_API_DONE","totalMs":14172,"durationMs":10334,"success":false,"provider":"google","status":0,"message":"Request timed out after 10000ms: https://money-manager-xdem.onrender.com/auth/owner-google"}
+06-08 22:54:46.352  4952  5294 I ReactNativeJS: {"event":"TOTAL_LOGIN_TIME","totalMs":14176,"success":false,"provider":"google","message":"Request timed out after 10000ms: https://money-manager-xdem.onrender.com/auth/owner-google"}
+06-08 22:55:22.881  7980  8029 I ReactNativeJS: {"event":"APP_START","appMs":44}
+06-08 22:55:23.019  7980  8029 I ReactNativeJS: {"event":"TOKEN_HYDRATE_START","totalMs":0}
+06-08 22:55:23.019  7980  8029 I ReactNativeJS: {"event":"TOKEN_HYDRATE_START","appMs":182}
+06-08 22:55:23.035  7980  8029 I ReactNativeJS: {"event":"TOKEN_HYDRATE_DONE","totalMs":16,"durationMs":16,"hasToken":false,"authenticated":false}
+06-08 22:55:23.036  7980  8029 I ReactNativeJS: {"event":"TOKEN_HYDRATE_DONE","appMs":198,"durationMs":16,"hasToken":false,"authenticated":false}
+06-08 22:55:23.084  7980  8029 I ReactNativeJS: {"event":"NAVIGATION_READY","appMs":247,"authenticated":false}
+06-08 22:55:29.263  7980  8029 I ReactNativeJS: {"event":"LOGIN_API_START","totalMs":2321,"provider":"google"}
+06-08 22:55:29.267  7980  8029 I ReactNativeJS: {"event":"API_REQUEST_START","appMs":6430,"path":"/auth/owner-google","method":"POST","cacheKey":"POST:/auth/owner-google","cacheTtlMs":0}
+06-08 22:55:31.908  7980  8029 I ReactNativeJS: {"event":"API_REQUEST_DONE","appMs":9071,"durationMs":2644,"path":"/auth/owner-google","method":"POST","status":200,"ok":true,"cacheKey":"POST:/auth/owner-google"}
+06-08 22:55:31.909  7980  8029 I ReactNativeJS: {"event":"CACHE_INVALIDATE","appMs":9071,"scope":"api","path":"/auth/owner-google","method":"POST","entriesCleared":0,"reason":"mutation_success"}
+06-08 22:55:31.909  7980  8029 I ReactNativeJS: {"event":"LOGIN_API_DONE","totalMs":4967,"durationMs":2646,"success":true,"provider":"google"}
+06-08 22:55:31.925  7980  8029 I ReactNativeJS: {"event":"NAVIGATE_HOME_START","totalMs":4983,"target":"tabs"}
+06-08 22:55:31.927  7980  8029 I ReactNativeJS: {"event":"NAVIGATE_HOME_DONE","totalMs":4984,"durationMs":1}
+06-08 22:55:31.927  7980  8029 I ReactNativeJS: {"event":"TOTAL_LOGIN_TIME","totalMs":4985,"success":true,"provider":"google"}
+06-08 22:55:31.937  7980  8029 I ReactNativeJS: {"event":"NAVIGATION_READY","appMs":9100,"authenticated":true}
+06-08 22:55:32.094  7980  8029 I ReactNativeJS: {"event":"HOME_SUMMARY_START","appMs":9256,"forceRefresh":false}
+06-08 22:55:32.094  7980  8029 I ReactNativeJS: {"event":"CACHE_MISS","appMs":9257,"path":"/owner/dashboard-summary","method":"GET","cacheKey":"GET:/owner/dashboard-summary","reason":"empty","ttlMs":60000}
+06-08 22:55:32.095  7980  8029 I ReactNativeJS: {"event":"FIRST_SCREEN_READY","appMs":9258,"screen":"dashboard","hasSummary":false}
+06-08 22:55:32.100  7980  8029 I ReactNativeJS: {"event":"TAB_FOCUS_HOME","appMs":9262}
+06-08 22:55:32.115  7980  8029 I ReactNativeJS: {"event":"CACHE_MISS","appMs":9277,"path":"/owner/notifications","method":"GET","reason":"disabled","ttlMs":0}
+06-08 22:55:32.129  7980  8029 I ReactNativeJS: {"event":"API_REQUEST_START","appMs":9292,"path":"/owner/dashboard-summary","method":"GET","cacheKey":"GET:/owner/dashboard-summary","cacheTtlMs":60000}
+06-08 22:55:32.130  7980  8029 I ReactNativeJS: {"event":"API_REQUEST_START","appMs":9293,"path":"/owner/notifications","method":"GET","cacheKey":"GET:/owner/notifications","cacheTtlMs":0}
+06-08 22:55:32.423  7980  8029 I ReactNativeJS: {"event":"API_REQUEST_DONE","appMs":9585,"durationMs":328,"path":"/owner/dashboard-summary","method":"GET","status":404,"ok":false,"cacheKey":"GET:/owner/dashboard-summary"}
+06-08 22:55:32.423  7980  8029 I ReactNativeJS: {"event":"HOME_SUMMARY_READY","appMs":9586,"success":false,"message":"Not found"}
+06-08 22:55:32.523  7980  8029 I ReactNativeJS: {"event":"API_REQUEST_DONE","appMs":9686,"durationMs":409,"path":"/owner/notifications","method":"GET","status":500,"ok":false,"cacheKey":"GET:/owner/notifications"}

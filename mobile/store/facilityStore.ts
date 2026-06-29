@@ -35,7 +35,6 @@ interface Facility {
   name: string;
   address?: string;
   status?: string;
-  isPublic?: boolean;
   room_count?: number;
   roomCount?: number;
   vacant_count?: number;

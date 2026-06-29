@@ -208,14 +208,27 @@ invoicesRoutes.get("/", async (c) => {
 
   const contractIds = [...new Set(invoices.map((x) => x.contract_id))];
   const roomIds = [...new Set(invoices.map((x) => x.room_id))];
+  const channelIds = [...new Set(invoices.map((x) => x.payment_channel_id).filter(Boolean))];
+  const includeItems = c.req.query("includeItems") === "true";
+  const invIds = invoices.map((i) => i.id);
 
-  const [contractsRes, roomsRes] = await Promise.all([
+  // These four lookups all derive from `invoices` alone, so run them together
+  // instead of sequentially (cuts the request from ~5 round-trips down to 3 —
+  // matters most on a high-latency / cold backend).
+  const [contractsRes, roomsRes, channelsRes, itemsRes] = await Promise.all([
     db.from("contracts").select("*").in("id", contractIds),
     db.from("rooms").select("*").in("id", roomIds),
+    channelIds.length > 0
+      ? db.from("payment_channels").select("*").eq("user_id", user.id).in("id", channelIds)
+      : Promise.resolve({ data: [], error: null }),
+    includeItems
+      ? db.from("invoice_items").select("*").in("invoice_id", invIds).eq("user_id", user.id)
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   if (contractsRes.error) return c.json({ error: contractsRes.error.message }, 500);
   if (roomsRes.error) return c.json({ error: roomsRes.error.message }, 500);
+  if (channelsRes.error) return c.json({ error: channelsRes.error.message }, 500);
 
   const contracts = contractsRes.data ?? [];
   const rooms = roomsRes.data ?? [];
@@ -226,31 +239,20 @@ invoicesRoutes.get("/", async (c) => {
   const roomsById = new Map(rooms.map((room) => [String(room.id), room]));
   const contractsById = new Map(contracts.map((contract) => [String(contract.id), contract]));
   const tenantsById = new Map(tenants.map((tenant) => [String(tenant.id), tenant]));
-
-  const channelIds = [...new Set(invoices.map((x) => x.payment_channel_id).filter(Boolean))];
-  const channelsRes = channelIds.length > 0
-    ? await db.from("payment_channels").select("*").eq("user_id", user.id).in("id", channelIds)
-    : { data: [], error: null };
-  if (channelsRes.error) return c.json({ error: channelsRes.error.message }, 500);
   const channelsById = new Map((channelsRes.data ?? []).map((channel) => [String(channel.id), channel]));
 
-  const includeItems = c.req.query("includeItems") === "true";
-  let itemsById: Map<string, any[]> = new Map();
-  if (includeItems && invoices.length > 0) {
-    const invIds = invoices.map((i) => i.id);
-    const itemsRes = await db.from("invoice_items").select("*").in("invoice_id", invIds).eq("user_id", user.id);
-    if (!itemsRes.error && itemsRes.data) {
-      itemsRes.data.forEach((item) => {
-        const list = itemsById.get(String(item.invoice_id)) || [];
-        list.push({
-          id: item.id,
-          name: item.name,
-          detail: item.detail,
-          amount: item.amount,
-        });
-        itemsById.set(String(item.invoice_id), list);
+  const itemsById: Map<string, any[]> = new Map();
+  if (includeItems && !itemsRes.error && itemsRes.data) {
+    itemsRes.data.forEach((item) => {
+      const list = itemsById.get(String(item.invoice_id)) || [];
+      list.push({
+        id: item.id,
+        name: item.name,
+        detail: item.detail,
+        amount: item.amount,
       });
-    }
+      itemsById.set(String(item.invoice_id), list);
+    });
   }
 
   const data = invoices
