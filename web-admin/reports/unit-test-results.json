@@ -8,7 +8,7 @@
   "numFailedTests": 0,
   "numPendingTests": 0,
   "numTodoTests": 0,
-  "startTime": 1780752695078,
+  "startTime": 1782750299838,
   "success": true,
   "testResults": [
     {
@@ -21,7 +21,7 @@
           "fullName": " KPICard renders title and value",
           "status": "passed",
           "title": "renders title and value",
-          "duration": 16,
+          "duration": 13,
           "failureMessages": []
         },
         {
@@ -47,8 +47,8 @@
           "failureMessages": []
         }
       ],
-      "startTime": 1780752695732,
-      "endTime": 1780752695750,
+      "startTime": 1782750300604,
+      "endTime": 1782750300619,
       "status": "passed",
       "message": "",
       "name": "/Users/thao/money_manager/web-admin/__tests__/KPICard.test.tsx"
@@ -63,12 +63,12 @@
           "fullName": " LeadForm submits payload via onSubmit",
           "status": "passed",
           "title": "submits payload via onSubmit",
-          "duration": 26,
+          "duration": 27,
           "failureMessages": []
         }
       ],
-      "startTime": 1780752695734,
-      "endTime": 1780752695760,
+      "startTime": 1782750300605,
+      "endTime": 1782750300632,
       "status": "passed",
       "message": "",
       "name": "/Users/thao/money_manager/web-admin/__tests__/LeadForm.test.tsx"
@@ -83,12 +83,12 @@
           "fullName": " Not Authorized Page renders Not Authorized message",
           "status": "passed",
           "title": "renders Not Authorized message",
-          "duration": 14,
+          "duration": 19,
           "failureMessages": []
         }
       ],
-      "startTime": 1780752695750,
-      "endTime": 1780752695764,
+      "startTime": 1782750300626,
+      "endTime": 1782750300645,
       "status": "passed",
       "message": "",
       "name": "/Users/thao/money_manager/web-admin/__tests__/NotAuthorized.test.tsx"
@@ -103,7 +103,7 @@
           "fullName": " ProfileFormCard keeps typed values when a server field error is shown",
           "status": "passed",
           "title": "keeps typed values when a server field error is shown",
-          "duration": 30,
+          "duration": 29,
           "failureMessages": []
         },
         {
@@ -118,8 +118,8 @@
           "failureMessages": []
         }
       ],
-      "startTime": 1780752695779,
-      "endTime": 1780752695814,
+      "startTime": 1782750300653,
+      "endTime": 1782750300687,
       "status": "passed",
       "message": "",
       "name": "/Users/thao/money_manager/web-admin/__tests__/ProfileFormCard.test.tsx"
@@ -134,7 +134,7 @@
           "fullName": " RBACGuard renders children when role is allowed",
           "status": "passed",
           "title": "renders children when role is allowed",
-          "duration": 17,
+          "duration": 19,
           "failureMessages": []
         },
         {
@@ -149,8 +149,8 @@
           "failureMessages": []
         }
       ],
-      "startTime": 1780752695734,
-      "endTime": 1780752695751,
+      "startTime": 1782750300606,
+      "endTime": 1782750300625,
       "status": "passed",
       "message": "",
       "name": "/Users/thao/money_manager/web-admin/__tests__/RBACGuard.test.tsx"
@@ -165,7 +165,7 @@
           "fullName": " RBAC guard logic (evaluateRBACGuard) allows access when token present and role OWNER",
           "status": "passed",
           "title": "allows access when token present and role OWNER",
-          "duration": 1,
+          "duration": 0,
           "failureMessages": []
         },
         {
@@ -191,8 +191,8 @@
           "failureMessages": []
         }
       ],
-      "startTime": 1780752695620,
-      "endTime": 1780752695622,
+      "startTime": 1782750300481,
+      "endTime": 1782750300482,
       "status": "passed",
       "message": "",
       "name": "/Users/thao/money_manager/web-admin/__tests__/RBACGuardLogic.test.tsx"
@@ -218,7 +218,7 @@
           "fullName": " rental tenant validation returns field-level messages for invalid tenant input",
           "status": "passed",
           "title": "returns field-level messages for invalid tenant input",
-          "duration": 0,
+          "duration": 1,
           "failureMessages": []
         },
         {
@@ -251,7 +251,7 @@
           "fullName": " rental tenant validation normalizes phone numbers starting with +84 or 84 to 0",
           "status": "passed",
           "title": "normalizes phone numbers starting with +84 or 84 to 0",
-          "duration": 1,
+          "duration": 0,
           "failureMessages": []
         },
         {
@@ -266,8 +266,8 @@
           "failureMessages": []
         }
       ],
-      "startTime": 1780752695685,
-      "endTime": 1780752695689,
+      "startTime": 1782750300549,
+      "endTime": 1782750300553,
       "status": "passed",
       "message": "",
       "name": "/Users/thao/money_manager/web-admin/__tests__/rentalOps.validation.test.tsx"

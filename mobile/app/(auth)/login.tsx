@@ -212,8 +212,8 @@ export default function LoginScreen() {
                   resizeMode="contain"
                 />
               </View>
-              <Text style={styles.featureTitle}>Marketplace</Text>
-              <Text style={styles.featureDesc}>Đăng tin trống phòng lên sàn liên kết tiện lợi.</Text>
+              <Text style={styles.featureTitle}>Quản lý tập trung</Text>
+              <Text style={styles.featureDesc}>Theo dõi vận hành và dữ liệu phòng trên một ứng dụng.</Text>
             </View>
           </View>
         </View>

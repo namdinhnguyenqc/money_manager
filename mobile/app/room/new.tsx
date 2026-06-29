@@ -96,7 +96,6 @@ export default function NewRoomScreen() {
         area: Number(form.area || 0),
         maxPeople: Number(form.maxPeople || 2),
         status: form.status,
-        isPublic: true,
       });
 
       showToast('Thêm phòng trọ thành công!', 'success');

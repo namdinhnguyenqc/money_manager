@@ -40,6 +40,33 @@ export async function applyInvoicePayment(
 
   if (!invoice?.id) return { error: "Invoice is required." };
   if (receivedAmount <= 0) return { error: "Invalid payment amount." };
+
+  // Idempotency guard: if a transaction with the same external reference already
+  // exists, this payment has already been applied (e.g. a SePay webhook retry).
+  // Return the existing result instead of crediting the wallet a second time.
+  if (input.externalRef) {
+    const existingTx = await db
+      .from("transactions")
+      .select("*")
+      .eq("user_id", invoice.user_id)
+      .eq("external_ref", input.externalRef)
+      .maybeSingle();
+    if (existingTx.data) {
+      const meta = existingTx.data.metadata || {};
+      const allocated = Number(meta.allocated_amount ?? existingTx.data.amount ?? 0);
+      const overpaid = Number(meta.overpaid_amount ?? 0);
+      return {
+        data: {
+          invoice,
+          transaction: existingTx.data,
+          allocatedAmount: allocated,
+          overpaidAmount: overpaid,
+          status: Number(invoice.paid_amount || 0) >= total ? "paid" : "partial",
+        },
+      };
+    }
+  }
+
   if (remaining <= 0) return { error: "Hóa đơn này đã được thanh toán đầy đủ." };
 
   const allocatedAmount = Math.min(receivedAmount, remaining);

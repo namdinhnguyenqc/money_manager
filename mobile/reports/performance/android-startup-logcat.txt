@@ -1,0 +1,8 @@
+06-08 22:54:28.573  4952  5294 I ReactNativeJS: {"event":"APP_START","appMs":67}
+06-08 22:54:28.888  4952  5294 I ReactNativeJS: {"event":"TOKEN_HYDRATE_START","totalMs":0}
+06-08 22:54:28.888  4952  5294 I ReactNativeJS: {"event":"TOKEN_HYDRATE_START","appMs":382}
+06-08 22:54:28.944  4952  5294 I ReactNativeJS: {"event":"TOKEN_HYDRATE_DONE","totalMs":56,"durationMs":56,"hasToken":true,"authenticated":false,"invalidToken":true}
+06-08 22:54:28.945  4952  5294 I ReactNativeJS: {"event":"TOKEN_HYDRATE_DONE","appMs":438,"durationMs":56,"hasToken":true,"authenticated":false,"invalidToken":true}
+06-08 22:54:29.033  4952  5294 I ReactNativeJS: {"event":"NAVIGATION_READY","appMs":526,"authenticated":false}
+06-08 22:54:36.033  4952  5294 I ReactNativeJS: {"event":"API_REQUEST_START","appMs":7526,"path":"/auth/owner-google","method":"POST","cacheKey":"POST:/auth/owner-google","cacheTtlMs":0}
+06-08 22:54:46.346  4952  5294 I ReactNativeJS: {"event":"API_REQUEST_FAILED","appMs":17821,"path":"/auth/owner-google","method":"POST","status":0,"ok":false,"durationMs":10308,"cacheKey":"POST:/auth/owner-google","message":"Request timed out after 10000ms: https://money-manager-xdem.onrender.com/auth/owner-google"}

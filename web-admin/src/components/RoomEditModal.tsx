@@ -7,7 +7,6 @@ export type Room = {
   name?: string
   status?: 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE'
   price?: number
-  isPublic?: boolean
 }
 
 type Props = {
@@ -18,11 +17,11 @@ type Props = {
 }
 
 export default function RoomEditModal({ open, room, onClose, onSave }: Props) {
-  const [local, setLocal] = useState<Room>({ id: room?.id ?? '', name: room?.name ?? '', status: room?.status ?? 'AVAILABLE', price: room?.price ?? 0, isPublic: room?.isPublic ?? false })
+  const [local, setLocal] = useState<Room>({ id: room?.id ?? '', name: room?.name ?? '', status: room?.status ?? 'AVAILABLE', price: room?.price ?? 0 })
 
   useEffect(() => {
     if (open) {
-      setLocal({ id: room?.id ?? '', name: room?.name ?? '', status: room?.status ?? 'AVAILABLE', price: room?.price ?? 0, isPublic: room?.isPublic ?? false })
+      setLocal({ id: room?.id ?? '', name: room?.name ?? '', status: room?.status ?? 'AVAILABLE', price: room?.price ?? 0 })
     }
   }, [open, room])
 
@@ -51,12 +50,6 @@ export default function RoomEditModal({ open, room, onClose, onSave }: Props) {
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">Giá thuê</label>
             <input name="price" type="number" min={0} className="w-full rounded-[8px] border border-slate-300 px-3 py-2.5 text-sm" value={local.price ?? 0} onChange={(e)=>setLocal((l)=>({...l, price: Number(e.target.value)}))} />
-          </div>
-          <div>
-            <label className="inline-flex items-center gap-2 text-sm font-medium">
-              <input name="isPublic" type="checkbox" checked={local.isPublic ?? false} onChange={(e)=>setLocal((l)=>({...l, isPublic: e.target.checked}))} />
-              Hiển thị công khai
-            </label>
           </div>
         </div>
         <div className="mt-4 flex justify-end">

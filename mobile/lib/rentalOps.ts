@@ -75,7 +75,6 @@ export type BoardingHouse = {
   address?: string;
   description?: string;
   status?: 'ACTIVE' | 'INACTIVE';
-  isPublic?: boolean;
 };
 
 export type RentalRoom = {
@@ -478,7 +477,6 @@ export async function createBoardingHouse(input: { name: string; address?: strin
     address: input.address || '',
     description: input.description || '',
     status: 'ACTIVE',
-    isPublic: false,
   });
   return (res?.data ?? res) as BoardingHouse;
 }
@@ -493,14 +491,13 @@ export async function loadOwnerRooms(buildingId: string) {
   return (res?.data ?? []) as OwnerRoom[];
 }
 
-export async function createOwnerRoom(buildingId: string, input: { name: string; price: number; area?: number; maxPeople?: number; status?: 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE'; isPublic?: boolean }) {
+export async function createOwnerRoom(buildingId: string, input: { name: string; price: number; area?: number; maxPeople?: number; status?: 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE' }) {
   const res = await apiPost<any>(`/owner/boarding-houses/${buildingId}/rooms`, {
     name: input.name,
     price: Number(input.price || 0),
     area: Number(input.area || 0),
     maxPeople: Number(input.maxPeople || 1),
     status: input.status || 'AVAILABLE',
-    isPublic: Boolean(input.isPublic),
   });
   return (res?.data ?? res) as OwnerRoom;
 }
@@ -1044,29 +1041,6 @@ export async function deleteService(id: string) {
 
 export async function toggleServiceStatus(service: ServiceConfig) {
   return updateService(service.id, { active: !service.active });
-}
-
-// ═══════════════════════════════════════════
-// Leads
-// ═══════════════════════════════════════════
-
-export type Lead = {
-  id: string;
-  guestName: string;
-  guestPhone?: string;
-  guestEmail?: string;
-  boardingHouseId: string;
-  status: string;
-  message?: string;
-  createdAt: string;
-};
-
-export async function loadLeads(boardingHouseId?: string) {
-  const url = boardingHouseId
-    ? `/owner/leads?boardingHouseId=${boardingHouseId}`
-    : '/owner/leads';
-  const res = await apiGet<any>(url);
-  return (res?.data ?? []) as Lead[];
 }
 
 export async function createTransaction(input: {

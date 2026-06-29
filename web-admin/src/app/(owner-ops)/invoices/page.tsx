@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { RefreshCw, Trash2, Calendar, ChevronLeft, ChevronRight, FileSpreadsheet, AlertTriangle } from "lucide-react";
@@ -82,16 +82,24 @@ export default function InvoicesPage() {
     return { month: now.getMonth() + 1, year: now.getFullYear() };
   });
 
+  // Guards against race conditions: when the user switches period/facility
+  // quickly (or a cold backend makes an earlier request resolve later), only the
+  // most recent load() is allowed to write state — so stale responses can never
+  // overwrite fresh data (the "sometimes data, sometimes empty" bug).
+  const loadSeq = useRef(0);
+
   const load = async () => {
+    const seq = ++loadSeq.current;
     setLoading(true);
     setError("");
     try {
       const hId = selectedHouse === "all" ? undefined : selectedHouse;
       const [nextHouses, nextInvoices, nextPending] = await Promise.all([
-        loadBoardingHouses(), 
+        loadBoardingHouses(),
         loadInvoices(hId),
         loadPendingBilling(period.month, period.year, hId)
       ]);
+      if (seq !== loadSeq.current) return; // a newer load() superseded this one
       setHouses(nextHouses);
       setInvoices(nextInvoices.filter((invoice) => {
         const isCurrentPeriod = invoice.month === period.month && invoice.year === period.year;
@@ -100,9 +108,10 @@ export default function InvoicesPage() {
       }));
       setPendingRooms(nextPending);
     } catch (err: any) {
+      if (seq !== loadSeq.current) return;
       setError(err?.message || "Không tải được dữ liệu.");
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) setLoading(false);
     }
   };
 
@@ -279,6 +288,7 @@ export default function InvoicesPage() {
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       <DataTable
+        className="hidden lg:block"
         headers={["Phòng", "Khách thuê", "Tổng cộng", "Đã thu", "Còn lại", "Trạng thái", "Thao tác"]}
         checkbox={
           <input
@@ -353,6 +363,80 @@ export default function InvoicesPage() {
           );
         })}
       </DataTable>
+
+      {/* Mobile card list (replaces the table on small screens) */}
+      <div className="space-y-3 lg:hidden">
+        {loading ? (
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">Đang tải dữ liệu...</div>
+        ) : filter === "Chưa lập HĐ" ? (
+          pendingRooms.length === 0 ? (
+            <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">Tất cả các phòng đã được lập hóa đơn cho kỳ này.</div>
+          ) : visiblePendingRooms.map((room) => (
+            <div key={room.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-semibold text-slate-900">{room.name}</div>
+                  <div className="truncate text-sm text-slate-500">{room.tenant_name || "Chưa có khách"}</div>
+                </div>
+                <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">Chưa lập</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+                <div className="text-sm"><span className="text-slate-500">Tiền phòng: </span><span className="font-semibold text-slate-900">{formatMoney(room.price)}</span></div>
+                <Link href={`/invoices/new?contract_id=${room.contract_id}`} className="text-sm font-semibold text-blue-700">Lập hóa đơn →</Link>
+              </div>
+            </div>
+          ))
+        ) : filteredInvoices.length === 0 ? (
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">Chưa có hóa đơn phù hợp cho kỳ T{period.month}/{period.year}.</div>
+        ) : visibleInvoices.map((invoice) => {
+          const status = getDisplayInvoiceStatus(invoice, period);
+          const carriedOverOverdue = isInvoiceBeforePeriod(invoice, period) && isInvoiceUnpaid(invoice);
+          const periodOverdue = !carriedOverOverdue && isInvoiceBeforeCurrentMonth(invoice) && isInvoiceUnpaid(invoice);
+          const remaining = Math.max(0, invoice.total_amount - (invoice.paid_amount || 0));
+          return (
+            <div key={invoice.id} className={`rounded-xl border bg-white p-4 shadow-sm ${carriedOverOverdue || periodOverdue ? "border-red-200" : "border-slate-200"}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={Boolean(selected[invoice.id])}
+                    onChange={(e) => setSelected((prev) => ({ ...prev, [invoice.id]: e.target.checked }))}
+                  />
+                  <div className="min-w-0">
+                    <div className="font-semibold text-slate-900">{invoice.room_name || `Phòng #${invoice.room_id}`}</div>
+                    <div className="truncate text-sm text-slate-500">{invoice.tenant_name || "-"}</div>
+                  </div>
+                </div>
+                <StatusBadge status={status} />
+              </div>
+
+              {(carriedOverOverdue || periodOverdue) && (
+                <div className="mt-2 text-xs font-semibold text-red-600">
+                  {carriedOverOverdue ? `HĐ T${invoice.month}/${invoice.year} chưa đóng, chuyển sang T${period.month}/${period.year}` : "Đã qua kỳ thanh toán, đang quá hạn"}
+                </div>
+              )}
+
+              <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-center">
+                <div><div className="text-[11px] uppercase tracking-wide text-slate-400">Tổng</div><div className="text-sm font-semibold text-slate-900">{formatMoney(invoice.total_amount)}</div></div>
+                <div><div className="text-[11px] uppercase tracking-wide text-slate-400">Đã thu</div><div className="text-sm font-semibold text-green-700">{invoice.paid_amount ? formatMoney(invoice.paid_amount) : "0 ₫"}</div></div>
+                <div><div className="text-[11px] uppercase tracking-wide text-slate-400">Còn lại</div><div className="text-sm font-semibold text-red-600">{formatMoney(remaining)}</div></div>
+              </div>
+
+              <div className="mt-3 flex items-center gap-4 border-t border-slate-100 pt-3 text-sm">
+                <Link href={`/invoices/${invoice.id}`} className="font-semibold text-blue-700">Xem</Link>
+                {(status === "sent" || status === "overdue" || status === "partial") && (
+                  <Link href={`/payments/new?invoice_id=${invoice.id}`} className="font-semibold text-blue-700">Thu tiền</Link>
+                )}
+                {status !== "paid" && (
+                  <button onClick={() => handleDeleteSingle(invoice.id)} className="ml-auto font-semibold text-red-600">Xóa</button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       <Pagination page={page} pageSize={pageSize} total={filteredRows.length} onPageChange={setPage} />
 
       <BulkInvoiceModal

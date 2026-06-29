@@ -27,6 +27,7 @@ import { API_URL } from "@/lib/api";
 import { clearClientSession, getStoredAccessToken, getStoredSessionUser } from "@/utils/session";
 import { authFetch, logAuthEvent } from "@/utils/authFetch";
 import Logo from "@/components/ui/Logo";
+import OwnerBottomNav from "@/components/owner/OwnerBottomNav";
 
 interface NavItem {
   href: string;
@@ -138,41 +139,31 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
         }
       };
 
-      if (justLoggedIn && (storedUser.role === "OWNER" || storedUser.role === "SUPER_ADMIN")) {
+      const isOwnerStored = storedUser.role === "OWNER" || storedUser.role === "SUPER_ADMIN";
+
+      // OPTIMISTIC RENDER: trust the stored owner session so the workspace appears
+      // instantly instead of blocking on /auth/me — which may hit a cold backend
+      // (Render spin-up) or need a token refresh. We still revalidate in the
+      // background below and redirect only if the session is genuinely invalid.
+      if (isOwnerStored) {
         setOwnerName(storedUser.name || "Owner");
         setOwnerEmail(storedUser.email || "");
-        await fetchPermissions();
         setAuthorized(true);
         setLoading(false);
+      }
+
+      // Fresh login: session was just verified by the login flow — skip the
+      // blocking re-check and only warm up permissions in the background.
+      if (justLoggedIn && isOwnerStored) {
+        fetchPermissions();
         return;
       }
 
-      if (storedUser.role === "OWNER" || storedUser.role === "SUPER_ADMIN") {
-        setOwnerName(storedUser.name || "Owner");
-        setOwnerEmail(storedUser.email || "");
-      }
-      const authorizeFromStoredSession = () => {
-        if (storedUser.role === "OWNER" || storedUser.role === "SUPER_ADMIN") {
-          setOwnerName(storedUser.name || "Owner");
-          setOwnerEmail(storedUser.email || "");
-          setAuthorized(true);
-          return true;
-        }
-        if (token) {
-          logAuthEvent("AUTH_OWNER_ALLOW_TOKEN_ONLY_AFTER_VERIFY_ERROR");
-          setAuthorized(true);
-          return true;
-        }
-        return false;
-      };
+      // Background revalidation. Never blocks the optimistic render above; on a
+      // real auth failure (401/403) we sign the user out, on network/timeout we
+      // keep the cached session so a cold backend doesn't lock the user out.
       try {
-        const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 5000);
-        const res = await authFetch(`${API_URL}/auth/me`, {
-          signal: controller.signal,
-          cache: "no-store",
-        });
-        window.clearTimeout(timeout);
+        const res = await authFetch(`${API_URL}/auth/me`, { cache: "no-store" });
         if (!res.ok) {
           if (res.status === 401 || res.status === 403) {
             const data = await res.clone().json().catch(() => ({}));
@@ -186,7 +177,8 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
             return;
           }
           logAuthEvent("AUTH_OWNER_ME_NON_AUTH_ERROR", { status: res.status });
-          if (authorizeFromStoredSession()) return;
+          if (!isOwnerStored && token) setAuthorized(true);
+          setLoading(false);
           return;
         }
         const data = await res.json();
@@ -196,8 +188,8 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
           if (data?.email) localStorage.setItem("userEmail", data.email);
           if (data?.status) localStorage.setItem("userStatus", data.status);
           if (data?.approvalStatus || data?.status) localStorage.setItem("approvalStatus", data.approvalStatus || data.status);
-          
-          await fetchPermissions();
+
+          fetchPermissions();
 
           if (data?.isProfileCompleted === false || data?.onboardingStep === "COMPLETE_PROFILE") {
             localStorage.setItem("isProfileCompleted", "false");
@@ -219,8 +211,10 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
           router.replace("/not-authorized");
         }
       } catch {
+        // Network error / timeout — most likely a cold backend. Keep the cached
+        // session (already authorized above) rather than kicking the user out.
         logAuthEvent("AUTH_OWNER_ME_NETWORK_ERROR");
-        if (authorizeFromStoredSession()) return;
+        if (!isOwnerStored && token) setAuthorized(true);
       } finally {
         setLoading(false);
       }
@@ -362,20 +356,25 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/85 px-4 py-3 backdrop-blur-md lg:hidden">
+        <header className="pwa-safe-top sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/80 px-4 py-3 backdrop-blur-xl lg:hidden">
           <div className="flex items-center gap-3">
-            <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-700 transition hover:bg-slate-100" onClick={() => setSidebarOpen(true)} aria-label="Mở menu">
+            <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition active:scale-95 hover:bg-slate-200" onClick={() => setSidebarOpen(true)} aria-label="Mở menu">
               <Menu size={20} />
             </button>
-            <div className="text-sm font-black tracking-tight text-slate-900">TrọCare Vận hành</div>
+            <Logo size="sm" />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-500"></span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Chủ trọ</span>
-          </div>
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-bold text-white shadow-sm shadow-blue-200 transition active:scale-95"
+            aria-label="Tài khoản"
+          >
+            {(ownerName || "O").charAt(0).toUpperCase()}
+          </button>
         </header>
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+        <main className="has-bottom-nav flex-1 p-4 sm:p-6 lg:pb-6">{children}</main>
       </div>
+
+      <OwnerBottomNav pathname={pathname} onMore={() => setSidebarOpen(true)} />
     </div>
   );
 }

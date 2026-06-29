@@ -7,6 +7,7 @@ type AuthFetchOptions = RequestInit & {
   auth?: boolean;
   skipRefresh?: boolean;
   _retried?: boolean;
+  timeoutMs?: number;
 };
 
 let refreshPromise: Promise<string | null> | null = null;
@@ -15,9 +16,30 @@ const REFRESH_LOCK_KEY = "trocare.refresh.lock";
 const REFRESH_LOCK_TTL_MS = 8000;
 const REFRESH_WAIT_TIMEOUT_MS = 10000;
 const REFRESH_WAIT_INTERVAL_MS = 120;
+const DEFAULT_AUTH_FETCH_TIMEOUT_MS = 20000;
+const REFRESH_FETCH_TIMEOUT_MS = 15000;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithTimeout(input: string, init: RequestInit = {}, timeoutMs = DEFAULT_AUTH_FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error: any) {
+    if (error?.name === "AbortError") {
+      throw new Error(`Request timed out after ${timeoutMs}ms: ${input}`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 export function logAuthEvent(event: string, details: Record<string, unknown> = {}) {
@@ -115,13 +137,13 @@ export async function refreshAccessToken() {
 
     let res: Response;
     try {
-      res = await fetch(`${API_URL}/auth/refresh`, {
+      res = await fetchWithTimeout(`${API_URL}/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
         credentials: "include",
         cache: "no-store",
-      });
+      }, REFRESH_FETCH_TIMEOUT_MS);
     } catch (error) {
       logAuthEvent("AUTH_REFRESH_NETWORK_ERROR", {
         message: error instanceof Error ? error.message : String(error),
@@ -190,6 +212,7 @@ const pendingRequests = new Map<string, Promise<Response>>();
 export async function authFetch(input: string, init: AuthFetchOptions = {}) {
   const method = (init.method || "GET").toUpperCase();
   const url = input.toString();
+  const { timeoutMs, ...fetchInit } = init;
   
   const isGet = method === "GET";
   const dedupeKey = isGet ? url : null;
@@ -200,12 +223,12 @@ export async function authFetch(input: string, init: AuthFetchOptions = {}) {
   }
 
   const doFetch = async () => {
-    const headers = new Headers(init.headers || {});
-    if (!headers.has("Content-Type") && init.body !== undefined && init.body !== null) {
+    const headers = new Headers(fetchInit.headers || {});
+    if (!headers.has("Content-Type") && fetchInit.body !== undefined && fetchInit.body !== null) {
       headers.set("Content-Type", "application/json");
     }
 
-    if (init.auth !== false) {
+    if (fetchInit.auth !== false) {
       let token = getStoredAccessToken();
       if (token && isTokenExpired(token)) {
         logAuthEvent("AUTH_PREEMPTIVE_REFRESH", { url });
@@ -217,8 +240,8 @@ export async function authFetch(input: string, init: AuthFetchOptions = {}) {
       if (token) headers.set("Authorization", `Bearer ${token}`);
     }
 
-    const res = await fetch(input, { ...init, headers, credentials: init.credentials ?? "include", cache: "no-store" });
-    if (res.status !== 401 || init.auth === false || init.skipRefresh || init._retried) {
+    const res = await fetchWithTimeout(input, { ...fetchInit, headers, credentials: fetchInit.credentials ?? "include", cache: "no-store" }, timeoutMs);
+    if (res.status !== 401 || fetchInit.auth === false || fetchInit.skipRefresh || fetchInit._retried) {
       return res;
     }
 
@@ -235,12 +258,12 @@ export async function authFetch(input: string, init: AuthFetchOptions = {}) {
       return res;
     }
 
-    const retryHeaders = new Headers(init.headers || {});
-    if (!retryHeaders.has("Content-Type") && init.body !== undefined && init.body !== null) {
+    const retryHeaders = new Headers(fetchInit.headers || {});
+    if (!retryHeaders.has("Content-Type") && fetchInit.body !== undefined && fetchInit.body !== null) {
       retryHeaders.set("Content-Type", "application/json");
     }
     retryHeaders.set("Authorization", `Bearer ${nextToken}`);
-    return fetch(input, { ...init, headers: retryHeaders, credentials: init.credentials ?? "include", cache: "no-store", _retried: true } as RequestInit);
+    return fetchWithTimeout(input, { ...fetchInit, headers: retryHeaders, credentials: fetchInit.credentials ?? "include", cache: "no-store", _retried: true } as RequestInit, timeoutMs);
   };
 
   if (dedupeKey) {

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TrọCare · Ngoại tuyến</title>
+    <style>
+      :root { color-scheme: light; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: #F8FAFC;
+        color: #0F172A;
+        padding: 24px;
+      }
+      .card {
+        max-width: 360px;
+        text-align: center;
+      }
+      img { width: 72px; height: 72px; margin-bottom: 16px; }
+      h1 { font-size: 20px; margin: 0 0 8px; }
+      p { color: #64748B; margin: 0 0 20px; line-height: 1.5; }
+      button {
+        background: #2563EB;
+        color: #fff;
+        border: 0;
+        border-radius: 10px;
+        padding: 12px 20px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <img src="/brand/app-icons/app-icon-gradient-256.png" alt="TrọCare" />
+      <h1>Bạn đang ngoại tuyến</h1>
+      <p>Không có kết nối mạng. Vui lòng kiểm tra lại đường truyền rồi thử lại.</p>
+      <button onclick="location.reload()">Thử lại</button>
+    </div>
+  </body>
+</html>

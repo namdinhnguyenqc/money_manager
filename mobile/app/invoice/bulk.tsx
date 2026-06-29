@@ -537,10 +537,23 @@ export default function BulkInvoiceScreen() {
         {filteredStates.length === 0 ? (
           <View style={styles.emptyBox}>
             <Ionicons name="receipt-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.emptyTitle}>Không còn phòng cần lập</Text>
+            <Text style={styles.emptyTitle}>Chưa có phòng đủ điều kiện</Text>
             <Text style={styles.emptyDesc}>
-              Các phòng có hợp đồng trong tháng {period.month}/{period.year} đã có hóa đơn hoặc chưa đủ dữ liệu.
+              Hệ thống chỉ lập hàng loạt cho phòng đang thuê, có hợp đồng hoạt động và chưa có hóa đơn tháng {period.month}/{period.year}.
             </Text>
+            <View style={styles.emptyChecklist}>
+              <Text style={styles.emptyCheckItem}>1. Phòng phải ở trạng thái Đang thuê.</Text>
+              <Text style={styles.emptyCheckItem}>2. Hợp đồng phải còn hoạt động.</Text>
+              <Text style={styles.emptyCheckItem}>3. Kỳ này chưa được lập hóa đơn.</Text>
+            </View>
+            <View style={styles.emptyActions}>
+              <TouchableOpacity style={styles.emptyPrimaryBtn} onPress={() => router.push('/(tabs)/facilities' as any)} activeOpacity={0.78}>
+                <Text style={styles.emptyPrimaryText}>Kiểm tra phòng</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.emptySecondaryBtn} onPress={() => router.push('/services' as any)} activeOpacity={0.78}>
+                <Text style={styles.emptySecondaryText}>Bảng giá dịch vụ</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ) : (
           filteredStates.map((state) => {
@@ -901,14 +914,66 @@ const styles = StyleSheet.create({
   submitButtonText: { fontSize: 14 },
 
   emptyBox: {
-    padding: 40,
+    padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 60,
+    marginTop: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
   },
   emptyTitle: { fontSize: 16, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
   emptyDesc: { fontSize: 12, fontFamily: Typography.fontFamily.regular, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18 },
+  emptyChecklist: {
+    width: '100%',
+    gap: 6,
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.background,
+  },
+  emptyCheckItem: {
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+  emptyActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    width: '100%',
+  },
+  emptyPrimaryBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    paddingVertical: 11,
+  },
+  emptyPrimaryText: {
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textWhite,
+  },
+  emptySecondaryBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    paddingVertical: 11,
+  },
+  emptySecondaryText: {
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textSecondary,
+  },
 
   modalOverlay: {
     flex: 1,

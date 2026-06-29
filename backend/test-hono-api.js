@@ -53,30 +53,6 @@ test('Hono API Test Suite', async (t) => {
     testUserId = data.user.id;
   });
 
-  await t.test('GET /public/boarding-houses - Should return public listings', async () => {
-    const res = await fetch(`${BASE_URL}/public/boarding-houses`);
-    const data = await res.json();
-    assert.strictEqual(res.status, 200);
-    assert.ok(Array.isArray(data.data));
-  });
-
-  await t.test('POST /public/leads - Should submit a lead', async () => {
-    const res = await fetch(`${BASE_URL}/public/leads`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        boardingHouseId: 'mock-bh-1',
-        guestName: 'Test Guest',
-        guestPhone: '0123456789',
-        guestEmail: 'guest@example.com',
-        message: 'Interested in a room'
-      })
-    });
-    const data = await res.json();
-    assert.strictEqual(res.status, 201);
-    assert.ok(data.data.id);
-  });
-
   await t.test('GET /admin/users - Should return user list (Admin only)', async () => {
     const res = await fetch(`${BASE_URL}/admin/users`, {
       headers: { 'Authorization': `Bearer ${adminToken}` }

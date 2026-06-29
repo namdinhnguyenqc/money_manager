@@ -13,6 +13,27 @@ declare global {
 }
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+const LOGIN_TIMEOUT_MS = 30000;
+const HEALTH_TIMEOUT_MS = 5000;
+
+async function fetchWithTimeout(input: string, init: RequestInit = {}, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error: any) {
+    if (error?.name === "AbortError") {
+      throw new Error(`Máy chủ phản hồi quá lâu (${Math.round(timeoutMs / 1000)}s). Vui lòng thử lại sau vài giây.`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
 
 export default function OwnerGoogleLoginButton() {
   const router = useRouter();
@@ -24,13 +45,13 @@ export default function OwnerGoogleLoginButton() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/auth/owner-google`, {
+      const res = await fetchWithTimeout(`${API_URL}/auth/owner-google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken: googleIdToken }),
         credentials: "include",
         cache: "no-store",
-      });
+      }, LOGIN_TIMEOUT_MS);
       const authData = await res.json().catch(() => ({}));
 
       if (!res.ok) {
@@ -76,11 +97,10 @@ export default function OwnerGoogleLoginButton() {
       console.error("❌ GOOGLE_CLIENT_ID is missing!");
       return;
     }
-    console.log("✅ GOOGLE_CLIENT_ID found:", GOOGLE_CLIENT_ID.substring(0, 20) + "...");
+    fetchWithTimeout(`${API_URL}/health`, { cache: "no-store" }, HEALTH_TIMEOUT_MS).catch(() => null);
 
     const renderGoogleButton = () => {
       const container = document.getElementById("google-btn-container");
-      console.log("🔄 renderGoogleButton called. window.google:", !!window.google, "container:", !!container);
       if (!container || !window.google) return;
       
       try {
@@ -98,7 +118,6 @@ export default function OwnerGoogleLoginButton() {
           width: 360,
           text: "continue_with",
         });
-        console.log("✅ Google button rendered!");
       } catch (err) {
         console.error("❌ Error rendering Google button:", err);
         setError("Lỗi hiển thị nút đăng nhập.");
@@ -106,10 +125,8 @@ export default function OwnerGoogleLoginButton() {
     };
 
     if (window.google?.accounts?.id) {
-      console.log("✅ Google SDK already loaded, rendering immediately.");
       renderGoogleButton();
     } else {
-      console.log("⏳ Google SDK not loaded yet, injecting script...");
       const scriptId = "google-jssdk";
       if (!document.getElementById(scriptId)) {
         const script = document.createElement("script");
@@ -118,7 +135,6 @@ export default function OwnerGoogleLoginButton() {
         script.async = true;
         script.defer = true;
         script.onload = () => {
-          console.log("✅ Google script loaded!");
           renderGoogleButton();
         };
         script.onerror = (e) => {
@@ -127,7 +143,6 @@ export default function OwnerGoogleLoginButton() {
         };
         document.head.appendChild(script);
       } else {
-        console.log("ℹ️ Script tag exists. Waiting for google object...");
         const poll = setInterval(() => {
           if (window.google?.accounts?.id) {
             clearInterval(poll);

@@ -79,7 +79,9 @@ export default function LoginPage() {
             <div className="grid grid-cols-[170px_1fr] h-full bg-white text-[#0F172A]">
               <nav className="bg-gradient-to-b from-[#071C39] to-[#0B1E3B] p-4 text-white">
                 <div className="flex items-center gap-2 mb-6 font-extrabold tracking-tight">
-                  <Image src="/brand/optimized/trocare-logo-full-navbar.png" width={126} height={41} alt="TrọCare" />
+                  <span className="text-lg font-extrabold tracking-[-0.05em] text-white">
+                    Trọ<span className="text-[#45A3FF]">Care</span>
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 h-8 px-3 rounded-lg text-[10px] font-bold bg-[#2563EB] mb-1.5">⌂ Tổng quan</div>
                 <div className="flex items-center gap-2 h-8 px-3 rounded-lg text-[10px] font-bold text-white/60 mb-1.5">▣ Phòng trọ</div>
@@ -137,16 +139,16 @@ export default function LoginPage() {
         <section className="relative overflow-hidden rounded-[32px] p-10 md:p-12 border border-white/90 bg-white/92 shadow-[0_30px_90px_rgba(15,23,42,0.12)] backdrop-blur-3xl flex flex-col justify-center h-full">
           <div className="absolute w-[260px] h-[260px] -right-20 -top-20 bg-gradient-to-br from-blue-600/15 to-cyan-500/16 rounded-full blur-[4px]" />
           
-          <header className="relative flex flex-col items-center gap-3 mb-10">
-            <Image src="/brand/optimized/trocare-logo-full-navbar.png" width={210} height={68} alt="TrọCare" className="drop-shadow-[0_18px_26px_rgba(37,99,235,0.16)]" />
+          <header className="relative flex flex-col items-center gap-3 mb-9">
+            <Logo size="xl" />
           </header>
 
           <div className="relative text-center mb-8">
             <h2 className="text-[28px] leading-tight font-extrabold tracking-[-0.055em] font-['Plus_Jakarta_Sans'] text-[#0F172A]">
-              Đăng nhập vào TrọCare Owner
+              Đăng nhập
             </h2>
             <p className="mt-3 text-slate-500 text-sm font-semibold">
-              Quản lý trọ thông minh, vận hành an tâm
+              Dành cho chủ trọ
             </p>
           </div>
 
