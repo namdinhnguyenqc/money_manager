@@ -216,10 +216,10 @@ export default function InvoiceDetailPage() {
             <div className="shrink-0 flex flex-col items-center gap-1.5">
               {qrUrl ? (
                 <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
-                  <img src={qrUrl} alt="QR thanh toán" className="h-36 w-36 object-contain" />
+                  <img src={qrUrl} alt="QR thanh toán" className="h-48 w-48 object-contain" />
                 </div>
               ) : (
-                <div className="flex h-36 w-36 items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 text-center text-[10px] font-semibold text-slate-400">
+                <div className="flex h-48 w-48 items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 text-center text-[10px] font-semibold text-slate-400">
                   Chưa cấu hình QR
                 </div>
               )}
