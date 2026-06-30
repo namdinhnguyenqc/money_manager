@@ -250,7 +250,7 @@ export default function OwnerDashboard() {
               </span>
               <span className="text-xs font-black uppercase tracking-widest text-indigo-600">Phân tích hệ thống</span>
             </div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">Tổng quan vận hành</h1>
+            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900">Tổng quan vận hành</h1>
             <p className="mt-2 text-sm text-slate-500 font-medium">Báo cáo hiệu quả kinh doanh và trạng thái phòng thời gian thực.</p>
           </div>
           <div className="flex items-center gap-3">
@@ -322,7 +322,21 @@ export default function OwnerDashboard() {
           />
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-3">
+        {/* Mobile-only: Room status quick summary */}
+        <div className="grid grid-cols-2 gap-3 sm:hidden">
+          <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 flex flex-col gap-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Đang thuê</span>
+            <span className="text-2xl font-black text-indigo-700">{safeStats.occupied}</span>
+            <span className="text-xs text-indigo-400 font-semibold">/ {safeStats.total} phòng</span>
+          </div>
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 flex flex-col gap-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Phòng trống</span>
+            <span className="text-2xl font-black text-emerald-700">{safeStats.vacant}</span>
+            <span className="text-xs text-emerald-400 font-semibold">Lấp đầy {safeStats.occupancyRate}%</span>
+          </div>
+        </div>
+
+        <div className="hidden sm:grid gap-8 lg:grid-cols-3">
           {/* Cashflow Trend Chart (AreaChart) */}
           <div className="col-span-1 flex flex-col rounded-2xl sm:rounded-[32px] border border-slate-200 bg-white p-4 sm:p-8 shadow-xl shadow-slate-200/40 lg:col-span-2">
             <div className="mb-8 flex items-center justify-between">
@@ -432,7 +446,7 @@ export default function OwnerDashboard() {
         </div>
 
         {/* Section: Quản lý Điện & Nước */}
-        <div className="space-y-6">
+        <div className="hidden sm:block space-y-6">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-50 text-amber-600 border border-amber-100">
               <Zap size={12} className="animate-pulse" />

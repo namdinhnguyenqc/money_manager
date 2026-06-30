@@ -33,8 +33,9 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body>
-        <QueryProvider>{children}</QueryProvider>
-        <PWAProvider />
+        <PWAProvider>
+          <QueryProvider>{children}</QueryProvider>
+        </PWAProvider>
       </body>
     </html>
   );
