@@ -179,7 +179,7 @@ export default function InvoiceDetailPage() {
           </div>
 
           {/* Payment section — left text, right QR */}
-          <div className="flex gap-4 items-start">
+          <div className="flex flex-col sm:flex-row gap-4 items-start">
             {/* Left: payment breakdown + bank info */}
             <div className="flex-1 min-w-0 text-[11px] text-slate-900">
               <p className="mb-2 font-black underline">Phần Thanh toán:</p>
@@ -216,10 +216,10 @@ export default function InvoiceDetailPage() {
             <div className="shrink-0 flex flex-col items-center gap-1.5">
               {qrUrl ? (
                 <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
-                  <img src={qrUrl} alt="QR thanh toán" className="h-48 w-48 object-contain" />
+                  <img src={qrUrl} alt="QR thanh toán" className="h-64 w-64 object-contain" />
                 </div>
               ) : (
-                <div className="flex h-48 w-48 items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 text-center text-[10px] font-semibold text-slate-400">
+                <div className="flex h-64 w-64 items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 text-center text-[10px] font-semibold text-slate-400">
                   Chưa cấu hình QR
                 </div>
               )}
