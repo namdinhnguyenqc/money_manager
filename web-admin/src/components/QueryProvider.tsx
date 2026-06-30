@@ -79,6 +79,8 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     let verifying = false;
+    let lastVerifiedAt = 0;
+    const VERIFY_COOLDOWN_MS = 5 * 60 * 1000;
 
     const redirectToLogin = (details: Record<string, unknown> = {}) => {
       const pathname = window.location.pathname;
@@ -90,7 +92,8 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
 
     const verifyPrivateSession = async () => {
       const pathname = window.location.pathname;
-      if (!isPrivatePath(pathname) || verifying) return;
+      const now = Date.now();
+      if (!isPrivatePath(pathname) || verifying || now - lastVerifiedAt < VERIFY_COOLDOWN_MS) return;
 
       const token = getStoredAccessToken();
       if (!token) {
@@ -99,6 +102,7 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
       }
 
       verifying = true;
+      lastVerifiedAt = Date.now();
       try {
         const res = await authFetch(`${API_URL}/auth/me`, {
           cache: "no-store",
