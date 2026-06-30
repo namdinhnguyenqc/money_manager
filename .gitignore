@@ -45,3 +45,4 @@ test_passwords.ts
 test_rpc.ts
 *.apk
 
+.claude/worktrees/
