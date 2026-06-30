@@ -147,7 +147,6 @@ export default function LandingPageClient() {
         <div className="container">
           <Link href="/" className="logo-container">
             <Logo size="md" />
-            <span className="logo-slogan">Quản lý trọ thông minh, vận hành an tâm</span>
           </Link>
           
           <nav className="nav-links">
