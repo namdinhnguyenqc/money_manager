@@ -32,15 +32,15 @@ export default function Logo({
   }[size];
 
   if (variant === 'wordmark' || (variant === 'monogram' && showText)) {
-    const symbolSize = { sm: 22, md: 30, lg: 42, xl: 54 }[size];
+    const symbolSize = { sm: 28, md: 36, lg: 48, xl: 60 }[size];
     return (
       <div className={`trocare-logo-wordmark inline-flex items-center gap-2 ${className}`}>
         <Image
-          src="/brand/transparent/trocare-symbol-tc-transparent-256.png"
+          src="/brand/app-icons/app-icon-gradient-256.png"
           alt=""
           width={symbolSize}
           height={symbolSize}
-          className="shrink-0 object-contain"
+          className="shrink-0 object-contain rounded-xl"
           style={{ width: symbolSize, height: symbolSize, minWidth: symbolSize }}
           priority
         />
@@ -74,12 +74,12 @@ export default function Logo({
   if (variant === 'symbol' || (variant === 'monogram' && !showText)) {
     return (
       <div className={`flex items-center ${className}`}>
-        <Image 
-          src="/brand/app-icons/app-icon-gradient-256.png" 
+        <Image
+          src="/brand/app-icons/app-icon-gradient-256.png"
           alt="TrọCare Symbol"
           width={pixelSize}
           height={pixelSize}
-          className="object-contain"
+          className="object-contain rounded-xl"
         />
       </div>
     );
