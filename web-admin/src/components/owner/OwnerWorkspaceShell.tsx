@@ -110,15 +110,18 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
     const check = async () => {
       const token = getStoredAccessToken();
       if (!token) {
+        setLoading(false);
         router.replace("/login");
         return;
       }
       const storedUser = getStoredSessionUser();
       if (storedUser.isProfileCompleted === false) {
+        setLoading(false);
         router.replace("/complete-profile");
         return;
       }
       if (storedUser.status === "PENDING_APPROVAL" || storedUser.approvalStatus === "PENDING_APPROVAL") {
+        setLoading(false);
         router.replace("/pending-approval");
         return;
       }
@@ -263,7 +266,13 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
     );
   }
 
-  if (!authorized) return null;
+  if (!authorized) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50">

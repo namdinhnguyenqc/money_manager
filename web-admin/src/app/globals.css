@@ -1436,12 +1436,19 @@ button:focus-visible {
   }
 
   .trocare-landing .hero h1 {
-    font-size: 32px;
+    font-size: 30px;
+  }
+
+  .trocare-landing .hero-subtext {
+    font-size: 15px;
   }
 
   .trocare-landing .hero-stats {
-    flex-direction: column;
-    gap: 16px;
+    gap: 20px;
+  }
+
+  .trocare-landing .stat-item h3 {
+    font-size: 18px;
   }
 
   .trocare-landing .features-layout {
@@ -1610,17 +1617,54 @@ button:focus-visible {
   }
 
   .trocare-landing .hero h1 {
-    font-size: 26px;
+    font-size: 24px;
     line-height: 1.25;
   }
 
   .trocare-landing .hero-subtext {
     font-size: 14px;
     line-height: 1.5;
+    margin-bottom: 24px;
+  }
+
+  .trocare-landing .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+
+  .trocare-landing .hero-actions .btn {
+    text-align: center;
+    justify-content: center;
+  }
+
+  .trocare-landing .hero-stats {
+    flex-wrap: nowrap;
+    gap: 0;
+  }
+
+  .trocare-landing .stat-item {
+    flex: 1;
+    padding-right: 16px;
+    border-right: 1px solid var(--border-color);
+  }
+
+  .trocare-landing .stat-item:last-child {
+    padding-right: 0;
+    border-right: none;
+  }
+
+  .trocare-landing .stat-item h3 {
+    font-size: 16px;
+  }
+
+  .trocare-landing .stat-item p {
+    font-size: 11px;
   }
 
   .trocare-landing .hero {
-    padding: 120px 0 60px;
+    padding: 110px 0 56px;
   }
 
   .trocare-landing .invoice-card {

@@ -10,26 +10,37 @@ import { getStoredAccessToken } from "@/utils/session";
 export default function LoginPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     // Auto-redirect to dashboard if user has an active session and goes back to login page
     const token = getStoredAccessToken();
     if (token) {
+      setRedirecting(true);
       const isProfileCompleted = localStorage.getItem("isProfileCompleted") === "true";
       const approvalStatus = localStorage.getItem("approvalStatus") || localStorage.getItem("userStatus");
       router.replace(!isProfileCompleted ? "/complete-profile" : approvalStatus === "PENDING_APPROVAL" ? "/pending-approval" : "/owner/dashboard");
     }
   }, [router]);
 
-  if (!mounted) return null;
+  if (!mounted || redirecting) {
+    return (
+      <main className="flex h-screen w-full items-center justify-center bg-[#F8FAFC]">
+        <div className="flex flex-col items-center gap-4">
+          <Logo size="lg" />
+          <div className="h-1 w-40 rounded-full bg-blue-100 animate-pulse" />
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main className="relative h-screen w-full overflow-hidden bg-[#F8FAFC] font-sans text-[#0F172A] p-4 lg:p-10 flex items-center justify-center">
-      
+    <main className="relative min-h-screen w-full overflow-x-hidden bg-[#F8FAFC] font-sans text-[#0F172A] p-3 sm:p-6 lg:p-10 flex items-center justify-center">
+
       {/* Background Decor */}
-      <div 
-        className="fixed inset-0 pointer-events-none opacity-[0.35]" 
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.35]"
         style={{
           backgroundImage: `radial-gradient(rgba(15, 23, 42, .08) 1px, transparent 1px)`,
           backgroundSize: '28px 28px',
@@ -44,7 +55,7 @@ export default function LoginPage() {
         `
       }} />
 
-      <section className="relative w-full max-w-[1360px] h-full max-h-[820px] grid grid-cols-1 lg:grid-cols-[1.12fr_.78fr] gap-8 items-stretch z-10">
+      <section className="relative w-full max-w-[1360px] min-h-0 lg:h-full lg:max-h-[820px] grid grid-cols-1 lg:grid-cols-[1.12fr_.78fr] gap-8 items-stretch z-10">
         
         {/* Left Hero Card */}
         <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden rounded-[32px] p-10 text-white shadow-[0_32px_100px_rgba(15,23,42,0.24)]" style={{
@@ -136,18 +147,19 @@ export default function LoginPage() {
         </aside>
 
         {/* Right Login Card */}
-        <section className="relative overflow-hidden rounded-[32px] p-10 md:p-12 border border-white/90 bg-white/92 shadow-[0_30px_90px_rgba(15,23,42,0.12)] backdrop-blur-3xl flex flex-col justify-center h-full">
+        <section className="relative overflow-hidden rounded-[24px] sm:rounded-[32px] p-6 sm:p-8 md:p-10 border border-white/90 bg-white/92 shadow-[0_30px_90px_rgba(15,23,42,0.12)] backdrop-blur-3xl flex flex-col justify-center">
           <div className="absolute w-[260px] h-[260px] -right-20 -top-20 bg-gradient-to-br from-blue-600/15 to-cyan-500/16 rounded-full blur-[4px]" />
           
-          <header className="relative flex flex-col items-center gap-3 mb-9">
-            <Logo size="xl" />
+          <header className="relative flex flex-col items-center gap-3 mb-6 sm:mb-9">
+            <Logo size="lg" className="sm:hidden" />
+            <Logo size="xl" className="hidden sm:block" />
           </header>
 
-          <div className="relative text-center mb-8">
-            <h2 className="text-[28px] leading-tight font-extrabold tracking-[-0.055em] font-['Plus_Jakarta_Sans'] text-[#0F172A]">
+          <div className="relative text-center mb-6 sm:mb-8">
+            <h2 className="text-[22px] sm:text-[28px] leading-tight font-extrabold tracking-[-0.055em] font-['Plus_Jakarta_Sans'] text-[#0F172A]">
               Đăng nhập
             </h2>
-            <p className="mt-3 text-slate-500 text-sm font-semibold">
+            <p className="mt-2 text-slate-500 text-sm font-semibold">
               Dành cho chủ trọ
             </p>
           </div>
@@ -165,7 +177,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {[
               { t: 'Bảo mật', d: 'Tiêu chuẩn', i: 'M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6v-9z' },
               { t: 'Đồng bộ', d: 'Tức thì', i: 'M13 2L4 14h7l-1 8 10-13h-7l0-7z' },
