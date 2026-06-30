@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import QueryProvider from "@/components/QueryProvider";
 import PWAProvider from "@/components/PWAProvider";
+import { ToastProvider } from "@/components/ui/Toast";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://trocare-production.vercel.app"),
@@ -34,7 +35,9 @@ export default function RootLayout({
     <html lang="vi">
       <body>
         <PWAProvider>
-          <QueryProvider>{children}</QueryProvider>
+          <ToastProvider>
+            <QueryProvider>{children}</QueryProvider>
+          </ToastProvider>
         </PWAProvider>
       </body>
     </html>

@@ -2,18 +2,19 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { 
-  ArrowDownLeft, 
-  ArrowUpRight, 
-  Plus, 
-  Search, 
-  Wallet as WalletIcon, 
-  Trash2, 
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Plus,
+  Search,
+  Wallet as WalletIcon,
+  Trash2,
   Calendar,
   History,
   TrendingDown,
   TrendingUp
 } from "lucide-react";
+import Link from "next/link";
 import { 
   loadTransactions, 
   loadWallets, 
@@ -112,9 +113,16 @@ export default function OwnerTransactionsPage() {
         title="Giao dịch"
         description="Quản lý dòng tiền, thu chi và biến động số dư các ví."
         actions={
-          <Button variant="primary" icon={<Plus size={18} />} onClick={() => setFormOpen(true)}>
-            Thêm thu chi
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" icon={<Plus size={16} />} onClick={() => setFormOpen(true)}>
+              Nhanh
+            </Button>
+            <Link href="/owner/transactions/new">
+              <Button variant="primary" icon={<Plus size={16} />}>
+                Thêm giao dịch
+              </Button>
+            </Link>
+          </div>
         }
       />
 
