@@ -32,6 +32,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+import { useToast } from "@/components/ui/Toast";
 
 const pageSize = 10;
 const currentMonthRange = () => {
@@ -47,6 +48,7 @@ const currentMonthRange = () => {
 export default function OwnerTransactionsPage() {
   const initialRange = useMemo(currentMonthRange, []);
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [search, setSearch] = useState("");
   const [selectedWalletId, setSelectedWalletId] = useState("all");
   const [from, setFrom] = useState(initialRange.from);
@@ -98,7 +100,7 @@ export default function OwnerTransactionsPage() {
       await deleteTransaction(id);
       await invalidateOwnerOpsQueries(queryClient);
     } catch (err: any) {
-      alert(err?.message || "Lỗi khi xóa giao dịch.");
+      showToast(err?.message || "Lỗi khi xóa giao dịch.", "error");
     } finally {
       setDeletingId(null);
     }

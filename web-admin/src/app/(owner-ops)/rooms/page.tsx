@@ -26,6 +26,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+import { useToast } from "@/components/ui/Toast";
 
 const roomFilters = ["Tất cả", "Trống", "Đang thuê", "Bảo trì", "Sắp hết HĐ", "Đã cọc"];
 const pageSize = 10;
@@ -254,10 +255,11 @@ function AddRoomModal({ houses, defaultFacilityId, onClose, onSaved }: { houses:
     maxPeople: "3",
   });
   const [saving, setSaving] = useState(false);
+  const { showToast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.facilityId) return alert("Vui lòng chọn cơ sở!");
+    if (!form.facilityId) { showToast("Vui lòng chọn cơ sở!", "error"); return; }
     setSaving(true);
     try {
       await createOwnerRoom(form.facilityId, {
@@ -269,7 +271,7 @@ function AddRoomModal({ houses, defaultFacilityId, onClose, onSaved }: { houses:
       });
       onSaved();
     } catch (err) {
-      alert("Lỗi khi thêm phòng. Vui lòng thử lại!");
+      showToast("Lỗi khi thêm phòng. Vui lòng thử lại!", "error");
     } finally {
       setSaving(false);
     }

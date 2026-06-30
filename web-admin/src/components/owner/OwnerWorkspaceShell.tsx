@@ -23,6 +23,8 @@ import {
   X,
   HelpCircle,
   Zap,
+  Tag,
+  BarChart3,
 } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { clearClientSession, getStoredAccessToken, getStoredSessionUser } from "@/utils/session";
@@ -67,6 +69,8 @@ const navSections: NavSection[] = [
       { href: "/deposits", label: "Tiền cọc", icon: Wallet },
       { href: "/payments", label: "Thu tiền", icon: Wallet },
       { href: "/owner/transactions", label: "Sổ thu chi", icon: Repeat },
+      { href: "/owner/transactions/categories", label: "Danh mục thu chi", icon: Tag },
+      { href: "/owner/reports", label: "Báo cáo & Thống kê", icon: BarChart3 },
     ]
   },
   {
@@ -99,7 +103,9 @@ const isActiveRoute = (pathname: string, href: string) => {
   if (href === "/owner/profile") return pathname === "/owner/profile" || pathname.startsWith("/owner/profile/");
   if (href === "/owner/services") return pathname === "/owner/services" || pathname.startsWith("/owner/services/");
   if (href === "/owner/wallets") return pathname === "/owner/wallets" || pathname.startsWith("/owner/wallets/");
-  if (href === "/owner/transactions") return pathname === "/owner/transactions" || pathname.startsWith("/owner/transactions/");
+  if (href === "/owner/transactions/categories") return pathname === "/owner/transactions/categories" || pathname.startsWith("/owner/transactions/categories/");
+  if (href === "/owner/transactions") return pathname === "/owner/transactions" || (pathname.startsWith("/owner/transactions/") && !pathname.startsWith("/owner/transactions/categories"));
+  if (href === "/owner/reports") return pathname === "/owner/reports" || pathname.startsWith("/owner/reports/");
   return pathname === href || pathname.startsWith(`${href}/`);
 };
 
