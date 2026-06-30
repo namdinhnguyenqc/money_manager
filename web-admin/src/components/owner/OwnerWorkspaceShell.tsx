@@ -67,7 +67,6 @@ const navSections: NavSection[] = [
       { href: "/deposits", label: "Tiền cọc", icon: Wallet },
       { href: "/payments", label: "Thu tiền", icon: Wallet },
       { href: "/owner/transactions", label: "Sổ thu chi", icon: Repeat },
-      { href: "/owner/transactions/categories", label: "Danh mục thu chi", icon: Tag },
     ]
   },
   {
@@ -79,6 +78,7 @@ const navSections: NavSection[] = [
   {
     title: "Cấu hình",
     items: [
+      { href: "/owner/transactions/categories", label: "Danh mục thu chi", icon: Tag },
       { href: "/owner/profile", label: "Hồ sơ chủ trọ", icon: UserCircle },
       { href: "/owner/settings", label: "Cài đặt hệ thống", icon: Settings },
       { href: "/owner/feedback", label: "Báo cáo lỗi / Góp ý", icon: HelpCircle, permission: "feedback.view" },
