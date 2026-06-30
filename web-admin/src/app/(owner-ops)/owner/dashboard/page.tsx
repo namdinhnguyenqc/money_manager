@@ -45,6 +45,12 @@ const Area = dynamic(() => import('recharts').then((mod) => mod.Area as any), { 
 
 export default function OwnerDashboard() {
   const dashboardQuery = useOwnerDashboardInit();
+  const [slowLoad, setSlowLoad] = React.useState(false);
+  React.useEffect(() => {
+    if (!dashboardQuery.isLoading) { setSlowLoad(false); return; }
+    const t = setTimeout(() => setSlowLoad(true), 8000);
+    return () => clearTimeout(t);
+  }, [dashboardQuery.isLoading]);
   const rooms = dashboardQuery.data?.rooms ?? [];
   const transactions = dashboardQuery.data?.transactions ?? [];
 
@@ -232,10 +238,45 @@ export default function OwnerDashboard() {
   }, [overdueInvoices]);
 
   const isLoading = dashboardQuery.isLoading;
+  const isError = dashboardQuery.isError;
+
   const safeStats = stats ?? { total: 0, occupied: 0, vacant: 0, reserved: 0, maintenance: 0, occupancyRate: 0 };
   const chartData = financialStats?.chartData ?? [];
 
-  if (isLoading) return <div className="p-8"><LoadingSkeleton rows={12} /></div>;
+  if (isError) return (
+    <div className="flex flex-col items-center justify-center p-8 gap-6 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
+        <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div>
+        <div className="text-lg font-bold text-slate-800">Không tải được dữ liệu</div>
+        <div className="mt-2 text-sm text-slate-500 max-w-xs">Server miễn phí có thể đang khởi động lại. Vui lòng thử lại sau vài giây.</div>
+      </div>
+      <button
+        onClick={() => dashboardQuery.refetch()}
+        className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-700 transition-colors"
+      >
+        Thử lại
+      </button>
+    </div>
+  );
+
+  if (isLoading) return (
+    <div className="p-8">
+      {slowLoad ? (
+        <div className="mb-6 flex items-start gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100">
+            <svg className="h-5 w-5 text-amber-600 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+          </div>
+          <div>
+            <div className="font-bold text-amber-800">Backend đang khởi động...</div>
+            <div className="mt-1 text-sm text-amber-700">Server miễn phí ngủ sau 15 phút không hoạt động. Vui lòng chờ 20–40 giây để dữ liệu tải xong.</div>
+          </div>
+        </div>
+      ) : null}
+      <LoadingSkeleton rows={6} />
+    </div>
+  );
 
   return (
     <RBACGuard allowedRoles={["OWNER", "SUPER_ADMIN"]}>
