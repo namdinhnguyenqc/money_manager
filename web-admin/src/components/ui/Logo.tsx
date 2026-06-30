@@ -19,8 +19,8 @@ export default function Logo({
   size?: "sm" | "md" | "lg" | "xl",
   variant?: LogoVariant
 }) {
-  const heightMap = { sm: 36, md: 44, lg: 56, xl: 72 };
-  const symbolSizeMap = { sm: 36, md: 44, lg: 56, xl: 72 };
+  const heightMap = { sm: 44, md: 56, lg: 72, xl: 88 };
+  const symbolSizeMap = { sm: 44, md: 56, lg: 72, xl: 88 };
 
   const h = heightMap[size];
   const symbolSize = symbolSizeMap[size];
