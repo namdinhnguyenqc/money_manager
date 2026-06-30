@@ -22,9 +22,7 @@ import {
   Wallet,
   X,
   HelpCircle,
-  Zap,
   Tag,
-  BarChart3,
 } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { clearClientSession, getStoredAccessToken, getStoredSessionUser } from "@/utils/session";
@@ -70,7 +68,6 @@ const navSections: NavSection[] = [
       { href: "/payments", label: "Thu tiền", icon: Wallet },
       { href: "/owner/transactions", label: "Sổ thu chi", icon: Repeat },
       { href: "/owner/transactions/categories", label: "Danh mục thu chi", icon: Tag },
-      { href: "/owner/reports", label: "Báo cáo & Thống kê", icon: BarChart3 },
     ]
   },
   {
@@ -82,8 +79,6 @@ const navSections: NavSection[] = [
   {
     title: "Cấu hình",
     items: [
-      { href: "/owner/services", label: "Dịch vụ", icon: Zap },
-      { href: "/owner/wallets", label: "Ví & Tài khoản", icon: Wallet },
       { href: "/owner/profile", label: "Hồ sơ chủ trọ", icon: UserCircle },
       { href: "/owner/settings", label: "Cài đặt hệ thống", icon: Settings },
       { href: "/owner/feedback", label: "Báo cáo lỗi / Góp ý", icon: HelpCircle, permission: "feedback.view" },
@@ -101,11 +96,8 @@ const isActiveRoute = (pathname: string, href: string) => {
   if (href === "/owner/tenants") return pathname === "/owner/tenants" || pathname.startsWith("/owner/tenants/");
   if (href === "/owner/settings") return pathname === "/owner/settings" || pathname.startsWith("/owner/settings/") || pathname === "/settings";
   if (href === "/owner/profile") return pathname === "/owner/profile" || pathname.startsWith("/owner/profile/");
-  if (href === "/owner/services") return pathname === "/owner/services" || pathname.startsWith("/owner/services/");
-  if (href === "/owner/wallets") return pathname === "/owner/wallets" || pathname.startsWith("/owner/wallets/");
   if (href === "/owner/transactions/categories") return pathname === "/owner/transactions/categories" || pathname.startsWith("/owner/transactions/categories/");
   if (href === "/owner/transactions") return pathname === "/owner/transactions" || (pathname.startsWith("/owner/transactions/") && !pathname.startsWith("/owner/transactions/categories"));
-  if (href === "/owner/reports") return pathname === "/owner/reports" || pathname.startsWith("/owner/reports/");
   return pathname === href || pathname.startsWith(`${href}/`);
 };
 
