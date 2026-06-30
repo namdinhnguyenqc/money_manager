@@ -121,7 +121,7 @@ export default function DepositsPage() {
       </div>
 
       {/* Deposits Table */}
-      <DataTable headers={["Thông tin phòng", "Khách hàng", "Số tiền", "Thời gian", "Trạng thái", "Thao tác"]}>
+      <DataTable className="hidden lg:block" headers={["Thông tin phòng", "Khách hàng", "Số tiền", "Thời gian", "Trạng thái", "Thao tác"]}>
         {depositsQuery.isLoading ? (
           <tr>
             <td colSpan={6} className="px-6 py-20 text-center">
@@ -148,6 +148,39 @@ export default function DepositsPage() {
           ))
         )}
       </DataTable>
+      {/* Mobile card list */}
+      <div className="space-y-3 lg:hidden">
+        {depositsQuery.isLoading ? (
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">Đang tải...</div>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">Không có dữ liệu tiền cọc.</div>
+        ) : visibleDeposits.map((deposit) => (
+          <div key={deposit.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-semibold text-slate-900">{deposit.room_name || "—"}</div>
+                {deposit.facility_name && <div className="text-xs text-slate-400">{deposit.facility_name}</div>}
+                <div className="mt-1 text-sm text-slate-600">{deposit.tenant_name}</div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="font-bold text-slate-900 whitespace-nowrap">{formatMoney(deposit.amount)}</div>
+                <div className="mt-1"><StatusBadge status={deposit.status} /></div>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+              <div className="text-xs text-slate-500 flex items-center gap-1"><Calendar size={12} />{deposit.deposit_date}</div>
+              {deposit.status === "holding" && (
+                <Button variant="danger-ghost" size="sm" onClick={() => {
+                  if (window.confirm("Hủy khoản cọc này?")) cancelDeposit(deposit.id, "Hủy bởi chủ nhà").then(() => invalidateOwnerOpsQueries(queryClient, { roomId: deposit.room_id }));
+                }}>
+                  Hủy cọc
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
       <Pagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
 
       {/* Form Modal */}
