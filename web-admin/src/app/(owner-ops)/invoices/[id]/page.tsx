@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Check, Copy, Share2, Wallet, Trash2, History } from "lucide-react";
 import { Invoice, Transaction, BankConfig, buildInvoiceQrUrl, formatMoney, getInvoiceRemainingAmount, loadBankConfig, loadInvoice, normalizeInvoiceStatus, loadTransactions, loadSettingsMap } from "@/lib/rentalOps";
 import { apiDelete } from "@/utils/apiClient";
+import { useToast } from "@/components/ui/Toast";
 
 const BANK_LABELS: Record<string, string> = {
   "970416": "ACB", "ACB": "ACB", "970436": "Vietcombank", "970418": "BIDV",
@@ -16,6 +17,7 @@ const getBankLabel = (id?: string) => BANK_LABELS[String(id || "").trim()] || id
 export default function InvoiceDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { showToast } = useToast();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [bankConfig, setBankConfig] = useState<BankConfig | null>(null);
@@ -114,7 +116,7 @@ export default function InvoiceDetailPage() {
       await apiDelete(`/invoices/${String(id)}`);
       router.push("/invoices");
     } catch (err: any) {
-      alert(err?.message || "Không thể xóa.");
+      showToast(err?.message || "Không thể xóa hóa đơn.", "error");
       setDeleting(false);
     }
   };

@@ -953,3 +953,30 @@ export async function createWallet(input: { name: string; type?: string }) {
   const res = await apiPost<any>("/wallets", input);
   return (res?.data ?? res) as Wallet;
 }
+
+// ═══════════════════════════════════════════
+// Transaction Categories
+// ═══════════════════════════════════════════
+
+export interface TransactionCategory {
+  id: string;
+  name: string;
+  icon?: string;
+  color?: string;
+  type: "income" | "expense";
+  wallet_id?: string;
+}
+
+export async function loadCategories() {
+  const res = await apiGet<any>("/categories");
+  return (res?.data ?? res ?? []) as TransactionCategory[];
+}
+
+export async function createCategory(input: { name: string; icon?: string; color?: string; type: "income" | "expense"; walletId?: string }) {
+  const res = await apiPost<any>("/categories", input);
+  return (res?.data ?? res) as TransactionCategory;
+}
+
+export async function deleteCategory(id: string) {
+  return apiDelete<any>(`/categories/${id}`);
+}
