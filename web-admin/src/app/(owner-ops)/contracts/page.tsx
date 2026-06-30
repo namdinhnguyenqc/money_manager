@@ -53,7 +53,7 @@ export default function ContractsPage() {
       ) : null}
 
       {filtered.length > 0 ? (
-        <DataTable headers={["Phòng", "Khách thuê", "Ngày bắt đầu", "Ngày kết thúc", "Tiền thuê/tháng", "Trạng thái", "Thao tác"]}>
+        <DataTable className="hidden lg:block" headers={["Phòng", "Khách thuê", "Ngày bắt đầu", "Ngày kết thúc", "Tiền thuê/tháng", "Trạng thái", "Thao tác"]}>
           {visibleContracts.map((contract) => (
             <tr key={contract.id} className="hover:bg-slate-50 transition-colors">
               <td className="px-4 py-3 font-medium text-slate-900">{contract.room_name}</td>
@@ -67,6 +67,32 @@ export default function ContractsPage() {
           ))}
         </DataTable>
       ) : null}
+
+      {/* Mobile card list */}
+      {filtered.length > 0 && (
+        <div className="space-y-3 lg:hidden">
+          {visibleContracts.map((contract) => (
+            <div key={contract.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-semibold text-slate-900">{contract.room_name}</div>
+                  <div className="truncate text-sm text-slate-500">{contract.tenant_name}</div>
+                </div>
+                <StatusBadge status={contract.status} />
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-center">
+                <div><div className="text-[11px] uppercase tracking-wide text-slate-400">Từ ngày</div><div className="text-xs font-semibold text-slate-900">{contract.start_date || "-"}</div></div>
+                <div><div className="text-[11px] uppercase tracking-wide text-slate-400">Đến ngày</div><div className="text-xs font-semibold text-slate-900">{contract.end_date || "-"}</div></div>
+                <div><div className="text-[11px] uppercase tracking-wide text-slate-400">Tiền thuê</div><div className="text-xs font-semibold text-slate-900">{formatMoney(contract.rent_amount)}</div></div>
+              </div>
+              <div className="mt-3 border-t border-slate-100 pt-3">
+                <Link href={`/contracts/${contract.id}`} className="text-sm font-semibold text-blue-700">Xem chi tiết →</Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <Pagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
     </div>
   );

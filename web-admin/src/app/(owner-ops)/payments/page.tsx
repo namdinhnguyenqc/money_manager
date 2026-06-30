@@ -122,6 +122,7 @@ export default function PaymentsPage() {
       </div>
 
       <DataTable
+        className="hidden lg:block"
         headers={["Ngày thu", "Phòng", "Khách thuê", "Số tiền", "Phương thức", "Người thu", "Hóa đơn liên quan"]}
         footer={
           <div className="flex items-center justify-between">
@@ -147,6 +148,32 @@ export default function PaymentsPage() {
           );
         })}
       </DataTable>
+      {/* Mobile card list */}
+      <div className="space-y-3 lg:hidden">
+        {loading ? (
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">Đang tải...</div>
+        ) : visiblePayments.length === 0 ? (
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">Chưa có khoản thu phù hợp.</div>
+        ) : visiblePayments.map((tx) => {
+          const room = String(tx.description || "").match(/Thu tiền phòng (.*?) \d{1,2}\/\d{4}/)?.[1] || "-";
+          const methodLabel = tx.source === "sepay" ? "SePay" : String(tx.description || "").includes("Chuyển khoản") ? "Chuyển khoản" : String(tx.description || "").includes("Ví điện tử") ? "Ví điện tử" : "Tiền mặt";
+          return (
+            <div key={tx.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-semibold text-slate-900">{room}</div>
+                  <div className="text-xs text-slate-500">{tx.date}</div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="font-bold text-emerald-700 whitespace-nowrap">{formatMoney(tx.amount)}</div>
+                  <div className="mt-1 text-xs text-slate-500">{methodLabel}</div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       <Pagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
 
       <div className="mt-4 text-sm text-slate-500">
