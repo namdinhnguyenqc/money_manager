@@ -443,7 +443,7 @@ export default function InvoicesPage() {
         isOpen={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
         onSuccess={() => {
-          alert("Đã lập hóa đơn thành công cho các phòng đã chọn.");
+          setFilter("Chưa gửi");
           invalidateOwnerOpsQueries(queryClient, {
             facilityId: selectedHouse === "all" ? undefined : selectedHouse,
           }).then(load);
