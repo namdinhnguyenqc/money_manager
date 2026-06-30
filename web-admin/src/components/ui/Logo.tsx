@@ -32,14 +32,24 @@ export default function Logo({
   }[size];
 
   if (variant === 'wordmark' || (variant === 'monogram' && showText)) {
+    const symbolSize = { sm: 22, md: 30, lg: 42, xl: 54 }[size];
     return (
-      <div className={`inline-flex items-center ${className}`}>
+      <div className={`trocare-logo-wordmark inline-flex items-center gap-2 ${className}`}>
         <Image
-          src="/brand/optimized/trocare-logo-full-navbar.png"
+          src="/brand/transparent/trocare-symbol-tc-transparent-256.png"
+          alt=""
+          width={symbolSize}
+          height={symbolSize}
+          className="shrink-0 object-contain"
+          style={{ width: symbolSize, height: symbolSize, minWidth: symbolSize }}
+          priority
+        />
+        <Image
+          src="/brand/optimized/trocare-wordmark-navbar.png"
           alt="TrọCare"
           width={wordmarkWidth}
-          height={Math.round(wordmarkWidth / 3.2)}
-          className="h-auto shrink-0 object-contain"
+          height={Math.round(wordmarkWidth / 3.55)}
+          className="trocare-logo-text h-auto shrink-0 object-contain"
           priority
         />
       </div>
