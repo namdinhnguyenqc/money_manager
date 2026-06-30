@@ -2,7 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { Search, Wallet as WalletIcon, X, Calendar, User, Phone, Home, ArrowRight, ShieldCheck, Filter, MoreVertical, History } from "lucide-react";
+import { Search, Wallet as WalletIcon, X, Calendar, User, Phone, Home, ArrowRight, ShieldCheck, Filter, MoreVertical, History, Plus } from "lucide-react";
+import Link from "next/link";
 import StatusBadge from "@/components/ops/StatusBadge";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import {
@@ -76,6 +77,11 @@ export default function DepositsPage() {
         icon={<History size={14} />}
         title="Tiền Cọc"
         description="Theo dõi và quản lý mọi khoản đặt cọc giữ chỗ và cọc hợp đồng."
+        actions={
+          <Link href="/deposits/new">
+            <Button variant="primary" icon={<Plus size={16} />}>Tạo đặt cọc</Button>
+          </Link>
+        }
       />
 
       {/* Summary Cards */}

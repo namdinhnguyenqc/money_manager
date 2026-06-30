@@ -920,3 +920,36 @@ export async function updateDepositStatus(id: string, status: DepositStatus, not
 export async function cancelDeposit(id: string, note?: string) {
   return updateDepositStatus(id, "cancelled", note);
 }
+
+// ═══════════════════════════════════════════
+// Service Config Management
+// ═══════════════════════════════════════════
+
+export async function createService(input: Omit<ServiceConfig, "id">) {
+  const res = await apiPost<any>("/rental/services", input);
+  return (res?.data ?? res) as ServiceConfig;
+}
+
+export async function updateService(id: string, input: Partial<ServiceConfig>) {
+  const res = await apiPatch<any>(`/rental/services/${id}`, input);
+  return (res?.data ?? res) as ServiceConfig;
+}
+
+export async function deleteService(id: string) {
+  const res = await apiDelete<any>(`/rental/services/${id}`);
+  return res;
+}
+
+export async function toggleServiceStatus(id: string, active: boolean) {
+  const res = await apiPatch<any>(`/rental/services/${id}`, { active });
+  return (res?.data ?? res) as ServiceConfig;
+}
+
+// ═══════════════════════════════════════════
+// Wallet Management
+// ═══════════════════════════════════════════
+
+export async function createWallet(input: { name: string; type?: string }) {
+  const res = await apiPost<any>("/wallets", input);
+  return (res?.data ?? res) as Wallet;
+}
