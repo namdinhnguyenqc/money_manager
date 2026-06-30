@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Users, Home, Wallet, AlertCircle, Building2, Repeat,
   FileText, ArrowRight, Plus, Zap, Droplet, ChevronRight,
-  TrendingUp, Receipt, Settings
+  TrendingUp, Receipt, Settings, Wifi
 } from 'lucide-react';
 import { formatMoney, normalizeRoomStatus } from '@/lib/rentalOps';
 import RBACGuard from '@/components/RBACGuard';
@@ -75,6 +75,42 @@ export default function OwnerDashboard() {
     [overdueInvoices]);
 
   const vacantRooms = useMemo(() => rooms.filter(r => normalizeRoomStatus(r) === 'vacant').slice(0, 3), [rooms]);
+
+  // Service revenue breakdown (electricity / water / wifi) from income transactions
+  const utilities = useMemo(() => {
+    const detect = (tx: any): 'electricity' | 'water' | 'wifi' | null => {
+      const text = [tx.category_name, tx?.metadata?.utility_type, tx.description]
+        .map((v: any) => String(v || '').toLowerCase()).join(' ');
+      if (text.includes('wifi') || text.includes('fpt') || text.includes('internet') || text.includes('mạng')) return 'wifi';
+      if (text.includes('điện') || text.includes('dien') || text.includes('electric')) return 'electricity';
+      if (text.includes('nước') || text.includes('nuoc') || text.includes('water')) return 'water';
+      return null;
+    };
+    let electricity = 0, water = 0, wifi = 0;
+    for (const tx of transactions) {
+      if (tx.type !== 'income') continue;
+      const t = detect(tx);
+      const amt = Math.abs(Number(tx.amount || 0));
+      if (t === 'electricity') electricity += amt;
+      else if (t === 'water') water += amt;
+      else if (t === 'wifi') wifi += amt;
+    }
+    return { electricity, water, wifi };
+  }, [transactions]);
+
+  // Outstanding debts ledger (all unpaid invoices, biggest first)
+  const debts = useMemo(() => {
+    return invoices
+      .map((inv: any) => {
+        const total = Math.round(Number(inv.total_amount || 0));
+        const paid = Math.round(Number(inv.paid_amount || 0));
+        return { ...inv, remaining: Math.max(0, total - paid) };
+      })
+      .filter((inv: any) => inv.remaining > 0)
+      .sort((a: any, b: any) => b.remaining - a.remaining);
+  }, [invoices]);
+
+  const totalDebt = useMemo(() => debts.reduce((s: number, d: any) => s + d.remaining, 0), [debts]);
 
   const recentTx = useMemo(() =>
     [...transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5),
@@ -301,8 +337,51 @@ export default function OwnerDashboard() {
           </div>
         </div>
 
+        {/* ── SERVICE REVENUE BREAKDOWN ── */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Doanh thu dịch vụ</div>
+          <div className="grid grid-cols-3 gap-3">
+            <UtilCard icon={<Zap size={18} className="text-amber-500"/>} label="Tiền điện" value={formatMoney(utilities.electricity)}/>
+            <UtilCard icon={<Droplet size={18} className="text-blue-500"/>} label="Tiền nước" value={formatMoney(utilities.water)}/>
+            <UtilCard icon={<Wifi size={18} className="text-indigo-500"/>} label="Wifi / Mạng" value={formatMoney(utilities.wifi)}/>
+          </div>
+        </div>
+
+        {/* ── OUTSTANDING DEBTS LEDGER ── */}
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-red-50">
+            <div className="text-sm font-black text-red-700">Công nợ tồn đọng</div>
+            <div className="text-sm font-black text-red-700">{formatMoney(totalDebt)}</div>
+          </div>
+          {debts.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-slate-400 font-medium">Không có công nợ. Tuyệt vời! 🎉</div>
+          ) : (
+            <div className="divide-y divide-slate-50">
+              {debts.slice(0, 8).map((inv: any) => (
+                <Link key={inv.id} href={`/invoices/${inv.id}`} className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors">
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold text-slate-900 truncate">{inv.room_name || `Phòng #${inv.room_id}`}</div>
+                    <div className="text-xs text-slate-400 font-medium truncate">{inv.tenant_name || '-'} · T{inv.month}/{inv.year}</div>
+                  </div>
+                  <div className="text-sm font-black text-red-600 shrink-0">{formatMoney(inv.remaining)}</div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
       </div>
     </RBACGuard>
+  );
+}
+
+function UtilCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
+      <div className="mb-1.5 flex justify-center">{icon}</div>
+      <div className="text-[11px] font-medium text-slate-500">{label}</div>
+      <div className="mt-0.5 text-sm font-black text-slate-900">{value}</div>
+    </div>
   );
 }
 
