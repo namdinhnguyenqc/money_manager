@@ -3,8 +3,8 @@ import Image from 'next/image';
 
 type LogoVariant = 'monogram' | 'full' | 'symbol' | 'wordmark';
 
-// Full logo dimensions: 420x135 → ratio ≈ 3.11
-const FULL_LOGO_RATIO = 420 / 135;
+// Full logo dimensions: 2000x640 → ratio ≈ 3.125
+const FULL_LOGO_RATIO = 2000 / 640;
 
 export default function Logo({
   className = "",
@@ -30,7 +30,7 @@ export default function Logo({
     return (
       <div className={`trocare-logo-wordmark inline-flex items-center ${className}`}>
         <Image
-          src="/brand/optimized/trocare-logo-full-navbar.png"
+          src="/brand/transparent/trocare-logo-full-transparent-2000.png"
           alt="TrọCare"
           width={fullLogoWidth}
           height={h}
@@ -46,7 +46,7 @@ export default function Logo({
     return (
       <div className={`flex items-center ${className}`}>
         <Image
-          src="/brand/optimized/trocare-logo-full-navbar.png"
+          src="/brand/transparent/trocare-logo-full-transparent-2000.png"
           alt="TrọCare"
           width={fullLogoWidth}
           height={h}
@@ -62,11 +62,11 @@ export default function Logo({
     return (
       <div className={`flex items-center ${className}`}>
         <Image
-          src="/brand/app-icons/app-icon-gradient-256.png"
+          src="/brand/transparent/trocare-symbol-tc-transparent-256.png"
           alt="TrọCare"
           width={symbolSize}
           height={symbolSize}
-          className="object-contain rounded-xl"
+          className="object-contain"
           style={{ width: symbolSize, height: symbolSize }}
         />
       </div>
