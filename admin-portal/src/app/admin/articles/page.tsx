@@ -686,7 +686,7 @@ export default function AdminArticlesPage() {
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             {article.status === "published" && (
-                              <a href={`/tin-tuc/${article.slug}`} target="_blank" rel="noreferrer"
+                              <a href={`${SITE_URL}/tin-tuc/${article.slug}`} target="_blank" rel="noreferrer"
                                 className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Xem bài"><Eye size={16} /></a>
                             )}
                             <button onClick={() => openEditForm(article)}
