@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Home, LayoutDashboard, LogOut, Menu, Users, X, Bug, UserCheck, ShieldCheck } from "lucide-react";
+import { Home, LayoutDashboard, LogOut, Menu, Users, X, Bug, UserCheck, ShieldCheck, Newspaper } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import Logo from "@/components/ui/Logo";
 import { API_URL, apiClient } from "@/lib/api";
@@ -172,6 +172,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Link href="/admin/feedback" className={navClass("/admin/feedback")}>
             <Bug size={18} />
             <span className="text-sm font-medium">Báo cáo lỗi</span>
+          </Link>
+          <Link href="/admin/articles" className={navClass("/admin/articles")}>
+            <Newspaper size={18} />
+            <span className="text-sm font-medium">Tin tức (CMS)</span>
           </Link>
           <Link href="/admin/owner-permissions" className={navClass("/admin/owner-permissions")}>
             <ShieldCheck size={18} />
