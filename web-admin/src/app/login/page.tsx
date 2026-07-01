@@ -150,19 +150,17 @@ export default function LoginPage() {
         <section className="relative overflow-hidden rounded-[24px] sm:rounded-[32px] p-6 sm:p-8 md:p-10 border border-white/90 bg-white/92 shadow-[0_30px_90px_rgba(15,23,42,0.12)] backdrop-blur-3xl flex flex-col justify-center">
           <div className="absolute w-[260px] h-[260px] -right-20 -top-20 bg-gradient-to-br from-blue-600/15 to-cyan-500/16 rounded-full blur-[4px]" />
           
-          <header className="relative flex flex-col items-center gap-3 mb-6 sm:mb-9">
-            <Logo className="sm:hidden" />
-            <Logo className="hidden sm:block" />
+          <header className="relative flex flex-col items-center gap-4 mb-6 sm:mb-9">
+            <Logo />
+            <div className="text-center">
+              <h2 className="text-[22px] sm:text-[26px] leading-tight font-extrabold tracking-[-0.045em] font-['Plus_Jakarta_Sans'] text-[#0F172A]">
+                Đăng nhập
+              </h2>
+              <p className="mt-1 text-slate-500 text-sm font-semibold">
+                Dành cho chủ trọ
+              </p>
+            </div>
           </header>
-
-          <div className="relative text-center mb-6 sm:mb-8">
-            <h2 className="text-[22px] sm:text-[28px] leading-tight font-extrabold tracking-[-0.055em] font-['Plus_Jakarta_Sans'] text-[#0F172A]">
-              Đăng nhập
-            </h2>
-            <p className="mt-2 text-slate-500 text-sm font-semibold">
-              Dành cho chủ trọ
-            </p>
-          </div>
 
           <div className="relative z-20 space-y-4">
             <OwnerGoogleLoginButton />

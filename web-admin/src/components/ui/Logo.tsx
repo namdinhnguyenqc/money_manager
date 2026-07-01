@@ -8,21 +8,21 @@ import Image from 'next/image';
  */
 export default function Logo({ className = "" }: { className?: string }) {
   return (
-    <div className={`inline-flex items-center gap-2.5 ${className}`}>
+    <div className={`inline-flex items-center gap-3 ${className}`}>
       <Image
         src="/brand/transparent/trocare-symbol-tc-transparent-256.png"
         alt=""
-        width={40}
-        height={40}
+        width={52}
+        height={52}
         className="shrink-0"
-        style={{ width: 40, height: 40 }}
+        style={{ width: 52, height: 52 }}
         priority
       />
       <div className="flex flex-col justify-center leading-none">
-        <span className="text-[18px] font-black tracking-tight text-slate-900 leading-tight">
+        <span className="text-[22px] font-black tracking-tight text-slate-900 leading-tight">
           Tro<span className="text-blue-600">Care</span>
         </span>
-        <span className="text-[9px] font-bold tracking-widest text-blue-500 uppercase mt-0.5">
+        <span className="text-[10px] font-bold tracking-widest text-blue-500 uppercase mt-0.5">
           Quản lý trọ thông minh
         </span>
       </div>
