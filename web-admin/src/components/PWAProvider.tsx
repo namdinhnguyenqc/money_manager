@@ -80,7 +80,7 @@ export default function PWAProvider({ children }: { children?: React.ReactNode }
             whiteSpace: "nowrap",
           }}
         >
-          <img src="/brand/app-icons/app-icon-64.png" alt="" width={36} height={36} style={{ borderRadius: 8 }} />
+          <img src="/brand/app-icons/app-icon-gradient-64.png" alt="" width={36} height={36} style={{ borderRadius: 8 }} />
           <div style={{ fontSize: 14, color: "#0F172A" }}>
             <strong>Cài TrọCare</strong> như ứng dụng
           </div>
