@@ -2,8 +2,9 @@
    - App shell + static assets: stale-while-revalidate (fast, self-healing).
    - Navigations: network-first with offline fallback (always fresh when online).
    - API calls (/api, backend): never cached (always live data).
+   - Push notifications: show notification on payment received.
    Bump CACHE_VERSION whenever this file or the cached shell changes. */
-const CACHE_VERSION = "trocare-v1";
+const CACHE_VERSION = "trocare-v2";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = "/offline.html";
 
@@ -56,6 +57,38 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
+
+// ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────────
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data?.json() ?? {}; } catch { data = { title: "TrọCare", body: event.data?.text() ?? "" }; }
+
+  const title = data.title || "TrọCare";
+  const options = {
+    body: data.body || "",
+    icon: data.icon || "/brand/app-icons/app-icon-gradient-256.png",
+    badge: "/brand/app-icons/app-icon-gradient-64.png",
+    tag: data.tag || "trocare-notification",
+    renotify: true,
+    data: { url: data.url || "/owner/dashboard" },
+    vibrate: [200, 100, 200],
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || "/owner/dashboard";
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      const existing = list.find((c) => c.url.includes(self.location.origin));
+      if (existing) { existing.focus(); existing.navigate(url); }
+      else clients.openWindow(url);
+    }),
+  );
+});
+// ──────────────────────────────────────────────────────────────────────────────
 
   // Static assets: stale-while-revalidate.
   event.respondWith(

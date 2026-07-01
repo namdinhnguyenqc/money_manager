@@ -4,6 +4,7 @@ import { env } from "../config/env.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 import { applyInvoicePayment } from "../services/invoicePayments.js";
 import { getTenantUserIdByContractId, notifyPaymentSuccess } from "../services/notificationService.js";
+import { sendWebPushToUser } from "../services/webPushService.js";
 import { extractPaymentCodeFromPayload } from "../utils/paymentCodes.js";
 import { resolveSepayChannel } from "../services/sepayReconcile.js";
 import type { AppEnv } from "../types.js";
@@ -86,6 +87,11 @@ const notifyOwnerPaymentReceived = async (
   if (error) {
     console.error("Failed to create owner payment notification:", error.message);
   }
+
+  // Also send real-time web push to owner's browser
+  const title = fullyPaid ? "💰 Nhận tiền thành công!" : "💸 Nhận thanh toán một phần";
+  const body = `${roomName || "Phòng"} vừa thanh toán ${formattedAmount} ₫ (T${invoice.month}/${invoice.year})`;
+  sendWebPushToUser(ownerId, { title, body, url: `/invoices/${invoice.id}`, tag: `invoice-${invoice.id}` }).catch(() => {});
 };
 
 sepayWebhookRoutes.post("/", async (c) => {

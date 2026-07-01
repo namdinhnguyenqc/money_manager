@@ -20,6 +20,7 @@ import bankConfigRoutes from "./routes/bankConfig.js";
 import paymentChannelsRoutes from "./routes/paymentChannels.js";
 import sepayWebhookRoutes from "./routes/sepayWebhook.js";
 import zaloRoutes from "./routes/zalo.js";
+import { webPushRoutes } from "./routes/webPush.js";
 import type { AppEnv } from "./types.js";
 import tenantAuthRoutes from "./routes/tenantAuth.js";
 import tenantApiRoutes from "./routes/tenantApi.js";
@@ -152,6 +153,7 @@ app.route("/invoices", invoicesRoutes);
 app.route("/trading", tradingRoutes);
 app.route("/bank-config", bankConfigRoutes);
 app.route("/payment-channels", paymentChannelsRoutes);
+app.route("/push", webPushRoutes);
 app.route("/api", zaloRoutes);
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
