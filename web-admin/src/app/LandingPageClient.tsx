@@ -49,145 +49,6 @@ interface BlogPost {
   views?: number;
 }
 
-const blogPosts: BlogPost[] = [
-  {
-    id: 1,
-    title: "Cách Quản Lý Phòng Trọ Hiệu Quả Cho Chủ Nhà Mới",
-    category: "Kinh nghiệm",
-    badgeColor: "bg-emerald-100 text-emerald-800",
-    image: "/blog/room-management.png",
-    description: "Tổng hợp kinh nghiệm thực tế từ sàng lọc khách thuê đến lập hợp đồng và cấn trừ tiền cọc phòng rõ ràng...",
-    source: "TrọCare & Kinh nghiệm từ Hiệp hội Chủ trọ Việt Nam",
-    content: (
-      <div className="prose max-w-none text-[#0f172a] space-y-4">
-        <p className="text-slate-600">Quản lý phòng trọ cho thuê là một kênh đầu tư mang lại dòng tiền ổn định. Tuy nhiên, đối với những chủ trọ mới bắt đầu, việc vận hành một hoặc nhiều dãy trọ có thể phát sinh vô vàn khó khăn nếu không có phương pháp quản lý khoa học.</p>
-        <h3 className="text-xl font-bold text-slate-800">1. Những thách thức phổ biến của chủ trọ mới</h3>
-        <ul className="list-disc pl-5 space-y-2">
-          <li><strong>Lưu trữ thông tin rời rạc:</strong> Thường dùng sổ tay hoặc file Excel rời rạc dẫn đến việc thất lạc thông tin CCCD hoặc số điện thoại liên lạc của khách thuê.</li>
-          <li><strong>Nhầm lẫn công nợ:</strong> Việc tính toán thủ công từng số điện, số nước kèm theo các phí dịch vụ hàng tháng rất dễ dẫn đến sai sót và tranh cãi.</li>
-          <li><strong>Trễ hạn đóng tiền:</strong> Không có quy trình nhắc nhở chuyên nghiệp khiến chủ trọ rơi vào cảnh phải đi đòi tiền phòng nhiều lần rất mệt mỏi.</li>
-        </ul>
-        
-        <h3 className="text-xl font-bold text-slate-800">2. Quy trình 4 bước quản lý phòng trọ tối ưu</h3>
-        <div className="space-y-3">
-          <div className="p-4 bg-blue-50/50 border-l-4 border-blue-500 rounded-lg">
-            <h4 className="font-semibold text-blue-900">Bước 1: Sàng lọc khách thuê</h4>
-            <p className="text-sm text-blue-800">Kiểm tra kỹ giấy tờ tùy thân, xác minh công việc và mục đích thuê phòng để hạn chế rủi ro an ninh trong khu vực trọ.</p>
-          </div>
-          <div className="p-4 bg-blue-50/50 border-l-4 border-blue-500 rounded-lg">
-            <h4 className="font-semibold text-blue-900">Bước 2: Soạn thảo hợp đồng chặt chẽ</h4>
-            <p className="text-sm text-blue-800">Ghi rõ kỳ hạn thuê, số tiền đặt cọc (thường từ 1-2 tháng tiền phòng), hạn đóng tiền hàng tháng và các quy chuẩn sử dụng tài sản chung.</p>
-          </div>
-          <div className="p-4 bg-blue-50/50 border-l-4 border-blue-500 rounded-lg">
-            <h4 className="font-semibold text-blue-900">Bước 3: Ghi nhận chỉ số minh bạch</h4>
-            <p className="text-sm text-blue-800">Ghi chép chỉ số điện nước công khai vào ngày cố định hàng tháng, chụp ảnh làm bằng chứng đối chiếu gửi kèm hóa đơn cho khách.</p>
-          </div>
-          <div className="p-4 bg-blue-50/50 border-l-4 border-blue-500 rounded-lg">
-            <h4 className="font-semibold text-blue-900">Bước 4: Sử dụng công cụ tự động</h4>
-            <p className="text-sm text-blue-800">Thay thế sổ sách bằng phần mềm quản lý để tự động tính tiền, nhắc việc và quản lý thông tin tập trung.</p>
-          </div>
-        </div>
-
-        <h3 className="text-xl font-bold text-slate-800">3. Ứng dụng công nghệ để giải phóng sức lao động</h3>
-        <p>Hiện nay, đa số các chủ trọ hiện đại đã chuyển dịch sang dùng phần mềm quản lý trọ thông minh như <strong>TrọCare</strong>. Việc số hóa giúp giảm thiểu 80% thời gian tính toán thủ công và tự động hóa toàn bộ việc lập hóa đơn chỉ với vài thao tác nhấp chuột.</p>
-      </div>
-    )
-  },
-  {
-    id: 2,
-    title: "Cách Ghi Chỉ Số Điện Nước Phòng Trọ Chính Xác & Chống Thất Thoát",
-    category: "Hướng dẫn",
-    badgeColor: "bg-blue-100 text-blue-800",
-    image: "/blog/meter-reading.png",
-    description: "Các quy định đọc công tơ điện nước, tính toán đơn giá đúng luật và những phương án khắc phục thất thoát nước ngầm...",
-    source: "Điện lực EVN & Quy định Cấp nước sinh hoạt",
-    content: (
-      <div className="prose max-w-none text-[#0f172a] space-y-4">
-        <p className="text-slate-600">Thất thoát điện nước là một trong những nguyên nhân phổ biến khiến chủ trọ bị hao hụt lợi nhuận thực tế. Để hạn chế vấn đề này, chủ trọ cần nắm rõ cách ghi nhận chỉ số chính xác và thiết lập hệ thống giám sát khoa học.</p>
-        
-        <h3 className="text-xl font-bold text-slate-800">1. Cách đọc công tơ điện và đồng hồ nước chuẩn xác</h3>
-        <ul className="list-disc pl-5 space-y-2">
-          <li><strong>Đối với công tơ điện:</strong> Đọc các chữ số màu đen hiển thị trên màn hình hiển thị (bỏ qua chữ số màu đỏ sau cùng hiển thị hàng thập phân). Ghi nhận chỉ số vào cùng một ngày cố định hàng tháng (ví dụ: ngày 25 hoặc ngày 30).</li>
-          <li><strong>Đối với đồng hồ nước:</strong> Xem số mét khối hiển thị trên dãy số cơ học chính. Đảm bảo nắp đồng hồ đóng kín và không bị đọng nước bên trong làm mờ số.</li>
-        </ul>
-        
-        <h3 className="text-xl font-bold text-slate-800">2. Phương pháp phòng chống thất thoát nước ngầm hiệu quả</h3>
-        <p>Tình trạng rò rỉ nước thường xảy ra âm thầm tại các phao bồn cầu, vòi rửa chén, hoặc bồn chứa nước sân thượng. Chủ trọ nên áp dụng các mẹo sau:</p>
-        <ul className="list-decimal pl-5 space-y-2">
-          <li><strong>Kiểm tra định kỳ:</strong> Yêu cầu khách khóa tất cả các thiết bị nước trong phòng, sau đó kiểm tra xem kim đồng hồ nước tổng hoặc đồng hồ phòng có tự quay hay không.</li>
-          <li><strong>Lắp đặt thiết bị chất lượng:</strong> Tránh sử dụng các loại van nước giá rẻ dễ bị mài mòn sau vài tháng sử dụng.</li>
-        </ul>
-
-        <h3 className="text-xl font-bold text-slate-800">3. Quy định của nhà nước về đơn giá bán điện cho người thuê trọ</h3>
-        <p>Theo Thông tư của Bộ Công Thương, chủ trọ có thể đăng ký định mức sử dụng điện cho người thuê trọ (cứ 4 người tính 1 định mức hộ sử dụng điện sinh hoạt), hoặc áp dụng mức giá bán lẻ điện sinh hoạt bậc 3 cho toàn bộ sản lượng đo được nếu không xác định được số người thuê.</p>
-      </div>
-    )
-  },
-  {
-    id: 3,
-    title: "Thủ Tục Đăng Ký Giấy Phép Kinh Doanh Hộ Cá Thể Cho Chủ Trọ",
-    category: "Thủ tục",
-    badgeColor: "bg-indigo-100 text-indigo-800",
-    image: "/blog/business-license.png",
-    description: "Hướng dẫn các bước xin cấp đăng ký kinh doanh cho thuê nhà và quy trình khai báo thuế thu nhập cá nhân chủ trọ...",
-    source: "Tổng cục Thuế Việt Nam & Luật Doanh nghiệp hiện hành",
-    content: (
-      <div className="prose max-w-none text-[#0f172a] space-y-4">
-        <p className="text-slate-600">Hoạt động cho thuê nhà trọ, phòng trọ là hình thức kinh doanh dịch vụ lưu trú. Do đó, để hoạt động hợp pháp và tránh các chế tài xử lý hành chính từ cơ quan quản lý, chủ trọ cần đăng ký giấy phép kinh doanh.</p>
-        
-        <h3 className="text-xl font-bold text-slate-800">1. Các giấy tờ cần chuẩn bị trong hồ sơ đăng ký kinh doanh</h3>
-        <p>Chủ nhà trọ chuẩn bị 01 bộ hồ sơ xin thành lập Hộ kinh doanh cá thể gồm:</p>
-        <ul className="list-disc pl-5 space-y-2">
-          <li>Giấy đề nghị đăng ký hộ kinh doanh (theo mẫu chuẩn quy định).</li>
-          <li>Bản sao hợp lệ Căn cước công dân (CCCD) của chủ hộ kinh doanh.</li>
-          <li>Bản sao giấy chứng nhận quyền sở hữu nhà và quyền sử dụng đất (Sổ hồng/Sổ đỏ) nơi đặt địa điểm kinh doanh nhà trọ.</li>
-        </ul>
-        
-        <h3 className="text-xl font-bold text-slate-800">2. Quy trình thực hiện các bước</h3>
-        <ol className="list-decimal pl-5 space-y-2">
-          <li><strong>Bước 1:</strong> Nộp hồ sơ tại bộ phận tiếp nhận hồ sơ hành chính (Một cửa) thuộc UBND Quận/Huyện sở tại, hoặc đăng ký trực tuyến qua hệ thống dịch vụ công.</li>
-          <li><strong>Bước 2:</strong> Cơ quan chức năng tiếp nhận, kiểm tra tính hợp lệ của hồ sơ trong vòng 3 ngày làm việc.</li>
-          <li><strong>Bước 3:</strong> Nhận giấy chứng nhận đăng ký hộ kinh doanh và thực hiện đăng ký mã số thuế hộ kinh doanh tại chi cục thuế địa phương.</li>
-        </ol>
-
-        <h3 className="text-xl font-bold text-slate-800">3. Nghĩa vụ thuế thu nhập đối với kinh doanh nhà trọ</h3>
-        <p>Chủ trọ có doanh thu từ cho thuê nhà trọ vượt quá 100 triệu đồng/năm sẽ có nghĩa vụ nộp thuế GTGT (5% doanh thu) và thuế TNCN (5% doanh thu), tổng cộng là 10% trên doanh thu cho thuê thực tế nhận được.</p>
-      </div>
-    )
-  },
-  {
-    id: 4,
-    title: "Tiêu Chuẩn Phòng Cháy Chữa Cháy (PCCC) Cho Nhà Trọ Mới Nhất",
-    category: "Quy định",
-    badgeColor: "bg-red-100 text-red-800",
-    image: "/blog/fire-safety.png",
-    description: "Quy định lắp đặt bình chữa cháy, đầu khói cảnh báo và thiết lập lối thoát hiểm thứ 2 an toàn cho chung cư mini...",
-    source: "Bộ Công an - Cục Cảnh sát PCCC & CNCH",
-    content: (
-      <div className="prose max-w-none text-[#0f172a] space-y-4">
-        <p className="text-slate-600">Đảm bảo an toàn phòng cháy chữa cháy (PCCC) không chỉ là nghĩa vụ bắt buộc theo luật pháp hiện hành mà còn bảo vệ trực tiếp tài sản của chủ trọ và tính mạng của những khách thuê đang sinh sống tại đây.</p>
-        
-        <h3 className="text-xl font-bold text-slate-800">1. Thiết kế lối thoát nạn và cầu thang thoát hiểm an toàn</h3>
-        <p>Đối với nhà trọ cao tầng hoặc chung cư mini, tiêu chuẩn thoát hiểm bắt buộc phải đảm bảo:</p>
-        <ul className="list-disc pl-5 space-y-2">
-          <li>Phải có ít nhất 2 lối thoát nạn độc lập (Ví dụ: Cầu thang chính bên trong nhà và cầu thang sắt thoát hiểm ngoài trời).</li>
-          <li>Hành lang thoát nạn, lối dẫn ra cửa thoát hiểm phải luôn thông thoáng, không chứa đồ đạc cản trở đường đi.</li>
-          <li>Ban công không được bịt kín kiểu chuồng cọp rào sắt, bắt buộc phải thiết kế cửa mở thoát hiểm khẩn cấp.</li>
-        </ul>
-        
-        <h3 className="text-xl font-bold text-slate-800">2. Lắp đặt các trang thiết bị chữa cháy tiêu chuẩn</h3>
-        <ul className="list-decimal pl-5 space-y-2">
-          <li><strong>Bình chữa cháy xách tay:</strong> Mỗi tầng lầu phải bố trí tối thiểu 02 bình bột ABC hoặc bình khí CO2 tại vị trí dễ thấy và dễ tiếp cận.</li>
-          <li><strong>Hệ thống cảnh báo cháy:</strong> Lắp đặt đầu báo khói tự động tại khu vực hành lang chung và bếp nấu của các phòng.</li>
-          <li><strong>Hệ thống đèn chiếu sáng sự cố:</strong> Đèn EXIT chỉ hướng lối thoát và đèn pin tự sạc khi mất nguồn điện lưới chính.</li>
-        </ul>
-
-        <h3 className="text-xl font-bold text-slate-800">3. Quy định về khu vực sạc và đỗ xe điện</h3>
-        <p>Nhà xe phải được trang bị hệ thống ngắt điện sạc tự động theo thời gian hoặc nhiệt độ. Không cắm sạc xe điện qua đêm mà không có người trông coi. Bố trí vách ngăn chống cháy lan ngăn cách khu vực để xe điện với lối thoát nạn chính của tòa nhà.</p>
-      </div>
-    )
-  }
-];
 
 export default function LandingPageClient() {
   const [activeStep, setActiveStep] = useState<number>(1);
@@ -221,17 +82,13 @@ export default function LandingPageClient() {
             views: art.views || 0,
           }));
           
-          if (mapped.length > 0) {
-            setDbPosts(mapped);
-          } else {
-            setDbPosts(blogPosts);
-          }
+          setDbPosts(mapped);
         } else {
-          setDbPosts(blogPosts);
+          setDbPosts([]);
         }
       } catch (err) {
-        console.warn("Failed to fetch dynamic articles, using static fallback:", err);
-        setDbPosts(blogPosts);
+        console.warn("Failed to fetch dynamic articles:", err);
+        setDbPosts([]);
       } finally {
         setLoadingPosts(false);
       }
@@ -353,7 +210,7 @@ export default function LandingPageClient() {
             <a href="#workflow" className={activeSection === "workflow" ? "active" : ""}>Quy trình</a>
             <a href="#payment" className={activeSection === "payment" ? "active" : ""}>Thanh toán</a>
             <a href="#ai" className={activeSection === "ai" ? "active" : ""}>AI</a>
-            <a href="#blog" className={activeSection === "blog" ? "active" : ""}>Tin tức</a>
+            <Link href="/tin-tuc">Tin tức</Link>
           </nav>
           
           <div className="nav-cta">
@@ -398,7 +255,7 @@ export default function LandingPageClient() {
               <a href="#workflow" onClick={() => setIsMobileMenuOpen(false)}>Quy trình</a>
               <a href="#payment" onClick={() => setIsMobileMenuOpen(false)}>Thanh toán</a>
               <a href="#ai" onClick={() => setIsMobileMenuOpen(false)}>AI</a>
-              <a href="#blog" onClick={() => setIsMobileMenuOpen(false)}>Tin tức</a>
+              <Link href="/tin-tuc" onClick={() => setIsMobileMenuOpen(false)}>Tin tức</Link>
             </nav>
             <div className="mobile-drawer-actions">
               <Link href="/login" className="btn btn-outline" data-cta="secondary">Đăng nhập</Link>
@@ -936,7 +793,8 @@ export default function LandingPageClient() {
         </div>
       </section>
 
-      {/* SECTION 7.5 — BLOG */}
+      {/* SECTION 7.5 — BLOG (chỉ hiện khi đã có bài viết thật được xuất bản) */}
+      {!loadingPosts && dbPosts.length > 0 && (
       <section className="faq-section" id="blog" style={{ background: '#ffffff', paddingBottom: '40px' }}>
         <div className="container">
           <div className="features-header reveal">
@@ -944,7 +802,7 @@ export default function LandingPageClient() {
             <h2>Tin tức & Kinh nghiệm vận hành nhà trọ</h2>
             <p>Tổng hợp các bài viết hướng dẫn nghiệp vụ, chia sẻ kinh nghiệm thực tế, pháp lý và PCCC mới nhất.</p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8 reveal">
             {dbPosts.map((post) => (
               <Link
@@ -992,6 +850,7 @@ export default function LandingPageClient() {
           </div>
         </div>
       </section>
+      )}
 
       {/* SECTION 8 — FAQ */}
       <section className="faq-section" id="faq">
@@ -1052,7 +911,7 @@ export default function LandingPageClient() {
                 <li><a href="#workflow">Quy trình</a></li>
                 <li><a href="#payment">Thanh toán QR</a></li>
                 <li><a href="#ai">AI vận hành</a></li>
-                <li><a href="#blog">Tin tức</a></li>
+                <li><Link href="/tin-tuc">Tin tức</Link></li>
               </ul>
             </div>
             

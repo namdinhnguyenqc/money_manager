@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/utils/apiClient";
 import Link from "next/link";
+import ArticlesModuleNav from "@/components/ArticlesModuleNav";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Article {
@@ -304,29 +305,19 @@ export default function AdminArticlesPage() {
   // ══════════════════════════════════════════════════════════════════════════
   return (
     <div className="flex-1 p-6 lg:p-8 max-w-6xl mx-auto">
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <FileText className="text-indigo-600 h-6 w-6" /> Quản lý Tin tức (CMS)
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Soạn bài chuẩn SEO: tin tức, luật, thông báo, cẩm nang cho chủ trọ.
-          </p>
+      {isEditing ? (
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2 mb-8">
+          <FileText className="text-indigo-600 h-6 w-6" /> {editId ? "Chỉnh sửa bài viết" : "Viết bài mới"}
+        </h1>
+      ) : (
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-6">
+          <ArticlesModuleNav />
+          <button onClick={openCreateForm}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-4 py-2.5 rounded-xl shadow-sm transition-all shrink-0 mb-4">
+            <Plus size={18} /> Viết bài mới
+          </button>
         </div>
-        {!isEditing && (
-          <div className="flex items-center gap-2">
-            <Link href="/admin/articles/categories"
-              className="flex items-center gap-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-sm px-4 py-2.5 rounded-xl transition-all">
-              Danh mục & Tác giả
-            </Link>
-            <button onClick={openCreateForm}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-4 py-2.5 rounded-xl shadow-sm transition-all">
-              <Plus size={18} /> Viết bài mới
-            </button>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* FEEDBACK */}
       {errorMsg && (
@@ -473,7 +464,7 @@ export default function AdminArticlesPage() {
                   <Field label="Danh mục">
                     {categories.length === 0 ? (
                       <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                        Chưa có danh mục nào. Vào <Link href="/admin/articles/categories" className="font-bold underline">Danh mục &amp; Tác giả</Link> để tạo trước khi viết bài.
+                        Chưa có danh mục nào. Vào <Link href="/admin/articles/categories" className="font-bold underline">Danh mục</Link> để tạo trước khi viết bài.
                       </p>
                     ) : (
                       <select value={form.category_id || ""} onChange={(e) => handleCategoryChange(e.target.value)} className={inputCls}>
