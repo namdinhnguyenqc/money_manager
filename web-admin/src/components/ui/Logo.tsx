@@ -3,10 +3,10 @@ import Image from 'next/image';
 
 type LogoVariant = 'monogram' | 'full' | 'symbol' | 'wordmark';
 
-// Logo design decision (do not change without discussion):
-// - wordmark/monogram: app-icon-gradient (blue rounded square) + trocare-wordmark-navbar.png
-// - symbol: app-icon-gradient only
-// - full: trocare-logo-full-transparent-2000.png (with tagline, only for landing hero)
+// Logo assets:
+// - wordmark / full: trocare-logo-full-transparent-2000.png (Tc symbol + TroCare + tagline)
+// - symbol / monogram(!showText): trocare-symbol-tc-transparent-256.png (TC lettermark, no bg)
+// ratio of full logo: 2000×640 → 3.125
 const FULL_LOGO_RATIO = 2000 / 640;
 
 export default function Logo({
@@ -22,69 +22,42 @@ export default function Logo({
   size?: "sm" | "md" | "lg" | "xl",
   variant?: LogoVariant
 }) {
-  const heightMap = { sm: 44, md: 56, lg: 72, xl: 88 };
-  const symbolSizeMap = { sm: 44, md: 56, lg: 72, xl: 88 };
-
+  // height of the full logo in px
+  const heightMap: Record<string, number> = { sm: 36, md: 44, lg: 56, xl: 72 };
   const h = heightMap[size];
-  const symbolSize = symbolSizeMap[size];
-  const fullLogoWidth = Math.round(h * FULL_LOGO_RATIO);
+  const w = Math.round(h * FULL_LOGO_RATIO);
 
-  if (variant === 'wordmark' || (variant === 'monogram' && showText)) {
-    const iconSize = { sm: 28, md: 34, lg: 44, xl: 56 }[size];
-    const wmarkWidth = { sm: 100, md: 128, lg: 162, xl: 200 }[size];
-    return (
-      <div className={`trocare-logo-wordmark inline-flex items-center gap-2 ${className}`}>
-        <Image
-          src="/brand/app-icons/app-icon-gradient-256.png"
-          alt=""
-          width={iconSize}
-          height={iconSize}
-          className="shrink-0 object-contain rounded-xl"
-          style={{ width: iconSize, height: iconSize, minWidth: iconSize }}
-          priority
-        />
-        <Image
-          src="/brand/optimized/trocare-wordmark-navbar.png"
-          alt="TrọCare"
-          width={wmarkWidth}
-          height={Math.round(wmarkWidth / 3.55)}
-          className="trocare-logo-text h-auto shrink-0 object-contain"
-          priority
-        />
-      </div>
-    );
-  }
+  // size of TC-only symbol
+  const symbolMap: Record<string, number> = { sm: 28, md: 36, lg: 48, xl: 64 };
+  const symbolSize = symbolMap[size];
 
-  if (variant === 'full') {
+  if (variant === 'wordmark' || variant === 'full' || (variant === 'monogram' && showText)) {
     return (
-      <div className={`flex items-center ${className}`}>
+      <div className={`inline-flex items-center ${className}`}>
         <Image
           src="/brand/transparent/trocare-logo-full-transparent-2000.png"
           alt="TrọCare"
-          width={fullLogoWidth}
+          width={w}
           height={h}
           className="h-auto w-auto object-contain"
-          style={{ height: h, width: "auto" }}
+          style={{ height: h, width: 'auto', maxWidth: w }}
           priority
         />
       </div>
     );
   }
 
-  if (variant === 'symbol' || (variant === 'monogram' && !showText)) {
-    return (
-      <div className={`flex items-center ${className}`}>
-        <Image
-          src="/brand/app-icons/app-icon-gradient-256.png"
-          alt="TrọCare"
-          width={symbolSize}
-          height={symbolSize}
-          className="object-contain rounded-xl"
-          style={{ width: symbolSize, height: symbolSize }}
-        />
-      </div>
-    );
-  }
-
-  return null;
+  // symbol / monogram without text → TC lettermark only (transparent, no bg square)
+  return (
+    <div className={`inline-flex items-center ${className}`}>
+      <Image
+        src="/brand/transparent/trocare-symbol-tc-transparent-256.png"
+        alt="TrọCare"
+        width={symbolSize}
+        height={symbolSize}
+        className="object-contain"
+        style={{ width: symbolSize, height: symbolSize }}
+      />
+    </div>
+  );
 }

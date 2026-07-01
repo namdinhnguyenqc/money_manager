@@ -361,9 +361,9 @@ button:focus-visible {
   flex-shrink: 0;
 }
 
-.trocare-landing .logo-container img.trocare-logo-text {
-  width: 148px;
-  height: auto;
+.trocare-landing .logo-container img {
+  height: 44px;
+  width: auto;
 }
 
 .trocare-landing .logo-text-wrapper {
@@ -419,9 +419,9 @@ button:focus-visible {
   font-size: 22px;
 }
 
-.trocare-landing .navbar.scrolled .logo-container img.trocare-logo-text {
-  width: 132px !important;
-  height: auto !important;
+.trocare-landing .navbar.scrolled .logo-container img {
+  height: 36px !important;
+  width: auto !important;
 }
 
 .trocare-landing .nav-links {
@@ -1421,9 +1421,9 @@ button:focus-visible {
     gap: 0;
   }
 
-  .trocare-landing .navbar .logo-container img.trocare-logo-text {
-    width: 110px !important;
-    height: auto !important;
+  .trocare-landing .navbar .logo-container img {
+    height: 32px !important;
+    width: auto !important;
   }
 
   .trocare-landing .mobile-nav-toggle {
