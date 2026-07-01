@@ -235,6 +235,14 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
     check();
   }, [router]);
 
+  // Auto-request push permission once user is authorized
+  useEffect(() => {
+    if (!authorized || !pushSupported || subscribed || permission === "denied") return;
+    // Small delay so the page settles before showing the browser dialog
+    const t = setTimeout(() => { subscribePush(); }, 1500);
+    return () => clearTimeout(t);
+  }, [authorized, pushSupported, subscribed, permission, subscribePush]);
+
   const handleLogout = async () => {
     try {
       const token = getStoredAccessToken();
