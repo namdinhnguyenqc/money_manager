@@ -70,6 +70,8 @@ const articleSchema = z.object({
 });
 
 // Build the DB row from validated body (excludes relational tag_ids)
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const buildRow = (body: z.infer<typeof articleSchema>, userId: string) => {
   const { tag_ids, ...rest } = body;
   const now = new Date().toISOString();
@@ -81,7 +83,9 @@ const buildRow = (body: z.infer<typeof articleSchema>, userId: string) => {
     published_at:
       body.published_at ||
       (body.status === "published" ? now : null),
-    user_id: userId,
+    // articles.user_id is a UUID FK; the built-in admin login has a
+    // non-UUID synthetic id ("admin-builtin") with no row in `users`.
+    user_id: UUID_RE.test(userId) ? userId : null,
   };
 };
 
