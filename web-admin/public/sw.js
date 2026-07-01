@@ -11,8 +11,8 @@ const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [
   OFFLINE_URL,
   "/manifest.webmanifest",
-  "/brand/app-icons/app-icon-gradient-256.png",
-  "/brand/app-icons/app-icon-gradient-512.png",
+  "/brand/app-icons/app-icon-256.png",
+  "/brand/app-icons/app-icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -66,8 +66,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "TrọCare";
   const options = {
     body: data.body || "",
-    icon: data.icon || "/brand/app-icons/app-icon-gradient-256.png",
-    badge: "/brand/app-icons/app-icon-gradient-64.png",
+    icon: data.icon || "/brand/app-icons/app-icon-256.png",
+    badge: "/brand/app-icons/app-icon-64.png",
     tag: data.tag || "trocare-notification",
     renotify: true,
     data: { url: data.url || "/owner/dashboard" },
