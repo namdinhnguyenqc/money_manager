@@ -97,7 +97,7 @@ export default function CompleteProfilePage() {
       <div className="mx-auto max-w-xl">
         <div className="mb-8 flex flex-col items-center justify-center text-center">
           <div className="mb-4">
-            <Logo size="lg" />
+            <Logo />
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-slate-950">Thiết lập tài khoản</h1>

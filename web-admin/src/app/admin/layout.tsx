@@ -134,7 +134,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         <div className="flex flex-col border-b border-slate-200">
           <div className="px-5 py-4">
-            <Logo textClassName="text-lg" />
+            <Logo />
             <span className="text-[9px] font-black uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-2.5 py-0.5 mt-1.5 inline-block tracking-wider">
               Hệ thống quản trị (Admin)
             </span>

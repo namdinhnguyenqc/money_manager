@@ -28,7 +28,7 @@ export default function LoginPage() {
     return (
       <main className="flex h-screen w-full items-center justify-center bg-[#F8FAFC]">
         <div className="flex flex-col items-center gap-4">
-          <Logo size="lg" />
+          <Logo />
           <div className="h-1 w-40 rounded-full bg-blue-100 animate-pulse" />
         </div>
       </main>
@@ -151,8 +151,8 @@ export default function LoginPage() {
           <div className="absolute w-[260px] h-[260px] -right-20 -top-20 bg-gradient-to-br from-blue-600/15 to-cyan-500/16 rounded-full blur-[4px]" />
           
           <header className="relative flex flex-col items-center gap-3 mb-6 sm:mb-9">
-            <Logo size="lg" className="sm:hidden" />
-            <Logo size="xl" className="hidden sm:block" />
+            <Logo className="sm:hidden" />
+            <Logo className="hidden sm:block" />
           </header>
 
           <div className="relative text-center mb-6 sm:mb-8">
