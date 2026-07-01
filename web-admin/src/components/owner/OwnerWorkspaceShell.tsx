@@ -23,6 +23,8 @@ import {
   X,
   HelpCircle,
   Tag,
+  Bell,
+  BellOff,
 } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { clearClientSession, getStoredAccessToken, getStoredSessionUser } from "@/utils/session";
@@ -30,6 +32,7 @@ import { authFetch, logAuthEvent } from "@/utils/authFetch";
 import Logo from "@/components/ui/Logo";
 import OwnerBottomNav from "@/components/owner/OwnerBottomNav";
 import { usePWAInstall } from "@/components/PWAProvider";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 interface NavItem {
   href: string;
@@ -103,6 +106,7 @@ const isActiveRoute = (pathname: string, href: string) => {
 
 export default function OwnerWorkspaceShell({ children }: { children: React.ReactNode }) {
   const { canInstall, install } = usePWAInstall();
+  const { permission, subscribed, loading: pushLoading, isSupported: pushSupported, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications();
   const router = useRouter();
   const queryClient = useQueryClient();
   const pathname = usePathname();
@@ -363,6 +367,18 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
         </nav>
 
         <div className="border-t border-slate-200 px-3 py-3 space-y-1">
+          {/* Push notification toggle */}
+          {pushSupported && permission !== "denied" && (
+            <button
+              onClick={subscribed ? unsubscribePush : subscribePush}
+              disabled={pushLoading}
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors ${subscribed ? "text-emerald-600 hover:bg-emerald-50" : "text-slate-600 hover:bg-slate-100"}`}
+            >
+              {subscribed ? <Bell size={18} className="shrink-0" /> : <BellOff size={18} className="shrink-0" />}
+              <span className="truncate">{subscribed ? "Thông báo đang bật" : "Bật thông báo"}</span>
+              {subscribed && <span className="ml-auto h-2 w-2 rounded-full bg-emerald-500 shrink-0" />}
+            </button>
+          )}
           {canInstall && (
             <button onClick={install} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-blue-600 transition-colors hover:bg-blue-50">
               <svg className="shrink-0" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">

@@ -55,6 +55,9 @@ export const env = {
   ZALO_APP_SECRET: optional("ZALO_APP_SECRET", ""),
   ZALO_REDIRECT_URI: optional("ZALO_REDIRECT_URI", ""),
   WEB_ADMIN_URL: optional("WEB_ADMIN_URL", "http://localhost:3001"),
+  VAPID_PUBLIC_KEY: optional("VAPID_PUBLIC_KEY", ""),
+  VAPID_PRIVATE_KEY: optional("VAPID_PRIVATE_KEY", ""),
+  VAPID_SUBJECT: optional("VAPID_SUBJECT", "mailto:admin@trocare.vn"),
   // CORS: comma-separated list of allowed origins, e.g. "https://admin.yourdomain.com,https://app.yourdomain.com"
   CORS_ORIGINS: optional("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3011,http://localhost:8081,http://localhost:19006").split(",").map(s => s.trim()),
 };
