@@ -13,31 +13,28 @@ export function sanitizeHtml(html: string): string {
 
 const BLOCK_TAG_RE = /<(p|h[1-6]|ul|ol|blockquote|table|div)[\s>]/i;
 
+const escapeText = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 // Content pasted as plain text (no <p>/<h2>/<ul>... tags, just newline breaks)
 // collapses into one unreadable wall of text once injected as HTML, since
 // bare newlines are not paragraph breaks. If the content has no real block
-// structure yet, auto-wrap each non-empty line into its own <p>, escaping
-// any stray HTML-looking characters in the plain text along the way.
-// Content that already uses proper block tags is left untouched.
+// structure yet, auto-wrap each chunk of text into its own <p>, pulling any
+// <img> tags out onto their own line even when glued directly to text (a
+// common paste artifact). Content that already uses proper block tags is
+// left untouched.
 export function autoFormatContent(html: string): string {
   if (!html) return "";
   if (BLOCK_TAG_RE.test(html)) return html;
 
-  const imgs: string[] = [];
-  const withoutImgs = html.replace(/<img[^>]*>/gi, (m) => {
-    imgs.push(m);
-    return "@@IMG" + (imgs.length - 1) + "@@";
-  });
+  // Ensure every <img> tag is on its own line so it becomes its own block.
+  const withImgBreaks = html.replace(/<img[^>]*>/gi, (m) => `\n${m}\n`);
 
-  const escapeText = (s: string) =>
-    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-  const lines = withoutImgs.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const lines = withImgBreaks.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
   const blocks = lines.map((line) => {
-    const imgMatch = line.match(/^@@IMG(\d+)@@$/);
-    if (imgMatch) return imgs[Number(imgMatch[1])];
-    return "<p>" + escapeText(line) + "</p>";
+    if (/^<img[^>]*>$/i.test(line)) return line;
+    return `<p>${escapeText(line)}</p>`;
   });
 
   return blocks.join("\n");
