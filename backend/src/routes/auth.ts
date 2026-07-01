@@ -376,10 +376,14 @@ async function upsertOwnerGoogleUser(input: {
   const avatar = input.avatar;
   const isProfileCompleted = input.isProfileCompleted ?? false;
   let existingUser: any = null;
+
+  const cleanGoogleId = googleId.replace(/[\\,():.]/g, "");
+  const cleanEmail = email.replace(/[\\,():.]/g, "");
+
   const { data: matchedUser, error: findError } = await supabaseAdmin
     .from("users")
     .select("*, user_profiles(*)")
-    .or(`google_id.eq.${googleId},email.eq.${email}`)
+    .or(`google_id.eq.${cleanGoogleId},email.eq.${cleanEmail}`)
     .maybeSingle();
 
   if (findError && findError.code !== "PGRST116") {
@@ -513,7 +517,7 @@ async function handleOwnerGoogleAuth(idToken: string | undefined) {
     return { error: { code: "TOKEN_INVALID", message: "Thiếu Google credential." }, status: 400 };
   }
 
-  if (idToken === "mock-owner-google-token") {
+  if (process.env.NODE_ENV !== "production" && idToken === "mock-owner-google-token") {
     return upsertOwnerGoogleUser({
       googleId: "109755943978980298572",
       email: "namdinhnguyen2611@gmail.com",

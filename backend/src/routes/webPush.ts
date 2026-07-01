@@ -14,7 +14,8 @@ webPushRoutes.get("/vapid-key", (c) => {
 
 // POST /push/subscribe — save browser PushSubscription (requires auth)
 webPushRoutes.post("/subscribe", requireAuth, async (c) => {
-  const userId = c.get("userId") as string;
+  const user = c.get("user");
+  const userId = user.id;
   const body = await c.req.json().catch(() => null);
 
   if (!body?.endpoint || !body?.keys?.p256dh || !body?.keys?.auth) {
@@ -29,7 +30,8 @@ webPushRoutes.post("/subscribe", requireAuth, async (c) => {
 
 // DELETE /push/subscribe — remove subscription (requires auth)
 webPushRoutes.delete("/subscribe", requireAuth, async (c) => {
-  const userId = c.get("userId") as string;
+  const user = c.get("user");
+  const userId = user.id;
   const body = await c.req.json().catch(() => null);
   if (!body?.endpoint) return c.json({ error: "endpoint required" }, 400);
   await removeWebPushSubscription(userId, body.endpoint);
