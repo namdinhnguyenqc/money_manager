@@ -10,7 +10,7 @@ export default function Logo({ className = "" }: { className?: string }) {
   return (
     <div className={`inline-flex items-center gap-3 ${className}`}>
       <Image
-        src="/brand/transparent/trocare-symbol-tc-3d-512.png"
+        src="/brand/transparent/trocare-symbol-tc-transparent-256.png"
         alt=""
         width={52}
         height={52}
