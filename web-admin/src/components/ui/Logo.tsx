@@ -3,7 +3,10 @@ import Image from 'next/image';
 
 type LogoVariant = 'monogram' | 'full' | 'symbol' | 'wordmark';
 
-// Full logo dimensions: 2000x640 → ratio ≈ 3.125
+// Logo design decision (do not change without discussion):
+// - wordmark/monogram: app-icon-gradient (blue rounded square) + trocare-wordmark-navbar.png
+// - symbol: app-icon-gradient only
+// - full: trocare-logo-full-transparent-2000.png (with tagline, only for landing hero)
 const FULL_LOGO_RATIO = 2000 / 640;
 
 export default function Logo({
