@@ -27,15 +27,25 @@ export default function Logo({
   const fullLogoWidth = Math.round(h * FULL_LOGO_RATIO);
 
   if (variant === 'wordmark' || (variant === 'monogram' && showText)) {
+    const iconSize = { sm: 28, md: 34, lg: 44, xl: 56 }[size];
+    const wmarkWidth = { sm: 100, md: 128, lg: 162, xl: 200 }[size];
     return (
-      <div className={`trocare-logo-wordmark inline-flex items-center ${className}`}>
+      <div className={`trocare-logo-wordmark inline-flex items-center gap-2 ${className}`}>
         <Image
-          src="/brand/transparent/trocare-logo-full-transparent-2000.png"
+          src="/brand/app-icons/app-icon-gradient-256.png"
+          alt=""
+          width={iconSize}
+          height={iconSize}
+          className="shrink-0 object-contain rounded-xl"
+          style={{ width: iconSize, height: iconSize, minWidth: iconSize }}
+          priority
+        />
+        <Image
+          src="/brand/optimized/trocare-wordmark-navbar.png"
           alt="TrọCare"
-          width={fullLogoWidth}
-          height={h}
-          className="h-auto w-auto object-contain"
-          style={{ height: h, width: "auto" }}
+          width={wmarkWidth}
+          height={Math.round(wmarkWidth / 3.55)}
+          className="trocare-logo-text h-auto shrink-0 object-contain"
           priority
         />
       </div>
@@ -62,11 +72,11 @@ export default function Logo({
     return (
       <div className={`flex items-center ${className}`}>
         <Image
-          src="/brand/transparent/trocare-symbol-tc-transparent-256.png"
+          src="/brand/app-icons/app-icon-gradient-256.png"
           alt="TrọCare"
           width={symbolSize}
           height={symbolSize}
-          className="object-contain"
+          className="object-contain rounded-xl"
           style={{ width: symbolSize, height: symbolSize }}
         />
       </div>
