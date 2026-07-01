@@ -26,6 +26,9 @@ import tenantAuthRoutes from "./routes/tenantAuth.js";
 import tenantApiRoutes from "./routes/tenantApi.js";
 import { supabaseAdmin } from "./lib/supabase.js";
 import { ownerFeedbackRoutes, adminFeedbackRoutes } from "./routes/feedback.js";
+import adminArticlesRoutes from "./routes/adminArticles.js";
+import publicArticlesRoutes from "./routes/publicArticles.js";
+import { publicTaxonomyRoutes, adminTaxonomyRoutes } from "./routes/articleTaxonomy.js";
 
 
 import { requireCompletedProfile } from "./middleware/requireCompletedProfile.js";
@@ -131,6 +134,8 @@ app.route("/webhooks/sepay", sepayWebhookRoutes);
 app.route("/admin", adminRoutes);
 app.route("/tenant-auth", tenantAuthRoutes);
 app.route("/tenant", tenantApiRoutes);
+app.route("/public/articles", publicArticlesRoutes);
+app.route("/public", publicTaxonomyRoutes);
 import { requireAuth, requireAdmin } from "./middleware/auth.js";
 
 app.use("/owner/*", requireAuth, requireCompletedProfile);
@@ -138,6 +143,10 @@ app.route("/owner", ownerRoutes);
 app.route("/owner/feedback", ownerFeedbackRoutes);
 app.use("/admin/feedback/*", requireAuth, requireAdmin);
 app.route("/admin/feedback", adminFeedbackRoutes);
+app.use("/admin/articles/*", requireAuth, requireAdmin);
+app.route("/admin/articles", adminArticlesRoutes);
+app.use("/admin/taxonomy/*", requireAuth, requireAdmin);
+app.route("/admin/taxonomy", adminTaxonomyRoutes);
 
 app.use("/wallets/*", requireAuth, requireCompletedProfile);
 app.use("/categories/*", requireAuth, requireCompletedProfile);
