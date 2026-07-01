@@ -5,7 +5,7 @@ import { Eye, Clock, ChevronRight, Calendar } from "lucide-react";
 import {
   getArticleBySlug, getCategories, badgeFor, coverOf, formatDate, SITE_URL, Article,
 } from "@/lib/news";
-import { sanitizeHtml } from "@/lib/sanitize";
+import { sanitizeHtml, autoFormatContent } from "@/lib/sanitize";
 import NewsNavbar from "@/components/news/NewsNavbar";
 import ArticleCard from "@/components/news/ArticleCard";
 import JsonLd from "@/components/news/JsonLd";
@@ -109,14 +109,14 @@ export default async function ArticleDetailPage({
   } : null;
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-slate-50">
       <ReadingProgress />
       <JsonLd data={faqSchema ? [articleSchema, breadcrumbSchema, faqSchema] : [articleSchema, breadcrumbSchema]} />
       <NewsNavbar categories={categories} />
 
-      <article className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-3xl mx-auto px-4 pt-4">
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 text-xs text-slate-400 mb-5 flex-wrap" aria-label="Breadcrumb">
+        <nav className="flex items-center gap-1.5 text-xs text-slate-400 mb-4 flex-wrap" aria-label="Breadcrumb">
           <Link href="/" className="hover:text-slate-600">Trang chủ</Link>
           <ChevronRight size={12} />
           <Link href="/tin-tuc" className="hover:text-slate-600">Tin tức</Link>
@@ -129,6 +129,10 @@ export default async function ArticleDetailPage({
           )}
           <span className="text-slate-500 truncate max-w-[180px]">{article.title}</span>
         </nav>
+      </div>
+
+      <article className="max-w-3xl mx-auto px-4 pb-12">
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-10">
 
         {/* Header */}
         <header className="mb-6">
@@ -181,7 +185,7 @@ export default async function ArticleDetailPage({
         {/* Content */}
         <div
           className="article-prose"
-          dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content || "") }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(autoFormatContent(article.content || "")) }}
         />
 
         {/* FAQ */}
@@ -225,10 +229,11 @@ export default async function ArticleDetailPage({
             Dùng miễn phí ngay →
           </Link>
         </div>
+        </div>
 
         {/* Related */}
         {article.related && article.related.length > 0 && (
-          <section className="mt-12">
+          <section className="mt-10">
             <h2 className="text-lg font-black text-slate-900 mb-5">Bài viết liên quan</h2>
             <div className="grid sm:grid-cols-3 gap-5">
               {article.related.map((a) => <ArticleCard key={a.id} article={a} />)}
