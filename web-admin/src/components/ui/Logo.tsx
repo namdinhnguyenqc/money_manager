@@ -10,12 +10,12 @@ export default function Logo({ className = "" }: { className?: string }) {
   return (
     <div className={`inline-flex items-center gap-2.5 ${className}`}>
       <Image
-        src="/brand/app-icons/app-icon-gradient-256.png"
+        src="/brand/transparent/trocare-symbol-tc-transparent-256.png"
         alt=""
-        width={36}
-        height={36}
-        className="shrink-0 rounded-xl"
-        style={{ width: 36, height: 36 }}
+        width={40}
+        height={40}
+        className="shrink-0"
+        style={{ width: 40, height: 40 }}
         priority
       />
       <div className="flex flex-col justify-center leading-none">
