@@ -1755,6 +1755,12 @@ html, body { max-width: 100%; overflow-x: hidden; }
 }
 .article-prose h4 { font-size: 1.05rem; font-weight: 700; color: #1e293b; margin-top: 1.4rem; }
 .article-prose p { margin-top: 1.1rem; }
+.article-prose > p:first-of-type {
+  font-size: 1.15rem;
+  color: #1e293b;
+  font-weight: 500;
+  line-height: 1.75;
+}
 .article-prose a { color: #2563eb; text-decoration: underline; text-underline-offset: 2px; }
 .article-prose a:hover { color: #1d4ed8; }
 .article-prose strong { color: #0f172a; font-weight: 700; }

@@ -9,6 +9,7 @@ import {
 import { apiGet, apiPost, apiPut, apiDelete } from "@/utils/apiClient";
 import Link from "next/link";
 import ArticlesModuleNav from "@/components/ArticlesModuleNav";
+import { autoFormatContent, sanitizeHtml } from "@/lib/sanitize";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Article {
@@ -405,7 +406,7 @@ export default function AdminArticlesPage() {
                     </>
                   ) : (
                     <div className="border border-slate-200 rounded-xl p-5 bg-white min-h-[300px] article-prose"
-                      dangerouslySetInnerHTML={{ __html: form.content || "<span style='color:#94a3b8'>Chưa có nội dung để xem thử...</span>" }} />
+                      dangerouslySetInnerHTML={{ __html: form.content ? sanitizeHtml(autoFormatContent(form.content)) : "<span style='color:#94a3b8'>Chưa có nội dung để xem thử...</span>" }} />
                   )}
                 </div>
 
