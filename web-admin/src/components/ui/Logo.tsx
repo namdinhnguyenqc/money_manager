@@ -19,10 +19,10 @@ export default function Logo({ className = "" }: { className?: string }) {
         priority
       />
       <div className="flex flex-col justify-center leading-none">
-        <span className="text-[22px] font-black tracking-tight text-slate-900 leading-tight">
+        <span className="text-[21px] font-bold tracking-[-0.02em] text-slate-900 leading-tight" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           Tro<span className="text-blue-600">Care</span>
         </span>
-        <span className="text-[10px] font-bold tracking-widest text-blue-500 uppercase mt-0.5">
+        <span className="text-[9.5px] font-semibold tracking-[0.12em] text-blue-500 uppercase mt-[3px]" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           Quản lý trọ thông minh
         </span>
       </div>
