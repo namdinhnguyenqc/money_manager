@@ -77,7 +77,7 @@ export default function PendingApprovalPage() {
 
       <section className="relative w-full max-w-[620px] rounded-[24px] border border-slate-200/80 bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.10)] sm:p-8">
         <div className="flex items-center justify-between gap-4">
-          <Logo size="md" textClassName="text-[22px]" />
+          <Logo />
           <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
             Chờ duyệt
           </span>

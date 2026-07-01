@@ -146,7 +146,7 @@ export default function LandingPageClient() {
       <header className={`navbar ${isScrolled ? "scrolled" : ""}`}>
         <div className="container">
           <Link href="/" className="logo-container">
-            <Logo size="md" />
+            <Logo />
           </Link>
           
           <nav className="nav-links">
@@ -783,7 +783,7 @@ export default function LandingPageClient() {
           <div className="footer-grid">
             <div className="footer-brand">
               <Link href="/" className="logo-container">
-                <Logo size="lg" />
+                <Logo />
               </Link>
             </div>
             

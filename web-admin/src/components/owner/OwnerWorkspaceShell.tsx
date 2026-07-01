@@ -300,7 +300,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
       >
         <div className="flex flex-col border-b border-slate-200">
           <div className="px-5 py-4">
-            <Logo textClassName="text-lg" />
+            <Logo />
           </div>
           <div className="flex items-center gap-3 px-5 pb-5">
             <div className="min-w-0 flex-1">
@@ -402,7 +402,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
             <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition active:scale-95 hover:bg-slate-200" onClick={() => setSidebarOpen(true)} aria-label="Mở menu">
               <Menu size={20} />
             </button>
-            <Logo size="sm" />
+            <Logo />
           </div>
           <button
             onClick={() => setSidebarOpen(true)}
