@@ -236,7 +236,8 @@ const writeAudit = async (
 
 const applyUserSearch = (query: any, keyword?: string) => {
   if (!keyword) return query;
-  return query.or(`email.ilike.%${keyword}%,name.ilike.%${keyword}%,full_name.ilike.%${keyword}%,phone.ilike.%${keyword}%`);
+  const cleanKeyword = keyword.replace(/[\\,():.]/g, "");
+  return query.or(`email.ilike.%${cleanKeyword}%,name.ilike.%${cleanKeyword}%,full_name.ilike.%${cleanKeyword}%,phone.ilike.%${cleanKeyword}%`);
 };
 
 const normalizeRole = (role: string) => role.toUpperCase();
@@ -1484,7 +1485,10 @@ adminRoutes.get("/audit-logs", ...adminWithPermission("audit_log.view"), async (
   if (action) query = query.eq("action", action);
   if (riskLevel) query = query.eq("risk_level", riskLevel);
   if (resourceType) query = query.eq("resource_type", resourceType);
-  if (objectId) query = query.or(`object_id.eq.${objectId},resource_id.eq.${objectId}`);
+  if (objectId) {
+    const cleanObjectId = objectId.replace(/[\\,():.]/g, "");
+    query = query.or(`object_id.eq.${cleanObjectId},resource_id.eq.${cleanObjectId}`);
+  }
   const { data, error, count } = await query.order("created_at", { ascending: false }).range(offset, offset + limit - 1);
   if (error) return jsonDbError(c, error, "Failed to fetch audit logs");
   return c.json({ data: data ?? [], pagination: toPagination(page, limit, count || 0) });
@@ -1649,7 +1653,10 @@ adminRoutes.get("/tenants", ...adminWithPermission("tenant.view"), async (c) => 
   const { page, limit, offset } = listParams(c);
   const { keyword = "", ownerId = "", status = "" } = c.req.query();
   let query = supabaseAdmin.from("tenants").select("*", { count: "exact" });
-  if (keyword) query = query.or(`name.ilike.%${keyword}%,phone.ilike.%${keyword}%,email.ilike.%${keyword}%`);
+  if (keyword) {
+    const cleanKeyword = keyword.replace(/[\\,():.]/g, "");
+    query = query.or(`name.ilike.%${cleanKeyword}%,phone.ilike.%${cleanKeyword}%,email.ilike.%${cleanKeyword}%`);
+  }
   if (ownerId) query = query.eq("user_id", ownerId);
   if (status) query = query.eq("status", status);
   const { data, error, count } = await query.order("created_at", { ascending: false }).range(offset, offset + limit - 1);
@@ -1730,7 +1737,10 @@ adminRoutes.get("/properties", ...adminWithPermission("property.view"), async (c
   const { page, limit, offset } = listParams(c);
   const { keyword = "", ownerId = "", status = "" } = c.req.query();
   let query = supabaseAdmin.from("boarding_houses").select("*", { count: "exact" });
-  if (keyword) query = query.or(`name.ilike.%${keyword}%,address.ilike.%${keyword}%`);
+  if (keyword) {
+    const cleanKeyword = keyword.replace(/[\\,():.]/g, "");
+    query = query.or(`name.ilike.%${cleanKeyword}%,address.ilike.%${cleanKeyword}%`);
+  }
   if (ownerId) query = query.eq("owner_id", ownerId);
   if (status) query = query.eq("status", status);
   const { data, error, count } = await query.order("created_at", { ascending: false }).range(offset, offset + limit - 1);
