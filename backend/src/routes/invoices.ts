@@ -1308,27 +1308,11 @@ invoicesRoutes.post("/auto-generate", async (c) => {
   const contracts = contractsRes.data || [];
   const roomToContract = new Map(contracts.map(c => [c.room_id, c]));
 
-  // Only bill tenants who have a phone number on file — a room with no
-  // reachable tenant can't be notified, so skip it and report why.
-  const tenantIds = [...new Set(contracts.map((c) => c.tenant_id).filter(Boolean))];
-  const tenantsRes = tenantIds.length > 0
-    ? await db.from("tenants").select("id, name, phone").in("id", tenantIds)
-    : { data: [], error: null };
-  if (tenantsRes.error) return c.json({ error: tenantsRes.error.message }, 500);
-  const tenantsById = new Map((tenantsRes.data || []).map((t) => [String(t.id), t]));
-
   let createdCount = 0;
-  const skippedNoPhone: { roomName: string; tenantName: string | null }[] = [];
 
   for (const room of pendingRooms) {
     const contract = roomToContract.get(room.id);
     if (!contract) continue;
-
-    const tenant = contract.tenant_id ? tenantsById.get(String(contract.tenant_id)) : null;
-    if (!tenant?.phone || !tenant.phone.trim()) {
-      skippedNoPhone.push({ roomName: room.name, tenantName: tenant?.name ?? null });
-      continue;
-    }
 
     try {
       const contractId = String(contract.id);
@@ -1438,11 +1422,7 @@ invoicesRoutes.post("/auto-generate", async (c) => {
     }
   }
 
-  return c.json({
-    created: createdCount,
-    skipped: rooms.length - createdCount,
-    skippedNoPhone,
-  });
+  return c.json({ created: createdCount, skipped: rooms.length - createdCount });
 });
 
 invoicesRoutes.post("/bulk-create", async (c) => {
