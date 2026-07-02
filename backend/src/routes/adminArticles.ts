@@ -265,9 +265,9 @@ adminArticlesRoutes.post("/upload-image", async (c) => {
   const mimeType = match[1];
   const buffer = Buffer.from(match[2], "base64");
 
-  // Size guard: max 5MB
-  if (buffer.length > 5 * 1024 * 1024) {
-    return c.json({ error: "Ảnh vượt quá 5MB" }, 400);
+  // Size guard: max 10MB
+  if (buffer.length > 10 * 1024 * 1024) {
+    return c.json({ error: "Ảnh vượt quá 10MB" }, 400);
   }
 
   let ext = "png";
