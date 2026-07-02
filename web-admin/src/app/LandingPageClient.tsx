@@ -822,9 +822,11 @@ export default function LandingPageClient() {
                     <span className={`inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full ${post.badgeColor}`}>
                       {post.category}
                     </span>
-                    <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                      <Eye size={12} /> {post.views || 0}
-                    </span>
+                    {post.views && post.views > 0 ? (
+                      <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                        <Eye size={12} /> {post.views}
+                      </span>
+                    ) : null}
                   </div>
                   <h4 className="text-base font-bold text-[#0f172a] mb-2 line-clamp-2 hover:text-[#2563EB] transition-colors">
                     {post.title}

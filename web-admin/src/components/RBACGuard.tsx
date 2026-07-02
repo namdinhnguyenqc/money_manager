@@ -13,8 +13,11 @@ export default function RBACGuard({ allowedRoles, children }: Props) {
 
   useEffect(() => {
     const role = (typeof window !== 'undefined') ? localStorage.getItem('userRole') : null
-    // Relaxed for development: always allow
-    setStatus('allowed')
+    if (role && allowedRoles.includes(role)) {
+      setStatus('allowed')
+    } else {
+      setStatus('denied')
+    }
   }, [allowedKey, allowedRoles])
 
   if (status === 'checking') {
