@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Edit3, Trash2, Plus, X } from "lucide-react";
 import {
   RentalRoom,
@@ -34,6 +34,7 @@ const pageSize = 10;
 export default function AllRoomsPage() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const facilityIdFilter = searchParams.get("facility_id") || "";
   const [roomFilter, setRoomFilter] = useState("Tất cả");
   const [toast, setToast] = useState("");
@@ -126,16 +127,43 @@ export default function AllRoomsPage() {
       {toast && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 animate-in slide-in-from-top-2">{toast}</div>}
       {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 animate-in slide-in-from-top-2">{error}</div>}
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        {roomFilters.map((filter) => (
-          <button
-            key={filter}
-            onClick={() => setRoomFilter(filter)}
-            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${roomFilter === filter ? filterPillActive : filterPillInactive}`}
+      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+        {/* Status Filters */}
+        <div className="flex flex-wrap gap-2">
+          {roomFilters.map((filter) => (
+            <button
+              key={filter}
+              onClick={() => setRoomFilter(filter)}
+              className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${roomFilter === filter ? filterPillActive : filterPillInactive}`}
+            >
+              {filter}
+            </button>
+          ))}
+        </div>
+
+        {/* Facility Filter Dropdown */}
+        <div className="flex items-center gap-2 min-w-[240px] md:max-w-[320px] w-full md:w-auto">
+          <span className="text-xs font-black uppercase text-slate-400 whitespace-nowrap">Cơ sở:</span>
+          <select
+            value={facilityIdFilter}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val) {
+                router.push(`/rooms?facility_id=${val}`);
+              } else {
+                router.push(`/rooms`);
+              }
+            }}
+            className="w-full text-sm font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm cursor-pointer"
           >
-            {filter}
-          </button>
-        ))}
+            <option value="">— Tất cả cơ sở —</option>
+            {houses.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {roomsQuery.isLoading && (

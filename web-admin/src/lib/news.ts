@@ -131,10 +131,24 @@ export const CATEGORY_BADGE: Record<string, string> = {
   "Thủ tục": "bg-indigo-100 text-indigo-800",
   "Quy định": "bg-red-100 text-red-800",
   "Pháp lý": "bg-amber-100 text-amber-800",
+  "Phòng Cháy Chữa Cháy": "bg-orange-100 text-orange-800",
+};
+
+// Solid accent color per category — used for hero ribbons, dots, top borders.
+export const CATEGORY_ACCENT: Record<string, string> = {
+  "Kinh nghiệm": "#059669",
+  "Hướng dẫn": "#2563EB",
+  "Thủ tục": "#4f46e5",
+  "Quy định": "#dc2626",
+  "Pháp lý": "#d97706",
+  "Phòng Cháy Chữa Cháy": "#ea580c",
 };
 
 export const badgeFor = (category?: string | null) =>
   (category && CATEGORY_BADGE[category]) || "bg-slate-100 text-slate-700";
+
+export const accentFor = (category?: string | null) =>
+  (category && CATEGORY_ACCENT[category]) || "#2563EB";
 
 export const formatDate = (iso?: string | null): string => {
   if (!iso) return "";
