@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, ChevronLeft } from "lucide-react";
 import { z } from "zod";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
-import { createContract, createTenant, describeServiceType, formatMoney, getFloorFromRoomName, getRoomArea, getServiceCategory, getServiceUnitLabel, loadRentalRooms, loadRoom, loadServiceConfigs, normalizeRoomStatus, onlyDigits, loadDeposits, loadWallets, Wallet } from "@/lib/rentalOps";
+import { createContract, createTenant, describeServiceType, formatMoney, getFloorFromRoomName, getRoomArea, getServiceCategory, getServiceUnitLabel, loadRentalRooms, loadRoom, loadServiceConfigs, normalizeRoomStatus, onlyDigits, loadDeposits, loadWallets, Wallet, loadBoardingHouses } from "@/lib/rentalOps";
 import StatusBadge from "@/components/ops/StatusBadge";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
@@ -64,6 +64,8 @@ export default function NewContractPage() {
     if (!roomId) router.replace("/rooms");
   }, [roomId, router]);
 
+  const housesQuery = useQuery({ queryKey: ["facilities"], queryFn: loadBoardingHouses, staleTime: 60_000 });
+  const allRoomsQuery = useQuery({ queryKey: ["rooms", "all"], queryFn: () => loadRentalRooms(), staleTime: 30_000 });
   const roomQuery = useQuery({ queryKey: ["room", roomId], queryFn: () => loadRoom(String(roomId)), enabled: Boolean(roomId), staleTime: 60_000 });
   const vacantRoomsQuery = useQuery({ queryKey: ["rooms", "vacant", facilityId], queryFn: async () => (await loadRentalRooms()).filter((room) => ["vacant", "reserved"].includes(normalizeRoomStatus(room))), enabled: true, staleTime: 30_000 });
   const servicesQuery = useQuery({ queryKey: ["services", "active"], queryFn: () => loadServiceConfigs(true), staleTime: 60_000 });
@@ -198,6 +200,107 @@ export default function NewContractPage() {
     setFieldErrors({});
     mutation.mutate();
   };
+
+  const hasFacilities = (housesQuery.data || []).length > 0;
+  const allRooms = allRoomsQuery.data || [];
+  const hasRooms = allRooms.length > 0;
+  const activeServices = servicesQuery.data || [];
+  const hasElectric = activeServices.some(s => s.name.toLowerCase().includes("điện") || s.name.toLowerCase().includes("electric") || s.icon === "⚡");
+  const hasWater = activeServices.some(s => s.name.toLowerCase().includes("nước") || s.name.toLowerCase().includes("water") || s.icon === "💧");
+  const hasWifi = activeServices.some(s => s.name.toLowerCase().includes("wifi") || s.name.toLowerCase().includes("internet") || s.name.toLowerCase().includes("mạng") || s.icon === "📶");
+  const hasBasicServices = hasElectric && hasWater && hasWifi;
+
+  const showWizard = !hasFacilities || !hasRooms || !hasBasicServices;
+
+  if (housesQuery.isLoading || vacantRoomsQuery.isLoading || servicesQuery.isLoading || allRoomsQuery.isLoading || roomQuery.isLoading) {
+    return <LoadingSkeleton rows={4} />;
+  }
+
+  if (showWizard) {
+    return (
+      <div className="mx-auto max-w-2xl mt-8">
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-md">
+          <div className="text-center mb-8">
+            <span className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-blue-600 text-3xl mb-4">🚀</span>
+            <h1 className="text-2xl font-black text-slate-900">Thiết lập hệ thống ban đầu</h1>
+            <p className="text-slate-500 mt-2 text-sm">Chào mừng bạn đến với TrọCare! Để có thể lập hợp đồng thuê đầu tiên, vui lòng hoàn thành các bước thiết lập cơ bản dưới đây:</p>
+          </div>
+
+          <div className="space-y-4">
+            {/* Step 1: Boarding House */}
+            <div className={`flex items-center justify-between p-4 rounded-xl border transition-all ${hasFacilities ? 'border-emerald-100 bg-emerald-50/50' : 'border-slate-100 bg-slate-50/50'}`}>
+              <div className="flex items-center gap-3">
+                <span className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${hasFacilities ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                  {hasFacilities ? "✓" : "1"}
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Thiết lập cơ sở (Nhà trọ)</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{hasFacilities ? "Đã tạo ít nhất 1 cơ sở" : "Yêu cầu tạo ít nhất 1 cơ sở để quản lý phòng"}</p>
+                </div>
+              </div>
+              {!hasFacilities && (
+                <Link href="/owner/boarding-houses" className="text-xs font-black text-blue-600 hover:text-blue-800 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm transition-all hover:bg-slate-50">
+                  Thêm ngay →
+                </Link>
+              )}
+            </div>
+
+            {/* Step 2: Rooms */}
+            <div className={`flex items-center justify-between p-4 rounded-xl border transition-all ${hasRooms ? 'border-emerald-100 bg-emerald-50/50' : 'border-slate-100 bg-slate-50/50'}`}>
+              <div className="flex items-center gap-3">
+                <span className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${hasRooms ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                  {hasRooms ? "✓" : "2"}
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Thiết lập danh sách phòng</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{hasRooms ? "Đã tạo danh sách phòng" : "Yêu cầu thêm phòng vào cơ sở của bạn"}</p>
+                </div>
+              </div>
+              {!hasRooms && (
+                <Link href={hasFacilities ? "/rooms" : "#"} onClick={(e) => { if (!hasFacilities) { e.preventDefault(); alert("Vui lòng thêm cơ sở trước!"); } }} className={`text-xs font-black rounded-lg px-3 py-2 shadow-sm transition-all ${hasFacilities ? 'text-blue-600 hover:text-blue-800 bg-white border border-slate-200 hover:bg-slate-50' : 'text-slate-400 bg-slate-100 border border-slate-100 cursor-not-allowed'}`}>
+                  Thêm ngay →
+                </Link>
+              )}
+            </div>
+
+            {/* Step 3: Service Configs */}
+            <div className={`flex items-center justify-between p-4 rounded-xl border transition-all ${hasBasicServices ? 'border-emerald-100 bg-emerald-50/50' : 'border-slate-100 bg-slate-50/50'}`}>
+              <div className="flex items-center gap-3">
+                <span className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${hasBasicServices ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                  {hasBasicServices ? "✓" : "3"}
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Cấu hình Điện, Nước & Wifi</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {!hasElectric && "Thiếu dịch vụ Điện. "}
+                    {!hasWater && "Thiếu dịch vụ Nước. "}
+                    {!hasWifi && "Thiếu dịch vụ Wifi. "}
+                    {hasBasicServices ? "Đã thiết lập đầy đủ dịch vụ Điện, Nước, Wifi" : "Yêu cầu cấu hình đơn giá dịch vụ cơ bản"}
+                  </p>
+                </div>
+              </div>
+              {!hasBasicServices && (
+                <Link href="/owner/services" className="text-xs font-black text-blue-600 hover:text-blue-800 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm transition-all hover:bg-slate-50">
+                  Thiết lập →
+                </Link>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-[8px] border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 flex items-center gap-2"
+            >
+              <span className="text-xs">🔄</span>
+              Tải lại trang sau khi thiết lập
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (roomQuery.isLoading) return <LoadingSkeleton rows={4} />;
 
