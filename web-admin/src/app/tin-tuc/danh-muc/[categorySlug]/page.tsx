@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  getCategoryBySlug, getCategories, getArticles, SITE_URL,
+  getCategoryBySlug, getCategories, getArticles, accentFor, SITE_URL,
 } from "@/lib/news";
 import NewsNavbar from "@/components/news/NewsNavbar";
-import CategorySidebar from "@/components/news/CategorySidebar";
+import NewsFooter from "@/components/news/NewsFooter";
 import ArticleCard from "@/components/news/ArticleCard";
 import JsonLd from "@/components/news/JsonLd";
 
@@ -45,9 +45,10 @@ export default async function CategoryPage({
 
   const [categories, list] = await Promise.all([
     getCategories(),
-    getArticles({ page, limit: 12, category: cat.name }),
+    getArticles({ page, limit: 16, category: cat.name }),
   ]);
   const { totalPages, total } = list.pagination;
+  const accent = accentFor(cat.name);
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -60,31 +61,32 @@ export default async function CategoryPage({
           url: `${SITE_URL}/tin-tuc/danh-muc/${cat.slug}`,
         }}
       />
-      <NewsNavbar categories={categories} />
+      <NewsNavbar categories={categories} activeSlug={cat.slug} />
 
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-8">
-      <div className="grid lg:grid-cols-[240px_1fr] gap-8">
-        <CategorySidebar categories={categories} activeSlug={cat.slug} />
+      {/* Category banner */}
+      <div className="text-white" style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)` }}>
+        <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-10 md:py-14">
+          <nav className="text-xs text-white/70 mb-3">
+            <Link href="/tin-tuc" className="hover:text-white">Tin tức</Link> / <span className="text-white">{cat.name}</span>
+          </nav>
+          <h1 className="text-3xl md:text-4xl font-black tracking-tight">{cat.name}</h1>
+          <p className="text-sm md:text-base text-white/80 mt-2 max-w-2xl">{cat.description || `${total} bài viết thuộc chủ đề ${cat.name}.`}</p>
+        </div>
+      </div>
 
-        <div className="min-w-0">
-        <nav className="text-xs text-slate-400 mb-4">
-          <Link href="/tin-tuc" className="hover:text-slate-600">Tin tức</Link> / <span className="text-slate-500">{cat.name}</span>
-        </nav>
-        <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">{cat.name}</h1>
-        <p className="text-sm text-slate-500 mt-1">{cat.description || `${total} bài viết`}</p>
-
+      <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-10">
         {list.data.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-400 mt-8">
+          <div className="bg-white border border-slate-200 rounded-2xl p-16 text-center text-slate-400">
             Chưa có bài viết trong danh mục này.
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-6 mt-8">
+          <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-6">
             {list.data.map((a) => <ArticleCard key={a.id} article={a} />)}
           </div>
         )}
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-8">
+          <div className="flex items-center justify-center gap-2 mt-10">
             {page > 1 && (
               <Link href={`/tin-tuc/danh-muc/${cat.slug}?page=${page - 1}`}
                 className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-white bg-white/50">← Trước</Link>
@@ -96,9 +98,9 @@ export default async function CategoryPage({
             )}
           </div>
         )}
-        </div>
       </div>
-      </div>
+
+      <NewsFooter categories={categories} />
     </main>
   );
 }

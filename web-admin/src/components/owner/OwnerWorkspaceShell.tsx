@@ -81,7 +81,6 @@ const navSections: NavSection[] = [
   {
     title: "Cấu hình",
     items: [
-      { href: "/owner/transactions/categories", label: "Danh mục thu chi", icon: Tag },
       { href: "/owner/profile", label: "Hồ sơ chủ trọ", icon: UserCircle },
       { href: "/owner/settings", label: "Cài đặt hệ thống", icon: Settings },
       { href: "/owner/feedback", label: "Báo cáo lỗi / Góp ý", icon: HelpCircle, permission: "feedback.view" },
@@ -99,8 +98,7 @@ const isActiveRoute = (pathname: string, href: string) => {
   if (href === "/owner/tenants") return pathname === "/owner/tenants" || pathname.startsWith("/owner/tenants/");
   if (href === "/owner/settings") return pathname === "/owner/settings" || pathname.startsWith("/owner/settings/") || pathname === "/settings";
   if (href === "/owner/profile") return pathname === "/owner/profile" || pathname.startsWith("/owner/profile/");
-  if (href === "/owner/transactions/categories") return pathname === "/owner/transactions/categories" || pathname.startsWith("/owner/transactions/categories/");
-  if (href === "/owner/transactions") return pathname === "/owner/transactions" || (pathname.startsWith("/owner/transactions/") && !pathname.startsWith("/owner/transactions/categories"));
+  if (href === "/owner/transactions") return pathname === "/owner/transactions" || pathname.startsWith("/owner/transactions/");
   return pathname === href || pathname.startsWith(`${href}/`);
 };
 
