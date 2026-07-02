@@ -131,6 +131,7 @@ export default function OwnerSettingsPage() {
     isDefault: true,
   });
   const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [sepaySubTab, setSepaySubTab] = useState<"sepay" | "static">("sepay");
 
   // SePay Webhook Events logs state
   const [sepayEvents, setSepayEvents] = useState<any[]>([]);
@@ -1078,6 +1079,33 @@ export default function OwnerSettingsPage() {
                   <SepayMetric icon={<Info size={16} />} label="Cần xử lý" value={`${unresolvedSepayEvents}`} tone={unresolvedSepayEvents ? "amber" : "emerald"} />
                 </div>
 
+                {/* Sub-tab switcher */}
+                <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+                  <button
+                    onClick={() => setSepaySubTab("sepay")}
+                    className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-[10px] transition-all ${
+                      sepaySubTab === "sepay"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    <Webhook size={13} />
+                    Cấu hình SePay
+                  </button>
+                  <button
+                    onClick={() => setSepaySubTab("static")}
+                    className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-[10px] transition-all ${
+                      sepaySubTab === "static"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    <CreditCard size={13} />
+                    Thanh toán tĩnh
+                  </button>
+                </div>
+
+                {sepaySubTab === "sepay" && (<>
                 {/* 1. Kênh thanh toán & đối soát SePay */}
                 <section className="space-y-4 bg-slate-50/40 rounded-3xl border border-slate-200/50 p-5">
                   <div className="flex items-center gap-2">
@@ -1519,6 +1547,111 @@ export default function OwnerSettingsPage() {
                     </div>
                   )}
                 </section>
+                </>)}
+
+                {sepaySubTab === "static" && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  <div className="rounded-2xl bg-amber-50/60 border border-amber-100 p-4 space-y-1.5">
+                    <p className="text-[11px] font-black text-amber-800 uppercase tracking-wider">Thanh toán tĩnh là gì?</p>
+                    <p className="text-[11px] text-amber-700 font-medium leading-relaxed">
+                      Thanh toán tĩnh cho phép khách thuê chuyển khoản qua số tài khoản ngân hàng hoặc quét mã QR cố định của bạn. Không cần tích hợp API — bạn tự kiểm tra và xác nhận thanh toán thủ công.
+                    </p>
+                  </div>
+
+                  <Card className="grid gap-5 p-5 bg-slate-50/50 border border-slate-200/50 rounded-[8px]">
+                    <div className="flex items-center gap-2">
+                      <CreditCard size={16} className="text-slate-600" />
+                      <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Thông tin tài khoản ngân hàng</span>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <Label className="font-bold text-slate-700 text-xs">Ngân hàng</Label>
+                        <Input
+                          type="text"
+                          placeholder="Vd: Vietcombank, MB Bank, Techcombank..."
+                          value={getValue("static_bank_name", "")}
+                          onChange={(e) => handleChange("static_bank_name", e.target.value, "string", "payment")}
+                          className="mt-1.5"
+                        />
+                      </div>
+                      <div>
+                        <Label className="font-bold text-slate-700 text-xs">Số tài khoản</Label>
+                        <Input
+                          type="text"
+                          placeholder="Vd: 0123456789"
+                          value={getValue("static_bank_account_number", "")}
+                          onChange={(e) => handleChange("static_bank_account_number", e.target.value, "string", "payment")}
+                          className="mt-1.5"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label className="font-bold text-slate-700 text-xs">Tên chủ tài khoản</Label>
+                        <Input
+                          type="text"
+                          placeholder="Vd: NGUYEN VAN A"
+                          value={getValue("static_bank_account_name", "")}
+                          onChange={(e) => handleChange("static_bank_account_name", e.target.value, "string", "payment")}
+                          className="mt-1.5"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label className="font-bold text-slate-700 text-xs">Nội dung chuyển khoản mẫu</Label>
+                        <Input
+                          type="text"
+                          placeholder="Vd: [Phòng] [Họ tên] Tháng [MM/YYYY]"
+                          value={getValue("static_payment_note_template", "")}
+                          onChange={(e) => handleChange("static_payment_note_template", e.target.value, "string", "payment")}
+                          className="mt-1.5"
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium">Hướng dẫn nội dung CK hiển thị cho khách thuê trên hóa đơn.</p>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="grid gap-5 p-5 bg-slate-50/50 border border-slate-200/50 rounded-[8px]">
+                    <div className="flex items-center gap-2">
+                      <QrCode size={16} className="text-slate-600" />
+                      <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Mã QR thanh toán (tùy chọn)</span>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2 items-start">
+                      <div>
+                        <Label className="font-bold text-slate-700 text-xs">URL ảnh QR tĩnh</Label>
+                        <Input
+                          type="text"
+                          placeholder="https://... (link ảnh QR từ ngân hàng)"
+                          value={getValue("static_qr_image_url", "")}
+                          onChange={(e) => handleChange("static_qr_image_url", e.target.value, "string", "payment")}
+                          className="mt-1.5"
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium">Dán URL ảnh QR do ngân hàng cấp (hoặc tạo từ VietQR.io). Hiển thị trên hóa đơn PDF.</p>
+                      </div>
+                      {getValue("static_qr_image_url", "") && (
+                        <div className="flex flex-col items-center gap-2">
+                          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Xem trước QR</span>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={getValue("static_qr_image_url", "")}
+                            alt="QR preview"
+                            className="w-36 h-36 object-contain rounded-xl border border-slate-200 bg-white p-2 shadow-sm"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => handleSave()}
+                      disabled={saving}
+                      className="flex items-center gap-2 rounded-xl bg-slate-900 text-white px-5 py-2.5 text-xs font-bold hover:bg-slate-800 transition-all shadow-md disabled:opacity-60"
+                    >
+                      {saving ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
+                      Lưu cấu hình thanh toán tĩnh
+                    </button>
+                  </div>
+                </div>)}
+
               </div>
             )}
 
