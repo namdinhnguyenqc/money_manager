@@ -4,7 +4,7 @@
    - API calls (/api, backend): never cached (always live data).
    - Push notifications: show notification on payment received.
    Bump CACHE_VERSION whenever this file or the cached shell changes. */
-const CACHE_VERSION = "trocare-v3";
+const CACHE_VERSION = "trocare-v5";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = "/offline.html";
 
