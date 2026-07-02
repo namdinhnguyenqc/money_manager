@@ -186,7 +186,7 @@ export default function AdminArticlesPage() {
 
   // ── Image upload ──
   const uploadImage = (file: File, scope: "cover" | "inline") => {
-    if (file.size > 5 * 1024 * 1024) { setErrorMsg("Ảnh vượt quá 5MB"); return; }
+    if (file.size > 10 * 1024 * 1024) { setErrorMsg("Ảnh vượt quá 10MB"); return; }
     setUploading(true); setErrorMsg(null);
     const reader = new FileReader();
     reader.onload = async () => {
