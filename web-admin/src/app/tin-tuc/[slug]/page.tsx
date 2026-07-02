@@ -13,7 +13,7 @@ import JsonLd from "@/components/news/JsonLd";
 import ReadingProgress from "@/components/news/ReadingProgress";
 import ShareButtons from "@/components/news/ShareButtons";
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
