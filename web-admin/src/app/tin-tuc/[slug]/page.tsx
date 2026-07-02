@@ -7,6 +7,7 @@ import {
 } from "@/lib/news";
 import { sanitizeHtml, autoFormatContent } from "@/lib/sanitize";
 import NewsNavbar from "@/components/news/NewsNavbar";
+import CategorySidebar from "@/components/news/CategorySidebar";
 import ArticleCard from "@/components/news/ArticleCard";
 import JsonLd from "@/components/news/JsonLd";
 import ReadingProgress from "@/components/news/ReadingProgress";
@@ -114,25 +115,28 @@ export default async function ArticleDetailPage({
       <JsonLd data={faqSchema ? [articleSchema, breadcrumbSchema, faqSchema] : [articleSchema, breadcrumbSchema]} />
       <NewsNavbar categories={categories} />
 
-      <div className="max-w-3xl mx-auto px-4 pt-4">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 text-xs text-slate-400 mb-4 flex-wrap" aria-label="Breadcrumb">
-          <Link href="/" className="hover:text-slate-600">Trang chủ</Link>
-          <ChevronRight size={12} />
-          <Link href="/tin-tuc" className="hover:text-slate-600">Tin tức</Link>
-          <ChevronRight size={12} />
-          {article.cat?.slug && (
-            <>
-              <Link href={`/tin-tuc/danh-muc/${article.cat.slug}`} className="hover:text-slate-600">{article.category}</Link>
-              <ChevronRight size={12} />
-            </>
-          )}
-          <span className="text-slate-500 truncate max-w-[180px]">{article.title}</span>
-        </nav>
-      </div>
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        <div className="grid lg:grid-cols-[220px_1fr] gap-8">
+          <CategorySidebar categories={categories} activeSlug={article.cat?.slug} />
 
-      <article className="max-w-3xl mx-auto px-4 pb-12">
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-10">
+          <div className="min-w-0">
+            {/* Breadcrumb */}
+            <nav className="flex items-center gap-1.5 text-xs text-slate-400 mb-4 flex-wrap" aria-label="Breadcrumb">
+              <Link href="/" className="hover:text-slate-600">Trang chủ</Link>
+              <ChevronRight size={12} />
+              <Link href="/tin-tuc" className="hover:text-slate-600">Tin tức</Link>
+              <ChevronRight size={12} />
+              {article.cat?.slug && (
+                <>
+                  <Link href={`/tin-tuc/danh-muc/${article.cat.slug}`} className="hover:text-slate-600">{article.category}</Link>
+                  <ChevronRight size={12} />
+                </>
+              )}
+              <span className="text-slate-500 truncate max-w-[180px]">{article.title}</span>
+            </nav>
+
+            <article className="pb-6">
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-10">
 
         {/* Header */}
         <header className="mb-6">
@@ -229,18 +233,21 @@ export default async function ArticleDetailPage({
             Dùng miễn phí ngay →
           </Link>
         </div>
-        </div>
+              </div>
 
-        {/* Related */}
-        {article.related && article.related.length > 0 && (
-          <section className="mt-10">
-            <h2 className="text-lg font-black text-slate-900 mb-5">Bài viết liên quan</h2>
-            <div className="grid sm:grid-cols-3 gap-5">
-              {article.related.map((a) => <ArticleCard key={a.id} article={a} />)}
-            </div>
-          </section>
-        )}
-      </article>
+              {/* Related */}
+              {article.related && article.related.length > 0 && (
+                <section className="mt-8">
+                  <h2 className="text-lg font-black text-slate-900 mb-5">Bài viết liên quan</h2>
+                  <div className="grid sm:grid-cols-3 gap-5">
+                    {article.related.map((a) => <ArticleCard key={a.id} article={a} />)}
+                  </div>
+                </section>
+              )}
+            </article>
+          </div>
+        </div>
+      </div>
     </main>
   );
 }
