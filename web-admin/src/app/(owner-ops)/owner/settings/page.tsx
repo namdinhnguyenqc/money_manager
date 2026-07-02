@@ -1220,8 +1220,49 @@ export default function OwnerSettingsPage() {
                       </p>
                     </div>
 
+                    {/* Step-by-step guide */}
+                    <div className="rounded-2xl bg-blue-50/60 border border-blue-100 p-4 space-y-2">
+                      <p className="text-[11px] font-black text-blue-800 uppercase tracking-wider">Hướng dẫn cấu hình SePay của bạn</p>
+                      <ol className="space-y-1.5 text-[11px] text-blue-700 font-medium list-decimal list-inside leading-relaxed">
+                        <li>Đăng nhập <span className="font-mono font-bold">SePay.vn</span> → Webhook → Thêm webhook mới</li>
+                        <li>Dán <strong>URL Webhook bên dưới</strong> vào ô "URL nhận dữ liệu"</li>
+                        <li>SePay sẽ tạo <strong>Webhook Secret</strong> và <strong>API Token</strong> cho tài khoản của bạn</li>
+                        <li>Copy 2 giá trị đó vào ô bên dưới rồi nhấn <strong>Lưu thay đổi</strong></li>
+                      </ol>
+                    </div>
+
+                    {/* Webhook URL to copy */}
+                    <div>
+                      <Label className="font-bold text-slate-700 text-xs mb-1.5 block">URL Webhook của bạn (dán vào SePay)</Label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 font-mono text-xs font-semibold text-slate-600 outline-none"
+                          value={sepayWebhookUrl}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            try {
+                              navigator.clipboard.writeText(sepayWebhookUrl);
+                              setCopiedWebhook(true);
+                              setTimeout(() => setCopiedWebhook(false), 2000);
+                            } catch {}
+                          }}
+                          className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-white transition-colors ${copiedWebhook ? "bg-emerald-600" : "bg-slate-900 hover:bg-slate-800"}`}
+                        >
+                          {copiedWebhook ? <Check size={14} /> : <Copy size={14} />}
+                          {copiedWebhook ? "Đã chép!" : "Sao chép"}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                        URL riêng của tài khoản bạn. SePay sẽ gửi thông báo thanh toán đến địa chỉ này.
+                      </p>
+                    </div>
+
                     <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-slate-200/70">
-                      <div className="sm:col-span-2">
+                      <div>
                         <Label className="font-bold text-slate-700 text-xs">SePay API Key (Token API)</Label>
                         <div className="relative mt-1.5">
                           <input
@@ -1239,9 +1280,30 @@ export default function OwnerSettingsPage() {
                             {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
                           </button>
                         </div>
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium">Token API từ trang quản lý SePay của bạn.</p>
+                      </div>
+                      <div>
+                        <Label className="font-bold text-slate-700 text-xs">Webhook Secret (Mã xác thực chữ ký)</Label>
+                        <div className="relative mt-1.5">
+                          <input
+                            type={showWebhookSecret ? "text" : "password"}
+                            placeholder="Nhập Webhook Secret từ SePay.vn..."
+                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all bg-white font-mono text-slate-800 pr-10"
+                            value={getValue("sepay_webhook_secret", "")}
+                            onChange={(e) => handleChange("sepay_webhook_secret", e.target.value, "string", "payment")}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowWebhookSecret(!showWebhookSecret)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
+                          >
+                            {showWebhookSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium">Secret dùng để xác minh chữ ký webhook. Lưu của bạn, không chia sẻ.</p>
                       </div>
                       <div className="sm:col-span-2">
-                        <Label className="font-bold text-slate-700 text-xs">Cú pháp chuyển khoản (Tiền tố mặc định)</Label>
+                        <Label className="font-bold text-slate-700 text-xs">Cú pháp chuyển khoản (Tiền tố mã hóa đơn)</Label>
                         <Input
                           type="text"
                           placeholder="TCINV (Mặc định nếu để trống)"
@@ -1250,7 +1312,7 @@ export default function OwnerSettingsPage() {
                           className="mt-1.5"
                         />
                         <p className="text-[10px] text-slate-400 mt-1 font-medium">
-                          Tiền tố đi kèm mã hóa đơn khi sinh cú pháp chuyển khoản tự động (Ví dụ: TCINV12345).
+                          Tiền tố đi kèm mã hóa đơn trong nội dung chuyển khoản (Ví dụ: <span className="font-mono font-bold text-slate-600">TCINV</span>AB12CD). Hệ thống dùng tiền tố này để tự động khớp giao dịch với hóa đơn.
                         </p>
                       </div>
                     </div>
