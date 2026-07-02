@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { 
   Save, 
   RefreshCw, 
@@ -28,15 +29,20 @@ import {
   Clock,
   Coins,
   ShieldCheck,
+  Eye as EyeIcon,
   ToggleLeft,
   ToggleRight,
-  TrendingUp,
-  Sliders,
+  ShieldAlert,
+  HelpCircle,
+  QrCode,
+  CheckCircle2,
   Sparkles,
   Webhook,
   KeyRound,
   Receipt,
-  ServerCog
+  ServerCog,
+  Tag,
+  X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiGet, apiPost, apiPatch, apiDelete, apiPut, toURL } from "@/utils/apiClient";
@@ -50,6 +56,10 @@ import {
   formatMoney,
   loadPaymentChannels,
   updatePaymentChannel,
+  loadCategories,
+  createCategory,
+  deleteCategory,
+  TransactionCategory
 } from "@/lib/rentalOps";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -57,11 +67,30 @@ import Input, { Label, Select as UISelect } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
+const EMOJI_PALETTE = [
+  "💰", "🏠", "💡", "💧", "🚗", "🍔", "🎁", "🔧",
+  "🛡️", "💼", "🗑️", "📶", "🩺", "🎓", "📈", "💬",
+  "⚡", "🔑", "🧹", "📦", "🛏️", "🍽️", "🛒", "🎟️",
+];
+
+const COLOR_PALETTE = [
+  "#6366f1", "#059669", "#dc2626", "#d97706", "#2563eb",
+  "#7c3aed", "#db2777", "#0891b2", "#0d9488", "#475569",
+];
+
 type SettingItem = { key: string; value: any; type: string; category: string };
 
 export default function OwnerSettingsPage() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("payment");
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab") || "payment";
+  const [activeTab, setActiveTab] = useState(tabParam);
+
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t) setActiveTab(t);
+  }, [searchParams]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<Record<string, SettingItem>>({});
@@ -109,9 +138,16 @@ export default function OwnerSettingsPage() {
   const [sepayEventsError, setSepayEventsError] = useState("");
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
 
-  // UI interactive states
   const [showApiKey, setShowApiKey] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+
+  // Category states
+  const [categories, setCategories] = useState<TransactionCategory[]>([]);
+  const [activeCategoryTab, setActiveCategoryTab] = useState<"income" | "expense">("income");
+  const [categoryFormOpen, setCategoryFormOpen] = useState(false);
+  const [categoryForm, setCategoryForm] = useState({ name: "", icon: "💰", color: "#6366f1", walletId: "" });
+  const [confirmDeleteCategoryId, setConfirmDeleteCategoryId] = useState<string | null>(null);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
 
   const fetchSepayEvents = async () => {
     setLoadingSepayEvents(true);
@@ -140,16 +176,20 @@ export default function OwnerSettingsPage() {
     }
   };
 
+  const [ownerId, setOwnerId] = useState("");
+
   const load = async () => {
     setLoading(true);
     setError("");
     try {
-      const [settingsRes, servicesRes, walletsRes, bankRes, channelsRes] = await Promise.all([
+      const [settingsRes, servicesRes, walletsRes, bankRes, channelsRes, profileRes, categoriesRes] = await Promise.all([
         apiGet<any>("/owner/settings"),
         apiGet<any>("/rental/services?activeOnly=0"),
         apiGet<any>("/wallets"),
         apiGet<any>("/bank-config"),
-        loadPaymentChannels()
+        loadPaymentChannels(),
+        apiGet<any>("/me/profile"),
+        loadCategories()
       ]);
       const map: Record<string, SettingItem> = {};
       (settingsRes?.data || []).forEach((s: SettingItem) => {
@@ -158,6 +198,13 @@ export default function OwnerSettingsPage() {
       setSettings(map);
       setServices(servicesRes?.data || []);
       setWallets(walletsRes?.data || []);
+      setCategories(categoriesRes || []);
+
+      const user = profileRes?.data?.user || profileRes?.user || profileRes;
+      if (user?.id) {
+        setOwnerId(user.id);
+      }
+
       setPaymentChannels((channelsRes || []).filter((c: any) => c.enabled !== false));
       if (bankRes?.data) {
         setBankConfig({
@@ -326,6 +373,62 @@ export default function OwnerSettingsPage() {
     };
     reader.readAsDataURL(file);
   };
+
+  const resetCategoryForm = () => {
+    setCategoryForm({ name: "", icon: "💰", color: "#6366f1", walletId: wallets[0]?.id ?? "" });
+    setCategoryFormOpen(false);
+  };
+
+  const handleCreateCategory = async () => {
+    if (!categoryForm.name.trim()) {
+      setError("Vui lòng nhập tên danh mục.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      await createCategory({
+        name: categoryForm.name.trim(),
+        icon: categoryForm.icon,
+        color: categoryForm.color,
+        type: activeCategoryTab,
+        walletId: categoryForm.walletId || wallets[0]?.id,
+      });
+      const updated = await loadCategories();
+      setCategories(updated);
+      setSuccess("Đã thêm danh mục mới thành công!");
+      resetCategoryForm();
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err: any) {
+      setError(err?.message || "Không thể tạo danh mục.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    setDeletingCategoryId(id);
+    setError("");
+    setSuccess("");
+    try {
+      await deleteCategory(id);
+      const updated = await loadCategories();
+      setCategories(updated);
+      setSuccess("Đã xóa danh mục thành công.");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err: any) {
+      setError(err?.message || "Không thể xóa danh mục.");
+    } finally {
+      setDeletingCategoryId(null);
+      setConfirmDeleteCategoryId(null);
+    }
+  };
+
+  const visibleCategories = useMemo(
+    () => categories.filter((c) => c.type === activeCategoryTab),
+    [categories, activeCategoryTab]
+  );
 
   const handleToggleServiceStatus = async (service: ServiceConfig) => {
     try {
@@ -566,7 +669,7 @@ export default function OwnerSettingsPage() {
     return BANK_OPTIONS.find(opt => opt.id === id)?.label || "Ngân hàng";
   };
 
-  const sepayWebhookUrl = `${PRODUCTION_API_URL}/webhooks/sepay`;
+  const sepayWebhookUrl = ownerId ? `${PRODUCTION_API_URL}/webhooks/sepay?user_id=${ownerId}` : `${PRODUCTION_API_URL}/webhooks/sepay`;
   const sepayChannels = paymentChannels.filter((channel) => channel.provider === "sepay");
   const autoReconcileCount = sepayChannels.filter((channel) => channel.autoReconcileEnabled || channel.auto_reconcile_enabled).length;
   const unresolvedSepayEvents = sepayEvents.filter((event) => ["pending_wallet", "unmatched", "error"].includes(event.status)).length;
@@ -589,6 +692,7 @@ export default function OwnerSettingsPage() {
     { id: "payment", label: "Thanh toán", icon: CreditCard, desc: "Cài đặt chu kỳ thanh toán & Ngân hàng tĩnh" },
     { id: "sepay-logs", label: "Kết nối SePay", icon: Layers, desc: "Tích hợp API, Kênh thanh toán & Webhook logs" },
     { id: "pricing", label: "Bảng giá", icon: Zap, desc: "Đơn giá các dịch vụ điện, nước, tiện ích" },
+    { id: "categories", label: "Danh mục thu chi", icon: Tag, desc: "Quản lý các khoản mục thu và chi phí phát sinh" },
     { id: "extension", label: "Mở rộng", icon: Wallet, desc: "Quản lý dòng tiền, Ví lưu trữ và đối soát" },
   ];
 
@@ -974,56 +1078,6 @@ export default function OwnerSettingsPage() {
                   <SepayMetric icon={<Info size={16} />} label="Cần xử lý" value={`${unresolvedSepayEvents}`} tone={unresolvedSepayEvents ? "amber" : "emerald"} />
                 </div>
 
-                <section className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
-                  <Card className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <Webhook size={16} className="text-blue-600" />
-                      <span className="text-xs font-black uppercase tracking-wider text-slate-700">Webhook website đang dùng</span>
-                    </div>
-                    <div className="mt-4 flex gap-2">
-                      <input
-                        type="text"
-                        readOnly
-                        className="min-w-0 flex-1 rounded-[8px] border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-xs font-semibold text-slate-600 outline-none"
-                        value={sepayWebhookUrl}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          try {
-                            navigator.clipboard.writeText(sepayWebhookUrl);
-                            setCopiedWebhook(true);
-                            setTimeout(() => setCopiedWebhook(false), 2000);
-                          } catch {}
-                        }}
-                        className={`inline-flex shrink-0 items-center gap-2 rounded-[8px] px-3 py-2.5 text-xs font-bold text-white transition-colors ${copiedWebhook ? "bg-emerald-600" : "bg-slate-900 hover:bg-slate-800"}`}
-                      >
-                        {copiedWebhook ? <Check size={14} /> : <Copy size={14} />}
-                        {copiedWebhook ? "Đã chép" : "Copy"}
-                      </button>
-                    </div>
-                    <p className="mt-3 text-xs font-medium leading-5 text-slate-500">Dán URL này vào SePay.vn. Backend sẽ đọc mã chuyển khoản dạng <span className="font-mono font-bold text-slate-700">{getValue("sepay_payment_prefix", "TCINV")}...</span> để khớp hóa đơn.</p>
-                  </Card>
-
-                  <Card className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <ServerCog size={16} className="text-slate-700" />
-                      <span className="text-xs font-black uppercase tracking-wider text-slate-700">API website hiện có</span>
-                    </div>
-                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                      {websiteApiRows.map((item) => (
-                        <div key={`${item.method}-${item.path}`} className="rounded-[8px] border border-slate-200 bg-slate-50 p-3">
-                          <div className="flex items-center gap-2">
-                            <span className={`rounded px-1.5 py-0.5 text-[10px] font-black ${item.method === "GET" ? "bg-blue-50 text-blue-700" : item.method === "POST" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{item.method}</span>
-                            <span className="truncate font-mono text-[11px] font-bold text-slate-900">{item.path}</span>
-                          </div>
-                          <p className="mt-1 text-[11px] font-medium text-slate-500">{item.desc}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                </section>
-
                 {/* 1. Kênh thanh toán & đối soát SePay */}
                 <section className="space-y-4 bg-slate-50/40 rounded-3xl border border-slate-200/50 p-5">
                   <div className="flex items-center gap-2">
@@ -1167,7 +1221,7 @@ export default function OwnerSettingsPage() {
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-slate-200/70">
-                      <div>
+                      <div className="sm:col-span-2">
                         <Label className="font-bold text-slate-700 text-xs">SePay API Key (Token API)</Label>
                         <div className="relative mt-1.5">
                           <input
@@ -1183,25 +1237,6 @@ export default function OwnerSettingsPage() {
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
                           >
                             {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-                          </button>
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="font-bold text-slate-700 text-xs">SePay Webhook Secret (Mã xác thực chữ ký)</Label>
-                        <div className="relative mt-1.5">
-                          <input
-                            type={showWebhookSecret ? "text" : "password"}
-                            placeholder="Nhập mã xác thực Webhook SePay..."
-                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all bg-white font-mono text-slate-800 pr-10"
-                            value={getValue("sepay_webhook_secret", "")}
-                            onChange={(e) => handleChange("sepay_webhook_secret", e.target.value, "string", "payment")}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowWebhookSecret(!showWebhookSecret)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
-                          >
-                            {showWebhookSecret ? <EyeOff size={16} /> : <Eye size={16} />}
                           </button>
                         </div>
                       </div>
@@ -1722,6 +1757,222 @@ export default function OwnerSettingsPage() {
                     </form>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {activeTab === "categories" && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center border border-indigo-100">
+                      <Tag size={20} className="text-indigo-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight">Danh mục thu chi</h3>
+                      <p className="text-xs text-slate-500 font-medium">Quản lý danh mục cho các khoản thu nhập và chi phí vận hành.</p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="primary" 
+                    icon={<Plus size={15} />} 
+                    onClick={() => { 
+                      setCategoryForm((f) => ({ ...f, walletId: wallets[0]?.id ?? "" })); 
+                      setCategoryFormOpen((v) => !v); 
+                    }}
+                    className="rounded-xl font-bold text-xs"
+                  >
+                    Thêm danh mục
+                  </Button>
+                </div>
+
+                {/* Tab selector for Income/Expense */}
+                <div className="flex gap-2 p-1 bg-slate-100/80 rounded-2xl border border-slate-200/40">
+                  {(["income", "expense"] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setActiveCategoryTab(t)}
+                      className={`flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-200 ${
+                        activeCategoryTab === t
+                          ? t === "income"
+                            ? "bg-white text-emerald-600 shadow-sm border border-emerald-100/50"
+                            : "bg-white text-red-600 shadow-sm border border-red-100/50"
+                          : "text-slate-500 hover:text-slate-700 hover:bg-white/40"
+                      }`}
+                    >
+                      {t === "income" ? "💵 Khoản thu" : "💸 Khoản chi"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Add Category Form */}
+                <AnimatePresence>
+                  {categoryFormOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <Card className="p-5 border border-slate-200/80 bg-white rounded-3xl space-y-4 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black uppercase text-slate-700 tracking-wider">
+                            Tạo danh mục {activeCategoryTab === "income" ? "thu" : "chi"} mới
+                          </span>
+                          <button 
+                            type="button"
+                            onClick={resetCategoryForm} 
+                            className="text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-3 items-end">
+                          <div className="sm:col-span-2">
+                            <Label className="font-bold text-slate-700 text-xs mb-1.5 block">Tên danh mục *</Label>
+                            <input 
+                              type="text"
+                              value={categoryForm.name} 
+                              onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })} 
+                              placeholder="VD: Tiền điện, Tiền nước, Tiền vệ sinh..."
+                              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all bg-white font-semibold text-slate-800"
+                            />
+                          </div>
+
+                          <div>
+                            <Label className="font-bold text-slate-700 text-xs mb-1.5 block">Liên kết ví lưu trữ</Label>
+                            <select
+                              value={categoryForm.walletId} 
+                              onChange={(e) => setCategoryForm({ ...categoryForm, walletId: e.target.value })}
+                              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-slate-900"
+                            >
+                              {wallets.length === 0 && <option value="">Chưa có ví</option>}
+                              {wallets.map((w: any) => (
+                                <option key={w.id} value={w.id}>{w.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Icon Picker */}
+                        <div>
+                          <Label className="font-bold text-slate-700 text-xs mb-2 block">Chọn biểu tượng (Icon)</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {EMOJI_PALETTE.map((emoji) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                onClick={() => setCategoryForm({ ...categoryForm, icon: emoji })}
+                                className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm transition-all border ${
+                                  categoryForm.icon === emoji
+                                    ? "bg-indigo-50 border-indigo-400 scale-110 shadow-sm"
+                                    : "bg-white hover:bg-slate-50 border-slate-200"
+                                }`}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Color Picker */}
+                        <div>
+                          <Label className="font-bold text-slate-700 text-xs mb-2 block">Chọn màu chủ đạo</Label>
+                          <div className="flex flex-wrap gap-3">
+                            {COLOR_PALETTE.map((color) => (
+                              <button
+                                key={color}
+                                type="button"
+                                onClick={() => setCategoryForm({ ...categoryForm, color: color })}
+                                className="w-7 h-7 rounded-full transition-all border-2 flex items-center justify-center shadow-inner relative"
+                                style={{ 
+                                  backgroundColor: color,
+                                  borderColor: categoryForm.color === color ? "#0f172a" : "transparent"
+                                }}
+                              >
+                                {categoryForm.color === color && (
+                                  <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                          <Button variant="outline" onClick={resetCategoryForm} className="rounded-xl font-bold text-xs border-slate-200">
+                            Hủy bỏ
+                          </Button>
+                          <Button variant="primary" onClick={handleCreateCategory} disabled={saving} className="rounded-xl font-bold text-xs">
+                            {saving ? "Đang lưu..." : "Lưu danh mục"}
+                          </Button>
+                        </div>
+                      </Card>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Categories List */}
+                {visibleCategories.length === 0 ? (
+                  <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/40 p-12 text-center text-slate-500 text-xs font-semibold">
+                    Chưa có danh mục {activeCategoryTab === "income" ? "thu" : "chi"} nào được cấu hình.
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 font-semibold">
+                    {visibleCategories.map((c) => {
+                      const linkedWallet = wallets.find((w: any) => w.id === c.wallet_id);
+                      return (
+                        <div 
+                          key={c.id} 
+                          className="group rounded-3xl border border-slate-200/70 bg-white p-4.5 flex items-center justify-between shadow-sm hover:shadow-md transition-all duration-300"
+                        >
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <div 
+                              className="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shadow-inner shrink-0 border"
+                              style={{ backgroundColor: `${c.color}15`, borderColor: `${c.color}35` }}
+                            >
+                              {c.icon || "💰"}
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="font-bold text-slate-800 text-xs truncate">{c.name}</h4>
+                              <p className="text-[10px] text-slate-400 font-semibold mt-0.5 truncate">
+                                {linkedWallet ? `Ví liên kết: ${linkedWallet.name}` : "Chưa liên kết ví"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {confirmDeleteCategoryId === c.id ? (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => handleDeleteCategory(c.id)}
+                                  disabled={deletingCategoryId === c.id}
+                                  className="text-[10px] font-black text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg border border-red-200 transition-colors"
+                                >
+                                  Xác nhận
+                                </button>
+                                <button
+                                  onClick={() => setConfirmDeleteCategoryId(null)}
+                                  className="text-[10px] font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 px-2 py-1 rounded-lg border border-slate-200 transition-colors"
+                                >
+                                  Hủy
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmDeleteCategoryId(c.id)}
+                                className="text-slate-400 hover:text-red-600 p-2 rounded-xl hover:bg-slate-50 transition-all"
+                                title="Xóa danh mục"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 

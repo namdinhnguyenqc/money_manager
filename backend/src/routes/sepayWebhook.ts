@@ -99,42 +99,48 @@ sepayWebhookRoutes.post("/", async (c) => {
   const signature = c.req.header("x-sepay-signature");
   const timestamp = c.req.header("x-sepay-timestamp");
   const apiKey = extractApiKey(c.req.header("x-api-key"), c.req.header("authorization"));
-
+  const urlUserId = c.req.query("user_id") || c.req.query("userId");
+ 
   let payload: any;
   try {
     payload = JSON.parse(rawBody);
   } catch {
     return c.json({ success: false, error: "Invalid JSON payload" }, 400);
   }
-
+ 
   const paymentCode = extractPaymentCodeFromPayload(payload);
   let userWebhookSecret: string | null = null;
   let userApiKey: string | null = null;
-
-  if (paymentCode) {
+  let resolvedUserId: string | null = urlUserId || null;
+ 
+  if (!resolvedUserId && paymentCode) {
     const invoiceRes = await supabaseAdmin
       .from("invoices")
       .select("user_id")
       .eq("payment_code", paymentCode)
       .maybeSingle();
-
+ 
     if (invoiceRes.data?.user_id) {
-      const settingsRes = await supabaseAdmin
-        .from("system_settings")
-        .select("*")
-        .eq("user_id", invoiceRes.data.user_id)
-        .in("key", ["sepay_webhook_secret", "sepay_api_key"]);
-
-      if (settingsRes.data) {
-        const secretSetting = settingsRes.data.find((s) => s.key === "sepay_webhook_secret");
-        const apiKeySetting = settingsRes.data.find((s) => s.key === "sepay_api_key");
-
-        if (secretSetting?.value !== undefined && secretSetting?.value !== null) {
-          userWebhookSecret = String(secretSetting.value);
-        }
-        if (apiKeySetting?.value !== undefined && apiKeySetting?.value !== null) {
-          userApiKey = String(apiKeySetting.value);
-        }
+      resolvedUserId = invoiceRes.data.user_id;
+    }
+  }
+ 
+  if (resolvedUserId) {
+    const settingsRes = await supabaseAdmin
+      .from("system_settings")
+      .select("*")
+      .eq("user_id", resolvedUserId)
+      .in("key", ["sepay_webhook_secret", "sepay_api_key"]);
+ 
+    if (settingsRes.data) {
+      const secretSetting = settingsRes.data.find((s) => s.key === "sepay_webhook_secret");
+      const apiKeySetting = settingsRes.data.find((s) => s.key === "sepay_api_key");
+ 
+      if (secretSetting?.value !== undefined && secretSetting?.value !== null) {
+        userWebhookSecret = String(secretSetting.value);
+      }
+      if (apiKeySetting?.value !== undefined && apiKeySetting?.value !== null) {
+        userApiKey = String(apiKeySetting.value);
       }
     }
   }
