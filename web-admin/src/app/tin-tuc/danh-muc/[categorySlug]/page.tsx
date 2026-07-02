@@ -5,6 +5,7 @@ import {
   getCategoryBySlug, getCategories, getArticles, SITE_URL,
 } from "@/lib/news";
 import NewsNavbar from "@/components/news/NewsNavbar";
+import CategorySidebar from "@/components/news/CategorySidebar";
 import ArticleCard from "@/components/news/ArticleCard";
 import JsonLd from "@/components/news/JsonLd";
 
@@ -62,6 +63,10 @@ export default async function CategoryPage({
       <NewsNavbar categories={categories} />
 
       <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="grid lg:grid-cols-[220px_1fr] gap-8">
+        <CategorySidebar categories={categories} activeSlug={cat.slug} />
+
+        <div className="min-w-0">
         <nav className="text-xs text-slate-400 mb-4">
           <Link href="/tin-tuc" className="hover:text-slate-600">Tin tức</Link> / <span className="text-slate-500">{cat.name}</span>
         </nav>
@@ -91,6 +96,8 @@ export default async function CategoryPage({
             )}
           </div>
         )}
+        </div>
+      </div>
       </div>
     </main>
   );

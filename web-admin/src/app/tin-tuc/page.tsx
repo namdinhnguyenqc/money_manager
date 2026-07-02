@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Eye, ChevronRight } from "lucide-react";
+import { Eye } from "lucide-react";
 import {
   getArticles, getFeatured, getPopular, getCategories,
   Article, badgeFor, coverOf, formatDate, SITE_URL,
 } from "@/lib/news";
 import NewsNavbar from "@/components/news/NewsNavbar";
+import CategorySidebar from "@/components/news/CategorySidebar";
 import ArticleCard from "@/components/news/ArticleCard";
 import JsonLd from "@/components/news/JsonLd";
 
@@ -61,6 +62,10 @@ export default async function NewsHomePage({
       <NewsNavbar categories={categories} />
 
       <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="grid lg:grid-cols-[220px_1fr] gap-8">
+        <CategorySidebar categories={categories} />
+
+        <div className="min-w-0">
         {/* Page heading */}
         <div className="mb-6">
           <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
@@ -156,27 +161,11 @@ export default async function NewsHomePage({
                 ))}
                 {popular.length === 0 && <li className="text-sm text-slate-400">Chưa có dữ liệu.</li>}
               </ol>
-
-              {/* Category links */}
-              {categories.length > 0 && (
-                <div className="mt-6 pt-6 border-t border-slate-100">
-                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide mb-3">Danh mục</h3>
-                  <ul className="space-y-1">
-                    {categories.map((c) => (
-                      <li key={c.id}>
-                        <Link href={`/tin-tuc/danh-muc/${c.slug}`}
-                          className="flex items-center justify-between text-sm text-slate-600 hover:text-[#2563EB] py-1.5 group">
-                          {c.name}
-                          <ChevronRight size={14} className="text-slate-300 group-hover:text-[#2563EB]" />
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
           </aside>
         </div>
+        </div>
+      </div>
       </div>
     </main>
   );
