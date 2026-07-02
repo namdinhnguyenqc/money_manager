@@ -187,16 +187,6 @@ export default function InvoicesPage() {
     () => invoices.filter((invoice) => isInvoiceBeforePeriod(invoice, period) && isInvoiceUnpaid(invoice)).length,
     [invoices, period],
   );
-  // Bulk invoice generation only targets tenants with a phone on file —
-  // a room with no reachable tenant can't be notified about the invoice.
-  const billableRooms = useMemo(
-    () => pendingRooms.filter((r) => r.tenant_phone && r.tenant_phone.trim()),
-    [pendingRooms],
-  );
-  const roomsMissingPhone = useMemo(
-    () => pendingRooms.filter((r) => !r.tenant_phone || !r.tenant_phone.trim()),
-    [pendingRooms],
-  );
   const filteredInvoices = useMemo(() => invoices.filter((invoice) => matchesStatus(invoice, filter, period)), [invoices, filter, period]);
   const filteredRows = filter === "Chưa lập HĐ" ? pendingRooms : filteredInvoices;
   const visibleInvoices = useMemo(() => filteredInvoices.slice((page - 1) * pageSize, page * pageSize), [filteredInvoices, page]);
@@ -237,10 +227,10 @@ export default function InvoicesPage() {
               variant="primary"
               icon={<RefreshCw size={15} className={generating ? "animate-spin" : ""} />}
               onClick={handleAutoGenerate}
-              disabled={generating || billableRooms.length === 0}
+              disabled={generating || pendingRooms.length === 0}
               loading={generating}
             >
-              {generating ? "Đang tạo..." : `Lập hóa đơn (${billableRooms.length} phòng)`}
+              {generating ? "Đang tạo..." : `Lập hóa đơn (${pendingRooms.length} phòng)`}
             </Button>
           </div>
         }
@@ -268,22 +258,6 @@ export default function InvoicesPage() {
           </button>
         ))}
       </div>
-
-      {roomsMissingPhone.length > 0 && (
-        <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-sm">
-          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-amber-600">
-            <AlertTriangle size={17} />
-          </span>
-          <span className="flex-1">
-            <span className="block font-bold">
-              {roomsMissingPhone.length} phòng chưa có SĐT khách thuê, sẽ bị bỏ qua khi lập hóa đơn hàng loạt
-            </span>
-            <span className="mt-0.5 block text-amber-700">
-              {roomsMissingPhone.map((r) => r.name).join(", ")} — vào Hợp đồng để bổ sung SĐT rồi lập lại.
-            </span>
-          </span>
-        </div>
-      )}
 
       {overdueCarryCount > 0 && (
         <button
@@ -474,7 +448,7 @@ export default function InvoicesPage() {
             facilityId: selectedHouse === "all" ? undefined : selectedHouse,
           }).then(load);
         }}
-        pendingRooms={billableRooms}
+        pendingRooms={pendingRooms}
         period={period}
       />
 
