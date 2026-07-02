@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Save, AlertCircle, Zap, Droplets } from "lucide-react";
+import { X, Save, AlertCircle, Zap, Droplets, Camera } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { formatMoney, RentalRoom, ContractView, AppliedServiceSnapshot, bulkCreateInvoices } from "@/lib/rentalOps";
 import { apiGet } from "@/utils/apiClient";
+import MeterOcrImportModal from "@/components/ops/MeterOcrImportModal";
 
 interface BulkInvoiceModalProps {
   isOpen: boolean;
@@ -29,6 +30,19 @@ interface RoomBillingState {
 export default function BulkInvoiceModal({ isOpen, onClose, onSuccess, pendingRooms, period }: BulkInvoiceModalProps) {
   const [billingStates, setBillingStates] = useState<Record<string, RoomBillingState>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [isOcrModalOpen, setIsOcrModalOpen] = useState(false);
+
+  const handleApplyOcrReadings = (readings: { roomId: string; type: "elec" | "water"; value: string }[]) => {
+    setBillingStates((prev) => {
+      const next = { ...prev };
+      for (const r of readings) {
+        if (!next[r.roomId]) continue;
+        const field = r.type === "elec" ? "elecNew" : "waterNew";
+        next[r.roomId] = { ...next[r.roomId], [field]: r.value };
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (isOpen && pendingRooms.length > 0) {
@@ -232,9 +246,19 @@ export default function BulkInvoiceModal({ isOpen, onClose, onSuccess, pendingRo
               Tháng {period.month}/{period.year} • {pendingRooms.length} phòng đang chờ
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-            <X size={20} className="text-slate-500" />
-          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Camera size={14} />}
+              onClick={() => setIsOcrModalOpen(true)}
+            >
+              Nhập từ ảnh đồng hồ
+            </Button>
+            <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+              <X size={20} className="text-slate-500" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -348,6 +372,13 @@ export default function BulkInvoiceModal({ isOpen, onClose, onSuccess, pendingRo
           </Button>
         </div>
       </div>
+
+      <MeterOcrImportModal
+        isOpen={isOcrModalOpen}
+        onClose={() => setIsOcrModalOpen(false)}
+        rooms={pendingRooms}
+        onApply={handleApplyOcrReadings}
+      />
     </div>
   );
 }
