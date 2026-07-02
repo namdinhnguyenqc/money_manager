@@ -62,8 +62,8 @@ export default async function CategoryPage({
       />
       <NewsNavbar categories={categories} />
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="grid lg:grid-cols-[220px_1fr] gap-8">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-8">
+      <div className="grid lg:grid-cols-[240px_1fr] gap-8">
         <CategorySidebar categories={categories} activeSlug={cat.slug} />
 
         <div className="min-w-0">
@@ -78,7 +78,7 @@ export default async function CategoryPage({
             Chưa có bài viết trong danh mục này.
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+          <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-6 mt-8">
             {list.data.map((a) => <ArticleCard key={a.id} article={a} />)}
           </div>
         )}

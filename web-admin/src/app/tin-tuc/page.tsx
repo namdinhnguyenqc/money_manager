@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Eye } from "lucide-react";
 import {
-  getArticles, getFeatured, getPopular, getCategories,
-  Article, badgeFor, coverOf, formatDate, SITE_URL,
+  getArticles, getPopular, getCategories,
+  badgeFor, coverOf, formatDate, SITE_URL,
 } from "@/lib/news";
 import NewsNavbar from "@/components/news/NewsNavbar";
 import CategorySidebar from "@/components/news/CategorySidebar";
@@ -33,19 +33,18 @@ export default async function NewsHomePage({
   const sp = await searchParams;
   const page = Math.max(parseInt(sp.page || "1", 10) || 1, 1);
   const search = sp.q || "";
+  const isFirstPage = page === 1 && !search;
 
-  const [featured, popular, categories, list] = await Promise.all([
-    page === 1 && !search ? getFeatured(1) : Promise.resolve([]),
-    getPopular(5),
+  const [popular, categories, list] = await Promise.all([
+    getPopular(6),
     getCategories(),
-    getArticles({ page, limit: 9, search }),
+    getArticles({ page, limit: 12, search }),
   ]);
 
-  const hero = featured[0];
-  // Avoid duplicating hero in the grid
-  const gridArticles = hero
-    ? list.data.filter((a) => a.id !== hero.id)
-    : list.data;
+  // Bài xem nhiều nhất tự động lên đầu trang thay vì phải gắn "nổi bật" thủ công.
+  const hero = isFirstPage ? popular[0] : undefined;
+  const gridArticles = hero ? list.data.filter((a) => a.id !== hero.id) : list.data;
+  const sidebarPopular = hero ? popular.filter((a) => a.id !== hero.id) : popular;
   const { totalPages } = list.pagination;
 
   return (
@@ -61,56 +60,57 @@ export default async function NewsHomePage({
       />
       <NewsNavbar categories={categories} />
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="grid lg:grid-cols-[220px_1fr] gap-8">
-        <CategorySidebar categories={categories} />
+      <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-8">
+        <div className="grid lg:grid-cols-[240px_1fr_300px] gap-8">
+          <CategorySidebar categories={categories} />
 
-        <div className="min-w-0">
-        {/* Page heading */}
-        <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-            {search ? `Kết quả tìm kiếm: "${search}"` : "Tin tức & Kinh nghiệm nhà trọ"}
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Cẩm nang vận hành, pháp lý, PCCC và nghiệp vụ cho thuê phòng trọ.
-          </p>
-        </div>
-
-        {/* Hero featured */}
-        {hero && (
-          <Link
-            href={`/tin-tuc/${hero.slug}`}
-            className="group grid md:grid-cols-2 gap-6 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all mb-10"
-          >
-            <div className="relative h-56 md:h-full min-h-[240px] bg-slate-100 overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={coverOf(hero)} alt={hero.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          <div className="min-w-0">
+            {/* Page heading */}
+            <div className="mb-6">
+              <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+                {search ? `Kết quả tìm kiếm: "${search}"` : "Tin tức & Kinh nghiệm nhà trọ"}
+              </h1>
+              <p className="text-sm text-slate-500 mt-1">
+                Cẩm nang vận hành, pháp lý, PCCC và nghiệp vụ cho thuê phòng trọ.
+              </p>
             </div>
-            <div className="p-6 md:p-8 flex flex-col justify-center">
-              <span className={`inline-block w-fit text-xs font-semibold px-2.5 py-0.5 rounded-full mb-3 ${badgeFor(hero.category)}`}>
-                {hero.category}
-              </span>
-              <h2 className="text-xl md:text-2xl font-black text-slate-900 leading-snug group-hover:text-[#2563EB] transition-colors mb-3">
-                {hero.title}
-              </h2>
-              <p className="text-sm text-slate-500 line-clamp-3 mb-4">{hero.excerpt || hero.description}</p>
-              <div className="flex items-center gap-4 text-xs text-slate-400">
-                <span>{formatDate(hero.published_at || hero.created_at)}</span>
-                <span className="flex items-center gap-1"><Eye size={12} /> {hero.views || 0}</span>
-              </div>
-            </div>
-          </Link>
-        )}
 
-        {/* Grid + sidebar */}
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
+            {/* Hero: bài xem nhiều nhất */}
+            {hero && (
+              <Link
+                href={`/tin-tuc/${hero.slug}`}
+                className="group grid md:grid-cols-2 gap-6 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all mb-8"
+              >
+                <div className="relative h-56 md:h-full min-h-[260px] bg-slate-100 overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={coverOf(hero)} alt={hero.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <span className="absolute top-3 left-3 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-400 text-amber-950">
+                    🔥 Xem nhiều nhất
+                  </span>
+                </div>
+                <div className="p-6 md:p-8 flex flex-col justify-center">
+                  <span className={`inline-block w-fit text-xs font-semibold px-2.5 py-0.5 rounded-full mb-3 ${badgeFor(hero.category)}`}>
+                    {hero.category}
+                  </span>
+                  <h2 className="text-xl md:text-2xl font-black text-slate-900 leading-snug group-hover:text-[#2563EB] transition-colors mb-3">
+                    {hero.title}
+                  </h2>
+                  <p className="text-sm text-slate-500 line-clamp-3 mb-4">{hero.excerpt || hero.description}</p>
+                  <div className="flex items-center gap-4 text-xs text-slate-400">
+                    <span>{formatDate(hero.published_at || hero.created_at)}</span>
+                    <span className="flex items-center gap-1"><Eye size={12} /> {hero.views || 0}</span>
+                  </div>
+                </div>
+              </Link>
+            )}
+
+            {/* Grid */}
             {gridArticles.length === 0 ? (
               <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-400">
                 Chưa có bài viết nào.
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 gap-6">
+              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-6">
                 {gridArticles.map((a) => <ArticleCard key={a.id} article={a} />)}
               </div>
             )}
@@ -136,13 +136,13 @@ export default async function NewsHomePage({
           </div>
 
           {/* Sidebar: most viewed */}
-          <aside className="lg:col-span-1">
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 sticky top-32">
+          <aside className="hidden lg:block">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 sticky top-24">
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide mb-4 flex items-center gap-2">
                 <Eye size={16} className="text-[#2563EB]" /> Xem nhiều nhất
               </h3>
               <ol className="space-y-4">
-                {popular.map((a, i) => (
+                {sidebarPopular.map((a, i) => (
                   <li key={a.id}>
                     <Link href={`/tin-tuc/${a.slug}`} className="group flex gap-3 items-start">
                       <span className="text-2xl font-black text-slate-200 group-hover:text-[#2563EB] transition-colors leading-none w-6 shrink-0">
@@ -159,13 +159,11 @@ export default async function NewsHomePage({
                     </Link>
                   </li>
                 ))}
-                {popular.length === 0 && <li className="text-sm text-slate-400">Chưa có dữ liệu.</li>}
+                {sidebarPopular.length === 0 && <li className="text-sm text-slate-400">Chưa có dữ liệu.</li>}
               </ol>
             </div>
           </aside>
         </div>
-        </div>
-      </div>
       </div>
     </main>
   );
