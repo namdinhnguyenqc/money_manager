@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv } from "../types.js";
 import { supabaseAdmin } from "../lib/supabase.js";
+import { triggerRevalidate } from "../lib/revalidate.js";
 
 const adminArticlesRoutes = new Hono<AppEnv>();
 // Note: requireAuth + requireAdmin are applied at mount point in index.ts
@@ -89,6 +90,13 @@ const buildRow = (body: z.infer<typeof articleSchema>, userId: string) => {
   };
 };
 
+const categorySlugOf = async (categoryId?: string | null): Promise<string | undefined> => {
+  if (!categoryId) return undefined;
+  const { data } = await supabaseAdmin
+    .from("article_categories").select("slug").eq("id", categoryId).maybeSingle();
+  return data?.slug;
+};
+
 // Replace tag map for an article
 const syncTags = async (articleId: string, tagIds: string[]) => {
   await supabaseAdmin.from("article_tag_map").delete().eq("article_id", articleId);
@@ -170,6 +178,7 @@ adminArticlesRoutes.post("/", async (c) => {
   if (error) return jsonDbError(c, error, "Không thể tạo bài viết");
 
   await syncTags(data.id, body.tag_ids);
+  await triggerRevalidate({ slug: data.slug, categorySlug: await categorySlugOf(body.category_id) });
 
   return c.json({ success: true, data });
 });
@@ -215,6 +224,7 @@ adminArticlesRoutes.put("/:id", async (c) => {
   if (error) return jsonDbError(c, error, "Không thể cập nhật bài viết");
 
   await syncTags(id, body.tag_ids);
+  await triggerRevalidate({ slug: data.slug, categorySlug: await categorySlugOf(body.category_id) });
 
   return c.json({ success: true, data });
 });
@@ -222,8 +232,15 @@ adminArticlesRoutes.put("/:id", async (c) => {
 // ── DELETE /:id ──────────────────────────────────────────────────────────────
 adminArticlesRoutes.delete("/:id", async (c) => {
   const id = c.req.param("id");
+  const { data: existing } = await supabaseAdmin
+    .from("articles").select("slug, category_id").eq("id", id).maybeSingle();
+
   const { error } = await supabaseAdmin.from("articles").delete().eq("id", id);
   if (error) return jsonDbError(c, error, "Không thể xóa bài viết");
+
+  if (existing) {
+    await triggerRevalidate({ slug: existing.slug, categorySlug: await categorySlugOf(existing.category_id) });
+  }
   return c.json({ success: true });
 });
 

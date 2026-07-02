@@ -55,6 +55,10 @@ export const env = {
   ZALO_APP_SECRET: optional("ZALO_APP_SECRET", ""),
   ZALO_REDIRECT_URI: optional("ZALO_REDIRECT_URI", ""),
   WEB_ADMIN_URL: optional("WEB_ADMIN_URL", "http://localhost:3001"),
+  // Public site (web-admin) that serves /tin-tuc — used to trigger on-demand
+  // ISR revalidation right after an article is created/updated/deleted.
+  SITE_URL: optional("SITE_URL", "https://trocare-production.vercel.app"),
+  REVALIDATE_SECRET: optional("REVALIDATE_SECRET", ""),
   VAPID_PUBLIC_KEY: optional("VAPID_PUBLIC_KEY", ""),
   VAPID_PRIVATE_KEY: optional("VAPID_PRIVATE_KEY", ""),
   VAPID_SUBJECT: optional("VAPID_SUBJECT", "mailto:admin@trocare.vn"),
