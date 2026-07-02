@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm --prefix admin-portal install",
+  "installCommand": "npm install",
   "buildCommand": "npm --prefix admin-portal run build",
   "outputDirectory": "admin-portal/.next",
   "framework": "nextjs"
