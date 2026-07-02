@@ -9,7 +9,7 @@ import CategorySidebar from "@/components/news/CategorySidebar";
 import ArticleCard from "@/components/news/ArticleCard";
 import JsonLd from "@/components/news/JsonLd";
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,

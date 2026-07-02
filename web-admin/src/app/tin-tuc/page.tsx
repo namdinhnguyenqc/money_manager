@@ -10,7 +10,7 @@ import CategorySidebar from "@/components/news/CategorySidebar";
 import ArticleCard from "@/components/news/ArticleCard";
 import JsonLd from "@/components/news/JsonLd";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Tin tức & Kinh nghiệm quản lý nhà trọ | TrọCare",
