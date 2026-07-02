@@ -7,6 +7,7 @@ import { ArrowLeft, Check, Copy, Share2, Wallet, Trash2, History } from "lucide-
 import { Invoice, Transaction, BankConfig, buildInvoiceQrUrl, formatMoney, getInvoiceRemainingAmount, loadBankConfig, loadInvoice, normalizeInvoiceStatus, loadTransactions, loadSettingsMap } from "@/lib/rentalOps";
 import { apiDelete } from "@/utils/apiClient";
 import { useToast } from "@/components/ui/Toast";
+import ZaloNotificationSection from "@/components/ZaloNotificationSection";
 
 const BANK_LABELS: Record<string, string> = {
   "970416": "ACB", "ACB": "ACB", "970436": "Vietcombank", "970418": "BIDV",
@@ -27,6 +28,15 @@ export default function InvoiceDetailPage() {
   const [copied, setCopied] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const loadInvoiceOnly = async () => {
+    try {
+      const inv = await loadInvoice(String(id));
+      setInvoice(inv);
+    } catch (err: any) {
+      showToast(err?.message || "Không tải lại được hóa đơn.", "error");
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -230,6 +240,8 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
       </div>
+
+      {status !== "draft" && <ZaloNotificationSection invoice={invoice} onStatusChange={loadInvoiceOnly} />}
 
       {/* Transaction history */}
       {transactions.length > 0 && (
