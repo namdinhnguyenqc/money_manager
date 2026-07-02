@@ -115,7 +115,7 @@ export default async function ArticleDetailPage({
       <JsonLd data={faqSchema ? [articleSchema, breadcrumbSchema, faqSchema] : [articleSchema, breadcrumbSchema]} />
       <NewsNavbar categories={categories} />
 
-      <div className="max-w-5xl mx-auto px-4 py-6">
+      <div className="max-w-6xl mx-auto px-4 py-6">
         <div className="grid lg:grid-cols-[220px_1fr] gap-8">
           <CategorySidebar categories={categories} activeSlug={article.cat?.slug} />
 
@@ -175,7 +175,9 @@ export default async function ArticleDetailPage({
             <div className="flex items-center gap-4 text-xs text-slate-400">
               <span className="flex items-center gap-1"><Calendar size={12} /> {formatDate(article.published_at || article.created_at)}</span>
               {article.reading_time ? <span className="flex items-center gap-1"><Clock size={12} /> {article.reading_time} phút đọc</span> : null}
-              <span className="flex items-center gap-1"><Eye size={12} /> {article.views || 0}</span>
+              {article.views && article.views > 0 ? (
+                <span className="flex items-center gap-1"><Eye size={12} /> {article.views} lượt xem</span>
+              ) : null}
             </div>
           </div>
         </header>

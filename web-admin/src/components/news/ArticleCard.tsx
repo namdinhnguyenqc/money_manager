@@ -23,9 +23,11 @@ export default function ArticleCard({ article }: { article: Article }) {
           <span className={`inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full ${badgeFor(article.category)}`}>
             {article.category}
           </span>
-          <span className="text-[11px] text-slate-400 flex items-center gap-1">
-            <Eye size={12} /> {article.views || 0}
-          </span>
+          {article.views && article.views > 0 ? (
+            <span className="text-[11px] text-slate-400 flex items-center gap-1">
+              <Eye size={12} /> {article.views}
+            </span>
+          ) : null}
         </div>
         <h3 className="text-base font-bold text-[#0f172a] mb-2 line-clamp-2 group-hover:text-[#2563EB] transition-colors">
           {article.title}

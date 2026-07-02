@@ -1,0 +1,14 @@
+﻿{
+  "name": "trocare-admin-phase-prototype",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "admin:api": "node apps/admin-api/server.mjs",
+    "admin:test-api": "node apps/admin-api/test-api.mjs",
+    "admin:test-ui": "playwright test tests/admin-phase-1.spec.ts tests/admin-audit-phase-2.spec.ts --config=playwright.admin.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.48.2"
+  }
+}

@@ -98,7 +98,9 @@ export default async function NewsHomePage({
                   <p className="text-sm text-slate-500 line-clamp-3 mb-4">{hero.excerpt || hero.description}</p>
                   <div className="flex items-center gap-4 text-xs text-slate-400">
                     <span>{formatDate(hero.published_at || hero.created_at)}</span>
-                    <span className="flex items-center gap-1"><Eye size={12} /> {hero.views || 0}</span>
+                    {hero.views && hero.views > 0 ? (
+                      <span className="flex items-center gap-1"><Eye size={12} /> {hero.views} lượt xem</span>
+                    ) : null}
                   </div>
                 </div>
               </Link>
@@ -152,9 +154,11 @@ export default async function NewsHomePage({
                         <h4 className="text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-[#2563EB] transition-colors leading-snug">
                           {a.title}
                         </h4>
-                        <span className="text-[11px] text-slate-400 flex items-center gap-1 mt-1">
-                          <Eye size={10} /> {a.views || 0}
-                        </span>
+                        {a.views && a.views > 0 ? (
+                          <span className="text-[11px] text-slate-400 flex items-center gap-1 mt-1">
+                            <Eye size={10} /> {a.views} lượt xem
+                          </span>
+                        ) : null}
                       </div>
                     </Link>
                   </li>
