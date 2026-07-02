@@ -8,6 +8,7 @@ import { parseJson, toId } from "../utils/validation.js";
 import { env } from "../config/env.js";
 import { applyInvoicePayment } from "../services/invoicePayments.js";
 import { getTenantUserIdByContractId, notifyInvoiceCreated } from "../services/notificationService.js";
+import { readMeterNumber } from "../services/meterOcr.js";
 
 
 const invoicesRoutes = new Hono<AppEnv>();
@@ -948,6 +949,40 @@ invoicesRoutes.get("/previous-debt", async (c) => {
 
   const debt = Number(data.total_amount || 0) - Number(data.paid_amount || 0);
   return c.json({ data: debt > 0 ? debt : 0 });
+});
+
+// ── POST /ocr-meter-readings — free, self-hosted OCR for meter-photo batches ──
+// Accepts a batch of base64 photos, reads a digit sequence off each one.
+// Results are suggestions only (see meterOcr.ts) — the owner must confirm/
+// edit the number and which room it belongs to before it's used for billing.
+const ocrMeterSchema = z.object({
+  images: z.array(z.object({
+    id: z.string().min(1), // caller-assigned id (e.g. filename) to correlate results back
+    dataUrl: z.string().min(1), // base64 data URI
+  })).min(1).max(60),
+});
+
+invoicesRoutes.post("/ocr-meter-readings", async (c) => {
+  const parsed = await c.req.json().catch(() => ({}));
+  const body = ocrMeterSchema.safeParse(parsed);
+  if (!body.success) return c.json({ error: "Dữ liệu ảnh không hợp lệ", details: body.error.format() }, 400);
+
+  const results = await Promise.all(
+    body.data.images.map(async ({ id, dataUrl }) => {
+      const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (!match) return { id, number: null, rawText: "", confidence: 0, error: "Ảnh không đúng định dạng" };
+      try {
+        const buffer = Buffer.from(match[2], "base64");
+        const { rawText, number, confidence } = await readMeterNumber(buffer);
+        return { id, number, rawText, confidence };
+      } catch (e: any) {
+        console.error(`OCR failed for image ${id}:`, e);
+        return { id, number: null, rawText: "", confidence: 0, error: "Không đọc được ảnh" };
+      }
+    })
+  );
+
+  return c.json({ data: results });
 });
 
 invoicesRoutes.get("/latest-meter-readings", async (c) => {
