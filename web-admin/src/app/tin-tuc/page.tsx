@@ -75,20 +75,19 @@ export default async function NewsHomePage({
               </p>
             </div>
 
-            {/* Hero: bài xem nhiều nhất */}
             {hero && (
               <Link
                 href={`/tin-tuc/${hero.slug}`}
-                className="group grid md:grid-cols-12 gap-6 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all mb-8"
+                className="group flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all mb-8"
               >
-                <div className="relative h-56 md:h-full min-h-[260px] md:col-span-7 bg-slate-100 overflow-hidden">
+                <div className="relative w-full h-60 md:h-[420px] bg-slate-100 overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={coverOf(hero)} alt={hero.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   <span className="absolute top-3 left-3 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-400 text-amber-950">
                     🔥 Xem nhiều nhất
                   </span>
                 </div>
-                <div className="p-6 md:p-8 md:col-span-5 flex flex-col justify-center">
+                <div className="p-6 md:p-8 flex flex-col">
                   <span className={`inline-block w-fit text-xs font-semibold px-2.5 py-0.5 rounded-full mb-3 ${badgeFor(hero.category)}`}>
                     {hero.category}
                   </span>
