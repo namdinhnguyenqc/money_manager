@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   },
   // Favicon + apple-touch icon are provided by file conventions:
   // src/app/icon.png and src/app/apple-icon.png (official TrọCare brand mark).
+  other: {
+    "zalo-platform-site-verification": "JyNX2gN6KrPvpEjjXzDWOdlUxNgNg3WZDJKm",
+  },
 };
 
 export const viewport: Viewport = {
