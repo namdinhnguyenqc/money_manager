@@ -27,7 +27,15 @@ import Pagination from "@/components/ui/Pagination";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import { useSearchParams } from "next/navigation";
 
+import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
+
 const pageSize = 10;
+const statusFilters = [
+  { label: "Đang giữ cọc", value: "holding" },
+  { label: "Tất cả", value: "all" },
+  { label: "Đã nhận phòng", value: "completed" },
+  { label: "Đã hủy cọc", value: "cancelled" },
+];
 
 export default function DepositsPage() {
   const queryClient = useQueryClient();
@@ -35,6 +43,7 @@ export default function DepositsPage() {
   const urlRoomId = searchParams.get("room_id") || "";
   const [formOpen, setFormOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"holding" | "all" | "completed" | "cancelled">("holding");
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -50,17 +59,25 @@ export default function DepositsPage() {
   });
 
   const deposits = depositsQuery.data ?? [];
-  const filtered = useMemo(() => search.trim()
-    ? deposits.filter(
+  const filtered = useMemo(() => {
+    let result = deposits;
+    if (statusFilter !== "all") {
+      result = result.filter((d) => d.status === statusFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
         (d) =>
-          d.tenant_name?.toLowerCase().includes(search.toLowerCase()) ||
-          d.room_name?.toLowerCase().includes(search.toLowerCase()) ||
-          d.tenant_phone?.includes(search)
-      )
-    : deposits, [deposits, search]);
+          d.tenant_name?.toLowerCase().includes(q) ||
+          d.room_name?.toLowerCase().includes(q) ||
+          d.tenant_phone?.includes(q)
+      );
+    }
+    return result;
+  }, [deposits, statusFilter, search]);
   const visibleDeposits = useMemo(() => filtered.slice((page - 1) * pageSize, page * pageSize), [filtered, page]);
 
-  useEffect(() => setPage(1), [search]);
+  useEffect(() => setPage(1), [search, statusFilter]);
 
   const totalHolding = deposits
     .filter((d) => d.status === "holding")
@@ -110,6 +127,21 @@ export default function DepositsPage() {
         />
       </div>
 
+      {/* Filter pills */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        {statusFilters.map((item) => (
+          <button
+            key={item.value}
+            onClick={() => setStatusFilter(item.value as any)}
+            className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition-all ${
+              statusFilter === item.value ? filterPillActive : filterPillInactive
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
       {/* Control Bar */}
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex-1 max-w-md">
@@ -119,11 +151,6 @@ export default function DepositsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-        </div>
-        <div className="flex items-center gap-3">
-           <Button variant="outline" icon={<Filter size={15} />}>
-             Bộ lọc
-           </Button>
         </div>
       </div>
 
