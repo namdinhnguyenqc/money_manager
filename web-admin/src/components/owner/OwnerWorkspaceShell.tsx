@@ -602,7 +602,7 @@ const getPageTitle = (path: string) => {
                 className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 transition-all active:scale-95"
               >
                 <Bell size={18} />
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
                   3
                 </span>
               </button>
@@ -625,8 +625,8 @@ const getPageTitle = (path: string) => {
                         <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
                         <div className="space-y-0.5 min-w-0">
                           <p className="text-xs font-bold text-slate-800 group-hover/item:text-blue-600 transition-colors truncate">Hóa đơn 202 được thanh toán</p>
-                          <p className="text-[10px] text-slate-500 font-medium truncate">SePay đã tự động gạch nợ thành công.</p>
-                          <p className="text-[9px] text-slate-400 font-medium">10 phút trước</p>
+                          <p className="text-xs text-slate-600 font-medium truncate">SePay đã tự động gạch nợ thành công.</p>
+                          <p className="text-[11px] text-slate-500 font-medium">10 phút trước</p>
                         </div>
                       </Link>
 
@@ -638,8 +638,8 @@ const getPageTitle = (path: string) => {
                         <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5 shrink-0" />
                         <div className="space-y-0.5 min-w-0">
                           <p className="text-xs font-bold text-slate-800 group-hover/item:text-blue-600 transition-colors truncate">Hợp đồng 105 sắp hết hạn</p>
-                          <p className="text-[10px] text-slate-500 font-medium truncate">Hợp đồng thuê sẽ hết hiệu lực sau 15 ngày.</p>
-                          <p className="text-[9px] text-slate-400 font-medium">2 giờ trước</p>
+                          <p className="text-xs text-slate-600 font-medium truncate">Hợp đồng thuê sẽ hết hiệu lực sau 15 ngày.</p>
+                          <p className="text-[11px] text-slate-500 font-medium">2 giờ trước</p>
                         </div>
                       </Link>
 
@@ -651,8 +651,8 @@ const getPageTitle = (path: string) => {
                         <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0" />
                         <div className="space-y-0.5 min-w-0">
                           <p className="text-xs font-bold text-slate-800 group-hover/item:text-blue-600 transition-colors truncate">Yêu cầu sửa chữa mới</p>
-                          <p className="text-[10px] text-slate-500 font-medium truncate">Phòng 304 báo hỏng vòi nước nhà vệ sinh.</p>
-                          <p className="text-[9px] text-slate-400 font-medium">1 ngày trước</p>
+                          <p className="text-xs text-slate-600 font-medium truncate">Phòng 304 báo hỏng vòi nước nhà vệ sinh.</p>
+                          <p className="text-[11px] text-slate-500 font-medium">1 ngày trước</p>
                         </div>
                       </Link>
                     </div>
@@ -690,7 +690,7 @@ const getPageTitle = (path: string) => {
                   <div className="absolute right-0 mt-2 w-52 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl z-40 animate-in fade-in slide-in-from-top-2 duration-150">
                     <div className="px-3 py-2 border-b border-slate-100">
                       <div className="text-xs font-bold text-slate-800 truncate">{ownerName}</div>
-                      <div className="text-[10px] text-slate-400 truncate mt-0.5">{ownerEmail}</div>
+                      <div className="text-xs text-slate-500 truncate mt-0.5">{ownerEmail}</div>
                     </div>
                     <Link 
                       href="/owner/profile"
