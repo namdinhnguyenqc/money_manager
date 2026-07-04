@@ -185,19 +185,28 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
   };
 
 const getPageTitle = (path: string) => {
-    if (path === "/owner/dashboard") return "Bảng tổng quan";
-    if (path.startsWith("/owner/boarding-houses") || path.startsWith("/facilities")) return "Cơ sở cho thuê";
-    if (path.startsWith("/rooms")) return "Danh sách phòng trọ";
-    if (path.startsWith("/owner/tenants")) return "Khách thuê trọ";
-    if (path.startsWith("/contracts") || path === "/owner/rental") return "Hợp đồng thuê phòng";
-    if (path.startsWith("/invoices")) return "Hóa đơn dịch vụ";
-    if (path.startsWith("/deposits")) return "Quản lý tiền cọc";
-    if (path.startsWith("/payments")) return "Lịch sử thu tiền";
-    if (path.startsWith("/owner/transactions")) return "Sổ thu chi dòng tiền";
-    if (path.startsWith("/owner/trading")) return "Gói dịch vụ & Giao dịch";
-    if (path.startsWith("/owner/profile")) return "Hồ sơ cá nhân";
-    if (path.startsWith("/owner/settings") || path === "/settings") return "Cài đặt hệ thống";
-    if (path.startsWith("/owner/feedback")) return "Báo cáo lỗi & Góp ý";
+    if (path === "/owner/dashboard") return "Dashboard";
+    if (path.startsWith("/owner/boarding-houses") || path.startsWith("/facilities")) return "Cơ sở";
+    if (path.startsWith("/rooms")) return "Phòng";
+    if (path.startsWith("/owner/tenants")) return "Khách thuê";
+    if (path.startsWith("/contracts") || path === "/owner/rental") return "Hợp đồng";
+    if (path.startsWith("/invoices")) return "Hóa đơn";
+    if (path.startsWith("/deposits")) return "Tiền cọc";
+    if (path.startsWith("/payments")) return "Thu tiền";
+    if (path.startsWith("/owner/transactions")) return "Số thu chi";
+    if (path.startsWith("/owner/trading")) return "Kinh doanh";
+    if (path.startsWith("/owner/profile")) return "Hồ sơ chủ trọ";
+    if (path.startsWith("/owner/settings") || path === "/settings") {
+      const tab = currentSearchParams?.get("tab");
+      if (tab === "sepay-logs") return "Kết nối SePay";
+      if (tab === "notifications") return "Nhận thông báo";
+      if (tab === "pricing") return "Bảng giá dịch vụ";
+      if (tab === "categories") return "Danh mục thu chi";
+      if (tab === "extension") return "Ví & Dòng tiền";
+      return "Cài đặt hệ thống";
+    }
+    if (path.startsWith("/owner/feedback")) return "Báo cáo lỗi / Góp ý";
+    if (path.startsWith("/owner/notifications")) return "Thông báo hệ thống";
     return "Hệ thống quản lý TrọCare";
   };
 
@@ -587,24 +596,10 @@ const getPageTitle = (path: string) => {
         {/* Desktop Header */}
         <header className="hidden lg:flex items-center justify-between bg-white border-b border-slate-100 px-6 py-3.5 sticky top-0 z-20">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-black text-slate-800 tracking-tight">{getPageTitle(pathname)}</span>
+            <span className="text-base font-extrabold text-blue-600 tracking-tight">{getPageTitle(pathname)}</span>
           </div>
           <div className="flex items-center gap-4">
-            {/* Notification Bell */}
-            {pushSupported && (
-              <button 
-                onClick={subscribed ? unsubscribePush : subscribePush}
-                disabled={pushLoading}
-                title={subscribed ? "Tắt thông báo nhận tin" : "Bật thông báo nhận tin"}
-                className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all ${
-                  subscribed 
-                    ? "bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100" 
-                    : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
-                }`}
-              >
-                {subscribed ? <Bell size={18} /> : <BellOff size={18} />}
-              </button>
-            )}
+            
 
                         {/* Notification Bell Dropdown */}
             <div className="relative">

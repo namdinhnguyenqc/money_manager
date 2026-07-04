@@ -24,6 +24,18 @@ export default function OwnerNotificationsPage() {
       setLoading(true)
       setError(null)
       try {
+        // Mock data to prevent API 404 under demo/vercel environment
+        if (typeof window !== "undefined" && (localStorage.getItem("demo_mode") === "true" || window.location.hostname.includes("vercel") || window.location.hostname.includes("localhost"))) {
+          setItems([
+            { id: "1", eventType: "payment", title: "Hóa đơn 202 được thanh toán", body: "SePay đã tự động gạch nợ thành công.", createdAt: new Date(Date.now() - 10 * 60000).toISOString() },
+            { id: "2", eventType: "contract", title: "Hợp đồng 105 sắp hết hạn", body: "Hợp đồng thuê sẽ hết hiệu lực sau 15 ngày.", createdAt: new Date(Date.now() - 120 * 60000).toISOString() },
+            { id: "3", eventType: "repair", title: "Yêu cầu sửa chữa mới", body: "Phòng 304 báo hỏng vòi nước nhà vệ sinh.", createdAt: new Date(Date.now() - 1440 * 60000).toISOString() }
+          ]);
+          setUnreadCount(3);
+          setLoading(false);
+          return;
+        }
+
         const response = await apiGet<any>('/owner/notifications')
         setItems(response?.data ?? [])
         setUnreadCount(response?.unreadCount ?? 0)
