@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2, Edit2, MapPin, Plus, RefreshCw, Trash2, Lock } from "lucide-react";
 import { apiPost } from "@/utils/apiClient";
-import { BoardingHouse, loadBoardingHouses, loadOwnerRooms, deleteBoardingHouse, updateBoardingHouse } from "@/lib/rentalOps";
+import { BoardingHouse, loadBoardingHouses, loadOwnerRooms, deleteBoardingHouse, updateBoardingHouse, normalizeRoomStatus } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 type Summary = { total: number; available: number; occupied: number; maintenance: number };
@@ -37,8 +37,9 @@ export default function OwnerBoardingHousesPage() {
             rooms.reduce(
               (acc, room) => {
                 acc.total += 1;
-                if (room.status === "OCCUPIED") acc.occupied += 1;
-                else if (room.status === "MAINTENANCE") acc.maintenance += 1;
+                const s = String(normalizeRoomStatus(room));
+                if (s === "occupied" || s === "expiring_soon" || s === "expired") acc.occupied += 1;
+                else if (s === "maintenance") acc.maintenance += 1;
                 else acc.available += 1;
                 return acc;
               },
@@ -139,8 +140,6 @@ export default function OwnerBoardingHousesPage() {
     <div className="mx-auto max-w-7xl">
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-medium text-blue-700">Quản lý nhà trọ</p>
-          <h1 className="text-2xl font-semibold tracking-normal text-slate-950">Cơ sở & Phòng</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-500">
             Chọn một cơ sở để quản lý phòng, hợp đồng, hóa đơn và thu tiền trong cùng context.
           </p>

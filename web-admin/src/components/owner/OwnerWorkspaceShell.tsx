@@ -619,7 +619,7 @@ const getPageTitle = (path: string) => {
                   <div className="absolute right-0 mt-2.5 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
                       <span className="text-xs font-black text-slate-800">Thông báo hệ thống</span>
-                      <button className="text-[10px] font-bold text-blue-600 hover:underline">Đọc tất cả</button>
+                      <Link href="/owner/notifications" onClick={() => setNotificationsOpen(false)} className="text-[10px] font-bold text-blue-600 hover:underline">Đọc tất cả</Link>
                     </div>
 
                     <div className="space-y-2 max-h-64 overflow-y-auto">
