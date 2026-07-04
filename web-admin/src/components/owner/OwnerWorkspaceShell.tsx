@@ -622,33 +622,45 @@ const getPageTitle = (path: string) => {
                       <button className="text-[10px] font-bold text-blue-600 hover:underline">Đọc tất cả</button>
                     </div>
 
-                    <div className="space-y-3 max-h-64 overflow-y-auto">
-                      <div className="flex gap-2.5 items-start p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      <Link
+                        href="/invoices"
+                        onClick={() => setNotificationsOpen(false)}
+                        className="flex gap-2.5 items-start p-2 rounded-xl hover:bg-slate-50/70 transition-colors cursor-pointer group/item"
+                      >
                         <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
                         <div className="space-y-0.5 min-w-0">
-                          <p className="text-xs font-bold text-slate-800 truncate">Hóa đơn 202 được thanh toán</p>
+                          <p className="text-xs font-bold text-slate-800 group-hover/item:text-blue-600 transition-colors truncate">Hóa đơn 202 được thanh toán</p>
                           <p className="text-[10px] text-slate-500 font-medium truncate">SePay đã tự động gạch nợ thành công.</p>
                           <p className="text-[9px] text-slate-400 font-medium">10 phút trước</p>
                         </div>
-                      </div>
+                      </Link>
 
-                      <div className="flex gap-2.5 items-start p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                      <Link
+                        href="/contracts"
+                        onClick={() => setNotificationsOpen(false)}
+                        className="flex gap-2.5 items-start p-2 rounded-xl hover:bg-slate-50/70 transition-colors cursor-pointer group/item"
+                      >
                         <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5 shrink-0" />
                         <div className="space-y-0.5 min-w-0">
-                          <p className="text-xs font-bold text-slate-800 truncate">Hợp đồng 105 sắp hết hạn</p>
+                          <p className="text-xs font-bold text-slate-800 group-hover/item:text-blue-600 transition-colors truncate">Hợp đồng 105 sắp hết hạn</p>
                           <p className="text-[10px] text-slate-500 font-medium truncate">Hợp đồng thuê sẽ hết hiệu lực sau 15 ngày.</p>
                           <p className="text-[9px] text-slate-400 font-medium">2 giờ trước</p>
                         </div>
-                      </div>
+                      </Link>
 
-                      <div className="flex gap-2.5 items-start p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                      <Link
+                        href="/owner/feedback"
+                        onClick={() => setNotificationsOpen(false)}
+                        className="flex gap-2.5 items-start p-2 rounded-xl hover:bg-slate-50/70 transition-colors cursor-pointer group/item"
+                      >
                         <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0" />
                         <div className="space-y-0.5 min-w-0">
-                          <p className="text-xs font-bold text-slate-800 truncate">Yêu cầu sửa chữa mới</p>
+                          <p className="text-xs font-bold text-slate-800 group-hover/item:text-blue-600 transition-colors truncate">Yêu cầu sửa chữa mới</p>
                           <p className="text-[10px] text-slate-500 font-medium truncate">Phòng 304 báo hỏng vòi nước nhà vệ sinh.</p>
                           <p className="text-[9px] text-slate-400 font-medium">1 ngày trước</p>
                         </div>
-                      </div>
+                      </Link>
                     </div>
 
                     <div className="border-t border-slate-100 pt-2.5 mt-3 text-center">
