@@ -13,7 +13,6 @@ import {
   LogOut,
   Menu,
   MessageSquare,
-  Package,
   UserCircle,
   Receipt,
   Repeat,
@@ -80,12 +79,7 @@ const navSections: NavSection[] = [
       { href: "/owner/transactions", label: "Sổ thu chi", icon: Repeat },
     ]
   },
-  {
-    title: "Mở rộng",
-    items: [
-      { href: "/owner/trading", label: "Kinh doanh", icon: Package, badge: "PRO" },
-    ]
-  },
+
   {
     title: "Cấu hình",
     items: [
@@ -194,7 +188,7 @@ const getPageTitle = (path: string) => {
     if (path.startsWith("/deposits")) return "Tiền cọc";
     if (path.startsWith("/payments")) return "Thu tiền";
     if (path.startsWith("/owner/transactions")) return "Số thu chi";
-    if (path.startsWith("/owner/trading")) return "Kinh doanh";
+
     if (path.startsWith("/owner/profile")) return "Hồ sơ chủ trọ";
     if (path.startsWith("/owner/settings") || path === "/settings") {
       const tab = currentSearchParams?.get("tab");
