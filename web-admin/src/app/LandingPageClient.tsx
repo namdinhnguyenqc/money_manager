@@ -145,7 +145,7 @@ export default function LandingPageClient() {
       observer.disconnect();
       clearTimeout(timer);
     };
-  }, []);
+  }, [loadingPosts]);
 
   // Scroll Spy to highlight active section in Navbar
   useEffect(() => {
@@ -284,7 +284,7 @@ export default function LandingPageClient() {
       )}
 
       {/* SECTION 2 — HERO */}
-      <section className="hero">
+      <section className="hero" key="hero-sec">
         <div className="container">
           <div className="hero-grid">
             <div className="hero-left">
@@ -379,7 +379,7 @@ export default function LandingPageClient() {
       </section>
 
       {/* SECTION 3 — SOCIAL PROOF BAR */}
-      <section className="social-proof">
+      <section className="social-proof" key="social-proof-sec">
         <div className="container">
           <div className="social-proof-content">
             <p>Đang được dùng bởi 200+ chủ trọ trên cả nước</p>
@@ -393,7 +393,7 @@ export default function LandingPageClient() {
       </section>
 
       {/* SECTION 4 — FEATURES */}
-      <section className="features" id="features">
+      <section className="features" id="features" key="features-sec">
         <div className="container">
           <div className="features-header reveal">
             <span className="eyebrow">Tính năng phần mềm quản lý trọ miễn phí</span>
@@ -620,7 +620,7 @@ export default function LandingPageClient() {
       </section>
 
       {/* SECTION 5 — WORKFLOW */}
-      <section className="workflow" id="workflow">
+      <section className="workflow" id="workflow" key="workflow-sec">
         <div className="container">
           <div className="features-header reveal">
             <span className="eyebrow">Bắt đầu trong 15 phút</span>
@@ -692,7 +692,7 @@ export default function LandingPageClient() {
       </section>
 
       {/* SECTION 6 — QR PAYMENT */}
-      <section className="qr-payment" id="payment">
+      <section className="qr-payment" id="payment" key="payment-sec">
         <div className="container">
           <div className="qr-grid">
             <div className="qr-text reveal">
@@ -767,7 +767,7 @@ export default function LandingPageClient() {
       </section>
 
       {/* SECTION 7 — AI */}
-      <section className="ai-section" id="ai">
+      <section className="ai-section" id="ai" key="ai-sec">
         <div className="container">
           <div className="ai-header reveal">
             <span className="eyebrow">AI cho vận hành cho thuê</span>
@@ -813,7 +813,7 @@ export default function LandingPageClient() {
 
       {/* SECTION 7.5 — BLOG (chỉ hiện khi đã có bài viết thật được xuất bản) */}
       {!loadingPosts && dbPosts.length > 0 && (
-      <section className="faq-section" id="blog" style={{ background: '#ffffff', paddingBottom: '40px' }}>
+      <section className="faq-section" id="blog" style={{ background: '#ffffff', paddingBottom: '40px' }} key="blog-sec">
         <div className="container">
           <div className="features-header reveal">
             <span className="eyebrow">Tin tức & Chia sẻ</span>
@@ -873,7 +873,7 @@ export default function LandingPageClient() {
       )}
 
       {/* SECTION 8 — FAQ */}
-      <section className="faq-section" id="faq">
+      <section className="faq-section" id="faq" key="faq-sec">
         <div className="container">
           <div className="features-header reveal">
             <span className="eyebrow">Hỏi nhanh, đáp rõ</span>
@@ -901,7 +901,7 @@ export default function LandingPageClient() {
       </section>
 
       {/* SECTION 9 — FINAL CTA */}
-      <section className="final-cta">
+      <section className="final-cta" key="final-cta-sec">
         <div className="container reveal">
           <div className="final-cta-content">
             <h2>Bắt đầu miễn phí, chuẩn hóa vận hành từ hôm nay.</h2>
