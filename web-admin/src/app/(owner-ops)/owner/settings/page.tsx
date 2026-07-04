@@ -83,7 +83,7 @@ type SettingItem = { key: string; value: any; type: string; category: string };
 export default function OwnerSettingsPage() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get("tab") || "payment";
+  const tabParam = searchParams.get("tab") || "general";
   const [activeTab, setActiveTab] = useState(tabParam);
 
   useEffect(() => {
@@ -102,12 +102,7 @@ export default function OwnerSettingsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Zalo states
-  const [zaloStatus, setZaloStatus] = useState<any>(null);
-  const [loadingZalo, setLoadingZalo] = useState(false);
-  const [zaloError, setZaloError] = useState("");
-  const [testPhone, setTestPhone] = useState("");
-  const [sendingTest, setSendingTest] = useState(false);
+  
 
   // Extension states (Wallets & Bank)
   const [wallets, setWallets] = useState<any[]>([]);
@@ -222,79 +217,7 @@ export default function OwnerSettingsPage() {
     }
   };
 
-  const fetchZaloStatus = async () => {
-    setLoadingZalo(true);
-    setZaloError("");
-    try {
-      const res = await apiGet<any>("/api/integrations/zalo-oa/status");
-      setZaloStatus(res);
-    } catch (err: any) {
-      setZaloError(err?.message || "Không thể tải cấu hình Zalo.");
-    } finally {
-      setLoadingZalo(false);
-    }
-  };
-
-  const handleDisconnectZaloLogin = async () => {
-    if (!window.confirm("Bạn có chắc chắn muốn ngắt kết nối tài khoản Zalo Login cá nhân?")) return;
-    setLoadingZalo(true);
-    try {
-      await apiPost("/api/auth/zalo/disconnect", {});
-      setSuccess("Đã hủy liên kết đăng nhập Zalo.");
-      fetchZaloStatus();
-    } catch (err: any) {
-      setZaloError(err?.message || "Không thể ngắt kết nối Zalo Login.");
-    } finally {
-      setLoadingZalo(false);
-    }
-  };
-
-  const handleDisconnectZaloOA = async () => {
-    if (!window.confirm("Bạn có chắc chắn muốn ngắt kết nối Zalo Official Account?")) return;
-    setLoadingZalo(true);
-    try {
-      await apiPost("/api/integrations/zalo-oa/disconnect", {});
-      setSuccess("Đã ngắt kết nối Zalo Official Account.");
-      fetchZaloStatus();
-    } catch (err: any) {
-      setZaloError(err?.message || "Không thể ngắt kết nối Zalo OA.");
-    } finally {
-      setLoadingZalo(false);
-    }
-  };
-
-  const handleSendZaloTest = async () => {
-    if (!testPhone) {
-      setZaloError("Vui lòng nhập số điện thoại nhận tin nhắn thử nghiệm.");
-      return;
-    }
-    
-    setSendingTest(true);
-    setZaloError("");
-    setSuccess("");
-    
-    try {
-      const invoicesRes = await apiGet<any>("/invoices?limit=10");
-      const activeInvoice = (invoicesRes?.data || []).find((inv: any) => inv.status !== "draft");
-      
-      if (!activeInvoice) {
-        throw new Error("Không tìm thấy hóa đơn nào đã chốt (không ở trạng thái Bản thảo) để gửi thử nghiệm. Vui lòng tạo/chốt một hóa đơn trước.");
-      }
-      
-      await apiPost(`/api/invoices/${activeInvoice.id}/send-zalo`, {
-        phoneNumber: testPhone
-      });
-      
-      setSuccess(`Đã gửi tin nhắn hóa đơn thử nghiệm (Mã hóa đơn: ${activeInvoice.payment_code || activeInvoice.id}) đến số ${testPhone} thành công!`);
-      fetchZaloStatus();
-    } catch (err: any) {
-      setZaloError(err?.message || "Gửi tin nhắn thử nghiệm thất bại.");
-    } finally {
-      setSendingTest(false);
-    }
-  };
-
-  useEffect(() => {
+    useEffect(() => {
     load();
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
@@ -302,30 +225,12 @@ export default function OwnerSettingsPage() {
       if (tabParam) {
         setActiveTab(tabParam);
       }
-      
-      const loginSuccess = params.get("zalo_login_success");
-      const nameParam = params.get("name");
-      if (loginSuccess === "true" && nameParam) {
-        setSuccess(`Đăng nhập Zalo thành công! Tài khoản: ${decodeURIComponent(nameParam)}`);
-        const newUrl = window.location.pathname + (tabParam ? `?tab=${tabParam}` : "");
-        window.history.replaceState({}, "", newUrl);
-      }
-      
-      const oaSuccess = params.get("zalo_oa_success");
-      const oaNameParam = params.get("oa_name");
-      if (oaSuccess === "true" && oaNameParam) {
-        setSuccess(`Liên kết Zalo OA thành công! Trang: ${decodeURIComponent(oaNameParam)}`);
-        const newUrl = window.location.pathname + (tabParam ? `?tab=${tabParam}` : "");
-        window.history.replaceState({}, "", newUrl);
-      }
     }
   }, []);
 
   useEffect(() => {
     if (activeTab === "sepay-logs") {
       fetchSepayEvents();
-    } else if (activeTab === "zalo") {
-      fetchZaloStatus();
     }
   }, [activeTab]);
 
@@ -690,6 +595,7 @@ export default function OwnerSettingsPage() {
   };
 
   const tabs = [
+    { id: "general", label: "Thông tin chung", icon: Home, desc: "Cài đặt tên, địa chỉ và múi giờ nhà trọ" },
     { id: "payment", label: "Thanh toán", icon: CreditCard, desc: "Cài đặt chu kỳ thanh toán & Ngân hàng tĩnh" },
     { id: "sepay-logs", label: "Kết nối SePay", icon: Layers, desc: "Tích hợp API, Kênh thanh toán & Webhook logs" },
     { id: "pricing", label: "Bảng giá", icon: Zap, desc: "Đơn giá các dịch vụ điện, nước, tiện ích" },
@@ -2171,256 +2077,7 @@ export default function OwnerSettingsPage() {
               </div>
             )}
 
-            {activeTab === "zalo" && (
-              <div className="space-y-8 animate-in fade-in duration-300">
-                {/* Header */}
-                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center border border-blue-100">
-                      <Sparkles size={20} className="text-blue-600 animate-pulse" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-black text-slate-900 tracking-tight">Tích hợp Zalo Business Services</h3>
-                      <p className="text-xs text-slate-500 font-medium">Kết nối tài khoản Zalo & Zalo Official Account (OA) để gửi hóa đơn tự động bằng ZBS Template Messages.</p>
-                    </div>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    icon={<RefreshCw size={12} className={loadingZalo ? "animate-spin text-blue-500" : ""} />} 
-                    onClick={fetchZaloStatus}
-                    disabled={loadingZalo}
-                    className="border-slate-200 text-slate-700 text-xs font-semibold rounded-xl"
-                  >
-                    Làm mới Trạng thái
-                  </Button>
-                </div>
-
-                {zaloError && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700 flex items-center gap-2">
-                    <Info size={14} className="shrink-0 text-red-500" />
-                    <span>{zaloError}</span>
-                  </div>
-                )}
-
-                {loadingZalo && !zaloStatus ? (
-                  <div className="py-16 text-center text-slate-400">
-                    <RefreshCw className="animate-spin mx-auto text-slate-400 mb-2" size={28} />
-                    <span className="text-xs font-medium">Đang tải cấu hình kết nối Zalo...</span>
-                  </div>
-                ) : (
-                  <div className="space-y-8">
-                    {/* 1. Connection Status Cards */}
-                    <div className="grid gap-6 md:grid-cols-2 max-w-4xl mx-auto w-full">
-                      {/* Zalo Login (Cá nhân) Card */}
-                      <div className={`rounded-3xl border p-6 flex flex-col justify-between shadow-sm transition-all duration-300 ${
-                        zaloStatus?.connectedUser 
-                          ? "bg-gradient-to-br from-blue-50/20 to-cyan-50/20 border-blue-100" 
-                          : "bg-slate-50/30 border-slate-200/60"
-                      }`}>
-                        <div>
-                          <div className="flex justify-between items-start mb-4">
-                            <span className="text-xs font-black uppercase text-slate-400 tracking-widest font-mono">ZALO LOGIN CÁ NHÂN</span>
-                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase ${
-                              zaloStatus?.connectedUser 
-                                ? "bg-blue-50 text-blue-700 border border-blue-100" 
-                                : "bg-slate-100 text-slate-500 border border-slate-200"
-                            }`}>
-                              {zaloStatus?.connectedUser ? "Đang kết nối" : "Chưa kết nối"}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-3.5 my-3">
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${
-                              zaloStatus?.connectedUser ? "bg-blue-50 border-blue-100 text-blue-600" : "bg-slate-100 border-slate-200 text-slate-400"
-                            }`}>
-                              <ShieldCheck size={22} />
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-slate-900 text-sm">Zalo Cá nhân</h4>
-                              <p className="text-[11px] text-slate-500 font-semibold mt-0.5 leading-relaxed">
-                                Xác thực tài khoản chủ trọ cá nhân và quản lý cấu hình hệ thống.
-                              </p>
-                            </div>
-                          </div>
-
-                          {zaloStatus?.connectedUser && (
-                            <div className="mt-4 bg-white/70 border border-slate-200/50 rounded-2xl p-3.5 text-xs text-slate-600 space-y-1 font-semibold">
-                              <div>Trạng thái: <span className="font-bold text-emerald-600">Đã liên kết</span></div>
-                              <div>Zalo ID: <span className="font-bold text-slate-800 font-mono">{zaloStatus.connectedUser.zaloUserId}</span></div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="mt-6 pt-4 border-t border-slate-100">
-                          {zaloStatus?.connectedUser ? (
-                            <Button 
-                              variant="outline" 
-                              onClick={handleDisconnectZaloLogin}
-                              className="w-full text-xs font-bold text-red-600 border-red-100 hover:bg-red-50 hover:border-red-200 py-3 rounded-xl transition-all"
-                            >
-                              Hủy kết nối Zalo Cá nhân
-                            </Button>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                const token = getStoredAccessToken();
-                                if (!token) {
-                                  setZaloError("Bạn cần đăng nhập hệ thống để thực hiện liên kết.");
-                                  return;
-                                }
-                                window.location.href = `${toURL("/api/auth/zalo/login")}?token=${token}`;
-                              }}
-                              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3.5 rounded-xl shadow-lg shadow-blue-600/10 transition-all flex items-center justify-center gap-2"
-                            >
-                              <ShieldCheck size={14} /> Kết nối Zalo cá nhân
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Zalo Official Account (OA) Card — Coming Soon */}
-                      <div className="rounded-3xl border border-slate-200/60 bg-slate-100/50 p-6 flex flex-col justify-between shadow-sm relative overflow-hidden select-none">
-                        {/* Overlay Coming Soon */}
-                        <div className="absolute inset-0 bg-slate-900/5 backdrop-blur-[0.5px] z-10 flex flex-col items-center justify-center pointer-events-none">
-                          <span className="bg-slate-900/90 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-md">
-                            Sắp ra mắt
-                          </span>
-                        </div>
-
-                        <div className="opacity-60">
-                          <div className="flex justify-between items-start mb-4">
-                            <span className="text-xs font-black uppercase text-slate-400 tracking-widest font-mono">KẾT NỐI OA GỬI TIN</span>
-                            <span className="bg-slate-200 text-slate-400 border border-slate-300 inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase">
-                              Chưa hỗ trợ
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-3.5 my-3">
-                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center border bg-slate-200 border-slate-300 text-slate-400">
-                              <Home size={22} />
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-slate-900 text-sm">Zalo Official Account (OA)</h4>
-                              <p className="text-[11px] text-slate-400 font-semibold mt-0.5 leading-relaxed">
-                                Cổng OA doanh nghiệp dùng để gửi tin ZBS Template Messages đến số khách thuê.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-6 pt-4 border-t border-slate-200 opacity-60">
-                          <button
-                            disabled
-                            className="w-full bg-slate-300 text-slate-500 font-bold text-xs py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 cursor-not-allowed"
-                          >
-                            <Home size={14} /> Gửi tin nhắn qua OA (Coming Soon)
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 2. Synced Templates (OA Dependent - Coming Soon) */}
-                    <div className="space-y-4 pt-4 border-t border-slate-100 opacity-60">
-                      <div className="flex items-center gap-2">
-                        <Layers size={16} className="text-slate-600" />
-                        <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Mẫu Tin Nhắn Hóa Đơn Đồng Bộ (ZBS Templates)</span>
-                        <span className="bg-slate-200 text-slate-500 border border-slate-300 rounded-full px-2 py-0.5 text-[8px] font-black uppercase font-mono">Sắp ra mắt</span>
-                      </div>
-
-                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/20 p-6 text-center text-slate-400 text-xs font-semibold">
-                        Tính năng đồng bộ mẫu tin nhắn (ZBS Templates) sẽ tự động kích hoạt sau khi Zalo Official Account (OA) được ra mắt và kết nối thành công.
-                      </div>
-                    </div>
-
-                    {/* 3. Send Test Notification Panel (OA Dependent - Coming Soon) */}
-                    <div className="space-y-4 pt-4 border-t border-slate-100 opacity-60">
-                      <div className="flex items-center gap-2">
-                        <Layers size={16} className="text-slate-600" />
-                        <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Kiểm tra kết nối gửi thử</span>
-                        <span className="bg-slate-200 text-slate-500 border border-slate-300 rounded-full px-2 py-0.5 text-[8px] font-black uppercase font-mono">Sắp ra mắt</span>
-                      </div>
-
-                      <Card className="p-5 bg-slate-50/40 border border-slate-200 rounded-3xl space-y-4">
-                        <p className="text-[11px] text-slate-400 font-semibold leading-relaxed">
-                          Tính năng gửi tin nhắn hóa đơn thử nghiệm đến số điện thoại qua ZBS sẽ hoạt động khi Zalo OA được phát triển và kết nối.
-                        </p>
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          <input 
-                            disabled
-                            type="text" 
-                            placeholder="Nhập số điện thoại nhận tin..." 
-                            className="flex-1 rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-xs font-semibold text-slate-400 shadow-sm cursor-not-allowed"
-                            value={testPhone} 
-                            onChange={(e) => setTestPhone(e.target.value)} 
-                          />
-                          <Button 
-                            disabled
-                            className="bg-slate-300 text-slate-500 font-bold rounded-xl text-xs px-5 py-3 shadow-md shrink-0 cursor-not-allowed"
-                          >
-                            Gửi thử tin nhắn Zalo
-                          </Button>
-                        </div>
-                      </Card>
-                    </div>
-
-                    {/* 4. Audit Log Panel */}
-                    <div className="space-y-4 pt-4 border-t border-slate-100">
-                      <div className="flex items-center gap-2">
-                        <Info size={16} className="text-slate-600" />
-                        <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Nhật ký sự kiện gửi tin nhắn Zalo</span>
-                      </div>
-
-                      {!zaloStatus?.logs || zaloStatus.logs.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/20 p-8 text-center text-slate-500 text-xs font-medium">
-                          Chưa có nhật ký gửi tin nhắn nào được ghi nhận.
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm font-semibold">
-                          <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
-                            <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500 select-none">
-                              <tr>
-                                <th className="px-4 py-3">Thời gian</th>
-                                <th className="px-4 py-3">Số điện thoại</th>
-                                <th className="px-4 py-3">Hóa đơn</th>
-                                <th className="px-4 py-3">Mẫu tin</th>
-                                <th className="px-4 py-3">Trạng thái</th>
-                                <th className="px-4 py-3">Chi tiết lỗi</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 text-slate-700">
-                              {zaloStatus.logs.map((log: any) => (
-                                <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                                  <td className="px-4 py-3 text-slate-400 whitespace-nowrap">
-                                    {new Date(log.sentAt).toLocaleString("vi-VN")}
-                                  </td>
-                                  <td className="px-4 py-3 font-mono">{log.phone}</td>
-                                  <td className="px-4 py-3 font-mono text-slate-900">{log.paymentCode}</td>
-                                  <td className="px-4 py-3 text-slate-500 font-mono text-[10px]">{log.template}</td>
-                                  <td className="px-4 py-3 whitespace-nowrap">
-                                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase ${
-                                      log.status === "SENT"
-                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                        : log.status === "PENDING"
-                                        ? "bg-blue-50 text-blue-700 border border-blue-100"
-                                        : "bg-red-50 text-red-700 border border-red-100"
-                                    }`}>
-                                      {log.status === "SENT" ? "Thành công" : log.status === "PENDING" ? "Chờ gửi" : "Lỗi"}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3 text-red-600 max-w-xs truncate" title={log.error}>
-                                    {log.error || "-"}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            
           </motion.div>
         </AnimatePresence>
       </Card>

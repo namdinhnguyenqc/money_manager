@@ -85,6 +85,13 @@ const DEPOSITS = [
   { id: "d1", room_id: "r3", room_name: "P103", facility_name: "Dãy trọ Minh Anh", tenant_name: "Đỗ Thị Em", tenant_phone: "0934567890", amount: 3200000, deposit_date: iso(2026, 6, 28), status: "held", note: "Cọc giữ phòng, dọn vào 5/7", contract_id: null },
 ];
 
+const TENANTS = [
+  { id: "t1", name: "Nguyễn Văn An", phone: "0901234567", email: "an.nguyen@gmail.com", id_card: "079096012345", address: "Quận 1, TP. Hồ Chí Minh", created_at: iso(2026, 1, 1) },
+  { id: "t2", name: "Trần Thị Bình", phone: "0912345678", email: "binh.tran@gmail.com", id_card: "079096054321", address: "Quận 3, TP. Hồ Chí Minh", created_at: iso(2026, 2, 1) },
+  { id: "t3", name: "Lê Văn Cường", phone: "0923456789", email: "cuong.le@gmail.com", id_card: "079096098765", address: "Bình Thạnh, TP. Hồ Chí Minh", created_at: iso(2026, 3, 15) },
+  { id: "t4", name: "Phạm Thị Dung", phone: "0945678901", email: "dung.pham@gmail.com", id_card: "079096088888", address: "Thủ Đức, TP. Hồ Chí Minh", created_at: iso(2026, 4, 1) }
+];
+
 // 6-month transactions (income = rent + utilities, some expenses), utility-tagged.
 function buildTransactions() {
   const txs: any[] = [];
@@ -129,9 +136,23 @@ function dashboardInit() {
   };
 }
 
+let PAYMENT_CHANNELS: any[] = [
+  {
+    id: "pc1",
+    displayName: "VietQR MB Bank (Mặc định)",
+    display_name: "VietQR MB Bank (Mặc định)",
+    bankName: "MB Bank",
+    accountNo: "1234567890",
+    accountName: "NGUYEN DINH HA NAM",
+    isDefault: true,
+    is_default: true,
+    enabled: true,
+  }
+];
+
 // Resolve a mock JSON payload for a given API path. Returns null if unhandled
 // (caller falls back to an empty { data: [] }).
-export function resolveDemoPayload(pathname: string, method: string, search: URLSearchParams): any {
+export function resolveDemoPayload(pathname: string, method: string, search: URLSearchParams, body?: any): any {
   const p = pathname;
   const isGet = method === "GET";
 
@@ -153,9 +174,67 @@ export function resolveDemoPayload(pathname: string, method: string, search: URL
     return { data: CONTRACTS.find((c) => c.id === id) || null };
   }
   if (p === "/rental/deposits") return { data: DEPOSITS };
+  if (p === "/rental/tenants") return { data: TENANTS };
   if (p === "/bank-config") return { data: BANK_CONFIG };
+
+  // Payment channels route handlers
+  if (p === "/payment-channels") {
+    if (method === "GET") {
+      return { data: PAYMENT_CHANNELS };
+    }
+    if (method === "POST") {
+      const newChan = {
+        id: `pc_${Date.now()}`,
+        displayName: body?.displayName || "Kênh thanh toán mới",
+        display_name: body?.displayName || "Kênh thanh toán mới",
+        bankName: body?.bankName || "MB Bank",
+        accountNo: body?.accountNo || "",
+        accountName: body?.accountName || "",
+        isDefault: body?.isDefault || false,
+        is_default: body?.isDefault || false,
+        enabled: true,
+      };
+      if (newChan.isDefault) {
+        PAYMENT_CHANNELS.forEach(c => {
+          c.isDefault = false;
+          c.is_default = false;
+        });
+      }
+      PAYMENT_CHANNELS.push(newChan);
+      return { success: true, data: newChan };
+    }
+  }
+
+  if (p.startsWith("/payment-channels/")) {
+    const id = p.split("/").pop();
+    if (method === "PATCH" || method === "PUT") {
+      const channel = PAYMENT_CHANNELS.find(c => c.id === id);
+      if (channel) {
+        Object.assign(channel, body);
+        if (body.isDefault) {
+          PAYMENT_CHANNELS.forEach(c => {
+            if (c.id !== id) {
+              c.isDefault = false;
+              c.is_default = false;
+            } else {
+              c.isDefault = true;
+              c.is_default = true;
+            }
+          });
+        }
+        return { success: true, data: channel };
+      }
+    }
+    if (method === "DELETE") {
+      PAYMENT_CHANNELS = PAYMENT_CHANNELS.filter(c => c.id !== id);
+      return { success: true };
+    }
+  }
+
   if (p === "/owner/settings") return { data: SETTINGS };
-  if (p === "/me/profile") return { data: { user: DEMO_USER } };
+  if (p === "/owner/feedback") return { data: [] };
+  if (p === "/owner/simulate-upgrade") return { success: true };
+  if (p === "/me/profile") return { success: true, user: DEMO_USER, profile: null };
   if (p === "/invoices") {
     const month = Number(search.get("month"));
     const year = Number(search.get("year"));

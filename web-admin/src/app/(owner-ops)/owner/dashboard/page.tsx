@@ -262,12 +262,12 @@ export default function OwnerDashboard() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Truy cập nhanh</div>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-            <QuickBtn href="/invoices" icon={<Receipt size={20}/>} label="Hóa đơn" color="indigo"/>
-            <QuickBtn href="/rooms" icon={<Home size={20}/>} label="Phòng" color="blue"/>
-            <QuickBtn href="/deposits" icon={<Wallet size={20}/>} label="Tiền cọc" color="emerald"/>
-            <QuickBtn href="/contracts" icon={<FileText size={20}/>} label="Hợp đồng" color="amber"/>
-            <QuickBtn href="/owner/transactions" icon={<Repeat size={20}/>} label="Sổ thu chi" color="rose"/>
-            <QuickBtn href="/owner/settings" icon={<Settings size={20}/>} label="Cài đặt" color="slate"/>
+            <QuickBtn href="/invoices" icon={<Receipt size={20}/>} label="Hóa đơn" desc="Quản lý & gửi" color="indigo"/>
+            <QuickBtn href="/rooms" icon={<Home size={20}/>} label="Phòng" desc="Xem & cập nhật" color="blue"/>
+            <QuickBtn href="/deposits" icon={<Wallet size={20}/>} label="Tiền cọc" desc="Cọc giữ phòng" color="emerald"/>
+            <QuickBtn href="/contracts" icon={<FileText size={20}/>} label="Hợp đồng" desc="Quản lý thuê" color="amber"/>
+            <QuickBtn href="/owner/transactions" icon={<Repeat size={20}/>} label="Sổ thu chi" desc="Dòng tiền vào ra" color="rose"/>
+            <QuickBtn href="/owner/settings" icon={<Settings size={20}/>} label="Cài đặt" desc="Cấu hình vận hành" color="slate"/>
           </div>
         </div>
 
@@ -426,7 +426,7 @@ function RoomLegend({ color, label, count }: { color: string; label: string; cou
   );
 }
 
-function QuickBtn({ href, icon, label, color }: { href: string; icon: React.ReactNode; label: string; color: string }) {
+function QuickBtn({ href, icon, label, desc, color }: { href: string; icon: React.ReactNode; label: string; desc: string; color: string }) {
   const colors: Record<string, string> = {
     indigo:  'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white border-indigo-100',
     blue:    'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border-blue-100',
@@ -436,9 +436,10 @@ function QuickBtn({ href, icon, label, color }: { href: string; icon: React.Reac
     slate:   'bg-slate-50 text-slate-600 hover:bg-slate-700 hover:text-white border-slate-100',
   };
   return (
-    <Link href={href} className={`flex flex-col items-center gap-2 rounded-2xl border p-3 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 ${colors[color]}`}>
+    <Link href={href} className={`flex flex-col items-center text-center gap-1.5 rounded-2xl border p-3 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 ${colors[color]}`}>
       {icon}
-      <span className="text-[10px] font-black uppercase tracking-wider leading-none">{label}</span>
+      <span className="text-[10px] font-black uppercase tracking-wider leading-none mt-1">{label}</span>
+      <span className="text-[9px] opacity-70 font-semibold leading-tight line-clamp-1">{desc}</span>
     </Link>
   );
 }

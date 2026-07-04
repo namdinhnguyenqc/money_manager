@@ -101,8 +101,8 @@ export default function OwnerProfilePage() {
               <div className="px-6 pb-8 text-center -mt-14">
                 <div className="relative inline-block">
                   <div className="h-28 w-28 rounded-3xl bg-white p-1.5 shadow-xl ring-1 ring-slate-200">
-                    {data.user.avatarUrl ? (
-                      <img src={data.user.avatarUrl} alt="" className="h-full w-full rounded-2xl object-cover" />
+                    {data.user?.avatarUrl ? (
+                      <img src={data.user?.avatarUrl} alt="" className="h-full w-full rounded-2xl object-cover" />
                     ) : (
                       <div className="h-full w-full rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300">
                         <UserCircle size={64} strokeWidth={1.5} />
@@ -116,19 +116,19 @@ export default function OwnerProfilePage() {
 
                 <div className="mt-5">
                   <h3 className="text-xl font-bold tracking-tight text-slate-900 leading-none">
-                    {data.profile?.fullName || data.user.name || "Chủ trọ"}
+                    {data.profile?.fullName || data.user?.name || "Chủ trọ"}
                   </h3>
-                  <p className="mt-2 text-sm font-medium text-slate-500">{data.user.email}</p>
+                  <p className="mt-2 text-sm font-medium text-slate-500">{data.user?.email}</p>
                 </div>
 
                 <div className="mt-6 flex flex-wrap justify-center gap-2">
                   <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-700 uppercase tracking-wider border border-blue-100">
                     <BadgeCheck size={12} />
-                    {data.user.role}
+                    {data.user?.role}
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider border border-slate-200">
                     <Globe size={12} />
-                    {data.user.authProvider || "GOOGLE"}
+                    {data.user?.authProvider || "GOOGLE"}
                   </span>
                 </div>
               </div>
@@ -166,7 +166,7 @@ export default function OwnerProfilePage() {
             <div className="grid gap-6 md:grid-cols-2">
               <Card className="p-6 transition-all hover:shadow-md group">
                 <InfoLabel label="Họ và tên" icon={UserCircle} />
-                <DisplayValue value={data.profile?.fullName || data.user.name} />
+                <DisplayValue value={data.profile?.fullName || data.user?.name} />
               </Card>
               <Card className="p-6 transition-all hover:shadow-md group">
                 <InfoLabel label="Số điện thoại" icon={Smartphone} />
@@ -174,7 +174,7 @@ export default function OwnerProfilePage() {
               </Card>
               <Card className="p-6 transition-all hover:shadow-md group">
                 <InfoLabel label="Email liên hệ" icon={Mail} />
-                <DisplayValue value={data.user.email} />
+                <DisplayValue value={data.user?.email} />
               </Card>
               <Card className="p-6 transition-all hover:shadow-md group">
                 <InfoLabel label="Xác thực danh tính" icon={ShieldCheck} />
