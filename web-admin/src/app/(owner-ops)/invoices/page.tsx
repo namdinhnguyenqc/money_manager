@@ -317,7 +317,7 @@ export default function InvoicesPage() {
 
       <DataTable
         className="hidden lg:block"
-        headers={["Phòng", "Khách thuê", "Tổng cộng", "Đã thu", "Còn lại", "Trạng thái", "Thao tác"]}
+        headers={["Phòng", "Khách thuê", "Kỳ", "Tổng cộng", "Đã thu", "Còn lại", "Trạng thái", "Thao tác"]}
         checkbox={
           <input
             type="checkbox"
@@ -328,15 +328,16 @@ export default function InvoicesPage() {
         }
       >
         {loading ? (
-          <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Đang tải dữ liệu...</td></tr>
+          <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Đang tải dữ liệu...</td></tr>
         ) : filter === "Chưa lập HĐ" ? (
           pendingRooms.length === 0 ? (
-            <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Tất cả các phòng đã được lập hóa đơn cho kỳ này.</td></tr>
+            <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Tất cả các phòng đã được lập hóa đơn cho kỳ này.</td></tr>
           ) : visiblePendingRooms.map((room) => (
             <tr key={room.id} className="hover:bg-slate-50 transition-colors">
               <td className="px-4 py-3"><input type="checkbox" disabled /></td>
               <td className="px-4 py-3 font-medium text-slate-900">{room.name}</td>
               <td className="px-4 py-3 text-slate-600 truncate max-w-[150px]">{room.tenant_name || "-"}</td>
+              <td className="px-4 py-3 text-slate-500 whitespace-nowrap">T{period.month}/{period.year}</td>
               <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">{formatMoney(room.price)}</td>
               <td className="px-4 py-3 text-slate-500">-</td>
               <td className="px-4 py-3 text-slate-500">-</td>
@@ -347,7 +348,7 @@ export default function InvoicesPage() {
             </tr>
           ))
         ) : filteredInvoices.length === 0 ? (
-          <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Chưa có hóa đơn phù hợp cho kỳ T{period.month}/{period.year}.</td></tr>
+          <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Chưa có hóa đơn phù hợp cho kỳ T{period.month}/{period.year}.</td></tr>
         ) : visibleInvoices.map((invoice) => {
           const status = getDisplayInvoiceStatus(invoice, period);
           const carriedOverOverdue = isInvoiceBeforePeriod(invoice, period) && isInvoiceUnpaid(invoice);
@@ -368,6 +369,7 @@ export default function InvoicesPage() {
                 ) : null}
               </td>
               <td className="px-4 py-3 text-slate-600 truncate max-w-[150px]">{invoice.tenant_name || "-"}</td>
+              <td className="px-4 py-3 text-slate-500 whitespace-nowrap font-medium">T{invoice.month}/{invoice.year}</td>
               <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">{formatMoney(invoice.total_amount)}</td>
               <td className="px-4 py-3 text-green-700 font-medium whitespace-nowrap">{invoice.paid_amount ? formatMoney(invoice.paid_amount) : "0 ₫"}</td>
               <td className="px-4 py-3 text-red-600 font-semibold whitespace-nowrap">{formatMoney(Math.max(0, invoice.total_amount - (invoice.paid_amount || 0)))}</td>
