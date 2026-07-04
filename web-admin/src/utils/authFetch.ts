@@ -2,6 +2,28 @@
 
 import { clearClientSession, getLoginPath, getStoredAccessToken, setClientSession } from "@/utils/session";
 import { API_URL } from "@/lib/apiUrl";
+import { isDemoMode } from "@/utils/demoSession";
+import { resolveDemoPayload } from "@/lib/demo/demoData";
+
+// In demo mode, short-circuit every request with a synthetic Response built
+// from local fixtures — no network, no database, no real credential.
+function buildDemoResponse(input: string, init: RequestInit): Response {
+  let pathname = input;
+  let search = new URLSearchParams();
+  try {
+    const u = new URL(input, API_URL || "http://localhost");
+    pathname = u.pathname;
+    search = u.searchParams;
+  } catch {
+    /* fall back to raw string */
+  }
+  const method = (init.method || "GET").toUpperCase();
+  const payload = resolveDemoPayload(pathname, method, search) ?? { data: [] };
+  return new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 
 type AuthFetchOptions = RequestInit & {
   auth?: boolean;
@@ -210,6 +232,10 @@ function isTokenExpired(token: string | null): boolean {
 const pendingRequests = new Map<string, Promise<Response>>();
 
 export async function authFetch(input: string, init: AuthFetchOptions = {}) {
+  if (isDemoMode()) {
+    await sleep(120); // tiny delay so loading states still show naturally
+    return buildDemoResponse(input.toString(), init);
+  }
   const method = (init.method || "GET").toUpperCase();
   const url = input.toString();
   const { timeoutMs, ...fetchInit } = init;

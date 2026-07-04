@@ -6,6 +6,7 @@ import Image from "next/image";
 import Logo from "@/components/ui/Logo";
 import OwnerGoogleLoginButton from "@/components/OwnerGoogleLoginButton";
 import { getStoredAccessToken } from "@/utils/session";
+import { startDemoSession } from "@/utils/demoSession";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -162,8 +163,31 @@ export default function LoginPage() {
             </div>
           </header>
 
-          <div className="relative z-20 space-y-4">
+          <div className="relative z-20 space-y-3">
             <OwnerGoogleLoginButton />
+
+            <div className="flex items-center gap-3 py-1">
+              <div className="h-px flex-1 bg-slate-200" />
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">hoặc</span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                startDemoSession();
+                router.replace("/owner/dashboard");
+              }}
+              className="group flex w-full items-center justify-center gap-2.5 rounded-2xl border border-blue-200 bg-blue-50/60 px-4 py-3.5 text-sm font-bold text-[#1D4ED8] transition-all hover:bg-blue-100 active:scale-[0.99]"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M8 5v14l11-7L8 5z" fill="currentColor" />
+              </svg>
+              Xem demo — không cần đăng nhập
+            </button>
+            <p className="text-center text-[11px] font-medium text-slate-400">
+              Trải nghiệm đầy đủ tính năng với dữ liệu mẫu. Không lưu vào hệ thống.
+            </p>
           </div>
 
           <div className="mt-8 mb-6 relative flex justify-center items-center h-20">
