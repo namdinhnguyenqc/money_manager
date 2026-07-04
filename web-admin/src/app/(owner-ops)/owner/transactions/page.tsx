@@ -157,15 +157,20 @@ export default function OwnerTransactionsPage() {
       </div>
 
       {/* Filter & Search */}
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center">
-        <div className="w-full lg:w-96 relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
-          <Input
-            className="pl-10 h-[42px]"
-            placeholder="Tìm theo mô tả, ví, hạng mục..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end">
+        <div className="w-full lg:w-80">
+          <label className="text-xs font-semibold text-slate-500">
+            Tìm kiếm
+            <div className="relative mt-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+              <Input
+                className="pl-10 h-[42px]"
+                placeholder="Mô tả, ví, hạng mục..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </label>
         </div>
         <div className="grid w-full gap-2 sm:grid-cols-2 lg:w-auto">
           <label className="text-xs font-semibold text-slate-500">
@@ -177,22 +182,26 @@ export default function OwnerTransactionsPage() {
             <Input className="mt-1 h-[42px]" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </label>
         </div>
-        <div className="flex flex-wrap gap-2 overflow-x-auto pb-2 lg:pb-0">
-          <button
-            onClick={() => setSelectedWalletId("all")}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${selectedWalletId === "all" ? filterPillActive : filterPillInactive}`}
-          >
-            Tất cả ví
-          </button>
-          {wallets.map(w => (
-            <button
-              key={w.id}
-              onClick={() => setSelectedWalletId(w.id)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${selectedWalletId === w.id ? filterPillActive : filterPillInactive}`}
-            >
-              {w.name}
-            </button>
-          ))}
+        <div className="w-full sm:w-64">
+          <label className="text-xs font-semibold text-slate-500">
+            Tài khoản ví
+            <div className="relative mt-1">
+              <WalletIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+              <select
+                value={selectedWalletId}
+                onChange={(e) => setSelectedWalletId(e.target.value)}
+                className="w-full pl-9 pr-10 h-[42px] text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl focus:border-slate-900 focus:outline-none transition-all appearance-none cursor-pointer shadow-sm hover:border-slate-300"
+              >
+                <option value="all">Tất cả ví ({wallets.length})</option>
+                {wallets.map(w => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+              <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+              </div>
+            </div>
+          </label>
         </div>
       </div>
 
