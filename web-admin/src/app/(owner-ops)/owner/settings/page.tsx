@@ -947,37 +947,7 @@ export default function OwnerSettingsPage() {
                   </div>
 
                   <Card className="grid gap-5 p-5 bg-slate-50/50 border border-slate-200/50 rounded-[8px]">
-                    {/* Webhook URL copy field */}
-                    <div>
-                      <Label className="font-bold text-slate-700 text-xs">Địa chỉ Webhook (Webhook URL)</Label>
-                      <div className="flex gap-2 mt-1.5">
-                        <input
-                          type="text"
-                          readOnly
-                          className="flex-1 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-100/90 px-4 py-2.5 text-xs text-slate-500 font-mono focus:outline-none"
-                          value={sepayWebhookUrl}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            try {
-                              navigator.clipboard.writeText(sepayWebhookUrl);
-                              setCopiedWebhook(true);
-                              setTimeout(() => setCopiedWebhook(false), 2000);
-                            } catch {}
-                          }}
-                          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-white transition-all shadow-md shrink-0 ${
-                            copiedWebhook ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/10" : "bg-slate-900 hover:bg-slate-800 shadow-slate-900/10"
-                          }`}
-                        >
-                          {copiedWebhook ? <Check size={14} /> : <Copy size={14} />}
-                          {copiedWebhook ? "Đã chép!" : "Sao chép"}
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-slate-400 mt-1 font-medium">
-                        Sao chép chính xác địa chỉ này dán vào mục Webhook trên trang quản trị SePay.vn. Website đang dùng API production từ cấu hình hiện tại.
-                      </p>
-                    </div>
+
 
                     {/* Step-by-step guide */}
                     <div className="rounded-2xl bg-blue-50/60 border border-blue-100 p-4 space-y-2">
