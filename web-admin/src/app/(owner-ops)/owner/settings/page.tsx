@@ -767,7 +767,7 @@ export default function OwnerSettingsPage() {
                       <Webhook size={20} className="text-emerald-600" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-lg font-black tracking-tight text-slate-900">SePay, mã thanh toán và API đối soát</h3>
+                      <h2 className="text-lg font-black tracking-tight text-slate-900">SePay, mã thanh toán và API đối soát</h2>
                       <p className="mt-1 max-w-2xl text-xs font-medium leading-5 text-slate-500">Quản lý tài khoản nhận tiền, webhook SePay, token xác thực và nhật ký tự động gạch nợ hóa đơn.</p>
                     </div>
                   </div>
@@ -867,8 +867,8 @@ export default function OwnerSettingsPage() {
                   </div>
 
                   {/* Form Create payment channel */}
-                  <Card className="grid gap-4 p-5 bg-white border border-slate-200 rounded-2xl">
-                    <span className="text-xs font-extrabold uppercase text-slate-400 tracking-wider">Thêm tài khoản ngân hàng đối soát SePay</span>
+                  <div className="grid gap-4 p-5 bg-white border border-slate-200 rounded-2xl">
+                    <span className="text-xs font-bold text-slate-600">Thêm tài khoản ngân hàng đối soát SePay</span>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
                         <Label className="font-semibold text-slate-600 text-xs">Tên hiển thị gợi nhớ</Label>
@@ -915,7 +915,7 @@ export default function OwnerSettingsPage() {
                         Tạo Kênh Thanh Toán SePay
                       </Button>
                     </div>
-                  </Card>
+                  </div>
                 </section>
 
                 {/* 2. Cấu hình Tích hợp SePay (API & Webhook) */}
@@ -929,9 +929,9 @@ export default function OwnerSettingsPage() {
 
 
                     {/* Step-by-step guide */}
-                    <div className="rounded-2xl bg-blue-50/60 border border-blue-100 p-4 space-y-2">
-                      <p className="text-[11px] font-black text-blue-800 uppercase tracking-wider">Hướng dẫn cấu hình SePay của bạn</p>
-                      <ol className="space-y-1.5 text-[11px] text-blue-700 font-medium list-decimal list-inside leading-relaxed">
+                    <div className="rounded-2xl bg-blue-50/60 p-4 space-y-2">
+                      <p className="text-xs font-black text-blue-800">Hướng dẫn cấu hình SePay của bạn</p>
+                      <ol className="space-y-1.5 text-xs text-blue-700 font-medium list-decimal list-inside leading-relaxed">
                         <li>Đăng nhập <span className="font-mono font-bold">SePay.vn</span> → Webhook → Thêm webhook mới</li>
                         <li>Dán <strong>URL Webhook bên dưới</strong> vào ô "URL nhận dữ liệu"</li>
                         <li>SePay sẽ tạo <strong>Webhook Secret</strong> và <strong>API Token</strong> cho tài khoản của bạn</li>
@@ -964,7 +964,7 @@ export default function OwnerSettingsPage() {
                           {copiedWebhook ? "Đã chép!" : "Sao chép"}
                         </button>
                       </div>
-                      <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                      <p className="text-xs text-slate-500 mt-1 font-medium">
                         URL riêng của tài khoản bạn. SePay sẽ gửi thông báo thanh toán đến địa chỉ này.
                       </p>
                     </div>
@@ -988,7 +988,7 @@ export default function OwnerSettingsPage() {
                             {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
                           </button>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-1 font-medium">Token API từ trang quản lý SePay của bạn.</p>
+                        <p className="text-xs text-slate-500 mt-1 font-medium">Token API từ trang quản lý SePay của bạn.</p>
                       </div>
                       <div>
                         <Label className="font-bold text-slate-700 text-xs">Webhook Secret (Mã xác thực chữ ký)</Label>
@@ -1008,7 +1008,7 @@ export default function OwnerSettingsPage() {
                             {showWebhookSecret ? <EyeOff size={16} /> : <Eye size={16} />}
                           </button>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-1 font-medium">Secret dùng để xác minh chữ ký webhook. Lưu của bạn, không chia sẻ.</p>
+                        <p className="text-xs text-slate-500 mt-1 font-medium">Secret dùng để xác minh chữ ký webhook. Lưu của bạn, không chia sẻ.</p>
                       </div>
                       <div className="sm:col-span-2">
                         <Label className="font-bold text-slate-700 text-xs">Cú pháp chuyển khoản (Tiền tố mã hóa đơn)</Label>
@@ -1019,7 +1019,7 @@ export default function OwnerSettingsPage() {
                           onChange={(e) => handleChange("sepay_payment_prefix", e.target.value, "string", "payment")}
                           className="mt-1.5"
                         />
-                        <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                        <p className="text-xs text-slate-500 mt-1 font-medium">
                           Tiền tố đi kèm mã hóa đơn trong nội dung chuyển khoản (Ví dụ: <span className="font-mono font-bold text-slate-600">TCINV</span>AB12CD). Hệ thống dùng tiền tố này để tự động khớp giao dịch với hóa đơn.
                         </p>
                       </div>
@@ -1049,7 +1049,7 @@ export default function OwnerSettingsPage() {
                     <Card className="p-8 text-center text-slate-500 border border-dashed border-slate-200 bg-slate-50/20 rounded-2xl">
                       <Layers size={36} className="mx-auto text-slate-300 mb-3" />
                       <p className="font-bold text-slate-600 text-xs">Chưa nhận giao dịch nào qua Webhook</p>
-                      <p className="text-[10px] text-slate-400 mt-1 max-w-sm mx-auto">
+                      <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                         Các sự kiện chuyển khoản thực tế qua SePay sẽ tự động ghi chép và đối soát hiển thị chi tiết tại đây.
                       </p>
                     </Card>
@@ -1283,7 +1283,7 @@ export default function OwnerSettingsPage() {
                           onChange={(e) => handleChange("static_payment_note_template", e.target.value, "string", "payment")}
                           className="mt-1.5"
                         />
-                        <p className="text-[10px] text-slate-400 mt-1 font-medium">Hướng dẫn nội dung CK hiển thị cho khách thuê trên hóa đơn.</p>
+                        <p className="text-xs text-slate-500 mt-1 font-medium">Hướng dẫn nội dung CK hiển thị cho khách thuê trên hóa đơn.</p>
                       </div>
                     </div>
                   </Card>
@@ -1303,7 +1303,7 @@ export default function OwnerSettingsPage() {
                           onChange={(e) => handleChange("static_qr_image_url", e.target.value, "string", "payment")}
                           className="mt-1.5"
                         />
-                        <p className="text-[10px] text-slate-400 mt-1 font-medium">Dán URL ảnh QR do ngân hàng cấp (hoặc tạo từ VietQR.io). Hiển thị trên hóa đơn PDF.</p>
+                        <p className="text-xs text-slate-500 mt-1 font-medium">Dán URL ảnh QR do ngân hàng cấp (hoặc tạo từ VietQR.io). Hiển thị trên hóa đơn PDF.</p>
                       </div>
                       {getValue("static_qr_image_url", "") && (
                         <div className="flex flex-col items-center gap-2">
@@ -1810,7 +1810,7 @@ export default function OwnerSettingsPage() {
                             </div>
                             <div className="min-w-0">
                               <h4 className="font-bold text-slate-800 text-xs truncate">{c.name}</h4>
-                              <p className="text-[10px] text-slate-400 font-semibold mt-0.5 truncate">
+                              <p className="text-xs text-slate-500 font-semibold mt-0.5 truncate">
                                 {linkedWallet ? `Ví liên kết: ${linkedWallet.name}` : "Chưa liên kết ví"}
                               </p>
                             </div>

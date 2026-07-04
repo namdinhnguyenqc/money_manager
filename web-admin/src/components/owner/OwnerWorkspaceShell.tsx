@@ -459,7 +459,7 @@ const getPageTitle = (path: string) => {
                   const active = isItemActive(item.href);
                   const isParent = !!item.children;
                   return (
-                    <div key={item.href} className="flex flex-col gap-1">
+                    <div key={item.href} className="flex flex-col gap-0.5">
                       <Link
                         href={isParent ? "#" : item.href}
                         onClick={(e) => {
@@ -469,16 +469,21 @@ const getPageTitle = (path: string) => {
                           }
                         }}
                         title={isCollapsed ? item.label : undefined}
-                        className={`flex items-center transition-all duration-200 group ${
+                        className={`flex items-center transition-all duration-150 group relative ${
                           isCollapsed 
-                            ? "lg:justify-center lg:rounded-xl lg:p-2 lg:mx-auto lg:w-10 lg:h-10 gap-3 rounded-lg px-3 py-2 text-sm font-semibold" 
-                            : "gap-3 rounded-lg px-3 py-2 text-sm font-semibold"
+                            ? "lg:justify-center lg:rounded-xl lg:p-2 lg:mx-auto lg:w-9 lg:h-9 gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold" 
+                            : "gap-2.5 rounded-xl px-3 py-2 text-[13px] font-semibold border border-transparent"
                         } ${
-                          active ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                          active 
+                            ? "bg-blue-50/50 border-blue-100/50 text-blue-700 shadow-sm" 
+                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                         }`}
                       >
-                        <Icon size={17} className={`shrink-0 ${active ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600"}`} />
-                        <span className={`min-w-0 flex-1 truncate transition-all duration-300 ${
+                        {active && !isCollapsed && (
+                          <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-blue-600" />
+                        )}
+                        <Icon size={16} className={`shrink-0 transition-colors ${active ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600"}`} />
+                        <span className={`min-w-0 flex-1 truncate transition-all duration-150 ${
                           isCollapsed ? "lg:hidden" : ""
                         }`}>
                           {item.label}
@@ -493,7 +498,7 @@ const getPageTitle = (path: string) => {
                         {isParent && !isCollapsed && (
                           <ChevronDown
                             size={14}
-                            className={`shrink-0 transition-transform duration-300 text-slate-400 group-hover:text-slate-600 ${
+                            className={`shrink-0 transition-transform duration-150 text-slate-400 group-hover:text-slate-600 ${
                               isSettingsOpen ? "" : "-rotate-90"
                             }`}
                           />
@@ -501,7 +506,7 @@ const getPageTitle = (path: string) => {
                       </Link>
 
                       {item.children && !isCollapsed && isSettingsOpen && (
-                        <div className="flex flex-col gap-1 pl-6 mt-1 border-l border-slate-100 ml-5 animate-in slide-in-from-top-2 duration-200">
+                        <div className="flex flex-col gap-0.5 pl-4 mt-0.5 border-l border-slate-100 ml-4.5 animate-in slide-in-from-top-1 duration-150">
                           {item.children.map((child) => {
                             const ChildIcon = child.icon;
                             const childActive = isItemActive(child.href);
@@ -509,11 +514,16 @@ const getPageTitle = (path: string) => {
                               <Link
                                 key={child.href}
                                 href={child.href}
-                                className={`flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                                  childActive ? "bg-blue-50/70 text-blue-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                                className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all relative ${
+                                  childActive 
+                                    ? "text-blue-700 bg-blue-50/40" 
+                                    : "text-slate-500 hover:bg-slate-50/80 hover:text-slate-900"
                                 }`}
                               >
-                                <ChildIcon size={13} className={`shrink-0 ${childActive ? "text-blue-600" : "text-slate-400"}`} />
+                                {childActive && (
+                                  <span className="absolute left-[-1px] top-2 bottom-2 w-[2px] bg-blue-600 rounded-full" />
+                                )}
+                                <ChildIcon size={12} className={`shrink-0 ${childActive ? "text-blue-600" : "text-slate-400"}`} />
                                 <span className="truncate">{child.label}</span>
                               </Link>
                             );
