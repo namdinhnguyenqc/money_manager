@@ -146,7 +146,7 @@ export default function OwnerTransactionsPage() {
           <div className="mt-1 text-2xl font-black text-rose-600">{formatMoney(summary.expense)}</div>
           <div className="mt-2 text-xs font-bold text-slate-400">Tiền điện, nước, vận hành...</div>
         </Card>
-        <div className="rounded-[24px] bg-slate-900 p-7 shadow-xl shadow-slate-200 transition-all hover:scale-[1.02]">
+        <div className="rounded-[24px] p-7 shadow-xl shadow-slate-200 transition-all hover:scale-[1.02]" style={{ background: "linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)" }}>
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 text-white shadow-sm">
             <WalletIcon size={24} />
           </div>

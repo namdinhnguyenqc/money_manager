@@ -114,7 +114,7 @@ export default function PaymentsPage() {
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       <div className="mb-4 grid gap-3 md:grid-cols-5">
-        <PaymentSummaryCard label="Tổng thu" value={total} />
+        <PaymentSummaryCard label="Tổng thu" value={total} gradient />
         <PaymentSummaryCard label="Tiền mặt" value={totalCash} />
         <PaymentSummaryCard label="Chuyển khoản" value={totalBank} />
         <PaymentSummaryCard label="Ví điện tử" value={totalWallet} />
@@ -183,7 +183,15 @@ export default function PaymentsPage() {
   );
 }
 
-function PaymentSummaryCard({ label, value }: { label: string; value: number }) {
+function PaymentSummaryCard({ label, value, gradient = false }: { label: string; value: number; gradient?: boolean }) {
+  if (gradient) {
+    return (
+      <div className="rounded-2xl p-4 text-white shadow-sm" style={{ background: "linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)" }}>
+        <div className="text-xs font-bold uppercase tracking-widest text-white/80">{label}</div>
+        <div className="mt-1 text-xl font-black whitespace-nowrap">{formatMoney(value)}</div>
+      </div>
+    );
+  }
   return (
     <Card className="p-4">
       <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
