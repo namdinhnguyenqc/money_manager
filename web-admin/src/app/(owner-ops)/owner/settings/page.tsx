@@ -720,6 +720,52 @@ export default function OwnerSettingsPage() {
               </div>
             )}
 
+            {activeTab === "notifications" && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center border border-blue-100">
+                    <Bell size={20} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Thông báo hệ thống</h3>
+                    <p className="text-xs text-slate-500 font-medium">Cấu hình nhận thông tin cảnh báo, nhắc nợ và giao dịch tự động.</p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <span className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        Thông báo trình duyệt đẩy (Push Notifications)
+                      </span>
+                      <p className="text-xs text-slate-400 font-medium leading-relaxed max-w-xl">
+                        Bật tính năng này để nhận thông báo tức thời ngay trên màn hình khi có sự kiện thanh toán hóa đơn, đối soát SePay thành công, hoặc các cảnh báo quan trọng từ TrọCare.
+                      </p>
+                    </div>
+
+                    {pushSupported ? (
+                      <button
+                        onClick={subscribed ? unsubscribePush : subscribePush}
+                        disabled={pushLoading}
+                        aria-label="Toggle push notifications"
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 active:scale-95 ${
+                          subscribed ? "bg-emerald-500" : "bg-slate-200"
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            subscribed ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    ) : (
+                      <span className="text-xs text-amber-600 font-bold bg-amber-50 px-3 py-2 rounded-xl border border-amber-100 shrink-0">Trình duyệt không hỗ trợ thông báo đẩy</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
 {activeTab === "sepay-logs" && (
               <div className="space-y-8 animate-in fade-in duration-300">
                 {/* Header */}
