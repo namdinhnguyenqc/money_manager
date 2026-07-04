@@ -201,7 +201,7 @@ export default function OwnerSettingsPage() {
         setOwnerId(user.id);
       }
 
-      setPaymentChannels((channelsRes || []).filter((c: any) => c.enabled !== false));
+      setPaymentChannels(channelsRes || []);
       if (bankRes?.data) {
         setBankConfig({
           bank_id: bankRes.data.bank_id || "970436",
@@ -596,7 +596,6 @@ export default function OwnerSettingsPage() {
 
   const tabs = [
     { id: "general", label: "Thông tin chung", icon: Home, desc: "Cài đặt tên, địa chỉ và múi giờ nhà trọ" },
-    { id: "payment", label: "Thanh toán", icon: CreditCard, desc: "Cài đặt chu kỳ thanh toán & Ngân hàng tĩnh" },
     { id: "sepay-logs", label: "Kết nối SePay", icon: Layers, desc: "Tích hợp API, Kênh thanh toán & Webhook logs" },
     { id: "pricing", label: "Bảng giá", icon: Zap, desc: "Đơn giá các dịch vụ điện, nước, tiện ích" },
     { id: "categories", label: "Danh mục thu chi", icon: Tag, desc: "Quản lý các khoản mục thu và chi phí phát sinh" },
@@ -778,181 +777,7 @@ export default function OwnerSettingsPage() {
               </div>
             )}
 
-            {activeTab === "payment" && (
-              <div className="space-y-8 animate-in fade-in duration-300">
-                {/* Header */}
-                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center border border-indigo-100">
-                    <CreditCard size={20} className="text-indigo-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Kỳ thanh toán & Chốt điện nước</h3>
-                    <p className="text-xs text-slate-500 font-medium">Thiết lập các chu kỳ ghi nhận số đo và hạn định đóng tiền phòng hàng tháng.</p>
-                  </div>
-                </div>
-
-                <div className="grid gap-6 md:grid-cols-2">
-                  {/* Left Column: Form config */}
-                  <div className="space-y-6">
-                    <div className="bg-slate-50/60 rounded-2xl border border-slate-200/50 p-5 space-y-4">
-                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Thời gian thanh toán</span>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                          <Label className="font-bold text-slate-700 text-xs">Ngày chốt điện nước</Label>
-                          <input
-                            type="number"
-                            min="1" max="31"
-                            className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm"
-                            value={getValue("meter_reading_day", 25)}
-                            onChange={(e) => handleChange("meter_reading_day", Number(e.target.value), "number", "payment")}
-                          />
-                          <span className="text-[9px] text-slate-400 mt-1 block">Chốt chỉ số ngày {getValue("meter_reading_day", 25)} hàng tháng.</span>
-                        </div>
-                        <div>
-                          <Label className="font-bold text-slate-700 text-xs">Hạn đóng tiền phòng</Label>
-                          <input
-                            type="number"
-                            min="1" max="31"
-                            className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm"
-                            value={getValue("payment_due_day", 5)}
-                            onChange={(e) => handleChange("payment_due_day", Number(e.target.value), "number", "payment")}
-                          />
-                          <span className="text-[9px] text-slate-400 mt-1 block">Hạn đóng hóa đơn ngày {getValue("payment_due_day", 5)} hàng tháng.</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Integrated Bank Configuration Card Form */}
-                    <div className="bg-white rounded-2xl border border-slate-200/70 p-5 space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Landmark size={16} className="text-slate-600" />
-                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Thông tin Ngân hàng Tĩnh</span>
-                      </div>
-                      
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                          <Label className="font-semibold text-slate-600 text-xs">Tên Ngân hàng</Label>
-                          <div className="relative mt-1.5">
-                            <select
-                              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm appearance-none"
-                              value={bankConfig.bank_id}
-                              onChange={(e) => setBankConfig({ ...bankConfig, bank_id: e.target.value })}
-                            >
-                              {BANK_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
-                            </select>
-                            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label className="font-semibold text-slate-600 text-xs">Số tài khoản</Label>
-                          <input
-                            type="text"
-                            placeholder="Số tài khoản ngân hàng..."
-                            className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm"
-                            value={bankConfig.account_no}
-                            onChange={(e) => setBankConfig({ ...bankConfig, account_no: e.target.value })}
-                          />
-                        </div>
-
-                        <div className="sm:col-span-2">
-                          <Label className="font-semibold text-slate-600 text-xs">Tên chủ tài khoản (Viết hoa)</Label>
-                          <input
-                            type="text"
-                            placeholder="NGUYEN VAN A..."
-                            className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm uppercase"
-                            value={bankConfig.account_name}
-                            onChange={(e) => setBankConfig({ ...bankConfig, account_name: e.target.value })}
-                          />
-                        </div>
-
-                        <div className="sm:col-span-2">
-                          <Label className="font-semibold text-slate-600 text-xs">Nội dung Chuyển khoản mặc định</Label>
-                          <textarea
-                            rows={2}
-                            placeholder="Nội dung khách thuê sẽ ghi khi chuyển khoản..."
-                            className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm"
-                            value={getValue("payment_note", "(Không ghi nội dung Chuyển khoản)")}
-                            onChange={(e) => handleChange("payment_note", e.target.value, "string", "payment")}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end pt-2 border-t border-slate-100">
-                        <Button 
-                          onClick={handleSaveBankConfig} 
-                          disabled={savingExtension}
-                          loading={savingExtension}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs px-4 py-2 shadow-md shadow-emerald-600/10 transition-all flex items-center gap-1.5"
-                        >
-                          <Save size={12} /> Lưu thông tin ngân hàng
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Live Card Mockup & Static QR */}
-                  <div className="flex flex-col gap-6 justify-center">
-                    {/* Live credit card mockup */}
-                    <div className="relative w-full max-w-[340px] aspect-[1.58/1] rounded-[1.8rem] bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 text-white p-6 shadow-2xl flex flex-col justify-between overflow-hidden border border-white/10 mx-auto select-none">
-                      {/* Decorative translucent circles */}
-                      <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/5 rounded-full -mr-10 -mb-10 blur-xl"></div>
-                      <div className="absolute left-0 top-0 w-24 h-24 bg-pink-500/10 rounded-full -ml-8 -mt-8 blur-lg"></div>
-
-                      <div className="flex justify-between items-start z-10">
-                        <div className="flex flex-col">
-                          <span className="text-[9px] font-bold tracking-widest text-white/50 uppercase">Thẻ nhận tiền tĩnh</span>
-                          <span className="text-sm font-black tracking-tight mt-0.5">{getBankLabel(bankConfig.bank_id)}</span>
-                        </div>
-                        <Landmark size={22} className="text-white/80 animate-pulse" />
-                      </div>
-
-                      <div className="my-auto z-10">
-                        <span className="text-xs font-medium text-white/40 tracking-wider">SỐ TÀI KHOẢN</span>
-                        <div className="text-base font-bold tracking-widest mt-1 font-mono">
-                          {formatCardNumber(bankConfig.account_no) || "••••  ••••  ••••  ••••"}
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between items-end z-10">
-                        <div className="flex flex-col">
-                          <span className="text-[8px] font-medium text-white/40 uppercase tracking-widest">CHỦ TÀI KHOẢN</span>
-                          <span className="text-xs font-extrabold tracking-wide uppercase mt-0.5 truncate max-w-[170px]">
-                            {bankConfig.account_name || "NGUYEN VAN A"}
-                          </span>
-                        </div>
-                        <div className="flex -space-x-2">
-                          <div className="w-6 h-6 rounded-full bg-red-500/80"></div>
-                          <div className="w-6 h-6 rounded-full bg-yellow-500/80"></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* QR Code static / preview card */}
-                    <div className="bg-slate-50/60 rounded-3xl border border-slate-200/50 p-5 flex items-center gap-4 max-w-[340px] w-full mx-auto">
-                      <div className="w-20 h-20 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
-                        {getValue("bank_qr_static_url", "") ? (
-                          <img src={getValue("bank_qr_static_url", "")} alt="Static QR" className="w-full h-full object-cover" />
-                        ) : (
-                          <ImageIcon className="text-slate-300" size={28} />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-bold text-slate-700 block">Ảnh QR tĩnh thay thế</span>
-                        <p className="text-[10px] text-slate-400 mt-1 font-medium leading-relaxed">
-                          Tải ảnh QR tĩnh lên nếu bạn muốn sử dụng thay thế cho VietQR tự sinh động.
-                        </p>
-                        
-                        <label className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 text-[10px] font-extrabold text-slate-600 cursor-pointer shadow-sm transition-all mt-3">
-                          <Upload size={10} /> Tải ảnh lên
-                          <input type="file" accept="image/*" className="hidden" onChange={handleQrUpload} />
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            
 
             {activeTab === "sepay-logs" && (
               <div className="space-y-8 animate-in fade-in duration-300">
