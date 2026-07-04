@@ -679,15 +679,10 @@ export default function OwnerSettingsPage() {
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center justify-between gap-4">
                     <div className="space-y-1">
                       <span className="text-sm font-bold text-slate-800 flex items-center gap-2">
                         Thông báo trình duyệt đẩy (Push Notifications)
-                        {subscribed ? (
-                          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-black uppercase text-emerald-700">Đang bật</span>
-                        ) : (
-                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-black uppercase text-slate-500">Đang tắt</span>
-                        )}
                       </span>
                       <p className="text-xs text-slate-400 font-medium leading-relaxed max-w-xl">
                         Bật tính năng này để nhận thông báo tức thời ngay trên màn hình khi có sự kiện thanh toán hóa đơn, đối soát SePay thành công, hoặc các cảnh báo quan trọng từ TrọCare.
@@ -698,19 +693,16 @@ export default function OwnerSettingsPage() {
                       <button
                         onClick={subscribed ? unsubscribePush : subscribePush}
                         disabled={pushLoading}
-                        className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold text-white transition-all shadow-md active:scale-95 ${
-                          subscribed
-                            ? "bg-red-600 hover:bg-red-700 shadow-red-600/10"
-                            : "bg-blue-600 hover:bg-blue-700 shadow-blue-600/10"
+                        aria-label="Toggle push notifications"
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 active:scale-95 ${
+                          subscribed ? "bg-emerald-500" : "bg-slate-200"
                         }`}
                       >
-                        {pushLoading ? (
-                          <RefreshCw size={14} className="animate-spin" />
-                        ) : subscribed ? (
-                          <>Tắt thông báo</>
-                        ) : (
-                          <>Bật thông báo đẩy</>
-                        )}
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            subscribed ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        />
                       </button>
                     ) : (
                       <span className="text-xs text-amber-600 font-bold bg-amber-50 px-3 py-2 rounded-xl border border-amber-100 shrink-0">Trình duyệt không hỗ trợ thông báo đẩy</span>
