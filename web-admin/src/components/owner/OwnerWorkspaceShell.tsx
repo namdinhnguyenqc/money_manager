@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { clearClientSession, getStoredAccessToken, getStoredSessionUser } from "@/utils/session";
+import { isDemoMode, exitDemoSession } from "@/utils/demoSession";
 import { authFetch, logAuthEvent } from "@/utils/authFetch";
 import Logo from "@/components/ui/Logo";
 import OwnerBottomNav from "@/components/owner/OwnerBottomNav";
@@ -113,6 +114,9 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
   const [ownerName, setOwnerName] = useState("Owner");
   const [ownerEmail, setOwnerEmail] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [demo, setDemo] = useState(false);
+
+  useEffect(() => { setDemo(isDemoMode()); }, []);
 
   useEffect(() => {
     const check = async () => {
@@ -242,6 +246,12 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
   }, [authorized, pushSupported, subscribed, permission, subscribePush]);
 
   const handleLogout = async () => {
+    if (isDemoMode()) {
+      exitDemoSession();
+      queryClient.clear();
+      router.replace("/login");
+      return;
+    }
     try {
       const token = getStoredAccessToken();
       if (token) {
@@ -418,6 +428,18 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
             {(ownerName || "O").charAt(0).toUpperCase()}
           </button>
         </header>
+        {demo && (
+          <div className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-amber-800">
+            <div className="flex items-center gap-2 text-xs font-semibold">
+              <span className="flex h-5 items-center rounded-full bg-amber-500 px-2 text-[10px] font-bold uppercase tracking-wide text-white">Demo</span>
+              <span className="hidden sm:inline">Bạn đang xem dữ liệu mẫu — mọi thay đổi không được lưu.</span>
+              <span className="sm:hidden">Dữ liệu mẫu, không lưu.</span>
+            </div>
+            <button onClick={handleLogout} className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1 text-xs font-bold text-amber-700 transition hover:bg-amber-100">
+              Thoát demo
+            </button>
+          </div>
+        )}
         <main className="has-bottom-nav flex-1 p-4 sm:p-6 lg:pb-6">{children}</main>
       </div>
 
