@@ -1,4 +1,5 @@
 "use client";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -21,6 +22,7 @@ import {
   Landmark, 
   ChevronDown, 
   Copy, 
+  Bell, 
   Check, 
   Eye, 
   EyeOff, 
@@ -82,8 +84,9 @@ type SettingItem = { key: string; value: any; type: string; category: string };
 
 export default function OwnerSettingsPage() {
   const queryClient = useQueryClient();
+  const { permission, subscribed, loading: pushLoading, isSupported: pushSupported, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications();
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get("tab") || "general";
+  const tabParam = searchParams.get("tab") || "sepay-logs";
   const [activeTab, setActiveTab] = useState(tabParam);
 
   useEffect(() => {
@@ -595,8 +598,8 @@ export default function OwnerSettingsPage() {
   };
 
   const tabs = [
-    { id: "general", label: "Thông tin chung", icon: Home, desc: "Cài đặt tên, địa chỉ và múi giờ nhà trọ" },
     { id: "sepay-logs", label: "Kết nối SePay", icon: Layers, desc: "Tích hợp API, Kênh thanh toán & Webhook logs" },
+    { id: "notifications", label: "Nhận thông báo", icon: Bell, desc: "Cấu hình nhận thông tin qua trình duyệt và thiết bị" },
     { id: "pricing", label: "Bảng giá", icon: Zap, desc: "Đơn giá các dịch vụ điện, nước, tiện ích" },
     { id: "categories", label: "Danh mục thu chi", icon: Tag, desc: "Quản lý các khoản mục thu và chi phí phát sinh" },
     { id: "extension", label: "Mở rộng", icon: Wallet, desc: "Quản lý dòng tiền, Ví lưu trữ và đối soát" },
@@ -643,49 +646,7 @@ export default function OwnerSettingsPage() {
           <span className="text-sm font-medium text-slate-500">Đang tải cấu hình hệ thống...</span>
         </div>
       ) : (
-        <div className="flex flex-col lg:flex-row gap-8 items-start">
-          {/* Glassmorphic Navigation Sidebar */}
-          <div className="w-full lg:w-72 shrink-0 flex flex-col gap-2 bg-slate-50/70 backdrop-blur-md p-4 rounded-[2rem] border border-slate-200/40 shadow-sm relative z-10">
-            <span className="uppercase tracking-wider text-slate-400 text-[10px] font-black pl-3 pb-2 select-none">Danh mục cài đặt</span>
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`relative flex items-start gap-3.5 w-full rounded-2xl px-4 py-4 text-left transition-colors duration-300 group ${
-                    isActive
-                      ? "text-white"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  {isActive && (
-                    <motion.div
-                      layoutId="activeTabIndicator"
-                      className="absolute inset-0 bg-slate-950 rounded-2xl -z-10 shadow-lg shadow-slate-900/15"
-                      transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                    />
-                  )}
-                  <Icon 
-                    size={18} 
-                    className={`mt-0.5 shrink-0 transition-transform duration-300 ${
-                      isActive ? "text-white scale-110" : "text-slate-400 group-hover:text-slate-600 group-hover:scale-105"
-                    }`} 
-                  />
-                  <div className="flex flex-col min-w-0 z-10">
-                    <span className="text-sm font-bold tracking-tight">{tab.label}</span>
-                    <span className={`text-[10px] truncate font-medium mt-0.5 transition-colors ${
-                      isActive ? "text-slate-300" : "text-slate-400 group-hover:text-slate-500"
-                    }`}>
-                      {tab.desc}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
+        <div className="w-full">
           {/* Premium Content Panel */}
           <Card className="flex-1 w-full lg:w-auto min-w-0 p-6 sm:p-8 rounded-[2rem] border border-slate-200/70 shadow-sm bg-white relative overflow-hidden transition-all duration-300">
             {/* Visual background sparkles for modern feel */}
@@ -701,85 +662,65 @@ export default function OwnerSettingsPage() {
                 className="w-full h-full"
               >
 
-            {activeTab === "general" && (
+            
+
+            
+
+                        {activeTab === "notifications" && (
               <div className="space-y-6 animate-in fade-in duration-300">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                  <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
-                    <Settings size={20} className="text-slate-600 animate-spin-slow" />
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center border border-blue-100">
+                    <Bell size={20} className="text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Thông tin chung</h3>
-                    <p className="text-xs text-slate-500 font-medium">Thiết lập các thuộc tính cơ bản hiển thị trên hệ thống phòng trọ.</p>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Thông báo hệ thống</h3>
+                    <p className="text-xs text-slate-500 font-medium">Cấu hình nhận thông tin cảnh báo, nhắc nợ và giao dịch tự động.</p>
                   </div>
                 </div>
 
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <div className="relative">
-                    <Label className="font-bold text-slate-800 text-xs">Tên nhà trọ (Landlord Name)</Label>
-                    <div className="relative mt-1.5">
-                      <Home className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <input
-                        type="text"
-                        placeholder="Nhập tên nhà trọ..."
-                        className="w-full pl-11 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm"
-                        value={getValue("landlord_name", "")}
-                        onChange={(e) => handleChange("landlord_name", e.target.value, "string", "general")}
-                      />
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                      <span className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        Thông báo trình duyệt đẩy (Push Notifications)
+                        {subscribed ? (
+                          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-black uppercase text-emerald-700">Đang bật</span>
+                        ) : (
+                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-black uppercase text-slate-500">Đang tắt</span>
+                        )}
+                      </span>
+                      <p className="text-xs text-slate-400 font-medium leading-relaxed max-w-xl">
+                        Bật tính năng này để nhận thông báo tức thời ngay trên màn hình khi có sự kiện thanh toán hóa đơn, đối soát SePay thành công, hoặc các cảnh báo quan trọng từ TrọCare.
+                      </p>
                     </div>
-                  </div>
 
-                  <div>
-                    <Label className="font-bold text-slate-800 text-xs">Múi giờ hệ thống</Label>
-                    <div className="relative mt-1.5">
-                      <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <select
-                        className="w-full pl-11 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm appearance-none"
-                        value={getValue("timezone", "Asia/Ho_Chi_Minh")}
-                        onChange={(e) => handleChange("timezone", e.target.value, "string", "general")}
+                    {pushSupported ? (
+                      <button
+                        onClick={subscribed ? unsubscribePush : subscribePush}
+                        disabled={pushLoading}
+                        className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold text-white transition-all shadow-md active:scale-95 ${
+                          subscribed
+                            ? "bg-red-600 hover:bg-red-700 shadow-red-600/10"
+                            : "bg-blue-600 hover:bg-blue-700 shadow-blue-600/10"
+                        }`}
                       >
-                        <option value="Asia/Ho_Chi_Minh">Việt Nam (GMT+7)</option>
-                        <option value="UTC">Múi giờ quốc tế (UTC)</option>
-                      </select>
-                      <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <Label className="font-bold text-slate-800 text-xs">Địa chỉ nhà trọ</Label>
-                    <div className="relative mt-1.5">
-                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <input
-                        type="text"
-                        placeholder="Nhập địa chỉ chi tiết nhà trọ..."
-                        className="w-full pl-11 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm"
-                        value={getValue("landlord_address", "")}
-                        onChange={(e) => handleChange("landlord_address", e.target.value, "string", "general")}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="font-bold text-slate-800 text-xs">Định dạng tiền tệ</Label>
-                    <div className="relative mt-1.5">
-                      <Coins className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <select
-                        className="w-full pl-11 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-semibold text-slate-800 shadow-sm appearance-none"
-                        value={getValue("currency_format", "VND")}
-                        onChange={(e) => handleChange("currency_format", e.target.value, "string", "general")}
-                      >
-                        <option value="VND">Việt Nam Đồng (đ)</option>
-                        <option value="USD">Đô la Mỹ ($)</option>
-                      </select>
-                      <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    </div>
+                        {pushLoading ? (
+                          <RefreshCw size={14} className="animate-spin" />
+                        ) : subscribed ? (
+                          <>Tắt thông báo</>
+                        ) : (
+                          <>Bật thông báo đẩy</>
+                        )}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-amber-600 font-bold bg-amber-50 px-3 py-2 rounded-xl border border-amber-100 shrink-0">Trình duyệt không hỗ trợ thông báo đẩy</span>
+                    )}
                   </div>
                 </div>
               </div>
             )}
 
-            
-
-            {activeTab === "sepay-logs" && (
+{activeTab === "sepay-logs" && (
               <div className="space-y-8 animate-in fade-in duration-300">
                 {/* Header */}
                 <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-center lg:justify-between">

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Building2,
@@ -106,12 +106,22 @@ const isActiveRoute = (pathname: string, href: string) => {
   return pathname === href || pathname.startsWith(`${href}/`);
 };
 
+
+function SearchParamsHelper({ onChange }: { onChange: (params: any) => void }) {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    onChange(searchParams);
+  }, [searchParams, onChange]);
+  return null;
+}
+
 export default function OwnerWorkspaceShell({ children }: { children: React.ReactNode }) {
   const { canInstall, install } = usePWAInstall();
   const { permission, subscribed, loading: pushLoading, isSupported: pushSupported, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications();
   const router = useRouter();
   const queryClient = useQueryClient();
   const pathname = usePathname();
+  const [currentSearchParams, setCurrentSearchParams] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [ownerName, setOwnerName] = useState("Owner");
@@ -306,7 +316,10 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
 
   if (loading) {
     return (
-      <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-slate-50">
+      <Suspense fallback={null}>
+        <SearchParamsHelper onChange={setCurrentSearchParams} />
+      </Suspense>
         <aside className="hidden w-72 border-r border-slate-200 bg-white lg:block">
           <div className="space-y-4 p-5">
             <div className="h-8 w-36 animate-pulse rounded-lg bg-slate-100" />
