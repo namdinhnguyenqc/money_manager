@@ -112,9 +112,15 @@ export default function LandingPageClient() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // IntersectionObserver for Scroll Reveal animations
+  // IntersectionObserver for Scroll Reveal animations with robust safety fallbacks
   useEffect(() => {
     const revealElements = document.querySelectorAll(".reveal");
+    
+    if (!window.IntersectionObserver) {
+      revealElements.forEach((el) => el.classList.add("visible"));
+      return;
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -123,10 +129,22 @@ export default function LandingPageClient() {
           }
         });
       },
-      { threshold: 0.1 }
+      { threshold: 0.05 }
     );
+    
     revealElements.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+
+    // Fallback: reveal all elements after 1.2 seconds to prevent permanent white screens
+    const timer = setTimeout(() => {
+      revealElements.forEach((el) => {
+        el.classList.add("visible");
+      });
+    }, 1200);
+
+    return () => {
+      observer.disconnect();
+      clearTimeout(timer);
+    };
   }, []);
 
   // Scroll Spy to highlight active section in Navbar

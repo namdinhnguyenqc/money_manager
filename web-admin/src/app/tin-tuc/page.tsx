@@ -129,7 +129,7 @@ export default async function NewsHomePage({
               <div className="flex flex-col gap-4">
                 {subHero.map((a) => (
                   <Link key={a.id} href={`/tin-tuc/${a.slug}`} className="group flex gap-3 items-start">
-                    <div className="relative w-28 h-24 sm:w-full sm:h-28 shrink-0 rounded-xl overflow-hidden bg-slate-100">
+                    <div className="relative w-24 h-20 sm:w-28 sm:h-24 shrink-0 rounded-xl overflow-hidden bg-slate-100">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={coverOf(a)} alt={a.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     </div>
@@ -226,7 +226,7 @@ export default async function NewsHomePage({
               </Link>
             </div>
             <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-6">
-              {articles.map((a) => <ArticleCard key={a.id} article={a} />)}
+              {articles.map((a) => <ArticleCard key={a.id} article={a} showCategory={false} />)}
             </div>
           </section>
         ))}
