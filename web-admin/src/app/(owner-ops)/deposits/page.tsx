@@ -92,6 +92,7 @@ export default function DepositsPage() {
           icon={<WalletIcon size={18} />}
           color="indigo"
           description="Các khoản cọc giữ chỗ chưa chuyển đổi"
+          gradient
         />
         <SummaryCard
           label="Tổng tiền cọc"
@@ -208,12 +209,27 @@ export default function DepositsPage() {
   );
 }
 
-function SummaryCard({ label, value, icon, color, description }: any) {
+function SummaryCard({ label, value, icon, color, description, gradient = false }: any) {
   const colorMap: Record<string, string> = {
     indigo: "bg-indigo-50 text-indigo-600",
     emerald: "bg-emerald-50 text-emerald-600",
     orange: "bg-orange-50 text-orange-600",
   };
+
+  if (gradient) {
+    return (
+      <div className="group rounded-2xl p-5 text-white shadow-sm transition-all hover:shadow-md" style={{ background: "linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)" }}>
+        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white transition-transform group-hover:scale-105">
+          {icon}
+        </div>
+        <div>
+          <div className="text-xs font-bold uppercase tracking-widest text-white/80">{label}</div>
+          <div className="mt-1 text-xl font-black whitespace-nowrap">{value}</div>
+          <div className="mt-1.5 text-xs text-white/70">{description}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Card hover className="group p-5">
