@@ -193,7 +193,15 @@ export default function InvoicesPage() {
   const visiblePendingRooms = useMemo(() => pendingRooms.slice((page - 1) * pageSize, page * pageSize), [pendingRooms, page]);
   const selectedCount = Object.values(selected).filter(Boolean).length;
 
-
+  // At-a-glance money summary for the current view.
+  const summary = useMemo(() => {
+    let billed = 0, collected = 0;
+    for (const inv of invoices) {
+      billed += Math.round(Number(inv.total_amount || 0));
+      collected += Math.round(Number(inv.paid_amount || 0));
+    }
+    return { billed, collected, outstanding: Math.max(0, billed - collected) };
+  }, [invoices]);
 
   useEffect(() => setPage(1), [filter, selectedHouse, period]);
 
@@ -235,6 +243,26 @@ export default function InvoicesPage() {
           </div>
         }
       />
+
+      {/* At-a-glance money summary */}
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="rounded-2xl p-4 text-white shadow-sm" style={{ background: "linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)" }}>
+          <div className="text-[11px] font-bold uppercase tracking-widest text-white/80">Tổng hóa đơn</div>
+          <div className="mt-1 text-xl font-black leading-tight">{formatMoney(summary.billed)}</div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Đã thu</div>
+          <div className="mt-1 text-xl font-black leading-tight text-emerald-600">{formatMoney(summary.collected)}</div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Còn phải thu</div>
+          <div className="mt-1 text-xl font-black leading-tight text-red-600">{formatMoney(summary.outstanding)}</div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Quá hạn</div>
+          <div className="mt-1 text-xl font-black leading-tight text-amber-600">{overdueCarryCount} <span className="text-sm font-bold text-slate-400">hóa đơn</span></div>
+        </div>
+      </div>
 
       <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
         <button onClick={() => setSelectedHouse("all")} className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ${selectedHouse === "all" ? filterPillActive : filterPillInactive}`}>Tất cả cơ sở</button>
