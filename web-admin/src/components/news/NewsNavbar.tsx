@@ -16,14 +16,16 @@ export default function NewsNavbar({
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6">
         <div className="flex items-center justify-between h-16 gap-4">
-          <Link href="/" aria-label="TrọCare" className="shrink-0"><Logo /></Link>
-
-          <Link
-            href="/tin-tuc"
-            className="hidden sm:block text-[11px] font-black tracking-[0.2em] text-slate-400 uppercase shrink-0"
-          >
-            Tin tức
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/" aria-label="TrọCare" className="shrink-0"><Logo /></Link>
+            <span className="h-5 w-px bg-slate-200 hidden sm:block" />
+            <Link
+              href="/tin-tuc"
+              className="hidden sm:block text-[11px] font-black tracking-[0.2em] text-slate-400 uppercase shrink-0"
+            >
+              Tin tức
+            </Link>
+          </div>
 
           <form action="/tin-tuc" className="hidden md:flex flex-1 max-w-md relative">
             <input

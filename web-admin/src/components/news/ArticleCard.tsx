@@ -7,9 +7,11 @@ import { Article, badgeFor, coverOf, formatDate } from "@/lib/news";
 export default function ArticleCard({
   article,
   variant = "grid",
+  showCategory = true,
 }: {
   article: Article;
   variant?: "grid" | "compact";
+  showCategory?: boolean;
 }) {
   if (variant === "compact") {
     return (
@@ -42,9 +44,11 @@ export default function ArticleCard({
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
         />
         <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/40 to-transparent" />
-        <span className={`absolute top-3 left-3 inline-block text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm ${badgeFor(article.category)}`}>
-          {article.category}
-        </span>
+        {showCategory && (
+          <span className={`absolute top-3 left-3 inline-block text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm ${badgeFor(article.category)}`}>
+            {article.category}
+          </span>
+        )}
       </div>
       <div className="p-5 flex flex-col flex-grow">
         <h3 className="text-base font-bold text-[#0f172a] mb-2 line-clamp-2 group-hover:text-[#2563EB] transition-colors leading-snug">
