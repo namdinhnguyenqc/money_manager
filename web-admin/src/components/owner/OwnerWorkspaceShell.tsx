@@ -446,7 +446,7 @@ const getPageTitle = (path: string) => {
 
             return (
               <div key={section.title} className="flex flex-col gap-0.5">
-                <div className={`px-3 mb-1.5 text-xs font-bold uppercase tracking-widest text-slate-400 transition-all duration-300 ${
+                <div className={`px-3 mb-1.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all duration-300 ${
                   isCollapsed ? "lg:hidden" : ""
                 }`}>
                   {section.title}
@@ -567,7 +567,7 @@ const getPageTitle = (path: string) => {
           </div>
           <button
             onClick={() => setSidebarOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-bold text-white shadow-sm shadow-blue-200 transition active:scale-95"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-950 text-sm font-bold text-white shadow-sm shadow-blue-200 transition active:scale-95"
             aria-label="Tài khoản"
           >
             {(ownerName || "O").charAt(0).toUpperCase()}
@@ -666,7 +666,7 @@ const getPageTitle = (path: string) => {
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition-all select-none"
               >
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-[10px] uppercase shadow-sm">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-slate-700 to-slate-950 text-white flex items-center justify-center font-bold text-[10px] uppercase shadow-sm">
                   {(ownerName || "O").charAt(0).toUpperCase()}
                 </div>
                 <span className="max-w-[120px] truncate">{ownerName || "Chủ trọ"}</span>
