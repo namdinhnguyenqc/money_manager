@@ -179,11 +179,11 @@ export default function OwnerDashboard() {
         {/* ── HEADER ── */}
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-400">{greeting}</div>
+            <div className="text-xs font-bold uppercase tracking-widest text-slate-500">{greeting}</div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 mt-0.5">Tổng quan vận hành</h1>
           </div>
           <div className="text-right">
-            <div className="text-xs text-slate-400 font-medium">Tháng {now.getMonth() + 1}/{now.getFullYear()}</div>
+            <div className="text-xs text-slate-500 font-medium">Tháng {now.getMonth() + 1}/{now.getFullYear()}</div>
             <div className="text-xs font-bold text-slate-600 mt-0.5">{now.toLocaleDateString('vi-VN', { weekday: 'long' })}</div>
           </div>
         </div>
@@ -239,7 +239,7 @@ export default function OwnerDashboard() {
               </div>
               <div>
                 <div className="text-sm font-black text-slate-900">Báo cáo tài chính</div>
-                <div className="text-[11px] text-slate-400 font-medium">Doanh thu · Chi phí · Thu nhập ròng</div>
+                <div className="text-xs text-slate-500 font-medium">Doanh thu · Chi phí · Thu nhập ròng</div>
               </div>
             </div>
             <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
@@ -301,7 +301,7 @@ export default function OwnerDashboard() {
                         />
                       )}
                     </div>
-                    <div className={`text-[10px] font-bold ${isLast ? 'text-indigo-600' : 'text-slate-400'}`}>{m.label}</div>
+                    <div className={`text-xs font-bold ${isLast ? 'text-indigo-600' : 'text-slate-500'}`}>{m.label}</div>
                   </div>
                 );
               })}
@@ -323,7 +323,7 @@ export default function OwnerDashboard() {
 
           {/* Revenue breakdown */}
           <div className="border-t border-slate-100 px-5 py-4">
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Cơ cấu doanh thu tháng này</div>
+            <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Cơ cấu doanh thu tháng này</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <BreakdownCard
                 icon={<Home size={15} className="text-blue-500" />}
@@ -359,7 +359,7 @@ export default function OwnerDashboard() {
           <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <div className="text-xs font-bold uppercase tracking-widest text-slate-400">Trạng thái phòng</div>
+                <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Trạng thái phòng</div>
                 <div className="text-lg font-black text-slate-900 mt-0.5">{stats.total} phòng</div>
               </div>
               <div className="text-3xl font-black text-indigo-600">{stats.occupancyRate}%</div>
@@ -381,7 +381,7 @@ export default function OwnerDashboard() {
 
           {/* Quick Actions */}
           <div className="lg:col-span-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Truy cập nhanh</div>
+            <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Truy cập nhanh</div>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
               <QuickBtn href="/invoices" icon={<Receipt size={20}/>} label="Hóa đơn" desc="Quản lý & gửi" color="indigo"/>
               <QuickBtn href="/rooms" icon={<Home size={20}/>} label="Phòng" desc="Xem & cập nhật" color="blue"/>
@@ -412,7 +412,7 @@ export default function OwnerDashboard() {
                   <div key={room.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors">
                     <div>
                       <div className="text-sm font-bold text-slate-900">{room.name}</div>
-                      <div className="text-xs text-slate-400 font-medium">{formatMoney(room.price)}/tháng</div>
+                      <div className="text-xs text-slate-500 font-medium">{formatMoney(room.price)}/tháng</div>
                     </div>
                     <Link
                       href={`/contracts/new?room_id=${room.id}`}
@@ -446,7 +446,7 @@ export default function OwnerDashboard() {
                       </div>
                       <div className="min-w-0">
                         <div className="text-xs font-bold text-slate-800 truncate max-w-[140px]">{tx.description || 'Giao dịch'}</div>
-                        <div className="text-[11px] text-slate-400 font-medium">{tx.date}</div>
+                        <div className="text-xs text-slate-500 font-medium">{tx.date}</div>
                       </div>
                     </div>
                     <div className={`text-sm font-black shrink-0 ${tx.type === 'income' ? 'text-emerald-600' : 'text-red-500'}`}>
@@ -474,7 +474,7 @@ export default function OwnerDashboard() {
                 <Link key={inv.id} href={`/invoices/${inv.id}`} className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-red-50/40 transition-colors">
                   <div className="min-w-0">
                     <div className="text-sm font-bold text-slate-900 truncate">{inv.room_name || `Phòng #${inv.room_id}`}</div>
-                    <div className="text-xs text-slate-400 font-medium truncate">{inv.tenant_name || '-'} · T{inv.month}/{inv.year}</div>
+                    <div className="text-xs text-slate-500 font-medium truncate">{inv.tenant_name || '-'} · T{inv.month}/{inv.year}</div>
                   </div>
                   <div className="text-sm font-black text-red-600 shrink-0">{formatMoney(inv.remaining)}</div>
                 </Link>
@@ -496,7 +496,7 @@ function BreakdownCard({ icon, label, value, bgColor }: { icon: React.ReactNode;
         {icon}
       </div>
       <div className="min-w-0">
-        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide truncate">{label}</div>
+        <div className="text-xs font-bold text-slate-600 uppercase tracking-wide truncate">{label}</div>
         <div className="text-sm font-black text-slate-900 truncate">{value}</div>
       </div>
     </div>
@@ -524,11 +524,11 @@ function StatCard({ label, value, sub, icon, color = "blue", gradient = false, t
         <div className="text-2xl font-black leading-tight truncate">{value}</div>
         <div className="flex items-center gap-1 mt-1">
           {trend != null && (
-            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${trend >= 0 ? 'bg-white/20 text-white' : 'bg-red-400/40 text-white'}`}>
+            <span className={`text-xs font-black px-1.5 py-0.5 rounded-full ${trend >= 0 ? 'bg-white/20 text-white' : 'bg-red-400/40 text-white'}`}>
               {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}%
             </span>
           )}
-          <div className="text-[11px] text-white/70 font-medium truncate">{sub}</div>
+          <div className="text-xs text-white/90 font-medium truncate">{sub}</div>
         </div>
       </div>
     );
@@ -538,9 +538,9 @@ function StatCard({ label, value, sub, icon, color = "blue", gradient = false, t
       <div className={`inline-flex h-9 w-9 items-center justify-center rounded-xl mb-3 ${colors[color] || colors.blue}`}>
         {icon}
       </div>
-      <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1">{label}</div>
+      <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1">{label}</div>
       <div className="text-xl font-black text-slate-900 leading-tight truncate">{value}</div>
-      <div className="text-[11px] text-slate-400 font-medium mt-1 truncate">{sub}</div>
+      <div className="text-xs text-slate-500 font-medium mt-1 truncate">{sub}</div>
     </div>
   );
 }
@@ -568,7 +568,7 @@ function QuickBtn({ href, icon, label, desc, color }: { href: string; icon: Reac
     <Link href={href} className={`flex flex-col items-center text-center gap-1.5 rounded-2xl border p-3 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 ${colors[color]}`}>
       {icon}
       <span className="text-[10px] font-black uppercase tracking-wider leading-none mt-1">{label}</span>
-      <span className="text-[9px] opacity-70 font-semibold leading-tight line-clamp-1">{desc}</span>
+      <span className="text-[11px] opacity-80 font-semibold leading-tight line-clamp-1">{desc}</span>
     </Link>
   );
 }

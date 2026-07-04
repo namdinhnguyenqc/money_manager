@@ -151,7 +151,7 @@ export default function TenantDetailPage() {
             <ArrowLeft size={16} />
             Khách thuê
           </Link>
-          <ChevronRight size={14} className="text-slate-300" />
+          <ChevronRight size={14} className="text-slate-400" />
           <span className="font-bold text-slate-800 truncate">{tenantName}</span>
         </div>
 
@@ -172,12 +172,12 @@ export default function TenantDetailPage() {
                     {room?.tenant_name ?? "—"}
                   </h1>
                   {isActive ? (
-                    <span className="inline-flex items-center gap-1.5 mt-1 rounded-full bg-emerald-50 border border-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                    <span className="inline-flex items-center gap-1.5 mt-1 rounded-full bg-emerald-50 border border-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       Đang thuê
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 mt-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-500">
+                    <span className="inline-flex items-center gap-1.5 mt-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-600">
                       {roomStatus ? roomStatusLabel(roomStatus) : "Chưa có phòng"}
                     </span>
                   )}
@@ -290,7 +290,7 @@ export default function TenantDetailPage() {
           {invoices.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Receipt size={32} className="text-slate-200 mb-3" />
-              <p className="text-sm text-slate-400 font-medium">Chưa có hóa đơn nào</p>
+              <p className="text-sm text-slate-500 font-medium">Chưa có hóa đơn nào</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-50">
@@ -317,7 +317,7 @@ export default function TenantDetailPage() {
                       <p className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors truncate">
                         {periodLabel}
                       </p>
-                      <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">
                         {fmtDate(inv.created_at)}
                       </p>
                     </div>

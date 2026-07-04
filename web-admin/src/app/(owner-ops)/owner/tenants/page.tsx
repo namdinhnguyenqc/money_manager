@@ -223,14 +223,14 @@ export default function OwnerTenantsPage() {
                               Đang thuê
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500">
                               <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
                               Chưa có phòng
                             </span>
                           )}
                         </div>
                       </div>
-                      <ChevronRight size={16} className="shrink-0 text-slate-300 group-hover:text-blue-400 transition-colors mt-1" />
+                      <ChevronRight size={16} className="shrink-0 text-slate-400 group-hover:text-blue-400 transition-colors mt-1" />
                     </div>
 
                     {/* Contact info */}

@@ -332,7 +332,7 @@ export default function OwnerFeedbackPage() {
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">
+                    <span className="text-xs uppercase tracking-wider font-extrabold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
                       {typeLabelMap[report.type] || report.type}
                     </span>
                     <span className={`text-[11px] font-black border px-2.5 py-0.5 rounded-full ${statusInfo.color}`}>
@@ -563,7 +563,7 @@ export default function OwnerFeedbackPage() {
                   {/* Image attachments */}
                   {selectedReport.attachments && selectedReport.attachments.length > 0 && (
                     <div className="mt-4 pt-3 border-t border-slate-200/50">
-                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Ảnh đính kèm</span>
+                      <span className="text-xs font-black uppercase text-slate-500 tracking-wider">Ảnh đính kèm</span>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {selectedReport.attachments.map((att) => (
                           <a href={att.file_url} target="_blank" rel="noopener noreferrer" key={att.id} className="w-16 h-16 rounded-xl overflow-hidden border border-slate-200/60 hover:opacity-80 transition-opacity">
@@ -634,7 +634,7 @@ export default function OwnerFeedbackPage() {
 
                 {/* Discussion Thread */}
                 <div className="space-y-4">
-                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Thảo luận / Trao đổi</span>
+                  <span className="text-xs font-black uppercase text-slate-500 tracking-widest block">Thảo luận / Trao đổi</span>
 
                   {loadingDetails ? (
                     <div className="py-8 text-center">
@@ -666,10 +666,10 @@ export default function OwnerFeedbackPage() {
 
                             <div className="max-w-[75%]">
                               <div className="flex items-center gap-2 mb-1 justify-start">
-                                <span className={`text-[10px] font-extrabold ${isAdmin ? "text-indigo-600" : "text-slate-700"}`}>
+                                <span className={`text-xs font-extrabold ${isAdmin ? "text-indigo-600" : "text-slate-700"}`}>
                                   {cmt.senderName} {isAdmin && "🛡️ (Admin)"}
                                 </span>
-                                <span className="text-[9px] text-slate-400 font-semibold">
+                                <span className="text-xs text-slate-500 font-semibold">
                                   {new Date(cmt.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                                 </span>
                               </div>
