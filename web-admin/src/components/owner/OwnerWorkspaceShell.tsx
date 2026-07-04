@@ -137,6 +137,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
   const queryClient = useQueryClient();
   const pathname = usePathname();
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [currentSearchParams, setCurrentSearchParams] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
@@ -595,7 +596,71 @@ const getPageTitle = (path: string) => {
               </button>
             )}
 
-            {/* Profile Dropdown */}
+                        {/* Notification Bell Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 transition-all active:scale-95"
+              >
+                <Bell size={18} />
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                  3
+                </span>
+              </button>
+
+              {notificationsOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setNotificationsOpen(false)} />
+                  <div className="absolute right-0 mt-2.5 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+                      <span className="text-xs font-black text-slate-800">Thông báo hệ thống</span>
+                      <button className="text-[10px] font-bold text-blue-600 hover:underline">Đọc tất cả</button>
+                    </div>
+
+                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                      <div className="flex gap-2.5 items-start p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div className="space-y-0.5 min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">Hóa đơn 202 được thanh toán</p>
+                          <p className="text-[10px] text-slate-500 font-medium truncate">SePay đã tự động gạch nợ thành công.</p>
+                          <p className="text-[9px] text-slate-400 font-medium">10 phút trước</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2.5 items-start p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                        <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5 shrink-0" />
+                        <div className="space-y-0.5 min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">Hợp đồng 105 sắp hết hạn</p>
+                          <p className="text-[10px] text-slate-500 font-medium truncate">Hợp đồng thuê sẽ hết hiệu lực sau 15 ngày.</p>
+                          <p className="text-[9px] text-slate-400 font-medium">2 giờ trước</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2.5 items-start p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                        <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0" />
+                        <div className="space-y-0.5 min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">Yêu cầu sửa chữa mới</p>
+                          <p className="text-[10px] text-slate-500 font-medium truncate">Phòng 304 báo hỏng vòi nước nhà vệ sinh.</p>
+                          <p className="text-[9px] text-slate-400 font-medium">1 ngày trước</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-2.5 mt-3 text-center">
+                      <Link
+                        href="/owner/notifications"
+                        onClick={() => setNotificationsOpen(false)}
+                        className="text-xs font-bold text-slate-600 hover:text-slate-900"
+                      >
+                        Xem tất cả thông báo
+                      </Link>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+{/* Profile Dropdown */}
             <div className="relative">
               <button 
                 onClick={() => setDropdownOpen(!dropdownOpen)}
