@@ -25,6 +25,7 @@ import {
   Tag,
   Bell,
   BellOff,
+  ChevronDown,
 } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { clearClientSession, getStoredAccessToken, getStoredSessionUser } from "@/utils/session";
@@ -115,6 +116,24 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
   const [ownerEmail, setOwnerEmail] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [demo, setDemo] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const getPageTitle = (path: string) => {
+    if (path === "/owner/dashboard") return "Bảng tổng quan";
+    if (path.startsWith("/owner/boarding-houses") || path.startsWith("/facilities")) return "Cơ sở cho thuê";
+    if (path.startsWith("/rooms")) return "Danh sách phòng trọ";
+    if (path.startsWith("/owner/tenants")) return "Khách thuê trọ";
+    if (path.startsWith("/contracts") || path === "/owner/rental") return "Hợp đồng thuê phòng";
+    if (path.startsWith("/invoices")) return "Hóa đơn dịch vụ";
+    if (path.startsWith("/deposits")) return "Quản lý tiền cọc";
+    if (path.startsWith("/payments")) return "Lịch sử thu tiền";
+    if (path.startsWith("/owner/transactions")) return "Sổ thu chi dòng tiền";
+    if (path.startsWith("/owner/trading")) return "Gói dịch vụ & Giao dịch";
+    if (path.startsWith("/owner/profile")) return "Hồ sơ cá nhân";
+    if (path.startsWith("/owner/settings") || path === "/settings") return "Cài đặt hệ thống";
+    if (path.startsWith("/owner/feedback")) return "Báo cáo lỗi & Góp ý";
+    return "Hệ thống quản lý TrọCare";
+  };
 
   useEffect(() => { setDemo(isDemoMode()); }, []);
 
@@ -382,13 +401,12 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
           })}
         </nav>
 
-        <div className="border-t border-slate-200 px-3 py-3 space-y-1">
-          {/* Push notification toggle */}
-          {pushSupported && permission !== "denied" && (
+        <div className="border-t border-slate-100 p-3 space-y-1">
+          {pushSupported && (
             <button
               onClick={subscribed ? unsubscribePush : subscribePush}
               disabled={pushLoading}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors ${subscribed ? "text-emerald-600 hover:bg-emerald-50" : "text-slate-600 hover:bg-slate-100"}`}
+              className={`flex lg:hidden w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors ${subscribed ? "text-emerald-600 hover:bg-emerald-50" : "text-slate-600 hover:bg-slate-100"}`}
             >
               {subscribed ? <Bell size={18} className="shrink-0" /> : <BellOff size={18} className="shrink-0" />}
               <span className="truncate">{subscribed ? "Thông báo đang bật" : "Bật thông báo"}</span>
@@ -405,7 +423,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
               <span className="truncate">Cài ứng dụng</span>
             </button>
           )}
-          <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-50">
+          <button onClick={handleLogout} className="flex lg:hidden w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-50">
             <LogOut size={18} className="shrink-0" />
             <span className="truncate">Đăng xuất</span>
           </button>
@@ -427,6 +445,79 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
           >
             {(ownerName || "O").charAt(0).toUpperCase()}
           </button>
+        </header>
+
+        {/* Desktop Header */}
+        <header className="hidden lg:flex items-center justify-between bg-white border-b border-slate-100 px-6 py-3.5 sticky top-0 z-20">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-black text-slate-800 tracking-tight">{getPageTitle(pathname)}</span>
+          </div>
+          <div className="flex items-center gap-4">
+            {/* Notification Bell */}
+            {pushSupported && (
+              <button 
+                onClick={subscribed ? unsubscribePush : subscribePush}
+                disabled={pushLoading}
+                title={subscribed ? "Tắt thông báo nhận tin" : "Bật thông báo nhận tin"}
+                className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all ${
+                  subscribed 
+                    ? "bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100" 
+                    : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
+                }`}
+              >
+                {subscribed ? <Bell size={18} /> : <BellOff size={18} />}
+              </button>
+            )}
+
+            {/* Profile Dropdown */}
+            <div className="relative">
+              <button 
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition-all select-none"
+              >
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-[10px] uppercase shadow-sm">
+                  {(ownerName || "O").charAt(0).toUpperCase()}
+                </div>
+                <span className="max-w-[120px] truncate">{ownerName || "Chủ trọ"}</span>
+                <ChevronDown size={14} className={`text-slate-400 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {dropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setDropdownOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-52 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl z-40 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="px-3 py-2 border-b border-slate-100">
+                      <div className="text-xs font-bold text-slate-800 truncate">{ownerName}</div>
+                      <div className="text-[10px] text-slate-400 truncate mt-0.5">{ownerEmail}</div>
+                    </div>
+                    <Link 
+                      href="/owner/profile"
+                      onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-all mt-1"
+                    >
+                      <UserCircle size={15} />
+                      Thông tin hồ sơ
+                    </Link>
+                    <Link 
+                      href="/owner/settings"
+                      onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-all"
+                    >
+                      <Settings size={15} />
+                      Cài đặt hệ thống
+                    </Link>
+                    <button 
+                      onClick={() => { setDropdownOpen(false); handleLogout(); }}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 transition-all border-t border-slate-100 mt-1"
+                    >
+                      <LogOut size={15} />
+                      Đăng xuất
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </header>
         {demo && (
           <div className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-amber-800">

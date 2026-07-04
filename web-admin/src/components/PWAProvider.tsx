@@ -67,7 +67,7 @@ export default function PWAProvider({ children }: { children?: React.ReactNode }
             position: "fixed",
             zIndex: 50,
             left: "50%",
-            bottom: 20,
+            top: 20,
             transform: "translateX(-50%)",
             display: "flex",
             alignItems: "center",
@@ -85,7 +85,11 @@ export default function PWAProvider({ children }: { children?: React.ReactNode }
             <strong>Cài TrọCare</strong> như ứng dụng
           </div>
           <button
-            onClick={install}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              install();
+            }}
             style={{
               background: "#2563EB",
               color: "#fff",
@@ -100,7 +104,11 @@ export default function PWAProvider({ children }: { children?: React.ReactNode }
             Cài đặt
           </button>
           <button
-            onClick={() => setBannerVisible(false)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setBannerVisible(false);
+            }}
             aria-label="Đóng"
             style={{ background: "transparent", border: 0, fontSize: 18, color: "#64748B", cursor: "pointer" }}
           >

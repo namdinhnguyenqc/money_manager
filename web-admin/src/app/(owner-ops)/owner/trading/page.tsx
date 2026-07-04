@@ -100,7 +100,7 @@ export default function OwnerTradingPage() {
     try {
       const token = getStoredAccessToken();
       const res = await apiPost<any>('/owner/simulate-upgrade', { plan: 'premium' });
-      if (res.success) {
+      if (res.success || res.data?.ok) {
         // Refetch user permissions to update local state
         const permRes = await fetch(`${API_URL}/owner/permissions`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -124,7 +124,7 @@ export default function OwnerTradingPage() {
     try {
       const token = getStoredAccessToken();
       const res = await apiPost<any>('/owner/simulate-upgrade', { plan: 'basic' });
-      if (res.success) {
+      if (res.success || res.data?.ok) {
         // Refetch user permissions to update local state
         const permRes = await fetch(`${API_URL}/owner/permissions`, {
           headers: { Authorization: `Bearer ${token}` },

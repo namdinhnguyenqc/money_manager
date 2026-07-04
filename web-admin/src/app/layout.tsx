@@ -10,11 +10,6 @@ export const metadata: Metadata = {
   description: "TrọCare - Nền tảng quản lý nhà trọ và phòng cho thuê thế hệ mới.",
   applicationName: "TrọCare",
   manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "TrọCare",
-  },
   // Favicon + apple-touch icon are provided by file conventions:
   // src/app/icon.png and src/app/apple-icon.png (official TrọCare brand mark).
   other: {

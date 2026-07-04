@@ -4,7 +4,7 @@ import LandingPageClient from "./LandingPageClient";
 export const metadata: Metadata = {
   title: "Phần Mềm Quản Lý Trọ Miễn Phí, Quản Lý Phòng Trọ - TrọCare",
   description:
-    "TrọCare là phần mềm quản lý trọ miễn phí uy tín và bảo mật tốt nhất hiện nay. Hỗ trợ quản lý phòng trọ, dãy trọ, khách thuê, hợp đồng, hóa đơn tự động, quét mã QR thanh toán SePay và sổ quỹ thu chi chủ trọ an toàn.",
+    "TrọCare là phần mềm quản lý trọ miễn phí uy tín, bảo mật tốt nhất. Hỗ trợ quản lý phòng trọ, khách thuê, hợp đồng, hóa đơn tự động và thanh toán QR tiện lợi.",
   keywords: [
     "TrọCare",
     "quản lý trọ miễn phí",

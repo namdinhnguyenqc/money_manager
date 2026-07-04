@@ -18,7 +18,15 @@ function buildDemoResponse(input: string, init: RequestInit): Response {
     /* fall back to raw string */
   }
   const method = (init.method || "GET").toUpperCase();
-  const payload = resolveDemoPayload(pathname, method, search) ?? { data: [] };
+  let body = null;
+  if (init.body) {
+    try {
+      body = JSON.parse(init.body as string);
+    } catch {
+      body = init.body;
+    }
+  }
+  const payload = resolveDemoPayload(pathname, method, search, body) ?? { data: [] };
   return new Response(JSON.stringify(payload), {
     status: 200,
     headers: { "Content-Type": "application/json" },
