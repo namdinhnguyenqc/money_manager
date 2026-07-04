@@ -28,6 +28,9 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  Layers,
+  Zap,
 } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { clearClientSession, getStoredAccessToken, getStoredSessionUser } from "@/utils/session";
@@ -44,6 +47,7 @@ interface NavItem {
   icon: any;
   badge?: string;
   permission?: string;
+  children?: { href: string; label: string; icon: any }[];
 }
 
 interface NavSection {
@@ -86,7 +90,18 @@ const navSections: NavSection[] = [
     title: "Cấu hình",
     items: [
       { href: "/owner/profile", label: "Hồ sơ chủ trọ", icon: UserCircle },
-      { href: "/owner/settings", label: "Cài đặt hệ thống", icon: Settings },
+      { 
+        href: "/owner/settings", 
+        label: "Cài đặt hệ thống", 
+        icon: Settings,
+        children: [
+          { href: "/owner/settings?tab=sepay-logs", label: "Kết nối SePay", icon: Layers },
+          { href: "/owner/settings?tab=notifications", label: "Nhận thông báo", icon: Bell },
+          { href: "/owner/settings?tab=pricing", label: "Bảng giá dịch vụ", icon: Zap },
+          { href: "/owner/settings?tab=categories", label: "Danh mục thu chi", icon: Tag },
+          { href: "/owner/settings?tab=extension", label: "Ví & Dòng tiền", icon: Wallet },
+        ]
+      },
       { href: "/owner/feedback", label: "Báo cáo lỗi / Góp ý", icon: HelpCircle, permission: "feedback.view" },
     ]
   }
@@ -121,6 +136,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
   const router = useRouter();
   const queryClient = useQueryClient();
   const pathname = usePathname();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(true);
   const [currentSearchParams, setCurrentSearchParams] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
@@ -144,7 +160,30 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
     });
   };
 
-  const getPageTitle = (path: string) => {
+    const isItemActive = (href: string) => {
+    const [hPath, hQuery] = href.split("?");
+    const pathActive = isActiveRoute(pathname, hPath);
+    if (!pathActive) return false;
+    
+    if (hQuery) {
+      const hParams = new URLSearchParams(hQuery);
+      let matches = true;
+      hParams.forEach((val, key) => {
+        if (currentSearchParams?.get(key) !== val) {
+          matches = false;
+        }
+      });
+      return matches;
+    }
+    
+    if (hPath === "/owner/settings" && currentSearchParams?.get("tab")) {
+      return false;
+    }
+    
+    return true;
+  };
+
+const getPageTitle = (path: string) => {
     if (path === "/owner/dashboard") return "Bảng tổng quan";
     if (path.startsWith("/owner/boarding-houses") || path.startsWith("/facilities")) return "Cơ sở cho thuê";
     if (path.startsWith("/rooms")) return "Danh sách phòng trọ";
@@ -416,34 +455,71 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
                 )}
                 {filteredItems.map((item) => {
                   const Icon = item.icon;
-                  const active = isActiveRoute(pathname, item.href);
+                  const active = isItemActive(item.href);
+                  const isParent = !!item.children;
                   return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      title={isCollapsed ? item.label : undefined}
-                      className={`flex items-center transition-all duration-200 ${
-                        isCollapsed 
-                          ? "lg:justify-center lg:rounded-xl lg:p-2 lg:mx-auto lg:w-10 lg:h-10 gap-3 rounded-lg px-3 py-2 text-sm font-semibold" 
-                          : "gap-3 rounded-lg px-3 py-2 text-sm font-semibold"
-                      } ${
-                        active ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                      }`}
-                    >
-                      <Icon size={17} className={`shrink-0 ${active ? "text-blue-600" : "text-slate-400"}`} />
-                      <span className={`min-w-0 flex-1 truncate transition-all duration-300 ${
-                        isCollapsed ? "lg:hidden" : ""
-                      }`}>
-                        {item.label}
-                      </span>
-                      {item.badge && !isCollapsed && (
-                        <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none text-white ${
-                          item.badge === "PRO" ? "bg-gradient-to-r from-amber-500 to-orange-500 shadow-sm" : "bg-red-500"
+                    <div key={item.href} className="flex flex-col gap-1">
+                      <Link
+                        href={isParent ? "#" : item.href}
+                        onClick={(e) => {
+                          if (isParent) {
+                            e.preventDefault();
+                            setIsSettingsOpen(!isSettingsOpen);
+                          }
+                        }}
+                        title={isCollapsed ? item.label : undefined}
+                        className={`flex items-center transition-all duration-200 group ${
+                          isCollapsed 
+                            ? "lg:justify-center lg:rounded-xl lg:p-2 lg:mx-auto lg:w-10 lg:h-10 gap-3 rounded-lg px-3 py-2 text-sm font-semibold" 
+                            : "gap-3 rounded-lg px-3 py-2 text-sm font-semibold"
+                        } ${
+                          active ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        }`}
+                      >
+                        <Icon size={17} className={`shrink-0 ${active ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600"}`} />
+                        <span className={`min-w-0 flex-1 truncate transition-all duration-300 ${
+                          isCollapsed ? "lg:hidden" : ""
                         }`}>
-                          {item.badge}
+                          {item.label}
                         </span>
+                        {item.badge && !isCollapsed && (
+                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none text-white ${
+                            item.badge === "PRO" ? "bg-gradient-to-r from-amber-500 to-orange-500 shadow-sm" : "bg-red-500"
+                          }`}>
+                            {item.badge}
+                          </span>
+                        )}
+                        {isParent && !isCollapsed && (
+                          <ChevronDown
+                            size={14}
+                            className={`shrink-0 transition-transform duration-300 text-slate-400 group-hover:text-slate-600 ${
+                              isSettingsOpen ? "" : "-rotate-90"
+                            }`}
+                          />
+                        )}
+                      </Link>
+
+                      {item.children && !isCollapsed && isSettingsOpen && (
+                        <div className="flex flex-col gap-1 pl-6 mt-1 border-l border-slate-100 ml-5 animate-in slide-in-from-top-2 duration-200">
+                          {item.children.map((child) => {
+                            const ChildIcon = child.icon;
+                            const childActive = isItemActive(child.href);
+                            return (
+                              <Link
+                                key={child.href}
+                                href={child.href}
+                                className={`flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                  childActive ? "bg-blue-50/70 text-blue-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                                }`}
+                              >
+                                <ChildIcon size={13} className={`shrink-0 ${childActive ? "text-blue-600" : "text-slate-400"}`} />
+                                <span className="truncate">{child.label}</span>
+                              </Link>
+                            );
+                          })}
+                        </div>
                       )}
-                    </Link>
+                    </div>
                   );
                 })}
               </div>
