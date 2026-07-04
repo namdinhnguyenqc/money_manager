@@ -26,6 +26,8 @@ import {
   Bell,
   BellOff,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { clearClientSession, getStoredAccessToken, getStoredSessionUser } from "@/utils/session";
@@ -117,6 +119,20 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [demo, setDemo] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sidebar_collapsed") === "true";
+    }
+    return false;
+  });
+
+  const toggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("sidebar_collapsed", String(next));
+      return next;
+    });
+  };
 
   const getPageTitle = (path: string) => {
     if (path === "/owner/dashboard") return "Bảng tổng quan";
@@ -329,15 +345,22 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-300 ease-out lg:pointer-events-auto lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 flex flex-col border-r border-slate-200 bg-white transition-all duration-300 ease-out lg:pointer-events-auto lg:static lg:translate-x-0 ${
           sidebarOpen ? "pointer-events-auto translate-x-0" : "pointer-events-none -translate-x-full"
-        }`}
+        } ${isCollapsed ? "w-72 lg:w-20" : "w-72"}`}
       >
         <div className="flex flex-col border-b border-slate-200">
-          <div className="px-5 py-4">
-            <Logo />
+          <div className="flex items-center justify-between px-5 py-4">
+            <Logo collapsed={isCollapsed} />
+            <button
+              onClick={toggleCollapse}
+              className="hidden lg:flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-500 transition-all shadow-sm"
+              title={isCollapsed ? "Mở rộng menu" : "Thu hẹp menu"}
+            >
+              {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+            </button>
           </div>
-          <div className="flex items-center gap-3 px-5 pb-5">
+          <div className={`flex items-center gap-3 px-5 pb-5 transition-all duration-300 ${isCollapsed ? "lg:hidden" : ""}`}>
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-semibold text-slate-900">{ownerName}</div>
               <div className="truncate text-xs text-slate-500">{ownerEmail || "owner workspace"}</div>
@@ -370,9 +393,14 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
 
             return (
               <div key={section.title} className="flex flex-col gap-0.5">
-                <div className="px-3 mb-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
+                <div className={`px-3 mb-1.5 text-xs font-bold uppercase tracking-widest text-slate-400 transition-all duration-300 ${
+                  isCollapsed ? "lg:hidden" : ""
+                }`}>
                   {section.title}
                 </div>
+                {isCollapsed && (
+                  <div className="hidden lg:block border-t border-slate-100 my-1 mx-2" />
+                )}
                 {filteredItems.map((item) => {
                   const Icon = item.icon;
                   const active = isActiveRoute(pathname, item.href);
@@ -380,13 +408,22 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                      title={isCollapsed ? item.label : undefined}
+                      className={`flex items-center transition-all duration-200 ${
+                        isCollapsed 
+                          ? "lg:justify-center lg:rounded-xl lg:p-2 lg:mx-auto lg:w-10 lg:h-10 gap-3 rounded-lg px-3 py-2 text-sm font-semibold" 
+                          : "gap-3 rounded-lg px-3 py-2 text-sm font-semibold"
+                      } ${
                         active ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                       }`}
                     >
                       <Icon size={17} className={`shrink-0 ${active ? "text-blue-600" : "text-slate-400"}`} />
-                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                      {item.badge && (
+                      <span className={`min-w-0 flex-1 truncate transition-all duration-300 ${
+                        isCollapsed ? "lg:hidden" : ""
+                      }`}>
+                        {item.label}
+                      </span>
+                      {item.badge && !isCollapsed && (
                         <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none text-white ${
                           item.badge === "PRO" ? "bg-gradient-to-r from-amber-500 to-orange-500 shadow-sm" : "bg-red-500"
                         }`}>
