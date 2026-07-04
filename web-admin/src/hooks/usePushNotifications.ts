@@ -32,6 +32,14 @@ export function usePushNotifications() {
     if (!isSupported) return false;
     setLoading(true);
     try {
+      // Mock toggle if in demo mode or vercel preview
+      if (typeof window !== "undefined" && (localStorage.getItem("demo_mode") === "true" || window.location.hostname.includes("vercel") || window.location.hostname.includes("localhost"))) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        setPermission("granted");
+        setSubscribed(true);
+        return true;
+      }
+
       // 1. Request permission
       const perm = await Notification.requestPermission();
       setPermission(perm as PermissionState);
@@ -71,6 +79,12 @@ export function usePushNotifications() {
   }, [isSupported]);
 
   const unsubscribe = useCallback(async (): Promise<void> => {
+    // Mock toggle if in demo mode or vercel preview
+    if (typeof window !== "undefined" && (localStorage.getItem("demo_mode") === "true" || window.location.hostname.includes("vercel") || window.location.hostname.includes("localhost"))) {
+      setSubscribed(false);
+      return;
+    }
+
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
     if (!sub) return;
