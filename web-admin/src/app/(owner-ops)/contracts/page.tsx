@@ -22,7 +22,7 @@ const filters: Array<{ label: string; value: "all" | ContractStatus }> = [
 const pageSize = 10;
 
 export default function ContractsPage() {
-  const [filter, setFilter] = useState<"all" | ContractStatus>("all");
+  const [filter, setFilter] = useState<"all" | ContractStatus>("active");
   const [page, setPage] = useState(1);
   const contractsQuery = useQuery({ queryKey: ["contracts"], queryFn: loadContracts, staleTime: 30_000 });
   const contracts = contractsQuery.data || [];

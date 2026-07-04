@@ -5,15 +5,19 @@ import Link from 'next/link';
 import {
   Users, Home, Wallet, AlertCircle, Building2, Repeat,
   FileText, ArrowRight, Plus, Zap, Droplet, ChevronRight,
-  TrendingUp, Receipt, Settings, Wifi
+  TrendingUp, TrendingDown, Receipt, Settings, Wifi,
+  BarChart3, ArrowUpRight, ArrowDownRight, Minus,
 } from 'lucide-react';
 import { formatMoney, normalizeRoomStatus } from '@/lib/rentalOps';
 import RBACGuard from '@/components/RBACGuard';
 import { useOwnerDashboardInit } from '@/hooks/useOwnerData';
 
+const MONTH_NAMES = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
+
 export default function OwnerDashboard() {
   const dashboardQuery = useOwnerDashboardInit();
   const [slowLoad, setSlowLoad] = useState(false);
+  const [chartMonths, setChartMonths] = useState(6);
 
   React.useEffect(() => {
     if (!dashboardQuery.isLoading) { setSlowLoad(false); return; }
@@ -35,40 +39,79 @@ export default function OwnerDashboard() {
     return { total, occupied, vacant, reserved, maintenance, occupancyRate };
   }, [rooms]);
 
+  const now = new Date();
+  const curM = now.getMonth(), curY = now.getFullYear();
+
   const financial = useMemo(() => {
-    const now = new Date();
-    const m = now.getMonth(), y = now.getFullYear();
     const thisMonth = transactions.filter(t => {
       const d = new Date(t.date);
-      return d.getMonth() === m && d.getFullYear() === y;
+      return d.getMonth() === curM && d.getFullYear() === curY;
     });
     const income = thisMonth.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const expense = thisMonth.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
 
-    // Last 6 months revenue
-    const months = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(y, m - (5 - i), 1);
+    // Build monthly breakdown for chart
+    const months = Array.from({ length: chartMonths }, (_, i) => {
+      const d = new Date(curY, curM - (chartMonths - 1 - i), 1);
       const mm = d.getMonth(), yy = d.getFullYear();
       const rev = transactions
         .filter(t => { const td = new Date(t.date); return td.getMonth() === mm && td.getFullYear() === yy && t.type === 'income'; })
         .reduce((s, t) => s + t.amount, 0);
-      return { label: `T${mm + 1}`, value: rev };
+      const exp = transactions
+        .filter(t => { const td = new Date(t.date); return td.getMonth() === mm && td.getFullYear() === yy && t.type === 'expense'; })
+        .reduce((s, t) => s + t.amount, 0);
+      return { label: MONTH_NAMES[mm], month: mm + 1, year: yy, rev, exp, profit: rev - exp };
     });
-    const maxRev = Math.max(...months.map(m => m.value), 1);
+    const maxVal = Math.max(...months.map(m => Math.max(m.rev, m.exp)), 1);
 
-    return { income, expense, profit: income - expense, months, maxRev };
-  }, [transactions]);
+    // Last month comparison
+    const prevM = curM === 0 ? 11 : curM - 1;
+    const prevY = curM === 0 ? curY - 1 : curY;
+    const prevIncome = transactions
+      .filter(t => { const d = new Date(t.date); return d.getMonth() === prevM && d.getFullYear() === prevY && t.type === 'income'; })
+      .reduce((s, t) => s + t.amount, 0);
+    const incomeChange = prevIncome > 0 ? Math.round(((income - prevIncome) / prevIncome) * 100) : null;
+
+    return { income, expense, profit: income - expense, months, maxVal, incomeChange };
+  }, [transactions, chartMonths, curM, curY]);
+
+  // Utility breakdown from invoices (more accurate than transactions)
+  const utilities = useMemo(() => {
+    const thisMonthInvoices = invoices.filter(inv => inv.month === curM + 1 && inv.year === curY);
+    let rent = 0, electricity = 0, water = 0, other = 0;
+    for (const inv of thisMonthInvoices) {
+      rent += inv.room_fee ?? 0;
+      const items = (inv as any).items ?? [];
+      for (const item of items) {
+        const name = String(item.name || '').toLowerCase();
+        if (name.includes('điện') || name.includes('electric')) electricity += item.amount;
+        else if (name.includes('nước') || name.includes('water')) water += item.amount;
+        else other += item.amount;
+      }
+    }
+    // Fallback to transactions if invoices items not available
+    if (electricity === 0 && water === 0) {
+      for (const tx of transactions) {
+        if (tx.type !== 'income') continue;
+        const text = [tx.description, (tx as any).category_name].join(' ').toLowerCase();
+        const amt = Math.abs(Number(tx.amount || 0));
+        if (text.includes('điện') || text.includes('electric')) electricity += amt;
+        else if (text.includes('nước') || text.includes('water')) water += amt;
+      }
+    }
+    const total = rent + electricity + water + other;
+    return { rent, electricity, water, other, total };
+  }, [invoices, transactions, curM, curY]);
 
   const overdueInvoices = useMemo(() => {
-    const now = new Date();
-    const cm = now.getMonth() + 1, cy = now.getFullYear();
+    const cm = curM + 1, cy = curY;
     return invoices.filter(inv => {
       const total = Number(inv.total_amount || 0);
       const paid = Number(inv.paid_amount || 0);
       const past = inv.year < cy || (inv.year === cy && inv.month < cm);
       return past && total > 0 && paid < total;
     });
-  }, [invoices]);
+  }, [invoices, curM, curY]);
 
   const overdueAmount = useMemo(() =>
     overdueInvoices.reduce((s, inv) => s + Math.max(0, Number(inv.total_amount || 0) - Number(inv.paid_amount || 0)), 0),
@@ -76,29 +119,6 @@ export default function OwnerDashboard() {
 
   const vacantRooms = useMemo(() => rooms.filter(r => normalizeRoomStatus(r) === 'vacant').slice(0, 3), [rooms]);
 
-  // Service revenue breakdown (electricity / water / wifi) from income transactions
-  const utilities = useMemo(() => {
-    const detect = (tx: any): 'electricity' | 'water' | 'wifi' | null => {
-      const text = [tx.category_name, tx?.metadata?.utility_type, tx.description]
-        .map((v: any) => String(v || '').toLowerCase()).join(' ');
-      if (text.includes('wifi') || text.includes('fpt') || text.includes('internet') || text.includes('mạng')) return 'wifi';
-      if (text.includes('điện') || text.includes('dien') || text.includes('electric')) return 'electricity';
-      if (text.includes('nước') || text.includes('nuoc') || text.includes('water')) return 'water';
-      return null;
-    };
-    let electricity = 0, water = 0, wifi = 0;
-    for (const tx of transactions) {
-      if (tx.type !== 'income') continue;
-      const t = detect(tx);
-      const amt = Math.abs(Number(tx.amount || 0));
-      if (t === 'electricity') electricity += amt;
-      else if (t === 'water') water += amt;
-      else if (t === 'wifi') wifi += amt;
-    }
-    return { electricity, water, wifi };
-  }, [transactions]);
-
-  // Outstanding debts ledger (all unpaid invoices, biggest first)
   const debts = useMemo(() => {
     return invoices
       .map((inv: any) => {
@@ -116,7 +136,6 @@ export default function OwnerDashboard() {
     [...transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5),
     [transactions]);
 
-  const now = new Date();
   const greeting = now.getHours() < 12 ? 'Chào buổi sáng' : now.getHours() < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
 
   if (dashboardQuery.isError) return (
@@ -148,8 +167,8 @@ export default function OwnerDashboard() {
       <div className="grid grid-cols-2 gap-3">
         {[1,2,3,4].map(i => <div key={i} className="h-24 rounded-2xl bg-slate-100 animate-pulse"/>)}
       </div>
+      <div className="h-56 rounded-2xl bg-slate-100 animate-pulse"/>
       <div className="h-40 rounded-2xl bg-slate-100 animate-pulse"/>
-      <div className="h-32 rounded-2xl bg-slate-100 animate-pulse"/>
     </div>
   );
 
@@ -187,13 +206,16 @@ export default function OwnerDashboard() {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard
             label="Thu tháng này" value={formatMoney(financial.income)}
-            sub={`Chi: ${formatMoney(financial.expense)}`}
+            sub={financial.incomeChange != null
+              ? `${financial.incomeChange >= 0 ? '+' : ''}${financial.incomeChange}% so tháng trước`
+              : `Chi: ${formatMoney(financial.expense)}`}
             icon={<TrendingUp size={18}/>} gradient
+            trend={financial.incomeChange}
           />
           <StatCard
-            label="Lợi nhuận" value={formatMoney(financial.profit)}
-            sub={financial.income > 0 ? `Biên ${Math.round((financial.profit / financial.income) * 100)}%` : '—'}
-            icon={<Wallet size={18}/>} color="emerald"
+            label="Thu nhập ròng" value={formatMoney(financial.profit)}
+            sub={financial.income > 0 ? `Biên lợi nhuận ${Math.round((financial.profit / financial.income) * 100)}%` : '—'}
+            icon={<Wallet size={18}/>} color={financial.profit >= 0 ? "emerald" : "red"}
           />
           <StatCard
             label="Tỷ lệ lấp đầy" value={`${stats.occupancyRate}%`}
@@ -207,9 +229,132 @@ export default function OwnerDashboard() {
           />
         </div>
 
-        {/* ── OCCUPANCY BAR + REVENUE CHART ── */}
-        <div className="grid gap-4 lg:grid-cols-5">
+        {/* ── FINANCIAL REPORT ── */}
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                <BarChart3 size={18} />
+              </div>
+              <div>
+                <div className="text-sm font-black text-slate-900">Báo cáo tài chính</div>
+                <div className="text-[11px] text-slate-400 font-medium">Doanh thu · Chi phí · Thu nhập ròng</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+              {[3, 6, 12].map(n => (
+                <button
+                  key={n}
+                  onClick={() => setChartMonths(n)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${chartMonths === n ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  {n}T
+                </button>
+              ))}
+            </div>
+          </div>
 
+          <div className="p-5">
+            {/* Summary row */}
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-3">
+                <div className="text-[11px] font-bold text-indigo-500 uppercase tracking-wide mb-1">Doanh thu T{curM + 1}</div>
+                <div className="text-lg font-black text-indigo-700">{formatMoney(financial.income)}</div>
+              </div>
+              <div className="rounded-xl bg-red-50 border border-red-100 p-3">
+                <div className="text-[11px] font-bold text-red-500 uppercase tracking-wide mb-1">Chi phí T{curM + 1}</div>
+                <div className="text-lg font-black text-red-600">{formatMoney(financial.expense)}</div>
+              </div>
+              <div className={`rounded-xl border p-3 ${financial.profit >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-orange-50 border-orange-100'}`}>
+                <div className={`text-[11px] font-bold uppercase tracking-wide mb-1 ${financial.profit >= 0 ? 'text-emerald-500' : 'text-orange-500'}`}>Thu nhập ròng</div>
+                <div className={`text-lg font-black ${financial.profit >= 0 ? 'text-emerald-700' : 'text-orange-600'}`}>{formatMoney(financial.profit)}</div>
+              </div>
+            </div>
+
+            {/* Bar Chart */}
+            <div className="flex items-end gap-1.5 h-40 mb-3">
+              {financial.months.map((m, i) => {
+                const isLast = i === financial.months.length - 1;
+                const revH = financial.maxVal > 0 ? Math.max(4, Math.round((m.rev / financial.maxVal) * 130)) : 4;
+                const expH = financial.maxVal > 0 ? Math.max(2, Math.round((m.exp / financial.maxVal) * 130)) : 2;
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1 group/bar">
+                    {/* Tooltip on hover */}
+                    <div className="hidden group-hover/bar:flex flex-col items-center absolute z-10 -mt-16 bg-slate-900 text-white text-[10px] rounded-lg px-2 py-1.5 pointer-events-none whitespace-nowrap shadow-lg">
+                      <span className="text-indigo-300 font-bold">Thu: {formatMoney(m.rev)}</span>
+                      <span className="text-red-300">Chi: {formatMoney(m.exp)}</span>
+                    </div>
+                    <div className="relative flex items-end gap-0.5 w-full">
+                      {/* Revenue bar */}
+                      <div
+                        className={`flex-1 rounded-t-md transition-all duration-500 ${isLast ? 'bg-indigo-500' : 'bg-indigo-200 group-hover/bar:bg-indigo-400'}`}
+                        style={{ height: `${revH}px` }}
+                        title={`Doanh thu: ${formatMoney(m.rev)}`}
+                      />
+                      {/* Expense bar */}
+                      {m.exp > 0 && (
+                        <div
+                          className={`flex-1 rounded-t-md transition-all duration-500 ${isLast ? 'bg-red-400' : 'bg-red-100 group-hover/bar:bg-red-300'}`}
+                          style={{ height: `${expH}px` }}
+                          title={`Chi phí: ${formatMoney(m.exp)}`}
+                        />
+                      )}
+                    </div>
+                    <div className={`text-[10px] font-bold ${isLast ? 'text-indigo-600' : 'text-slate-400'}`}>{m.label}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-4 justify-center">
+              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <div className="h-2.5 w-2.5 rounded-sm bg-indigo-400"/> Doanh thu
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <div className="h-2.5 w-2.5 rounded-sm bg-red-300"/> Chi phí
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <div className="h-2.5 w-2.5 rounded-sm bg-emerald-400"/> Ròng
+              </div>
+            </div>
+          </div>
+
+          {/* Revenue breakdown */}
+          <div className="border-t border-slate-100 px-5 py-4">
+            <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Cơ cấu doanh thu tháng này</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <BreakdownCard
+                icon={<Home size={15} className="text-blue-500" />}
+                label="Tiền phòng"
+                value={formatMoney(utilities.rent || financial.income - utilities.electricity - utilities.water)}
+                bgColor="bg-blue-50"
+              />
+              <BreakdownCard
+                icon={<Zap size={15} className="text-amber-500" />}
+                label="Tiền điện"
+                value={formatMoney(utilities.electricity)}
+                bgColor="bg-amber-50"
+              />
+              <BreakdownCard
+                icon={<Droplet size={15} className="text-cyan-500" />}
+                label="Tiền nước"
+                value={formatMoney(utilities.water)}
+                bgColor="bg-cyan-50"
+              />
+              <BreakdownCard
+                icon={<Receipt size={15} className="text-violet-500" />}
+                label="Dịch vụ khác"
+                value={formatMoney(utilities.other || 0)}
+                bgColor="bg-violet-50"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ── OCCUPANCY + QUICK ACTIONS ── */}
+        <div className="grid gap-4 lg:grid-cols-5">
           {/* Occupancy visual */}
           <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
@@ -219,7 +364,6 @@ export default function OwnerDashboard() {
               </div>
               <div className="text-3xl font-black text-indigo-600">{stats.occupancyRate}%</div>
             </div>
-
             {/* Stacked bar */}
             <div className="flex h-3 rounded-full overflow-hidden gap-0.5 mb-4">
               {stats.occupied > 0 && <div className="bg-indigo-500 rounded-l-full" style={{ width: `${(stats.occupied/stats.total)*100}%` }}/>}
@@ -227,7 +371,6 @@ export default function OwnerDashboard() {
               {stats.maintenance > 0 && <div className="bg-red-400" style={{ width: `${(stats.maintenance/stats.total)*100}%` }}/>}
               {stats.vacant > 0 && <div className="bg-slate-200 rounded-r-full flex-1"/>}
             </div>
-
             <div className="grid grid-cols-2 gap-2">
               <RoomLegend color="#6366f1" label="Đang thuê" count={stats.occupied}/>
               <RoomLegend color="#f59e0b" label="Đã cọc" count={stats.reserved}/>
@@ -236,38 +379,17 @@ export default function OwnerDashboard() {
             </div>
           </div>
 
-          {/* Revenue sparkline — 6 months */}
+          {/* Quick Actions */}
           <div className="lg:col-span-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <div className="text-xs font-bold uppercase tracking-widest text-slate-400">Doanh thu 6 tháng</div>
-                <div className="text-lg font-black text-slate-900 mt-0.5">{formatMoney(financial.income)} <span className="text-sm font-semibold text-slate-400">tháng này</span></div>
-              </div>
+            <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Truy cập nhanh</div>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              <QuickBtn href="/invoices" icon={<Receipt size={20}/>} label="Hóa đơn" desc="Quản lý & gửi" color="indigo"/>
+              <QuickBtn href="/rooms" icon={<Home size={20}/>} label="Phòng" desc="Xem & cập nhật" color="blue"/>
+              <QuickBtn href="/deposits" icon={<Wallet size={20}/>} label="Tiền cọc" desc="Cọc giữ phòng" color="emerald"/>
+              <QuickBtn href="/contracts" icon={<FileText size={20}/>} label="Hợp đồng" desc="Quản lý thuê" color="amber"/>
+              <QuickBtn href="/owner/transactions" icon={<Repeat size={20}/>} label="Sổ thu chi" desc="Dòng tiền vào ra" color="rose"/>
+              <QuickBtn href="/owner/settings" icon={<Settings size={20}/>} label="Cài đặt" desc="Cấu hình vận hành" color="slate"/>
             </div>
-            <div className="flex items-end gap-2 h-24">
-              {financial.months.map((m, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-                  <div
-                    className={`w-full rounded-t-lg transition-all ${i === 5 ? 'bg-indigo-500' : 'bg-indigo-100'}`}
-                    style={{ height: `${financial.maxRev > 0 ? Math.max(4, Math.round((m.value / financial.maxRev) * 80)) : 4}px` }}
-                  />
-                  <div className={`text-[10px] font-bold ${i === 5 ? 'text-indigo-600' : 'text-slate-400'}`}>{m.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ── QUICK ACTIONS ── */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Truy cập nhanh</div>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-            <QuickBtn href="/invoices" icon={<Receipt size={20}/>} label="Hóa đơn" desc="Quản lý & gửi" color="indigo"/>
-            <QuickBtn href="/rooms" icon={<Home size={20}/>} label="Phòng" desc="Xem & cập nhật" color="blue"/>
-            <QuickBtn href="/deposits" icon={<Wallet size={20}/>} label="Tiền cọc" desc="Cọc giữ phòng" color="emerald"/>
-            <QuickBtn href="/contracts" icon={<FileText size={20}/>} label="Hợp đồng" desc="Quản lý thuê" color="amber"/>
-            <QuickBtn href="/owner/transactions" icon={<Repeat size={20}/>} label="Sổ thu chi" desc="Dòng tiền vào ra" color="rose"/>
-            <QuickBtn href="/owner/settings" icon={<Settings size={20}/>} label="Cài đặt" desc="Cấu hình vận hành" color="slate"/>
           </div>
         </div>
 
@@ -320,7 +442,7 @@ export default function OwnerDashboard() {
                   <div key={tx.id} className="flex items-center justify-between px-5 py-3.5">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className={`h-8 w-8 shrink-0 rounded-xl flex items-center justify-center ${tx.type === 'income' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
-                        {tx.type === 'income' ? <TrendingUp size={15}/> : <ArrowRight size={15}/>}
+                        {tx.type === 'income' ? <ArrowUpRight size={15}/> : <ArrowDownRight size={15}/>}
                       </div>
                       <div className="min-w-0">
                         <div className="text-xs font-bold text-slate-800 truncate max-w-[140px]">{tx.description || 'Giao dịch'}</div>
@@ -337,28 +459,19 @@ export default function OwnerDashboard() {
           </div>
         </div>
 
-        {/* ── SERVICE REVENUE BREAKDOWN ── */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Doanh thu dịch vụ</div>
-          <div className="grid grid-cols-3 gap-3">
-            <UtilCard icon={<Zap size={18} className="text-amber-500"/>} label="Tiền điện" value={formatMoney(utilities.electricity)}/>
-            <UtilCard icon={<Droplet size={18} className="text-blue-500"/>} label="Tiền nước" value={formatMoney(utilities.water)}/>
-            <UtilCard icon={<Wifi size={18} className="text-indigo-500"/>} label="Wifi / Mạng" value={formatMoney(utilities.wifi)}/>
-          </div>
-        </div>
-
         {/* ── OUTSTANDING DEBTS LEDGER ── */}
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-red-50">
-            <div className="text-sm font-black text-red-700">Công nợ tồn đọng</div>
-            <div className="text-sm font-black text-red-700">{formatMoney(totalDebt)}</div>
-          </div>
-          {debts.length === 0 ? (
-            <div className="px-5 py-8 text-center text-sm text-slate-400 font-medium">Không có công nợ. Tuyệt vời! 🎉</div>
-          ) : (
+        {debts.length > 0 && (
+          <div className="rounded-2xl border border-red-100 bg-white shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-red-100 bg-red-50">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={16} className="text-red-500" />
+                <div className="text-sm font-black text-red-700">Công nợ tồn đọng</div>
+              </div>
+              <div className="text-sm font-black text-red-700">{formatMoney(totalDebt)}</div>
+            </div>
             <div className="divide-y divide-slate-50">
-              {debts.slice(0, 8).map((inv: any) => (
-                <Link key={inv.id} href={`/invoices/${inv.id}`} className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors">
+              {debts.slice(0, 6).map((inv: any) => (
+                <Link key={inv.id} href={`/invoices/${inv.id}`} className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-red-50/40 transition-colors">
                   <div className="min-w-0">
                     <div className="text-sm font-bold text-slate-900 truncate">{inv.room_name || `Phòng #${inv.room_id}`}</div>
                     <div className="text-xs text-slate-400 font-medium truncate">{inv.tenant_name || '-'} · T{inv.month}/{inv.year}</div>
@@ -367,30 +480,39 @@ export default function OwnerDashboard() {
                 </Link>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
       </div>
     </RBACGuard>
   );
 }
 
-function UtilCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+// ── Sub-components ─────────────────────────────────────────
+function BreakdownCard({ icon, label, value, bgColor }: { icon: React.ReactNode; label: string; value: string; bgColor: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
-      <div className="mb-1.5 flex justify-center">{icon}</div>
-      <div className="text-[11px] font-medium text-slate-500">{label}</div>
-      <div className="mt-0.5 text-sm font-black text-slate-900">{value}</div>
+    <div className={`rounded-xl border border-slate-100 ${bgColor} p-3 flex items-center gap-2.5`}>
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide truncate">{label}</div>
+        <div className="text-sm font-black text-slate-900 truncate">{value}</div>
+      </div>
     </div>
   );
 }
 
-function StatCard({ label, value, sub, icon, color = "blue", gradient = false }: { label: string; value: string; sub: string; icon: React.ReactNode; color?: string; gradient?: boolean }) {
+function StatCard({ label, value, sub, icon, color = "blue", gradient = false, trend }: {
+  label: string; value: string; sub: string; icon: React.ReactNode;
+  color?: string; gradient?: boolean; trend?: number | null;
+}) {
   const colors: Record<string, string> = {
     blue:    'bg-blue-50 text-blue-600',
     emerald: 'bg-emerald-50 text-emerald-600',
     indigo:  'bg-indigo-50 text-indigo-600',
     amber:   'bg-amber-50 text-amber-600',
+    red:     'bg-red-50 text-red-600',
   };
   if (gradient) {
     return (
@@ -400,13 +522,20 @@ function StatCard({ label, value, sub, icon, color = "blue", gradient = false }:
         </div>
         <div className="text-[11px] font-bold uppercase tracking-widest text-white/80 mb-1">{label}</div>
         <div className="text-2xl font-black leading-tight truncate">{value}</div>
-        <div className="text-[11px] text-white/80 font-medium mt-1 truncate">{sub}</div>
+        <div className="flex items-center gap-1 mt-1">
+          {trend != null && (
+            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${trend >= 0 ? 'bg-white/20 text-white' : 'bg-red-400/40 text-white'}`}>
+              {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}%
+            </span>
+          )}
+          <div className="text-[11px] text-white/70 font-medium truncate">{sub}</div>
+        </div>
       </div>
     );
   }
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
-      <div className={`inline-flex h-9 w-9 items-center justify-center rounded-xl mb-3 ${colors[color]}`}>
+      <div className={`inline-flex h-9 w-9 items-center justify-center rounded-xl mb-3 ${colors[color] || colors.blue}`}>
         {icon}
       </div>
       <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1">{label}</div>
