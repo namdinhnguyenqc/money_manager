@@ -457,7 +457,9 @@ export const requireOwner = createMiddleware<AppEnv>(async (c, next) => {
   if (!user) {
     return c.json({ error: "Authentication required" }, 401);
   }
-  // Relaxed for development: allow everyone who is authenticated
+  if (!["OWNER", "ADMIN", "SUPER_ADMIN"].includes(user.role)) {
+    return c.json({ error: "Forbidden: owner access required", code: "OWNER_REQUIRED" }, 403);
+  }
   await next();
 });
 

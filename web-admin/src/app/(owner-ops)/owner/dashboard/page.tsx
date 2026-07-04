@@ -188,7 +188,7 @@ export default function OwnerDashboard() {
           <StatCard
             label="Thu tháng này" value={formatMoney(financial.income)}
             sub={`Chi: ${formatMoney(financial.expense)}`}
-            icon={<TrendingUp size={18}/>} color="blue"
+            icon={<TrendingUp size={18}/>} gradient
           />
           <StatCard
             label="Lợi nhuận" value={formatMoney(financial.profit)}
@@ -385,20 +385,32 @@ function UtilCard({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-function StatCard({ label, value, sub, icon, color }: { label: string; value: string; sub: string; icon: React.ReactNode; color: string }) {
+function StatCard({ label, value, sub, icon, color = "blue", gradient = false }: { label: string; value: string; sub: string; icon: React.ReactNode; color?: string; gradient?: boolean }) {
   const colors: Record<string, string> = {
     blue:    'bg-blue-50 text-blue-600',
     emerald: 'bg-emerald-50 text-emerald-600',
     indigo:  'bg-indigo-50 text-indigo-600',
     amber:   'bg-amber-50 text-amber-600',
   };
+  if (gradient) {
+    return (
+      <div className="rounded-2xl p-4 shadow-sm text-white" style={{ background: 'linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)' }}>
+        <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl mb-3 bg-white/20 text-white">
+          {icon}
+        </div>
+        <div className="text-[11px] font-bold uppercase tracking-widest text-white/80 mb-1">{label}</div>
+        <div className="text-2xl font-black leading-tight truncate">{value}</div>
+        <div className="text-[11px] text-white/80 font-medium mt-1 truncate">{sub}</div>
+      </div>
+    );
+  }
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
       <div className={`inline-flex h-9 w-9 items-center justify-center rounded-xl mb-3 ${colors[color]}`}>
         {icon}
       </div>
       <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1">{label}</div>
-      <div className="text-lg font-black text-slate-900 leading-tight truncate">{value}</div>
+      <div className="text-xl font-black text-slate-900 leading-tight truncate">{value}</div>
       <div className="text-[11px] text-slate-400 font-medium mt-1 truncate">{sub}</div>
     </div>
   );

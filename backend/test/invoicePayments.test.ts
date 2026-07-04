@@ -65,6 +65,116 @@ class Query {
 
 const db = {
   from: (table: string) => new Query(table),
+  rpc: async (name: string, args: any) => {
+    if (name === "apply_invoice_payment_atomic") {
+      const invoiceId = args.p_invoice_id;
+      const userId = args.p_user_id;
+      const walletId = args.p_wallet_id;
+      const amount = args.p_amount;
+      const source = args.p_source;
+      const date = args.p_date;
+      const description = args.p_description;
+      const externalRef = args.p_external_ref;
+      const metadata = args.p_metadata || {};
+
+      rows.invoices ||= [];
+      rows.transactions ||= [];
+
+      const invoiceIndex = rows.invoices.findIndex((inv) => inv.id === invoiceId && inv.user_id === userId);
+      if (invoiceIndex === -1) {
+        return { data: { error: "Invoice not found" }, error: null };
+      }
+      const invoice = rows.invoices[invoiceIndex];
+
+      // Idempotency check
+      if (externalRef) {
+        const existingTx = rows.transactions.find((tx) => tx.user_id === userId && tx.external_ref === externalRef);
+        if (existingTx) {
+          const txMeta = existingTx.metadata || {};
+          return {
+            data: {
+              ok: true,
+              idempotent: true,
+              transaction_id: existingTx.id,
+              allocated_amount: txMeta.allocated_amount ?? existingTx.amount,
+              overpaid_amount: txMeta.overpaid_amount ?? 0,
+              status: invoice.status,
+            },
+            error: null,
+          };
+        }
+      }
+
+      const total = Number(invoice.total_amount || 0);
+      const currentPaid = Number(invoice.paid_amount || 0);
+      const remaining = Math.max(0, total - currentPaid);
+
+      if (remaining <= 0) {
+        return { data: { error: "Hóa đơn này đã được thanh toán đầy đủ." }, error: null };
+      }
+
+      if (amount <= 0) {
+        return { data: { error: "Invalid payment amount." }, error: null };
+      }
+
+      const allocatedAmount = Math.min(amount, remaining);
+      const overpaidAmount = Math.max(0, amount - remaining);
+      const nextPaid = currentPaid + allocatedAmount;
+      const nextStatus = nextPaid >= total ? "paid" : "partial";
+
+      if (failTransactionInsert) {
+        return { data: null, error: { message: "insert failed" } };
+      }
+
+      // Update invoice status & paid amount
+      invoice.paid_amount = nextPaid;
+      invoice.status = nextStatus;
+
+      // Insert transaction
+      const txId = `transactions-${rows.transactions.length + 1}`;
+      const newTx = {
+        id: txId,
+        user_id: userId,
+        type: "income",
+        amount,
+        description,
+        category_id: null,
+        wallet_id: walletId,
+        image_uri: null,
+        date,
+        invoice_id: invoiceId,
+        contract_id: invoice.contract_id || null,
+        source,
+        external_ref: externalRef,
+        metadata: {
+          ...metadata,
+          allocated_amount: allocatedAmount,
+          overpaid_amount: overpaidAmount,
+          payment_code: invoice.payment_code || null,
+        },
+      };
+      rows.transactions.push(newTx);
+
+      // Link invoice to transaction
+      invoice.transaction_id = txId;
+
+      // Update wallet balance
+      await updateWalletBalance(db as any, walletId, amount, "income");
+
+      return {
+        data: {
+          ok: true,
+          transaction_id: txId,
+          allocated_amount: allocatedAmount,
+          overpaid_amount: overpaidAmount,
+          status: nextStatus,
+          next_paid: nextPaid,
+        },
+        error: null,
+      };
+    }
+    return { data: null, error: { message: "unknown RPC" } };
+  }
 };
 
 const seedInvoice = (overrides: Row = {}) => {
