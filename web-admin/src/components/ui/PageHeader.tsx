@@ -43,7 +43,7 @@ export default function PageHeader({
             <p className={typography.pageSubtitle}>{subtitle}</p>
           </div>
         )}
-        <h1 className={typography.pageTitle}>{title}</h1>
+        {/* Hidden redundant main title in favor of header title */}
         {description && <p className={typography.pageDescription}>{description}</p>}
       </div>
       {actions && (
