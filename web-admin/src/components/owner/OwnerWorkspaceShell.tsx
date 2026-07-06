@@ -124,12 +124,18 @@ function SearchParamsHelper({ onChange }: { onChange: (params: any) => void }) {
   return null;
 }
 
+import { useOwnerDashboardInit } from "@/hooks/useOwnerData";
+
 export default function OwnerWorkspaceShell({ children }: { children: React.ReactNode }) {
   const { canInstall, install } = usePWAInstall();
   const { permission, subscribed, loading: pushLoading, isSupported: pushSupported, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications();
   const router = useRouter();
   const queryClient = useQueryClient();
   const pathname = usePathname();
+
+  // Prefetch dashboard data in the background to speed up navigation
+  useOwnerDashboardInit();
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [currentSearchParams, setCurrentSearchParams] = useState<any>(null);
