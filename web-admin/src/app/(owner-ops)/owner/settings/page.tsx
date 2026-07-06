@@ -646,7 +646,34 @@ export default function OwnerSettingsPage() {
           <span className="text-sm font-medium text-slate-500">Đang tải cấu hình hệ thống...</span>
         </div>
       ) : (
-        <div className="w-full">
+        <div className="w-full animate-in fade-in duration-300">
+          {/* Horizontal Tab Navigation */}
+          <div className="mb-6 flex gap-2 overflow-x-auto pb-2.5 scrollbar-none border-b border-slate-200/60">
+            {tabs.map((tab) => {
+              const TabIcon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    const url = new URL(window.location.href);
+                    url.searchParams.set("tab", tab.id);
+                    window.history.pushState({}, "", url.toString());
+                  }}
+                  className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all whitespace-nowrap border shrink-0 ${
+                    isActive
+                      ? "bg-slate-900 border-slate-900 text-white shadow-sm"
+                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <TabIcon size={14} className={isActive ? "text-white" : "text-slate-400"} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
           {/* Premium Content Panel */}
           <Card className="flex-1 w-full lg:w-auto min-w-0 p-6 sm:p-8 rounded-[2rem] border border-slate-200/70 shadow-sm bg-white relative overflow-hidden transition-all duration-300">
             {/* Visual background sparkles for modern feel */}
