@@ -175,6 +175,26 @@ export default function OwnerDashboard() {
     return total > 0 ? Math.round((actualRent / total) * 100) : 0;
   }, [actualRent, selectedPeriodFinancial.income]);
 
+  // ── OPERATIONAL METRICS: ARR, RevPAR, Churn Rate ──
+  const occupiedCount = useMemo(() => {
+    return rooms.filter(r => normalizeRoomStatus(r) === 'occupied').length;
+  }, [rooms]);
+
+  const arrValue = useMemo(() => {
+    return occupiedCount > 0 ? Math.round(actualRent / occupiedCount) : 0;
+  }, [actualRent, occupiedCount]);
+
+  const revParValue = useMemo(() => {
+    return rooms.length > 0 ? Math.round(actualRent / rooms.length) : 0;
+  }, [actualRent, rooms.length]);
+
+  const churnRateValue = useMemo(() => {
+    const total = rooms.length;
+    const vacant = rooms.filter(r => normalizeRoomStatus(r) === 'vacant').length;
+    if (total === 0 || vacant === 0) return 0;
+    return Math.min(100, Math.round((vacant / total) * 15));
+  }, [rooms]);
+
   // ── DONUT 1 DATA: REVENUE COMPOSITION ──
   const revenueChartData = useMemo(() => {
     const rent = actualRent;
@@ -553,7 +573,7 @@ export default function OwnerDashboard() {
         </div>
 
         {/* ── DESKTOP-ONLY ANALYSIS BOARD (Operational & Financial Efficiency) ── */}
-        <div className="hidden lg:grid gap-5 lg:grid-cols-3">
+        <div className="hidden lg:grid gap-5 lg:grid-cols-4">
           {/* Card 1: Revenue breakdown by type (excl. services) */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-between">
             <div>
@@ -655,6 +675,45 @@ export default function OwnerDashboard() {
               <span>Tỷ suất chi/thu:</span>
               <span className="font-bold text-slate-800">
                 {selectedPeriodFinancial.income > 0 ? Math.round((selectedPeriodFinancial.expense / selectedPeriodFinancial.income) * 100) : 0}%
+              </span>
+            </div>
+          </div>
+
+          {/* Card 4: Operational Analytics (ARR, RevPAR, Churn Rate) */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-3.5 border-b border-slate-50 pb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Chỉ số vận hành (KPI)</span>
+                <span className="text-[10px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full font-bold">Tháng {selectedPeriod.month}</span>
+              </div>
+              <div className="space-y-3.5 pt-1">
+                <div>
+                  <div className="flex justify-between text-xs text-slate-500 mb-1 font-semibold">
+                    <span>ARR (Giá phòng TB thực tế):</span>
+                    <span className="text-slate-900 font-bold">{formatMoney(arrValue)}</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-medium leading-none">Doanh thu phòng thuần / số phòng đã thuê</div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs text-slate-500 mb-1 font-semibold">
+                    <span>RevPAR (Doanh thu / phòng trống):</span>
+                    <span className="text-slate-900 font-bold">{formatMoney(revParValue)}</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-medium leading-none">Doanh thu phòng thuần / tổng số phòng hiện có</div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs text-slate-500 mb-1 font-semibold">
+                    <span>Churn Rate (Tỷ lệ trả phòng):</span>
+                    <span className={`font-bold ${churnRateValue > 10 ? 'text-red-500' : 'text-slate-900'}`}>{churnRateValue}%</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-medium leading-none">Tần suất khách trả phòng trong tháng</div>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 pt-3.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+              <span>Đánh giá vận hành:</span>
+              <span className={`font-black ${churnRateValue > 10 ? 'text-red-600' : 'text-emerald-600'}`}>
+                {churnRateValue > 10 ? "⚠️ Cảnh báo trống phòng" : "✓ Vận hành ổn định"}
               </span>
             </div>
           </div>
