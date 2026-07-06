@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, ChevronLeft } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, Zap } from "lucide-react";
 import { z } from "zod";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import { createContract, createTenant, describeServiceType, formatMoney, getFloorFromRoomName, getRoomArea, getServiceCategory, getServiceUnitLabel, loadRentalRooms, loadRoom, loadServiceConfigs, normalizeRoomStatus, onlyDigits, loadDeposits, loadWallets, Wallet, loadBoardingHouses } from "@/lib/rentalOps";
@@ -46,6 +46,91 @@ export default function NewContractPage() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [tenant, setTenant] = useState({ full_name: "", phone: "", id_number: "", email: "" });
+  const [ocrLoading, setOcrLoading] = useState(false);
+
+  useEffect(() => {
+    // Dynamic import Tesseract.js script from CDN
+    if (typeof window !== "undefined" && !(window as any).Tesseract) {
+      const script = document.createElement("script");
+      script.src = "https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  const handleOcrScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setOcrLoading(true);
+    setError("");
+
+    try {
+      const tesseract = (window as any).Tesseract;
+      if (!tesseract) {
+        throw new Error("Thư viện quét ảnh đang được tải. Vui lòng thử lại sau vài giây.");
+      }
+
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const result = await tesseract.recognize(
+            reader.result,
+            'eng+vie',
+            { 
+              logger: (m: any) => console.log(m) 
+            }
+          );
+
+          const text = result.data.text;
+          console.log("OCR Result Text:", text);
+
+          // 1. Extract 12-digit CCCD/CMND number
+          const cccdMatch = text.match(/\b\d{12}\b/);
+          const cccd = cccdMatch ? cccdMatch[0] : "";
+
+          // 2. Extract Full name in upper case
+          const lines = text.split("\n").map((l: string) => l.trim());
+          let fullName = "";
+          for (const line of lines) {
+            const cleanLine = line.replace(/[^A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲÝỴỶỸ\s]/g, "").trim();
+            if (cleanLine.length > 5 && cleanLine === cleanLine.toUpperCase() && !cleanLine.includes("CỘNG HÒA") && !cleanLine.includes("ĐỘC LẬP") && !cleanLine.includes("VIỆT NAM") && !cleanLine.includes("CĂN CƯỚC") && !cleanLine.includes("CỤC TRƯỞNG")) {
+              fullName = cleanLine;
+              break;
+            }
+          }
+
+          if (!fullName) {
+            const nameIdx = text.toLowerCase().indexOf("họ và tên");
+            if (nameIdx !== -1) {
+              const substring = text.substring(nameIdx + 9, nameIdx + 60);
+              const subLines = substring.split("\n").map((l: string) => l.trim());
+              fullName = subLines.find((l: string) => l.length > 2 && l === l.toUpperCase()) || "";
+            }
+          }
+
+          if (cccd || fullName) {
+            setTenant(prev => ({
+              ...prev,
+              full_name: fullName || prev.full_name,
+              id_number: cccd || prev.id_number
+            }));
+          } else {
+            setError("Không nhận diện được Họ tên hoặc số CCCD rõ ràng. Vui lòng chụp rõ nét hơn.");
+          }
+        } catch (err: any) {
+          setError("Lỗi xử lý hình ảnh: " + (err.message || err));
+        } finally {
+          setOcrLoading(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      setError(err.message || "Không thể khởi động thư viện quét.");
+      setOcrLoading(false);
+    }
+  };
+
   const [contract, setContract] = useState({
     start_date: today,
     end_date: "",
@@ -350,7 +435,23 @@ export default function NewContractPage() {
         <form onSubmit={submit} className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm">
           {/* === KHÁCH THUÊ === */}
           <div className="mb-6">
-            <h2 className="mb-4 text-base font-semibold text-slate-950 border-b border-slate-100 pb-2">Thông tin khách thuê</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-4 border-b border-slate-100 pb-2">
+              <h2 className="text-base font-semibold text-slate-950">Thông tin khách thuê</h2>
+              <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer active:scale-95 transition-all ${ocrLoading ? "opacity-50 pointer-events-none" : ""}`}>
+                {ocrLoading ? (
+                  <>
+                    <svg className="animate-spin h-3 w-3 text-blue-600 mr-1" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    Đang quét...
+                  </>
+                ) : (
+                  <>
+                    <Zap size={13} />
+                    Quét CCCD (OCR)
+                  </>
+                )}
+                <input type="file" accept="image/*" onChange={handleOcrScan} className="hidden" disabled={ocrLoading} />
+              </label>
+            </div>
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Họ tên *" error={fieldErrors.full_name}><input className="input" value={tenant.full_name} onChange={(e) => setTenant((prev) => ({ ...prev, full_name: e.target.value }))} /></Field>
               <Field label="SĐT *" error={fieldErrors.phone}><input className="input" inputMode="numeric" value={tenant.phone} onChange={(e) => setTenant((prev) => ({ ...prev, phone: onlyDigits(e.target.value) }))} /></Field>
