@@ -72,100 +72,54 @@ export default function OwnerTenantsPage() {
     setToast(null);
 
     try {
-      const tesseract = (window as any).Tesseract;
-      if (!tesseract) {
-        throw new Error("Thư viện quét ảnh đang được tải. Vui lòng thử lại sau vài giây.");
-      }
+      let combinedName = "";
+      let combinedCccd = "";
+      let combinedAddress = "";
 
-      let combinedText = "";
-
-      // Support up to 2 files (front and back page)
       const fileList = Array.from(files).slice(0, 2);
       for (const file of fileList) {
-        const text = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = async () => {
-            try {
-              const result = await tesseract.recognize(
-                reader.result,
-                'eng+vie',
-                { logger: (m: any) => console.log(m) }
-              );
-              resolve(result.data.text);
-            } catch (err) {
-              reject(err);
-            }
-          };
-          reader.onerror = () => reject(new Error("Lỗi đọc file hình ảnh"));
-          reader.readAsDataURL(file);
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://money-manager-backend-auth-mock.namdinhnguyenqc.workers.dev"}/owner/ocr-cccd`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("accessToken") || ""}`
+          },
+          body: formData
         });
-        combinedText += "\n" + text;
-      }
 
-      console.log("Combined OCR Text:", combinedText);
-
-      // 1. Extract 12-digit CCCD/CMND number
-      const cccdMatch = combinedText.match(/\b\d{12}\b/);
-      const cccd = cccdMatch ? cccdMatch[0] : "";
-
-      // 2. Extract Full name in upper case
-      const lines = combinedText.split("\n").map((l: string) => l.trim());
-      let fullName = "";
-      for (const line of lines) {
-        const cleanLine = line.replace(/[^A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲÝỴỶỸ\s]/g, "").trim();
-        if (cleanLine.length > 5 && cleanLine === cleanLine.toUpperCase() && !cleanLine.includes("CỘNG HÒA") && !cleanLine.includes("ĐỘC LẬP") && !cleanLine.includes("VIỆT NAM") && !cleanLine.includes("CĂN CƯỚC") && !cleanLine.includes("CỤC TRƯỞNG")) {
-          fullName = cleanLine;
-          break;
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Lỗi máy chủ khi quét ảnh (${res.status})`);
         }
+
+        const data = await res.json();
+        if (data.name) combinedName = data.name;
+        if (data.cccd) combinedCccd = data.cccd;
+        if (data.address) combinedAddress = data.address;
       }
 
-      if (!fullName) {
-        const nameIdx = combinedText.toLowerCase().indexOf("họ và tên");
-        if (nameIdx !== -1) {
-          const substring = combinedText.substring(nameIdx + 9, nameIdx + 60);
-          const subLines = substring.split("\n").map((l: string) => l.trim());
-          fullName = subLines.find((l: string) => l.length > 2 && l === l.toUpperCase()) || "";
-        }
-      }
-
-      // 3. Extract Address from back page or front page
-      const lowerText = combinedText.toLowerCase();
-      const addrKeywords = ["thường trú", "thường trú:", "nơi cư trú", "quê quán", "nơi đăng ký hộ khẩu"];
-      let address = "";
-      for (const kw of addrKeywords) {
-        const idx = lowerText.indexOf(kw);
-        if (idx !== -1) {
-          const subStr = combinedText.substring(idx + kw.length, idx + kw.length + 150);
-          const subLines = subStr.split("\n").map(l => l.trim()).filter(l => l.length > 2);
-          if (subLines.length > 0) {
-            address = subLines.slice(0, 2).join(", ").replace(/[:,\s]+$/, "").trim();
-            break;
-          }
-        }
-      }
-
-      if (!cccd && !fullName) {
+      if (!combinedCccd && !combinedName) {
         throw new Error("Không nhận diện được Họ tên hoặc số CCCD. Hãy đảm bảo ảnh chụp đủ ánh sáng và rõ nét.");
       }
 
-      // API Call PATCH to update database record
       const payload: any = {};
-      if (fullName) payload.name = fullName;
-      if (cccd) payload.idCard = cccd;
-      if (address) payload.address = address;
+      if (combinedName) payload.name = combinedName;
+      if (combinedCccd) payload.idCard = combinedCccd;
+      if (combinedAddress) payload.address = combinedAddress;
 
       await apiPatch(`/rental/tenants/${scanningTenantId}`, payload);
 
-      // Local state update
       setTenants(prev => prev.map(t => t.id === scanningTenantId ? {
         ...t,
-        name: fullName || t.name,
-        id_card: cccd || t.id_card,
-        address: address || t.address
+        name: combinedName || t.name,
+        id_card: combinedCccd || t.id_card,
+        address: combinedAddress || t.address
       } : t));
 
       setToast({
-        message: `Cập nhật thành công: ${fullName || ""} (${cccd || ""})`,
+        message: `Cập nhật thành công: ${combinedName || ""} (${combinedCccd || ""})`,
         type: "success"
       });
 
@@ -205,7 +159,7 @@ export default function OwnerTenantsPage() {
     const headers = ["Họ và tên", "Số điện thoại", "Số CCCD/CMND", "Địa chỉ thường trú", "Phòng trọ", "Giá thuê phòng", "Trạng thái hoạt động"];
     
     const rows = filtered.map(t => [
-      `"${t.name.replace(/"/g, '""')}"`,
+      `"${(t.name || "").replace(/"/g, '""')}"`,
       `"${(t.phone || "").replace(/"/g, '""')}"`,
       `"${(t.id_card || "").replace(/"/g, '""')}"`,
       `"${(t.address || "").replace(/"/g, '""')}"`,
