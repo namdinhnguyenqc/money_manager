@@ -7,7 +7,7 @@ import { loadRentalRooms, normalizeRoomStatus, roomStatusLabel, formatMoney, typ
 import { apiGet } from "@/utils/apiClient";
 import {
   Users, Phone, ShieldCheck, Search, Home, Calendar,
-  DollarSign, ChevronRight, AlertCircle, UserCheck, UserX,
+  DollarSign, ChevronRight, AlertCircle, UserCheck, UserX, Download
 } from "lucide-react";
 import Input from "@/components/ui/Input";
 import Pagination from "@/components/ui/Pagination";
@@ -56,6 +56,32 @@ export default function OwnerTenantsPage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const exportToCSV = () => {
+    if (filtered.length === 0) return;
+    
+    const headers = ["Họ và tên", "Số điện thoại", "Số CCCD/CMND", "Địa chỉ thường trú", "Phòng trọ", "Giá thuê phòng", "Trạng thái hoạt động"];
+    
+    const rows = filtered.map(t => [
+      `"${t.name.replace(/"/g, '""')}"`,
+      `"${(t.phone || "").replace(/"/g, '""')}"`,
+      `"${(t.id_card || "").replace(/"/g, '""')}"`,
+      `"${(t.address || "").replace(/"/g, '""')}"`,
+      `"${(t.room?.name || "Chưa xếp phòng").replace(/"/g, '""')}"`,
+      `"${t.room?.price ? formatMoney(t.room.price) : ""}"`,
+      `"${t.isActive ? "Đang ở" : "Đã trả phòng"}"`
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Danh_sach_khai_bao_tam_tru_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '_')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Merge tenants with their room data
   const enriched = useMemo<TenantWithRoom[]>(() => {
@@ -150,13 +176,24 @@ export default function OwnerTenantsPage() {
               </button>
             ))}
           </div>
-          <div className="sm:w-72">
-            <Input
-              icon={<Search size={16} />}
-              placeholder="Tìm theo tên, SĐT, CCCD..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
+            <div className="sm:w-72">
+              <Input
+                icon={<Search size={16} />}
+                placeholder="Tìm theo tên, SĐT, CCCD..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <button
+              onClick={exportToCSV}
+              disabled={filtered.length === 0}
+              className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shrink-0"
+              title="Xuất danh sách khai báo tạm trú"
+            >
+              <Download size={16} className="text-slate-500" />
+              <span>Xuất tạm trú (CSV)</span>
+            </button>
           </div>
         </div>
 
