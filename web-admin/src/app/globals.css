@@ -1782,3 +1782,10 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .article-prose hr { border: 0; border-top: 1px solid #e2e8f0; margin: 2rem 0; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Custom layout extension for owner workspace pages to achieve full screen width */
+.has-bottom-nav .max-w-7xl,
+.has-bottom-nav .lg\:max-w-7xl {
+  max-width: 100% !important;
+  width: 100% !important;
+}
