@@ -51,7 +51,7 @@ ownerRoutes.use("*", requireAuth, requireOwner);
 // ============================================================
 // DASHBOARD BULK ENDPOINT (PHASE 4)
 // ============================================================
-ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
+ownerRoutes.get("/dashboard-init", async (c) => {
   const currentUser = c.get("user");
   const supabase = c.get("supabase");
 
