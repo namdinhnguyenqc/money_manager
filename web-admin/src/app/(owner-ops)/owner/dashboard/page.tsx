@@ -74,37 +74,53 @@ export default function OwnerDashboard() {
     return { total, occupied, vacant, reserved, maintenance, occupancyRate };
   }, [rooms]);
 
+  // Helper to identify deposit transactions that shouldn't be counted in general income/expenses
+  const isDepositTransaction = React.useCallback((t: any) => {
+    const category = String(t.category_name || t.category || "").toLowerCase();
+    const desc = String(t.description || "").toLowerCase();
+    return (
+      category.includes("cọc") || 
+      category.includes("deposit") || 
+      desc.includes("tiền cọc") || 
+      desc.includes("cọc phòng") ||
+      desc.includes("deposit")
+    );
+  }, []);
+
   // Financial details calculated dynamically based on selectedPeriod
   const selectedPeriodFinancial = useMemo(() => {
     const thisMonth = transactions.filter(t => {
       const d = new Date(t.date);
       return d.getMonth() === (selectedPeriod.month - 1) && d.getFullYear() === selectedPeriod.year;
     });
-    const income = thisMonth.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-    const expense = thisMonth.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const income = thisMonth.filter(t => t.type === 'income' && !isDepositTransaction(t)).reduce((s, t) => s + t.amount, 0);
+    const expense = thisMonth.filter(t => t.type === 'expense' && !isDepositTransaction(t)).reduce((s, t) => s + t.amount, 0);
 
     // Last month comparison for selectedPeriod
     const prevM = selectedPeriod.month === 1 ? 11 : selectedPeriod.month - 2;
     const prevY = selectedPeriod.month === 1 ? selectedPeriod.year - 1 : selectedPeriod.year;
     const prevIncome = transactions
-      .filter(t => { const d = new Date(t.date); return d.getMonth() === prevM && d.getFullYear() === prevY && t.type === 'income'; })
+      .filter(t => { const d = new Date(t.date); return d.getMonth() === prevM && d.getFullYear() === prevY && t.type === 'income' && !isDepositTransaction(t); })
       .reduce((s, t) => s + t.amount, 0);
     const incomeChange = prevIncome > 0 ? Math.round(((income - prevIncome) / prevIncome) * 100) : null;
 
     return { income, expense, profit: income - expense, incomeChange };
-  }, [transactions, selectedPeriod]);
+  }, [transactions, selectedPeriod, isDepositTransaction]);
 
   const financial = useMemo(() => {
+    const curM = selectedPeriod.month - 1;
+    const curY = selectedPeriod.year;
+
     const income = transactions
       .filter(t => {
         const d = new Date(t.date);
-        return d.getMonth() === curM && d.getFullYear() === curY && t.type === 'income';
+        return d.getMonth() === curM && d.getFullYear() === curY && t.type === 'income' && !isDepositTransaction(t);
       })
       .reduce((s, t) => s + t.amount, 0);
     const expense = transactions
       .filter(t => {
         const d = new Date(t.date);
-        return d.getMonth() === curM && d.getFullYear() === curY && t.type === 'expense';
+        return d.getMonth() === curM && d.getFullYear() === curY && t.type === 'expense' && !isDepositTransaction(t);
       })
       .reduce((s, t) => s + t.amount, 0);
 
@@ -113,17 +129,17 @@ export default function OwnerDashboard() {
       const d = new Date(curY, curM - (chartMonths - 1 - i), 1);
       const mm = d.getMonth(), yy = d.getFullYear();
       const rev = transactions
-        .filter(t => { const td = new Date(t.date); return td.getMonth() === mm && td.getFullYear() === yy && t.type === 'income'; })
+        .filter(t => { const td = new Date(t.date); return td.getMonth() === mm && td.getFullYear() === yy && t.type === 'income' && !isDepositTransaction(t); })
         .reduce((s, t) => s + t.amount, 0);
       const exp = transactions
-        .filter(t => { const td = new Date(t.date); return td.getMonth() === mm && td.getFullYear() === yy && t.type === 'expense'; })
+        .filter(t => { const td = new Date(t.date); return td.getMonth() === mm && td.getFullYear() === yy && t.type === 'expense' && !isDepositTransaction(t); })
         .reduce((s, t) => s + t.amount, 0);
       return { label: MONTH_NAMES[mm], month: mm + 1, year: yy, rev, exp, profit: rev - exp };
     });
     const maxVal = Math.max(...months.map(m => Math.max(m.rev, m.exp)), 1);
 
     return { income, expense, profit: income - expense, months, maxVal };
-  }, [transactions, chartMonths, curM, curY]);
+  }, [transactions, chartMonths, selectedPeriod, isDepositTransaction]);
 
   // Lọc hóa đơn của kỳ được chọn dùng chung
   const thisMonthInvoices = useMemo(() => {
