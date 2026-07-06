@@ -56,9 +56,9 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
   const supabase = c.get("supabase");
 
   // Parallel Supabase queries for performance
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5, 1);
-  sixMonthsAgo.setHours(0, 0, 0, 0);
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11, 1);
+  twelveMonthsAgo.setHours(0, 0, 0, 0);
 
   const [bhRes, roomsRes, walletsRes, settingsRes, transactionsRes, invoicesRes, depositsRes] = await Promise.all([
     supabase.from("boarding_houses").select(`
@@ -72,9 +72,9 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
       .from("transactions")
       .select("id, type, amount, description, date, wallet_id, category_id, invoice_id")
       .eq("user_id", currentUser.id)
-      .gte("date", sixMonthsAgo.toISOString().slice(0, 10))
+      .gte("date", twelveMonthsAgo.toISOString().slice(0, 10))
       .order("date", { ascending: false })
-      .limit(200),
+      .limit(500),
     supabase
       .from("invoices")
       .select(`
@@ -85,13 +85,13 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
       .eq("user_id", currentUser.id)
       .order("year", { ascending: false })
       .order("month", { ascending: false })
-      .limit(200),
+      .limit(600),
     supabase
       .from("deposits")
       .select("*")
       .eq("user_id", currentUser.id)
       .order("created_at", { ascending: false })
-      .limit(200),
+      .limit(400),
   ]);
 
   return c.json({
