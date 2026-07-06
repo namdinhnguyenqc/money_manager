@@ -59,7 +59,7 @@ export default function NewContractPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://money-manager-backend-auth-mock.namdinhnguyenqc.workers.dev"}/owner/ocr-cccd`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://money-manager-xdem.onrender.com"}/owner/ocr-cccd`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("accessToken") || ""}`
