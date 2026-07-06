@@ -7,11 +7,11 @@ import {
   FileText, ArrowRight, Plus, Zap, Droplet, ChevronRight,
   TrendingUp, TrendingDown, Receipt, Settings, Wifi,
   BarChart3, ArrowUpRight, ArrowDownRight, Minus, PieChart,
-  CalendarDays
+  CalendarDays, RefreshCw
 } from 'lucide-react';
 import { formatMoney, normalizeRoomStatus } from '@/lib/rentalOps';
 import RBACGuard from '@/components/RBACGuard';
-import { useOwnerDashboardInit } from '@/hooks/useOwnerData';
+import { useOwnerDashboardInit, OwnerDashboardInit } from '@/hooks/useOwnerData';
 
 const MONTH_NAMES = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
 
@@ -20,9 +20,36 @@ export default function OwnerDashboard() {
   const [slowLoad, setSlowLoad] = useState(false);
   const [chartMonths, setChartMonths] = useState(12);
 
-  const rooms = dashboardQuery.data?.rooms ?? [];
-  const transactions = dashboardQuery.data?.transactions ?? [];
-  const invoices = dashboardQuery.data?.invoices ?? [];
+  // Client-side cache (SWR) to load dashboard instantly (0ms) on fresh login or refresh
+  const [cachedData, setCachedData] = useState<OwnerDashboardInit | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("owner_dashboard_cache");
+        return saved ? JSON.parse(saved) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  // Save fresh data to local cache when API call succeeds
+  React.useEffect(() => {
+    if (dashboardQuery.data) {
+      try {
+        localStorage.setItem("owner_dashboard_cache", JSON.stringify(dashboardQuery.data));
+        setCachedData(dashboardQuery.data);
+      } catch (e) {
+        console.error("Failed to save dashboard cache:", e);
+      }
+    }
+  }, [dashboardQuery.data]);
+
+  const activeData = dashboardQuery.data ?? cachedData;
+
+  const rooms = activeData?.rooms ?? [];
+  const transactions = activeData?.transactions ?? [];
+  const invoices = activeData?.invoices ?? [];
 
   const now = new Date();
   const curM = now.getMonth(), curY = now.getFullYear();
@@ -256,7 +283,8 @@ export default function OwnerDashboard() {
 
   const greeting = now.getHours() < 12 ? 'Chào buổi sáng' : now.getHours() < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
 
-  if (dashboardQuery.isError) return (
+  // Error page: Only trigger if no cached data is available to fall back to
+  if (dashboardQuery.isError && !activeData) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-5 text-center px-6">
       <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500">
         <AlertCircle size={28} />
@@ -271,7 +299,8 @@ export default function OwnerDashboard() {
     </div>
   );
 
-  if (dashboardQuery.isLoading) return (
+  // Skeleton loading: Only trigger if we have zero cached data to render optimistically
+  if (dashboardQuery.isLoading && !activeData) return (
     <div className="space-y-4 p-1">
       {slowLoad && (
         <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
@@ -296,9 +325,19 @@ export default function OwnerDashboard() {
 
         {/* ── HEADER ── */}
         <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-500">{greeting}</div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 mt-0.5">Tổng quan vận hành</h1>
+          <div className="flex items-center gap-2">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-widest text-slate-500">{greeting}</div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 mt-0.5 flex items-center gap-2">
+                Tổng quan vận hành
+                {dashboardQuery.isFetching && (
+                  <span className="inline-flex items-center text-xs font-bold text-indigo-500 animate-pulse bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full shrink-0">
+                    <RefreshCw size={11} className="animate-spin mr-1 text-indigo-500" />
+                    Đang đồng bộ...
+                  </span>
+                )}
+              </h1>
+            </div>
           </div>
           <div className="text-right">
             <div className="text-xs text-slate-500 font-medium">Tháng {now.getMonth() + 1}/{now.getFullYear()}</div>
@@ -622,7 +661,6 @@ export default function OwnerDashboard() {
         </div>
 
         {/* ── MOBILE-ONLY VIEWS: OCCUPANCY + QUICK ACTIONS + VACANT ROOMS ── */}
-        {/* Hiding these sections on desktop view (lg:hidden) as requested */}
         <div className="grid gap-4 lg:grid-cols-5 lg:hidden">
           {/* Occupancy visual */}
           <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -661,7 +699,7 @@ export default function OwnerDashboard() {
           </div>
         </div>
 
-        {/* Vacant Rooms and Recent Transactions: hidden on desktop view (lg:hidden) as requested */}
+        {/* Vacant Rooms and Recent Transactions */}
         <div className="grid gap-4 lg:grid-cols-2 lg:hidden">
           {/* ── VACANT ROOMS ── */}
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
