@@ -7,6 +7,7 @@ import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 import Tesseract from "tesseract.js";
+import sharp from "sharp";
 
 import { isRolePremium, limitsFromRole, getRoleId } from "../lib/roles.js";
 
@@ -970,49 +971,85 @@ ownerRoutes.post("/ocr-cccd", async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Run OCR locally on the server using tesseract.js
+    // Preprocess image with sharp for optimal OCR accuracy
+    let processedBuffer: Buffer;
+    try {
+      processedBuffer = await sharp(buffer)
+        .resize({ width: 1500, withoutEnlargement: true })
+        .grayscale()
+        .normalize()
+        .sharpen()
+        .toBuffer();
+    } catch (sharpErr) {
+      console.warn("Sharp preprocessing failed, falling back to original buffer:", sharpErr);
+      processedBuffer = buffer;
+    }
+
+    // Run OCR locally using server-side tesseract.js
     const result = await Tesseract.recognize(
-      buffer,
+      processedBuffer,
       'eng+vie',
       { logger: (m) => console.log(m) }
     );
 
     const text = result.data.text;
-    console.log("Server OCR text:", text);
+    console.log("Server OCR raw text:", text);
 
+    // Clean text lines
+    const cleanText = text.replace(/\r/g, "");
+    
     // 1. Extract 12-digit CCCD
-    const cccdMatch = text.match(/\b\d{12}\b/);
+    // First remove all whitespace inside numbers
+    const textWithoutSpaces = cleanText.replace(/\s/g, "");
+    const cccdMatch = textWithoutSpaces.match(/\b\d{12}\b/) || cleanText.match(/\b\d{12}\b/);
     const cccd = cccdMatch ? cccdMatch[0] : "";
 
-    // 2. Extract Full name in upper case
-    const lines = text.split("\n").map((l) => l.trim());
+    // 2. Extract Full name in upper case (Vietnamese names support)
+    const lines = cleanText.split("\n").map((l: string) => l.trim());
     let fullName = "";
-    for (const line of lines) {
-      const cleanLine = line.replace(/[^A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲÝỴỶỸ\s]/g, "").trim();
-      if (cleanLine.length > 5 && cleanLine === cleanLine.toUpperCase() && !cleanLine.includes("CỘNG HÒA") && !cleanLine.includes("ĐỘC LẬP") && !cleanLine.includes("VIỆT NAM") && !cleanLine.includes("CĂN CƯỚC") && !cleanLine.includes("CỤC TRƯỞNG")) {
-        fullName = cleanLine;
-        break;
+    
+    // Look for names after keywords
+    const lowerText = cleanText.toLowerCase();
+    const nameKeywords = ["full name", "khai sinh", "họ và tên", "họ tên"];
+    
+    for (const kw of nameKeywords) {
+      const idx = lowerText.indexOf(kw);
+      if (idx !== -1) {
+        // Grab the substring following the keyword and look for uppercase lines
+        const subStr = cleanText.substring(idx + kw.length, idx + kw.length + 150);
+        const subLines = subStr.split("\n").map((l: string) => l.trim());
+        const uppercaseMatch = subLines.find((l: string) => {
+          const cleaned = l.replace(/[^A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲÝỴỶỸ\s]/g, "").trim();
+          return cleaned.length > 5 && cleaned === cleaned.toUpperCase() && !cleaned.includes("CỘNG HÒA") && !cleaned.includes("ĐỘC LẬP") && !cleaned.includes("VIỆT NAM");
+        });
+        if (uppercaseMatch) {
+          fullName = uppercaseMatch.replace(/[^A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲÝỴỶỸ\s]/g, "").trim();
+          break;
+        }
       }
     }
 
+    // Fallback: search all lines for any pure uppercase line
     if (!fullName) {
-      const nameIdx = text.toLowerCase().indexOf("họ và tên");
-      if (nameIdx !== -1) {
-        const substring = text.substring(nameIdx + 9, nameIdx + 60);
-        const subLines = substring.split("\n").map((l) => l.trim());
-        fullName = subLines.find((l) => l.length > 2 && l === l.toUpperCase()) || "";
+      for (const line of lines) {
+        const cleanLine = line.replace(/[^A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲÝỴỶỸ\s]/g, "").trim();
+        if (cleanLine.length > 5 && cleanLine === cleanLine.toUpperCase() && 
+            !cleanLine.includes("CỘNG HÒA") && !cleanLine.includes("ĐỘC LẬP") && !cleanLine.includes("VIỆT NAM") && 
+            !cleanLine.includes("CĂN CƯỚC") && !cleanLine.includes("CỤC TRƯỞNG") && !cleanLine.includes("SOCIALIST")) {
+          fullName = cleanLine;
+          break;
+        }
       }
     }
 
-    // 3. Extract Address
-    const lowerText = text.toLowerCase();
-    const addrKeywords = ["thường trú", "thường trú:", "nơi cư trú", "quê quán", "nơi đăng ký hộ khẩu"];
+    // 3. Extract Address (Address patterns)
+    const addrKeywords = ["thường trú", "thường trú:", "nơi cư trú", "quê quán", "nơi đăng ký hộ khẩu", "nơi thường trú"];
     let address = "";
     for (const kw of addrKeywords) {
       const idx = lowerText.indexOf(kw);
       if (idx !== -1) {
-        const subStr = text.substring(idx + kw.length, idx + kw.length + 150);
-        const subLines = subStr.split("\n").map(l => l.trim()).filter(l => l.length > 2);
+        const subStr = cleanText.substring(idx + kw.length, idx + kw.length + 150);
+        const subLines = subStr.split("\n").map((l: string) => l.trim()).filter((l: string) => l.length > 2);
         if (subLines.length > 0) {
           address = subLines.slice(0, 2).join(", ").replace(/[:,\s]+$/, "").trim();
           break;
