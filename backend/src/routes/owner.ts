@@ -94,33 +94,6 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
       .limit(200),
   ]);
 
-  let tradingStats = null;
-  const wallets = walletsRes.data || [];
-  const tradingWallet = wallets.find((wallet: any) => wallet.type === "trading") || wallets[0];
-  if (tradingWallet?.id) {
-    const tradingItemsRes = await supabase
-      .from("trading_items")
-      .select("import_price,buy_price,sell_price,status")
-      .eq("user_id", currentUser.id)
-      .eq("wallet_id", tradingWallet.id);
-
-    if (!tradingItemsRes.error) {
-      const rows = (tradingItemsRes.data || []).map((item: any) => ({
-        importPrice: Number(item.import_price ?? item.buy_price ?? 0),
-        sellPrice: Number(item.sell_price || 0),
-        status: item.status === "holding" ? "available" : item.status,
-      }));
-      const unsoldRows = rows.filter((item) => item.status === "available");
-      const soldRows = rows.filter((item) => item.status === "sold");
-      tradingStats = {
-        unsoldCapital: unsoldRows.reduce((sum, item) => sum + item.importPrice, 0),
-        unsoldCount: unsoldRows.length,
-        realizedProfit: soldRows.reduce((sum, item) => sum + (item.sellPrice - item.importPrice), 0),
-        soldCount: soldRows.length,
-      };
-    }
-  }
-
   return c.json({
     boardingHouses: bhRes.data || [],
     rooms: roomsRes.data || [],
@@ -128,7 +101,7 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
     transactions: transactionsRes.data || [],
     invoices: invoicesRes.data || [],
     deposits: depositsRes.data || [],
-    tradingStats,
+    tradingStats: null,
     settings: settingsRes.data || {}
   });
 });
@@ -904,51 +877,53 @@ ownerRoutes.post("/settings", async (c) => {
 
 ownerRoutes.get("/permissions", async (c) => {
   const user = c.get("user");
-  const db = c.get("supabase");
 
+  // Single join query fetching user's role, role permissions, and user override permissions
   const { data: dbUser, error: userError } = await supabaseAdmin
     .from("users")
-    .select("role_id")
+    .select(`
+      role_id,
+      roles (
+        id,
+        role_permissions (
+          permission_key
+        )
+      ),
+      user_permissions (
+        permission_key
+      )
+    `)
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
-  let roleId = dbUser?.role_id;
-
-  // Fallback if role_id is not set: look for OWNER_BASIC or OWNER role
-  if (!roleId) {
-    const { data: fallbackRole } = await db
-      .from("roles")
-      .select("id")
-      .or("name.eq.OWNER_BASIC,name.eq.OWNER")
-      .limit(1)
-      .maybeSingle();
-    roleId = fallbackRole?.id;
-  }
-
-  if (!roleId) {
+  if (userError || !dbUser) {
     return c.json({ permissions: [] });
   }
 
-  // Get permissions associated with the role_id
-  const { data: perms, error } = await db
-    .from("role_permissions")
-    .select("permission_key")
-    .eq("role_id", roleId);
+  let rolePermissions: any[] = dbUser.roles?.role_permissions || [];
 
-  if (error) {
-    return c.json({ error: error.message }, 500);
+  // Fallback if role_id or roles is missing (edge case)
+  if (!dbUser.role_id || !dbUser.roles) {
+    const { data: fallbackRole } = await supabaseAdmin
+      .from("roles")
+      .select(`
+        id,
+        role_permissions (
+          permission_key
+        )
+      `)
+      .or("name.eq.OWNER_BASIC,name.eq.OWNER")
+      .limit(1)
+      .maybeSingle();
+    
+    if (fallbackRole) {
+      rolePermissions = fallbackRole.role_permissions || [];
+    }
   }
 
-  // Get user-specific overrides
-  const { data: userPerms } = await db
-    .from("user_permissions")
-    .select("permission_key")
-    .eq("user_id", user.id);
+  const roleKeys = rolePermissions.map((p: any) => p.permission_key);
+  const userKeys = (dbUser.user_permissions || []).map((p: any) => p.permission_key);
 
-  const roleKeys = (perms || []).map((p: any) => p.permission_key);
-  const userKeys = (userPerms || []).map((p: any) => p.permission_key);
-
-  // Combine and de-duplicate keys
   const combinedKeys = Array.from(new Set([...roleKeys, ...userKeys]));
 
   return c.json({ permissions: combinedKeys });
