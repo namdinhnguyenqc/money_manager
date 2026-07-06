@@ -998,10 +998,8 @@ ownerRoutes.post("/ocr-cccd", async (c) => {
     // Clean text lines
     const cleanText = text.replace(/\r/g, "");
     
-    // 1. Extract 12-digit CCCD
-    // First remove all whitespace inside numbers
-    const textWithoutSpaces = cleanText.replace(/\s/g, "");
-    const cccdMatch = textWithoutSpaces.match(/\b\d{12}\b/) || cleanText.match(/\b\d{12}\b/);
+    // 1. Extract 12-digit CCCD (No boundary constraints)
+    const cccdMatch = cleanText.match(/\d{12}/);
     const cccd = cccdMatch ? cccdMatch[0] : "";
 
     // 2. Extract Full name in upper case (Vietnamese names support)
@@ -1010,23 +1008,25 @@ ownerRoutes.post("/ocr-cccd", async (c) => {
     
     // Look for names after keywords
     const lowerText = cleanText.toLowerCase();
-    const nameKeywords = ["full name", "khai sinh", "họ và tên", "họ tên"];
+    const nameKeywords = ["full name", "khai sinh", "họ và tên", "họ tên", "khal sinh"];
     
-    for (const kw of nameKeywords) {
-      const idx = lowerText.indexOf(kw);
-      if (idx !== -1) {
-        // Grab the substring following the keyword and look for uppercase lines
-        const subStr = cleanText.substring(idx + kw.length, idx + kw.length + 150);
-        const subLines = subStr.split("\n").map((l: string) => l.trim());
-        const uppercaseMatch = subLines.find((l: string) => {
-          const cleaned = l.replace(/[^A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲÝỴỶỸ\s]/g, "").trim();
-          return cleaned.length > 5 && cleaned === cleaned.toUpperCase() && !cleaned.includes("CỘNG HÒA") && !cleaned.includes("ĐỘC LẬP") && !cleaned.includes("VIỆT NAM");
-        });
-        if (uppercaseMatch) {
-          fullName = uppercaseMatch.replace(/[^A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲÝỴỶỸ\s]/g, "").trim();
-          break;
+    for (let i = 0; i < lines.length; i++) {
+      const lineLower = lines[i].toLowerCase();
+      const hasKeyword = nameKeywords.some(kw => lineLower.includes(kw));
+      if (hasKeyword) {
+        // Search next 4 lines
+        for (let j = i + 1; j <= i + 4 && j < lines.length; j++) {
+          const candidate = lines[j];
+          const cleanCandidate = candidate.replace(/[^A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲÝỴỶỸ\s]/g, "").trim();
+          if (cleanCandidate.length > 5 && cleanCandidate === cleanCandidate.toUpperCase() && 
+              !cleanCandidate.includes("CỘNG HÒA") && !cleanCandidate.includes("ĐỘC LẬP") && !cleanCandidate.includes("VIỆT NAM") &&
+              !cleanCandidate.includes("CĂN CƯỚC") && !cleanCandidate.includes("CAN CƯỚC") && !cleanCandidate.includes("IDENTITY")) {
+            fullName = cleanCandidate;
+            break;
+          }
         }
       }
+      if (fullName) break;
     }
 
     // Fallback: search all lines for any pure uppercase line
@@ -1035,11 +1035,17 @@ ownerRoutes.post("/ocr-cccd", async (c) => {
         const cleanLine = line.replace(/[^A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲÝỴỶỸ\s]/g, "").trim();
         if (cleanLine.length > 5 && cleanLine === cleanLine.toUpperCase() && 
             !cleanLine.includes("CỘNG HÒA") && !cleanLine.includes("ĐỘC LẬP") && !cleanLine.includes("VIỆT NAM") && 
-            !cleanLine.includes("CĂN CƯỚC") && !cleanLine.includes("CỤC TRƯỞNG") && !cleanLine.includes("SOCIALIST")) {
+            !cleanLine.includes("CĂN CƯỚC") && !cleanLine.includes("CỤC TRƯỞNG") && !cleanLine.includes("SOCIALIST") &&
+            !cleanLine.includes("IDENTITY")) {
           fullName = cleanLine;
           break;
         }
       }
+    }
+
+    // Clean stray single letter at the beginning (OCR artifact e.g. "E NGUYEN...")
+    if (fullName) {
+      fullName = fullName.replace(/^[A-Z]\s+/, "").trim();
     }
 
     // 3. Extract Address (Address patterns)
