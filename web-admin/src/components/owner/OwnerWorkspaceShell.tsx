@@ -579,13 +579,50 @@ const getPageTitle = (path: string) => {
             </button>
             <Logo />
           </div>
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-950 text-sm font-bold text-white shadow-sm shadow-blue-200 transition active:scale-95"
-            aria-label="Tài khoản"
-          >
-            {(ownerName || "O").charAt(0).toUpperCase()}
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-950 text-sm font-bold text-white shadow-sm shadow-blue-200 transition active:scale-95"
+              aria-label="Tài khoản"
+            >
+              {(ownerName || "O").charAt(0).toUpperCase()}
+            </button>
+
+            {dropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setDropdownOpen(false)} />
+                <div className="absolute right-0 mt-2.5 w-52 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl z-40 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-3 py-2 border-b border-slate-100">
+                    <div className="text-xs font-bold text-slate-800 truncate">{ownerName}</div>
+                    <div className="text-xs text-slate-500 truncate mt-0.5">{ownerEmail}</div>
+                  </div>
+                  <Link 
+                    href="/owner/profile"
+                    onClick={() => setDropdownOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-all mt-1"
+                  >
+                    <UserCircle size={15} />
+                    Thông tin hồ sơ
+                  </Link>
+                  <Link 
+                    href="/owner/settings"
+                    onClick={() => setDropdownOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-all"
+                  >
+                    <Settings size={15} />
+                    Cài đặt hệ thống
+                  </Link>
+                  <button 
+                    onClick={() => { setDropdownOpen(false); handleLogout(); }}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 transition-all border-t border-slate-100 mt-1"
+                  >
+                    <LogOut size={15} />
+                    Đăng xuất
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </header>
 
         {/* Desktop Header */}

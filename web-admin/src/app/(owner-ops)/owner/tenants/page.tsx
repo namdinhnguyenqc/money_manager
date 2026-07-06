@@ -272,11 +272,11 @@ export default function OwnerTenantsPage() {
               </button>
             ))}
           </div>
-          <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
-            <div className="sm:w-72">
+          <div className="flex flex-row gap-2 items-center w-full sm:w-auto">
+            <div className="flex-grow sm:w-72">
               <Input
                 icon={<Search size={16} />}
-                placeholder="Tìm theo tên, SĐT, CCCD..."
+                placeholder="Tìm tên, SĐT, CCCD..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -284,11 +284,12 @@ export default function OwnerTenantsPage() {
             <button
               onClick={exportToCSV}
               disabled={filtered.length === 0}
-              className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shrink-0"
+              className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs sm:text-sm font-bold text-slate-700 transition hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shrink-0"
               title="Xuất danh sách khai báo tạm trú"
             >
               <Download size={16} className="text-slate-500" />
-              <span>Xuất tạm trú (CSV)</span>
+              <span className="hidden xs:inline">Xuất CSV</span>
+              <span className="hidden sm:inline">tạm trú</span>
             </button>
           </div>
         </div>

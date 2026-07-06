@@ -6,6 +6,7 @@ import { cacheMiddleware, invalidateCache } from "../middleware/cache.js";
 import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
 import { supabaseAdmin } from "../lib/supabase.js";
+import Tesseract from "tesseract.js";
 
 import { isRolePremium, limitsFromRole, getRoleId } from "../lib/roles.js";
 
@@ -56,9 +57,9 @@ ownerRoutes.get("/dashboard-init", async (c) => {
   const supabase = c.get("supabase");
 
   // Parallel Supabase queries for performance
-  const twelveMonthsAgo = new Date();
-  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11, 1);
-  twelveMonthsAgo.setHours(0, 0, 0, 0);
+  const eighteenMonthsAgo = new Date();
+  eighteenMonthsAgo.setMonth(eighteenMonthsAgo.getMonth() - 17, 1);
+  eighteenMonthsAgo.setHours(0, 0, 0, 0);
 
   const [bhRes, roomsRes, walletsRes, settingsRes, transactionsRes, invoicesRes, depositsRes] = await Promise.all([
     supabase.from("boarding_houses").select(`
@@ -72,9 +73,9 @@ ownerRoutes.get("/dashboard-init", async (c) => {
       .from("transactions")
       .select("id, type, amount, description, date, wallet_id, category_id, invoice_id")
       .eq("user_id", currentUser.id)
-      .gte("date", twelveMonthsAgo.toISOString().slice(0, 10))
+      .gte("date", eighteenMonthsAgo.toISOString().slice(0, 10))
       .order("date", { ascending: false })
-      .limit(500),
+      .limit(800),
     supabase
       .from("invoices")
       .select(`
@@ -97,7 +98,7 @@ ownerRoutes.get("/dashboard-init", async (c) => {
   return c.json({
     boardingHouses: bhRes.data || [],
     rooms: roomsRes.data || [],
-    wallets,
+    wallets: walletsRes.data || [],
     transactions: transactionsRes.data || [],
     invoices: invoicesRes.data || [],
     deposits: depositsRes.data || [],
@@ -900,7 +901,7 @@ ownerRoutes.get("/permissions", async (c) => {
     return c.json({ permissions: [] });
   }
 
-  let rolePermissions: any[] = dbUser.roles?.role_permissions || [];
+  let rolePermissions: any[] = (dbUser.roles as any)?.role_permissions || [];
 
   // Fallback if role_id or roles is missing (edge case)
   if (!dbUser.role_id || !dbUser.roles) {
@@ -917,7 +918,7 @@ ownerRoutes.get("/permissions", async (c) => {
       .maybeSingle();
     
     if (fallbackRole) {
-      rolePermissions = fallbackRole.role_permissions || [];
+      rolePermissions = (fallbackRole as any).role_permissions || [];
     }
   }
 
@@ -958,6 +959,77 @@ ownerRoutes.post("/simulate-upgrade", async (c) => {
   }
 
   return c.json({ success: true, plan: planValue });
+});
+
+ownerRoutes.post("/ocr-cccd", async (c) => {
+  try {
+    const body = await c.req.parseBody();
+    const file = body.file as File;
+    if (!file) return c.json({ error: "No file uploaded" }, 400);
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Run OCR locally on the server using tesseract.js
+    const result = await Tesseract.recognize(
+      buffer,
+      'eng+vie',
+      { logger: (m) => console.log(m) }
+    );
+
+    const text = result.data.text;
+    console.log("Server OCR text:", text);
+
+    // 1. Extract 12-digit CCCD
+    const cccdMatch = text.match(/\b\d{12}\b/);
+    const cccd = cccdMatch ? cccdMatch[0] : "";
+
+    // 2. Extract Full name in upper case
+    const lines = text.split("\n").map((l) => l.trim());
+    let fullName = "";
+    for (const line of lines) {
+      const cleanLine = line.replace(/[^A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲÝỴỶỸ\s]/g, "").trim();
+      if (cleanLine.length > 5 && cleanLine === cleanLine.toUpperCase() && !cleanLine.includes("CỘNG HÒA") && !cleanLine.includes("ĐỘC LẬP") && !cleanLine.includes("VIỆT NAM") && !cleanLine.includes("CĂN CƯỚC") && !cleanLine.includes("CỤC TRƯỞNG")) {
+        fullName = cleanLine;
+        break;
+      }
+    }
+
+    if (!fullName) {
+      const nameIdx = text.toLowerCase().indexOf("họ và tên");
+      if (nameIdx !== -1) {
+        const substring = text.substring(nameIdx + 9, nameIdx + 60);
+        const subLines = substring.split("\n").map((l) => l.trim());
+        fullName = subLines.find((l) => l.length > 2 && l === l.toUpperCase()) || "";
+      }
+    }
+
+    // 3. Extract Address
+    const lowerText = text.toLowerCase();
+    const addrKeywords = ["thường trú", "thường trú:", "nơi cư trú", "quê quán", "nơi đăng ký hộ khẩu"];
+    let address = "";
+    for (const kw of addrKeywords) {
+      const idx = lowerText.indexOf(kw);
+      if (idx !== -1) {
+        const subStr = text.substring(idx + kw.length, idx + kw.length + 150);
+        const subLines = subStr.split("\n").map(l => l.trim()).filter(l => l.length > 2);
+        if (subLines.length > 0) {
+          address = subLines.slice(0, 2).join(", ").replace(/[:,\s]+$/, "").trim();
+          break;
+        }
+      }
+    }
+
+    return c.json({
+      success: true,
+      name: fullName,
+      cccd: cccd,
+      address: address
+    });
+  } catch (err: any) {
+    console.error("OCR error:", err);
+    return c.json({ error: err.message || "Failed to process image" }, 500);
+  }
 });
 
 export default ownerRoutes;
