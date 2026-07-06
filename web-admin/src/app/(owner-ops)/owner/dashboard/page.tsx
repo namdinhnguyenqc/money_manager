@@ -6,7 +6,7 @@ import {
   Users, Home, Wallet, AlertCircle, Building2, Repeat,
   FileText, ArrowRight, Plus, Zap, Droplet, ChevronRight,
   TrendingUp, TrendingDown, Receipt, Settings, Wifi,
-  BarChart3, ArrowUpRight, ArrowDownRight, Minus,
+  BarChart3, ArrowUpRight, ArrowDownRight, Minus, PieChart,
 } from 'lucide-react';
 import { formatMoney, normalizeRoomStatus } from '@/lib/rentalOps';
 import RBACGuard from '@/components/RBACGuard';
@@ -97,11 +97,86 @@ export default function OwnerDashboard() {
         const amt = Math.abs(Number(tx.amount || 0));
         if (text.includes('điện') || text.includes('electric')) electricity += amt;
         else if (text.includes('nước') || text.includes('water')) water += amt;
+        else if (text.includes('phòng') || text.includes('room')) rent += amt;
+        else other += amt;
       }
     }
     const total = rent + electricity + water + other;
     return { rent, electricity, water, other, total };
   }, [invoices, transactions, curM, curY]);
+
+  // ── DONUT 1 DATA: REVENUE COMPOSITION ──
+  const revenueChartData = useMemo(() => {
+    const rent = utilities.rent || (financial.income - utilities.electricity - utilities.water - utilities.other);
+    const elec = utilities.electricity;
+    const water = utilities.water;
+    const other = utilities.other;
+    return [
+      { label: "Tiền phòng", value: rent, color: "#3B82F6" },      // Blue
+      { label: "Tiền điện", value: elec, color: "#F59E0B" },       // Amber
+      { label: "Tiền nước", value: water, color: "#06B6D4" },      // Cyan
+      { label: "Dịch vụ khác", value: other, color: "#8B5CF6" },   // Violet
+    ];
+  }, [utilities, financial.income]);
+
+  // ── DONUT 2 DATA: COLLECTION EFFICIENCY ──
+  const collectionChartData = useMemo(() => {
+    const thisMonthInvoices = invoices.filter(inv => inv.month === curM + 1 && inv.year === curY);
+    let billed = 0, paid = 0;
+    for (const inv of thisMonthInvoices) {
+      billed += Math.round(Number(inv.total_amount || 0));
+      paid += Math.round(Number(inv.paid_amount || 0));
+    }
+    const unpaid = Math.max(0, billed - paid);
+    return {
+      billed,
+      paid,
+      unpaid,
+      rate: billed > 0 ? Math.round((paid / billed) * 100) : 0,
+      data: [
+        { label: "Đã thu", value: paid, color: "#10B981" },        // Emerald
+        { label: "Chưa thu", value: unpaid, color: "#EF4444" },    // Red
+      ]
+    };
+  }, [invoices, curM, curY]);
+
+  // ── SYSTEM DATA INSIGHTS ──
+  const analystInsights = useMemo(() => {
+    const list: string[] = [];
+    
+    // Occupancy insight
+    if (stats.occupancyRate >= 90) {
+      list.push("Tỷ lệ lấp đầy rất tốt (>= 90%). Hãy duy trì dịch vụ để giữ chân khách thuê.");
+    } else if (stats.occupancyRate >= 70) {
+      list.push(`Tỷ lệ lấp đầy trung bình (${stats.occupancyRate}%). Đang có ${stats.vacant} phòng trống cần tìm khách.`);
+    } else {
+      list.push(`⚠️ Tỷ lệ phòng trống cao (${stats.vacant} phòng). Cân nhắc giảm giá hoặc tặng ưu đãi cọc.`);
+    }
+
+    // Collection rate insight
+    if (collectionChartData.billed > 0) {
+      if (collectionChartData.rate >= 90) {
+        list.push("Hiệu suất thu tiền xuất sắc. Hầu hết hóa đơn đã được thanh toán đúng kỳ.");
+      } else if (collectionChartData.rate >= 70) {
+        list.push(`⚠️ Còn lại ${formatMoney(collectionChartData.unpaid)} tiền phòng chưa thu hồi trong tháng.`);
+      } else {
+        list.push(`🚨 Cảnh báo dòng tiền: Tỷ lệ thu hồi chỉ đạt ${collectionChartData.rate}%. Cần đốc thúc thanh toán gấp.`);
+      }
+    }
+
+    // Expense ratio
+    const expenseRatio = financial.income > 0 ? (financial.expense / financial.income) * 100 : 0;
+    if (expenseRatio > 40) {
+      list.push(`⚠️ Chi phí vận hành cao (${Math.round(expenseRatio)}% doanh thu). Cần rà soát các hao hụt lớn.`);
+    } else if (financial.income > 0) {
+      list.push(`Vận hành hiệu quả, biên lợi nhuận ròng đạt ${Math.round(100 - expenseRatio)}%.`);
+    }
+
+    if (list.length === 0) {
+      list.push("Hệ thống chưa tích lũy đủ dữ liệu để đưa ra phân tích tài chính.");
+    }
+    return list;
+  }, [stats, collectionChartData, financial]);
 
   const overdueInvoices = useMemo(() => {
     const cm = curM + 1, cy = curY;
@@ -229,126 +304,167 @@ export default function OwnerDashboard() {
           />
         </div>
 
-        {/* ── FINANCIAL REPORT ── */}
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                <BarChart3 size={18} />
+        {/* ── FINANCIAL REPORT & ANALYSIS ── */}
+        <div className="grid gap-5 lg:grid-cols-5">
+
+          {/* Bar Chart: Doanh thu & Chi phí 6 tháng */}
+          <div className="lg:col-span-3 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                  <BarChart3 size={18} />
+                </div>
+                <div>
+                  <div className="text-sm font-black text-slate-900">Biến động dòng tiền</div>
+                  <div className="text-[11px] text-slate-500 font-medium">Lịch sử thu chi qua các tháng</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                {[3, 6, 12].map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setChartMonths(n)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${chartMonths === n ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    {n}T
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-5 flex-1 flex flex-col justify-between">
+              {/* Summary stats */}
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="rounded-xl bg-indigo-50/50 border border-indigo-100/50 p-3">
+                  <div className="text-[11px] font-bold text-indigo-500 uppercase tracking-wide mb-0.5">Thu T{curM + 1}</div>
+                  <div className="text-base font-black text-indigo-700">{formatMoney(financial.income)}</div>
+                </div>
+                <div className="rounded-xl bg-red-50/50 border border-red-100/50 p-3">
+                  <div className="text-[11px] font-bold text-red-500 uppercase tracking-wide mb-0.5">Chi T{curM + 1}</div>
+                  <div className="text-base font-black text-red-600">{formatMoney(financial.expense)}</div>
+                </div>
+                <div className={`rounded-xl border p-3 ${financial.profit >= 0 ? 'bg-emerald-50/50 border-emerald-100/50' : 'bg-orange-50/50 border-orange-100/50'}`}>
+                  <div className={`text-[11px] font-bold uppercase tracking-wide mb-0.5 ${financial.profit >= 0 ? 'text-emerald-600' : 'text-orange-600'}`}>Ròng T{curM + 1}</div>
+                  <div className={`text-base font-black ${financial.profit >= 0 ? 'text-emerald-700' : 'text-orange-700'}`}>{formatMoney(financial.profit)}</div>
+                </div>
+              </div>
+
+              {/* Chart elements */}
+              <div className="flex items-end gap-2 h-40 mb-3 pt-4">
+                {financial.months.map((m, i) => {
+                  const isLast = i === financial.months.length - 1;
+                  const revH = financial.maxVal > 0 ? Math.max(4, Math.round((m.rev / financial.maxVal) * 120)) : 4;
+                  const expH = financial.maxVal > 0 ? Math.max(2, Math.round((m.exp / financial.maxVal) * 120)) : 2;
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1 group/bar">
+                      <div className="hidden group-hover/bar:flex flex-col items-center absolute z-10 -mt-16 bg-slate-900 text-white text-[10px] rounded-lg px-2 py-1.5 pointer-events-none whitespace-nowrap shadow-lg">
+                        <span className="text-indigo-300 font-bold">Thu: {formatMoney(m.rev)}</span>
+                        <span className="text-red-300">Chi: {formatMoney(m.exp)}</span>
+                      </div>
+                      <div className="relative flex items-end gap-1 w-full justify-center">
+                        <div
+                          className={`w-3.5 rounded-t-sm transition-all duration-300 ${isLast ? 'bg-indigo-500' : 'bg-indigo-200 group-hover/bar:bg-indigo-400'}`}
+                          style={{ height: `${revH}px` }}
+                        />
+                        {m.exp > 0 && (
+                          <div
+                            className={`w-3.5 rounded-t-sm transition-all duration-300 ${isLast ? 'bg-red-400' : 'bg-red-200 group-hover/bar:bg-red-300'}`}
+                            style={{ height: `${expH}px` }}
+                          />
+                        )}
+                      </div>
+                      <div className={`text-xs font-bold ${isLast ? 'text-indigo-600' : 'text-slate-400'}`}>{m.label}</div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center gap-4 justify-center text-xs text-slate-500 pt-2 border-t border-slate-50">
+                <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-indigo-400"/> Tổng thu</div>
+                <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-red-400"/> Chi phí</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Donut Charts & Analyst Insights (Senior Data Analysis style) */}
+          <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-6 flex flex-col justify-between">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <PieChart size={18} />
               </div>
               <div>
-                <div className="text-sm font-black text-slate-900">Báo cáo tài chính</div>
-                <div className="text-xs text-slate-500 font-medium">Doanh thu · Chi phí · Thu nhập ròng</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-              {[3, 6, 12].map(n => (
-                <button
-                  key={n}
-                  onClick={() => setChartMonths(n)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${chartMonths === n ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                  {n}T
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="p-5">
-            {/* Summary row */}
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-3">
-                <div className="text-[11px] font-bold text-indigo-500 uppercase tracking-wide mb-1">Doanh thu T{curM + 1}</div>
-                <div className="text-lg font-black text-indigo-700">{formatMoney(financial.income)}</div>
-              </div>
-              <div className="rounded-xl bg-red-50 border border-red-100 p-3">
-                <div className="text-[11px] font-bold text-red-500 uppercase tracking-wide mb-1">Chi phí T{curM + 1}</div>
-                <div className="text-lg font-black text-red-600">{formatMoney(financial.expense)}</div>
-              </div>
-              <div className={`rounded-xl border p-3 ${financial.profit >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-orange-50 border-orange-100'}`}>
-                <div className={`text-[11px] font-bold uppercase tracking-wide mb-1 ${financial.profit >= 0 ? 'text-emerald-500' : 'text-orange-500'}`}>Thu nhập ròng</div>
-                <div className={`text-lg font-black ${financial.profit >= 0 ? 'text-emerald-700' : 'text-orange-600'}`}>{formatMoney(financial.profit)}</div>
+                <h3 className="text-sm font-black text-slate-900">Phân tích cấu trúc</h3>
+                <p className="text-xs text-slate-500 font-medium">Báo cáo chi tiết tài chính tháng {curM + 1}</p>
               </div>
             </div>
 
-            {/* Bar Chart */}
-            <div className="flex items-end gap-1.5 h-40 mb-3">
-              {financial.months.map((m, i) => {
-                const isLast = i === financial.months.length - 1;
-                const revH = financial.maxVal > 0 ? Math.max(4, Math.round((m.rev / financial.maxVal) * 130)) : 4;
-                const expH = financial.maxVal > 0 ? Math.max(2, Math.round((m.exp / financial.maxVal) * 130)) : 2;
-                return (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1 group/bar">
-                    {/* Tooltip on hover */}
-                    <div className="hidden group-hover/bar:flex flex-col items-center absolute z-10 -mt-16 bg-slate-900 text-white text-[10px] rounded-lg px-2 py-1.5 pointer-events-none whitespace-nowrap shadow-lg">
-                      <span className="text-indigo-300 font-bold">Thu: {formatMoney(m.rev)}</span>
-                      <span className="text-red-300">Chi: {formatMoney(m.exp)}</span>
+            {/* Circular Charts */}
+            <div className="grid grid-cols-2 gap-4 justify-items-center">
+              {/* Donut 1: Revenue breakdown */}
+              <div className="flex flex-col items-center">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Doanh thu</span>
+                <DonutChart data={revenueChartData} totalLabel="Thu phòng" />
+              </div>
+              {/* Donut 2: Collection efficiency */}
+              <div className="flex flex-col items-center">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Tỷ lệ thu</span>
+                <DonutChart
+                  data={collectionChartData.data}
+                  totalLabel="Tổng lập"
+                  totalValue={collectionChartData.billed}
+                />
+              </div>
+            </div>
+
+            {/* Legend split */}
+            <div className="grid grid-cols-2 gap-4 text-xs pt-4 border-t border-slate-100">
+              {/* Left Legend: Revenue details */}
+              <div className="space-y-1.5">
+                {revenueChartData.map((d, i) => (
+                  <div key={i} className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                      <span className="text-slate-500 truncate">{d.label}</span>
                     </div>
-                    <div className="relative flex items-end gap-0.5 w-full">
-                      {/* Revenue bar */}
-                      <div
-                        className={`flex-1 rounded-t-md transition-all duration-500 ${isLast ? 'bg-indigo-500' : 'bg-indigo-200 group-hover/bar:bg-indigo-400'}`}
-                        style={{ height: `${revH}px` }}
-                        title={`Doanh thu: ${formatMoney(m.rev)}`}
-                      />
-                      {/* Expense bar */}
-                      {m.exp > 0 && (
-                        <div
-                          className={`flex-1 rounded-t-md transition-all duration-500 ${isLast ? 'bg-red-400' : 'bg-red-100 group-hover/bar:bg-red-300'}`}
-                          style={{ height: `${expH}px` }}
-                          title={`Chi phí: ${formatMoney(m.exp)}`}
-                        />
-                      )}
-                    </div>
-                    <div className={`text-xs font-bold ${isLast ? 'text-indigo-600' : 'text-slate-500'}`}>{m.label}</div>
+                    <span className="font-bold text-slate-800 shrink-0">{formatMoney(d.value)}</span>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+              {/* Right Legend: Collection details */}
+              <div className="space-y-1.5 border-l border-slate-100 pl-4">
+                <div className="flex items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="text-slate-500">Đã thu</span>
+                  </div>
+                  <span className="font-bold text-emerald-600 shrink-0">{formatMoney(collectionChartData.paid)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
+                    <span className="text-slate-500">Còn nợ</span>
+                  </div>
+                  <span className="font-bold text-red-600 shrink-0">{formatMoney(collectionChartData.unpaid)}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-slate-50 pt-1.5">
+                  <span className="text-slate-500 font-semibold">Tỷ suất:</span>
+                  <span className={`font-black ${collectionChartData.rate >= 90 ? 'text-emerald-600' : collectionChartData.rate >= 75 ? 'text-amber-600' : 'text-red-600'}`}>
+                    {collectionChartData.rate}%
+                  </span>
+                </div>
+              </div>
             </div>
 
-            {/* Legend */}
-            <div className="flex items-center gap-4 justify-center">
-              <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <div className="h-2.5 w-2.5 rounded-sm bg-indigo-400"/> Doanh thu
+            {/* Smart Analyst Advice Box */}
+            <div className="rounded-xl bg-slate-50 border border-slate-200/50 p-3.5 text-xs text-slate-700">
+              <div className="font-bold text-slate-900 mb-1.5 flex items-center gap-1.5">
+                💡 Gợi ý của chuyên gia dữ liệu:
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <div className="h-2.5 w-2.5 rounded-sm bg-red-300"/> Chi phí
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <div className="h-2.5 w-2.5 rounded-sm bg-emerald-400"/> Ròng
-              </div>
-            </div>
-          </div>
-
-          {/* Revenue breakdown */}
-          <div className="border-t border-slate-100 px-5 py-4">
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Cơ cấu doanh thu tháng này</div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <BreakdownCard
-                icon={<Home size={15} className="text-blue-500" />}
-                label="Tiền phòng"
-                value={formatMoney(utilities.rent || financial.income - utilities.electricity - utilities.water)}
-                bgColor="bg-blue-50"
-              />
-              <BreakdownCard
-                icon={<Zap size={15} className="text-amber-500" />}
-                label="Tiền điện"
-                value={formatMoney(utilities.electricity)}
-                bgColor="bg-amber-50"
-              />
-              <BreakdownCard
-                icon={<Droplet size={15} className="text-cyan-500" />}
-                label="Tiền nước"
-                value={formatMoney(utilities.water)}
-                bgColor="bg-cyan-50"
-              />
-              <BreakdownCard
-                icon={<Receipt size={15} className="text-violet-500" />}
-                label="Dịch vụ khác"
-                value={formatMoney(utilities.other || 0)}
-                bgColor="bg-violet-50"
-              />
+              <ul className="list-disc pl-4 space-y-1.5 text-slate-600 font-medium leading-relaxed">
+                {analystInsights.map((insight, idx) => (
+                  <li key={idx}>{insight}</li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
@@ -488,16 +604,56 @@ export default function OwnerDashboard() {
   );
 }
 
-// ── Sub-components ─────────────────────────────────────────
-function BreakdownCard({ icon, label, value, bgColor }: { icon: React.ReactNode; label: string; value: string; bgColor: string }) {
-  return (
-    <div className={`rounded-xl border border-slate-100 ${bgColor} p-3 flex items-center gap-2.5`}>
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
-        {icon}
+// ── Native SVG DonutChart Component ────────────────────────
+function DonutChart({ data, totalLabel, totalValue }: {
+  data: Array<{ label: string; value: number; color: string }>;
+  totalLabel: string;
+  totalValue?: number;
+}) {
+  const total = totalValue !== undefined ? totalValue : data.reduce((s, d) => s + d.value, 0);
+  let accumulatedPercent = 0;
+  
+  if (total === 0) {
+    return (
+      <div className="flex items-center justify-center h-28 w-28 rounded-full border-2 border-dashed border-slate-200 text-[10px] text-slate-400 font-semibold">
+        Chưa có số liệu
       </div>
-      <div className="min-w-0">
-        <div className="text-xs font-bold text-slate-600 uppercase tracking-wide truncate">{label}</div>
-        <div className="text-sm font-black text-slate-900 truncate">{value}</div>
+    );
+  }
+
+  return (
+    <div className="relative flex items-center justify-center">
+      <svg width="110" height="110" viewBox="0 0 120 120" className="-rotate-90">
+        <circle cx="60" cy="60" r="50" fill="transparent" stroke="#f1f5f9" strokeWidth="12" />
+        {data.map((item, idx) => {
+          if (item.value <= 0) return null;
+          const percent = item.value / total;
+          const strokeLength = percent * 314.159;
+          const strokeOffset = -accumulatedPercent * 314.159;
+          accumulatedPercent += percent;
+
+          return (
+            <circle
+              key={idx}
+              cx="60"
+              cy="60"
+              r="50"
+              fill="transparent"
+              stroke={item.color}
+              strokeWidth="12"
+              strokeDasharray={`${strokeLength} 314.159`}
+              strokeDashoffset={strokeOffset}
+              strokeLinecap="round"
+              className="transition-all duration-300 hover:stroke-[14px]"
+            />
+          );
+        })}
+      </svg>
+      <div className="absolute flex flex-col items-center justify-center text-center">
+        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{totalLabel}</span>
+        <span className="text-xs font-black text-slate-900 mt-0.5 truncate max-w-[80px]">
+          {formatMoney(total)}
+        </span>
       </div>
     </div>
   );
@@ -516,7 +672,7 @@ function StatCard({ label, value, sub, icon, color = "blue", gradient = false, t
   };
   if (gradient) {
     return (
-      <div className="rounded-2xl p-4 shadow-sm text-white" style={{ background: 'linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)' }}>
+      <div className="rounded-2xl p-4 shadow-sm text-white animate-all duration-300 hover:-translate-y-0.5 hover:shadow-lg" style={{ background: 'linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)' }}>
         <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl mb-3 bg-white/20 text-white">
           {icon}
         </div>
