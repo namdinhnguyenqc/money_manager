@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import RBACGuard from "@/components/RBACGuard";
 import { loadRentalRooms, normalizeRoomStatus, roomStatusLabel, formatMoney, type RentalRoom } from "@/lib/rentalOps";
-import { apiGet } from "@/utils/apiClient";
+import { apiGet, apiPatch } from "@/utils/apiClient";
 import {
   Users, Phone, ShieldCheck, Search, Home, Calendar,
   DollarSign, ChevronRight, AlertCircle, UserCheck, UserX, Download
@@ -37,6 +37,148 @@ export default function OwnerTenantsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<"active" | "all">("active");
   const [page, setPage] = useState(1);
+  
+  const [scanningTenantId, setScanningTenantId] = useState<string | null>(null);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  useEffect(() => {
+    // Dynamic import Tesseract.js script from CDN
+    if (typeof window !== "undefined" && !(window as any).Tesseract) {
+      const script = document.createElement("script");
+      script.src = "https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  const triggerOcrForTenant = (tenantId: string) => {
+    setScanningTenantId(tenantId);
+    setError(null);
+    setToast(null);
+    const input = document.getElementById("ocr-file-input");
+    if (input) {
+      (input as HTMLInputElement).value = ""; // Clear file selector
+      input.click();
+    }
+  };
+
+  const handleOcrFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !scanningTenantId) return;
+
+    setOcrLoading(true);
+    setError(null);
+    setToast(null);
+
+    try {
+      const tesseract = (window as any).Tesseract;
+      if (!tesseract) {
+        throw new Error("Thư viện quét ảnh đang được tải. Vui lòng thử lại sau vài giây.");
+      }
+
+      let combinedText = "";
+
+      // Support up to 2 files (front and back page)
+      const fileList = Array.from(files).slice(0, 2);
+      for (const file of fileList) {
+        const text = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = async () => {
+            try {
+              const result = await tesseract.recognize(
+                reader.result,
+                'eng+vie',
+                { logger: (m: any) => console.log(m) }
+              );
+              resolve(result.data.text);
+            } catch (err) {
+              reject(err);
+            }
+          };
+          reader.onerror = () => reject(new Error("Lỗi đọc file hình ảnh"));
+          reader.readAsDataURL(file);
+        });
+        combinedText += "\n" + text;
+      }
+
+      console.log("Combined OCR Text:", combinedText);
+
+      // 1. Extract 12-digit CCCD/CMND number
+      const cccdMatch = combinedText.match(/\b\d{12}\b/);
+      const cccd = cccdMatch ? cccdMatch[0] : "";
+
+      // 2. Extract Full name in upper case
+      const lines = combinedText.split("\n").map((l: string) => l.trim());
+      let fullName = "";
+      for (const line of lines) {
+        const cleanLine = line.replace(/[^A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲÝỴỶỸ\s]/g, "").trim();
+        if (cleanLine.length > 5 && cleanLine === cleanLine.toUpperCase() && !cleanLine.includes("CỘNG HÒA") && !cleanLine.includes("ĐỘC LẬP") && !cleanLine.includes("VIỆT NAM") && !cleanLine.includes("CĂN CƯỚC") && !cleanLine.includes("CỤC TRƯỞNG")) {
+          fullName = cleanLine;
+          break;
+        }
+      }
+
+      if (!fullName) {
+        const nameIdx = combinedText.toLowerCase().indexOf("họ và tên");
+        if (nameIdx !== -1) {
+          const substring = combinedText.substring(nameIdx + 9, nameIdx + 60);
+          const subLines = substring.split("\n").map((l: string) => l.trim());
+          fullName = subLines.find((l: string) => l.length > 2 && l === l.toUpperCase()) || "";
+        }
+      }
+
+      // 3. Extract Address from back page or front page
+      const lowerText = combinedText.toLowerCase();
+      const addrKeywords = ["thường trú", "thường trú:", "nơi cư trú", "quê quán", "nơi đăng ký hộ khẩu"];
+      let address = "";
+      for (const kw of addrKeywords) {
+        const idx = lowerText.indexOf(kw);
+        if (idx !== -1) {
+          const subStr = combinedText.substring(idx + kw.length, idx + kw.length + 150);
+          const subLines = subStr.split("\n").map(l => l.trim()).filter(l => l.length > 2);
+          if (subLines.length > 0) {
+            address = subLines.slice(0, 2).join(", ").replace(/[:,\s]+$/, "").trim();
+            break;
+          }
+        }
+      }
+
+      if (!cccd && !fullName) {
+        throw new Error("Không nhận diện được Họ tên hoặc số CCCD. Hãy đảm bảo ảnh chụp đủ ánh sáng và rõ nét.");
+      }
+
+      // API Call PATCH to update database record
+      const payload: any = {};
+      if (fullName) payload.name = fullName;
+      if (cccd) payload.idCard = cccd;
+      if (address) payload.address = address;
+
+      await apiPatch(`/rental/tenants/${scanningTenantId}`, payload);
+
+      // Local state update
+      setTenants(prev => prev.map(t => t.id === scanningTenantId ? {
+        ...t,
+        name: fullName || t.name,
+        id_card: cccd || t.id_card,
+        address: address || t.address
+      } : t));
+
+      setToast({
+        message: `Cập nhật thành công: ${fullName || ""} (${cccd || ""})`,
+        type: "success"
+      });
+
+      setTimeout(() => setToast(null), 4000);
+
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Lỗi xử lý hình ảnh OCR.");
+    } finally {
+      setOcrLoading(false);
+      setScanningTenantId(null);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -282,7 +424,20 @@ export default function OwnerTenantsPage() {
                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors">
                           <ShieldCheck size={13} />
                         </div>
-                        <span>{tenant.id_card || "Chưa có CCCD"}</span>
+                        <div className="flex-1 flex items-center justify-between min-w-0">
+                          <span className="truncate">{tenant.id_card || "Chưa có CCCD"}</span>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              triggerOcrForTenant(tenant.id);
+                            }}
+                            className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-black text-blue-600 border border-blue-100 bg-blue-50/50 hover:bg-blue-100 transition-colors shrink-0"
+                            title="Quét CCCD để cập nhật hồ sơ khách thuê này"
+                          >
+                            ⚡ Quét CCCD
+                          </button>
+                        </div>
                       </div>
 
                       {/* Room info if active */}
@@ -344,6 +499,34 @@ export default function OwnerTenantsPage() {
           total={filtered.length}
           onPageChange={setPage}
         />
+
+        {/* Hidden inputs & loading overlays for OCR processing */}
+        <input
+          type="file"
+          multiple
+          accept="image/*"
+          id="ocr-file-input"
+          className="hidden"
+          onChange={handleOcrFileChange}
+        />
+
+        {ocrLoading && (
+          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="rounded-2xl bg-white p-6 shadow-2xl flex flex-col items-center max-w-sm text-center">
+              <svg className="animate-spin h-10 w-10 text-blue-600 mb-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              <h4 className="text-sm font-bold text-slate-950">Đang quét ảnh CCCD (OCR)</h4>
+              <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">Hệ thống đang trích xuất Họ tên, Số CCCD và Địa chỉ hoàn toàn offline bảo mật trong trình duyệt của bạn...</p>
+            </div>
+          </div>
+        )}
+
+        {toast && (
+          <div className="fixed bottom-5 right-5 z-50 animate-in slide-in-from-bottom-5 duration-300">
+            <div className={`rounded-xl px-4 py-3 shadow-lg text-xs font-bold border ${toast.type === "success" ? "bg-emerald-50 border-emerald-100 text-emerald-800" : "bg-red-50 border-red-100 text-red-800"}`}>
+              {toast.message}
+            </div>
+          </div>
+        )}
       </div>
     </RBACGuard>
   );
