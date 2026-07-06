@@ -18,7 +18,7 @@ const MONTH_NAMES = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T
 export default function OwnerDashboard() {
   const dashboardQuery = useOwnerDashboardInit();
   const [slowLoad, setSlowLoad] = useState(false);
-  const [chartMonths, setChartMonths] = useState(12);
+  const [chartMonths, setChartMonths] = useState(18);
 
   // Client-side cache (SWR) to load dashboard instantly (0ms) on fresh login or refresh
   const [cachedData, setCachedData] = useState<OwnerDashboardInit | null>(() => {
@@ -422,7 +422,7 @@ export default function OwnerDashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-                {[3, 6, 12].map(n => (
+                {[3, 6, 12, 18].map(n => (
                   <button
                     key={n}
                     onClick={() => setChartMonths(n)}
