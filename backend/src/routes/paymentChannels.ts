@@ -84,7 +84,20 @@ paymentChannelsRoutes.patch("/:id", async (c) => {
   const id = toId(c.req.param("id"));
   if (!id) return c.json({ error: "Invalid payment channel id" }, 400);
 
-  const parsed = await parseJson(c, channelSchema.partial());
+  const channelUpdateSchema = z.object({
+    provider: z.enum(["sepay", "bank_transfer", "cash", "manual"]).optional(),
+    displayName: z.string().trim().min(1).optional(),
+    bankId: z.string().trim().nullable().optional(),
+    accountNo: z.string().trim().nullable().optional(),
+    accountName: z.string().trim().nullable().optional(),
+    walletId: z.string().nullable().optional(),
+    enabled: z.boolean().optional(),
+    autoReconcileEnabled: z.boolean().optional(),
+    isDefault: z.boolean().optional(),
+    config: z.record(z.string(), z.any()).optional(),
+  });
+
+  const parsed = await parseJson(c, channelUpdateSchema);
   if (!parsed.ok) return parsed.response;
 
   const db = c.get("supabase");
