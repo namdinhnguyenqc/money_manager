@@ -183,7 +183,7 @@ export default function OwnerGoogleLoginButton() {
   return (
     <div className="space-y-4">
       {GOOGLE_CLIENT_ID ? (
-        <div className="flex min-h-[66px] items-center justify-center rounded-[18px] border border-slate-200 bg-white p-2 shadow-[0_12px_24px_rgba(15,23,42,0.06)] hover:shadow-[0_22px_42px_rgba(37,99,235,0.13)] hover:border-blue-200 transition-all cursor-pointer relative overflow-hidden font-['Plus_Jakarta_Sans']">
+        <div className="flex min-h-[66px] items-center justify-center rounded-[18px] border border-slate-200 bg-white p-2 shadow-[0_12px_24px_rgba(15,23,42,0.06)] hover:shadow-[0_22px_42px_rgba(37,99,235,0.13)] hover:border-blue-200 transition-all cursor-pointer relative overflow-hidden">
           <div id="google-btn-container" className="z-10 flex w-full justify-center">
             <div className="flex items-center gap-3 text-base font-bold text-slate-500">
               <Loader2 size={20} className="animate-spin text-blue-600" />

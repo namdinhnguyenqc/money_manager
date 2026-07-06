@@ -74,11 +74,11 @@ export default function LoginPage() {
           <div className="absolute w-[560px] h-[560px] -right-[260px] -bottom-[260px] rounded-full bg-[#10B981]/15 blur-[20px]" />
 
           <div className="relative z-10 max-w-[650px]">
-            <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full border border-white/16 bg-white/12 backdrop-blur-xl text-white/92 text-[10px] font-bold font-['Plus_Jakarta_Sans'] uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full border border-white/16 bg-white/12 backdrop-blur-xl text-white/92 text-[10px] font-bold uppercase tracking-wider">
               <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] shadow-[0_0_0_6px_rgba(34,197,94,0.16)]" />
               Nền tảng quản lý phòng trọ cho chủ nhà hiện đại
             </div>
-            <h1 className="mt-4 text-[clamp(28px,4vh,48px)] leading-[1.1] font-[800] tracking-[-0.055em] font-['Plus_Jakarta_Sans']">
+            <h1 className="mt-4 text-[clamp(28px,4vh,48px)] leading-[1.1] font-[800] tracking-[-0.055em]">
               Quản lý trọ thông minh<br />Vận hành an tâm
             </h1>
             <p className="mt-3 max-w-[500px] text-slate-200/86 text-sm leading-relaxed font-medium">
@@ -154,7 +154,7 @@ export default function LoginPage() {
           <header className="relative flex flex-col items-center gap-4 mb-6 sm:mb-9">
             <Logo />
             <div className="text-center">
-              <h2 className="text-[22px] sm:text-[26px] leading-tight font-extrabold tracking-[-0.045em] font-['Plus_Jakarta_Sans'] text-[#0F172A]">
+              <h2 className="text-[22px] sm:text-[26px] leading-tight font-extrabold tracking-[-0.045em] text-[#0F172A]">
                 Đăng nhập
               </h2>
               <p className="mt-1 text-slate-500 text-sm font-semibold">
