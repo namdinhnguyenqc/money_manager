@@ -18,7 +18,7 @@ const MONTH_NAMES = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T
 export default function OwnerDashboard() {
   const dashboardQuery = useOwnerDashboardInit();
   const [slowLoad, setSlowLoad] = useState(false);
-  const [chartMonths, setChartMonths] = useState(12); // Default to 12 months (1 year) as requested by user
+  const [chartMonths, setChartMonths] = useState(12);
 
   const rooms = dashboardQuery.data?.rooms ?? [];
   const transactions = dashboardQuery.data?.transactions ?? [];
@@ -47,7 +47,7 @@ export default function OwnerDashboard() {
     return { total, occupied, vacant, reserved, maintenance, occupancyRate };
   }, [rooms]);
 
-  // Financial overview details calculated dynamically based on selectedPeriod
+  // Financial details calculated dynamically based on selectedPeriod
   const selectedPeriodFinancial = useMemo(() => {
     const thisMonth = transactions.filter(t => {
       const d = new Date(t.date);
@@ -130,9 +130,27 @@ export default function OwnerDashboard() {
     return { rent, electricity, water, other, total };
   }, [invoices, transactions, selectedPeriod]);
 
+  // ── ANALYSIS METRICS FOR DESKTOP VIEW ──
+  const maxRoomRentPotential = useMemo(() => {
+    return rooms.reduce((sum, room) => sum + Number(room.price || 0), 0);
+  }, [rooms]);
+
+  const actualRent = useMemo(() => {
+    return utilities.rent || (selectedPeriodFinancial.income - utilities.electricity - utilities.water - utilities.other);
+  }, [utilities, selectedPeriodFinancial.income]);
+
+  const rentGap = useMemo(() => {
+    return Math.max(0, maxRoomRentPotential - actualRent);
+  }, [maxRoomRentPotential, actualRent]);
+
+  const rentRatio = useMemo(() => {
+    const total = selectedPeriodFinancial.income;
+    return total > 0 ? Math.round((actualRent / total) * 100) : 0;
+  }, [actualRent, selectedPeriodFinancial.income]);
+
   // ── DONUT 1 DATA: REVENUE COMPOSITION ──
   const revenueChartData = useMemo(() => {
-    const rent = utilities.rent || (selectedPeriodFinancial.income - utilities.electricity - utilities.water - utilities.other);
+    const rent = actualRent;
     const elec = utilities.electricity;
     const water = utilities.water;
     const other = utilities.other;
@@ -142,7 +160,7 @@ export default function OwnerDashboard() {
       { label: "Tiền nước", value: water, color: "#06B6D4" },      // Cyan
       { label: "Dịch vụ khác", value: other, color: "#8B5CF6" },   // Violet
     ];
-  }, [utilities, selectedPeriodFinancial.income]);
+  }, [actualRent, utilities]);
 
   // ── DONUT 2 DATA: COLLECTION EFFICIENCY ──
   const collectionChartData = useMemo(() => {
@@ -332,7 +350,7 @@ export default function OwnerDashboard() {
         {/* ── FINANCIAL REPORT & INTERACTIVE ANALYSIS ── */}
         <div className="grid gap-5 lg:grid-cols-5">
 
-          {/* Bar Chart: Doanh thu & Chi phí 6/12 tháng */}
+          {/* Bar Chart: Doanh thu & Chi phí 12 tháng */}
           <div className="lg:col-span-3 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col justify-between">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
@@ -414,7 +432,7 @@ export default function OwnerDashboard() {
             </div>
           </div>
 
-          {/* Donut Charts & Analyst Insights (Data analysis senior layout) */}
+          {/* Donut Charts & Analyst Insights */}
           <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-6 flex flex-col justify-between">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
@@ -426,7 +444,7 @@ export default function OwnerDashboard() {
               </div>
             </div>
 
-            {/* Circular Charts (Donuts scaled up to 130px size) */}
+            {/* Circular Charts */}
             <div className="grid grid-cols-2 gap-4 justify-items-center">
               {/* Donut 1: Revenue breakdown */}
               <div className="flex flex-col items-center">
@@ -435,7 +453,7 @@ export default function OwnerDashboard() {
               </div>
               {/* Donut 2: Collection efficiency */}
               <div className="flex flex-col items-center">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Tỷ lệ thu hồi</span>
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Tỷ lệ thu</span>
                 <DonutChart
                   data={collectionChartData.data}
                   totalLabel="Tổng hóa đơn"
@@ -446,7 +464,6 @@ export default function OwnerDashboard() {
 
             {/* Legend details */}
             <div className="grid grid-cols-2 gap-4 text-xs pt-4 border-t border-slate-100">
-              {/* Left Legend: Revenue items */}
               <div className="space-y-1.5">
                 {revenueChartData.map((d, i) => (
                   <div key={i} className="flex items-center justify-between gap-1.5">
@@ -458,7 +475,6 @@ export default function OwnerDashboard() {
                   </div>
                 ))}
               </div>
-              {/* Right Legend: Collection rate details */}
               <div className="space-y-1.5 border-l border-slate-100 pl-4">
                 <div className="flex items-center justify-between gap-1.5">
                   <div className="flex items-center gap-1.5 min-w-0">
@@ -497,8 +513,117 @@ export default function OwnerDashboard() {
           </div>
         </div>
 
-        {/* ── OCCUPANCY + QUICK ACTIONS ── */}
-        <div className="grid gap-4 lg:grid-cols-5">
+        {/* ── DESKTOP-ONLY ANALYSIS BOARD (Operational & Financial Efficiency) ── */}
+        <div className="hidden lg:grid gap-5 lg:grid-cols-3">
+          {/* Card 1: Revenue breakdown by type (excl. services) */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-3.5 border-b border-slate-50 pb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Phân rã doanh thu</span>
+                <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-bold">Tháng {selectedPeriod.month}</span>
+              </div>
+              <div className="space-y-4 pt-1">
+                <div>
+                  <div className="flex justify-between text-xs text-slate-500 mb-1.5 font-semibold">
+                    <span>Doanh thu phòng (Thuần)</span>
+                    <span className="text-slate-900 font-bold">{formatMoney(actualRent)}</span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${selectedPeriodFinancial.income > 0 ? (actualRent / selectedPeriodFinancial.income) * 100 : 0}%` }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs text-slate-500 mb-1.5 font-semibold">
+                    <span>Doanh thu dịch vụ & tiện ích</span>
+                    <span className="text-slate-900 font-bold">{formatMoney(utilities.electricity + utilities.water + utilities.other)}</span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-500 rounded-full" style={{ width: `${selectedPeriodFinancial.income > 0 ? ((utilities.electricity + utilities.water + utilities.other) / selectedPeriodFinancial.income) * 100 : 0}%` }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 pt-3.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+              <span>Doanh thu thuần chiếm:</span>
+              <span className="font-bold text-slate-800">{rentRatio}% tổng thu</span>
+            </div>
+          </div>
+
+          {/* Card 2: Maximum Rent Potential vs Gap */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-3.5 border-b border-slate-50 pb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Hiệu suất khai thác phòng</span>
+                <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-bold">Tối đa hóa</span>
+              </div>
+              <div className="space-y-3 pt-1">
+                <div className="flex justify-between text-xs text-slate-500 font-semibold">
+                  <span>Tiềm năng tối đa (100% lấp đầy):</span>
+                  <span className="text-slate-900 font-bold">{formatMoney(maxRoomRentPotential)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-500 font-semibold">
+                  <span>Thực thu tiền phòng thuần:</span>
+                  <span className="text-blue-600 font-bold">{formatMoney(actualRent)}</span>
+                </div>
+                {rentGap > 0 ? (
+                  <div className="flex justify-between text-xs text-red-500 font-semibold bg-red-50/50 p-2.5 rounded-xl border border-red-100/50">
+                    <span>Thất thoát do trống phòng:</span>
+                    <span className="font-bold">-{formatMoney(rentGap)}</span>
+                  </div>
+                ) : (
+                  <div className="text-xs text-emerald-600 font-semibold bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100/50 text-center">
+                    🎉 Đạt 100% công suất phòng tối đa!
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 pt-3.5 border-t border-slate-100">
+              <div className="flex justify-between text-xs text-slate-500 mb-1 font-medium">
+                <span>Tỷ lệ khai thác phòng:</span>
+                <span className="font-bold text-slate-800">{maxRoomRentPotential > 0 ? Math.round((actualRent / maxRoomRentPotential) * 100) : 0}%</span>
+              </div>
+              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${maxRoomRentPotential > 0 ? (actualRent / maxRoomRentPotential) * 100 : 0}%` }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Detailed Operating Expenses analysis */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-3.5 border-b border-slate-50 pb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Phân tích chi phí</span>
+                <span className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-bold">Tháng này</span>
+              </div>
+              <div className="space-y-3 pt-1 text-xs text-slate-600">
+                <div className="flex justify-between font-semibold">
+                  <span>Tổng chi phí vận hành:</span>
+                  <span className="text-red-600 font-bold">{formatMoney(selectedPeriodFinancial.expense)}</span>
+                </div>
+                <div className="p-2.5 bg-slate-50 rounded-xl space-y-1.5 border border-slate-100">
+                  <div className="flex justify-between text-[11px] text-slate-500">
+                    <span>Hao phí điện nước chi hộ:</span>
+                    <span className="font-bold text-slate-700">~{formatMoney(utilities.electricity + utilities.water)}</span>
+                  </div>
+                  <div className="flex justify-between text-[11px] text-slate-500">
+                    <span>Chi bảo trì, sửa chữa, khác:</span>
+                    <span className="font-bold text-slate-700">{formatMoney(Math.max(0, selectedPeriodFinancial.expense - utilities.electricity - utilities.water))}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 pt-3.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+              <span>Tỷ suất chi/thu:</span>
+              <span className="font-bold text-slate-800">
+                {selectedPeriodFinancial.income > 0 ? Math.round((selectedPeriodFinancial.expense / selectedPeriodFinancial.income) * 100) : 0}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── MOBILE-ONLY VIEWS: OCCUPANCY + QUICK ACTIONS + VACANT ROOMS ── */}
+        {/* Hiding these sections on desktop view (lg:hidden) as requested */}
+        <div className="grid gap-4 lg:grid-cols-5 lg:hidden">
           {/* Occupancy visual */}
           <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
@@ -508,7 +633,6 @@ export default function OwnerDashboard() {
               </div>
               <div className="text-3xl font-black text-indigo-600">{stats.occupancyRate}%</div>
             </div>
-            {/* Stacked bar */}
             <div className="flex h-3 rounded-full overflow-hidden gap-0.5 mb-4">
               {stats.occupied > 0 && <div className="bg-indigo-500 rounded-l-full" style={{ width: `${(stats.occupied/stats.total)*100}%` }}/>}
               {stats.reserved > 0 && <div className="bg-amber-400" style={{ width: `${(stats.reserved/stats.total)*100}%` }}/>}
@@ -537,7 +661,8 @@ export default function OwnerDashboard() {
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        {/* Vacant Rooms and Recent Transactions: hidden on desktop view (lg:hidden) as requested */}
+        <div className="grid gap-4 lg:grid-cols-2 lg:hidden">
           {/* ── VACANT ROOMS ── */}
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
@@ -603,36 +728,12 @@ export default function OwnerDashboard() {
           </div>
         </div>
 
-        {/* ── OUTSTANDING DEBTS LEDGER ── */}
-        {debts.length > 0 && (
-          <div className="rounded-2xl border border-red-100 bg-white shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-red-100 bg-red-50">
-              <div className="flex items-center gap-2">
-                <AlertCircle size={16} className="text-red-500" />
-                <div className="text-sm font-black text-red-700">Công nợ tồn đọng</div>
-              </div>
-              <div className="text-sm font-black text-red-700">{formatMoney(totalDebt)}</div>
-            </div>
-            <div className="divide-y divide-slate-50">
-              {debts.slice(0, 6).map((inv: any) => (
-                <Link key={inv.id} href={`/invoices/${inv.id}`} className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-red-50/40 transition-colors">
-                  <div className="min-w-0">
-                    <div className="text-sm font-bold text-slate-900 truncate">{inv.room_name || `Phòng #${inv.room_id}`}</div>
-                    <div className="text-xs text-slate-500 font-medium truncate">{inv.tenant_name || '-'} · T{inv.month}/{inv.year}</div>
-                  </div>
-                  <div className="text-sm font-black text-red-600 shrink-0">{formatMoney(inv.remaining)}</div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
       </div>
     </RBACGuard>
   );
 }
 
-// ── Native SVG DonutChart Component (scaled up to 130px size) ────────────────────────
+// ── Native SVG DonutChart Component (scaled to 130px size) ────────────────────────
 function DonutChart({ data, totalLabel, totalValue }: {
   data: Array<{ label: string; value: number; color: string }>;
   totalLabel: string;
