@@ -606,7 +606,7 @@ export default function OwnerSettingsPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl w-full animate-in fade-in duration-500 pb-16">
+    <div className="w-full animate-in fade-in duration-500 pb-16">
       <PageHeader
         subtitle="Quản lý cấu hình, bảng giá và tự động hóa vận hành phòng trọ."
         title="Cài đặt hệ thống"

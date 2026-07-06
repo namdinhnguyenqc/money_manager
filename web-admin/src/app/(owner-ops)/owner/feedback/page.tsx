@@ -272,7 +272,7 @@ export default function OwnerFeedbackPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl w-full animate-in fade-in duration-500 pb-16">
+    <div className="w-full animate-in fade-in duration-500 pb-16">
       <PageHeader
         title="Báo cáo lỗi / Góp ý"
         subtitle="Ý kiến của bạn giúp TrọCare hoạt động mượt mà và thông minh hơn."
