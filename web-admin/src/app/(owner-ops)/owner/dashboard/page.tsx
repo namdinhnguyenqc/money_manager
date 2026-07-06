@@ -163,21 +163,22 @@ export default function OwnerDashboard() {
 
   // ── ANALYSIS METRICS FOR DESKTOP VIEW ──
   const maxRoomRentPotential = useMemo(() => {
-    const invoicePotential = thisMonthInvoices.reduce((sum, inv) => sum + Number(inv.room_fee || 0), 0);
-    if (invoicePotential > 0) return invoicePotential;
     return rooms.reduce((sum, room) => sum + Number(room.price || 0), 0);
-  }, [thisMonthInvoices, rooms]);
+  }, [rooms]);
 
   const actualRent = useMemo(() => {
-    // Chỉ tính doanh thu thuần từ các hóa đơn ĐÃ THANH TOÁN (status = paid)
-    const paidInvoiceRent = thisMonthInvoices
-      .filter(inv => inv.status === "paid")
-      .reduce((sum, inv) => sum + Number(inv.room_fee || 0), 0);
-    if (paidInvoiceRent > 0) return paidInvoiceRent;
+    // Tổng tiền phòng thực tế phát sinh trên tất cả hóa đơn đã tạo của tháng đó
+    const invoiceRent = thisMonthInvoices.reduce((sum, inv) => sum + Number(inv.room_fee || 0), 0);
+    if (invoiceRent > 0) return invoiceRent;
     
-    // Fallback if no paid invoices are found
+    // Fallback based on currently occupied rooms
+    const currentOccupiedRent = rooms
+      .filter(r => normalizeRoomStatus(r) === 'occupied')
+      .reduce((sum, r) => sum + Number(r.price || 0), 0);
+    if (currentOccupiedRent > 0) return currentOccupiedRent;
+
     return utilities.rent || 0;
-  }, [thisMonthInvoices, utilities.rent]);
+  }, [thisMonthInvoices, rooms, utilities.rent]);
 
   const rentGap = useMemo(() => {
     return Math.max(0, maxRoomRentPotential - actualRent);
