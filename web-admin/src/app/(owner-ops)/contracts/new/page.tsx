@@ -48,16 +48,6 @@ export default function NewContractPage() {
   const [tenant, setTenant] = useState({ full_name: "", phone: "", id_number: "", email: "" });
   const [ocrLoading, setOcrLoading] = useState(false);
 
-  useEffect(() => {
-    // Dynamic import Tesseract.js script from CDN
-    if (typeof window !== "undefined" && !(window as any).Tesseract) {
-      const script = document.createElement("script");
-      script.src = "https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js";
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  }, []);
-
   const handleOcrScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -66,67 +56,36 @@ export default function NewContractPage() {
     setError("");
 
     try {
-      const tesseract = (window as any).Tesseract;
-      if (!tesseract) {
-        throw new Error("Thư viện quét ảnh đang được tải. Vui lòng thử lại sau vài giây.");
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://money-manager-backend-auth-mock.namdinhnguyenqc.workers.dev"}/owner/ocr-cccd`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("accessToken") || ""}`
+        },
+        body: formData
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Lỗi máy chủ khi quét ảnh (${res.status})`);
       }
 
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          const result = await tesseract.recognize(
-            reader.result,
-            'eng+vie',
-            { 
-              logger: (m: any) => console.log(m) 
-            }
-          );
-
-          const text = result.data.text;
-          console.log("OCR Result Text:", text);
-
-          // 1. Extract 12-digit CCCD/CMND number
-          const cccdMatch = text.match(/\b\d{12}\b/);
-          const cccd = cccdMatch ? cccdMatch[0] : "";
-
-          // 2. Extract Full name in upper case
-          const lines = text.split("\n").map((l: string) => l.trim());
-          let fullName = "";
-          for (const line of lines) {
-            const cleanLine = line.replace(/[^A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲÝỴỶỸ\s]/g, "").trim();
-            if (cleanLine.length > 5 && cleanLine === cleanLine.toUpperCase() && !cleanLine.includes("CỘNG HÒA") && !cleanLine.includes("ĐỘC LẬP") && !cleanLine.includes("VIỆT NAM") && !cleanLine.includes("CĂN CƯỚC") && !cleanLine.includes("CỤC TRƯỞNG")) {
-              fullName = cleanLine;
-              break;
-            }
-          }
-
-          if (!fullName) {
-            const nameIdx = text.toLowerCase().indexOf("họ và tên");
-            if (nameIdx !== -1) {
-              const substring = text.substring(nameIdx + 9, nameIdx + 60);
-              const subLines = substring.split("\n").map((l: string) => l.trim());
-              fullName = subLines.find((l: string) => l.length > 2 && l === l.toUpperCase()) || "";
-            }
-          }
-
-          if (cccd || fullName) {
-            setTenant(prev => ({
-              ...prev,
-              full_name: fullName || prev.full_name,
-              id_number: cccd || prev.id_number
-            }));
-          } else {
-            setError("Không nhận diện được Họ tên hoặc số CCCD rõ ràng. Vui lòng chụp rõ nét hơn.");
-          }
-        } catch (err: any) {
-          setError("Lỗi xử lý hình ảnh: " + (err.message || err));
-        } finally {
-          setOcrLoading(false);
-        }
-      };
-      reader.readAsDataURL(file);
+      const data = await res.json();
+      
+      if (data.cccd || data.name) {
+        setTenant(prev => ({
+          ...prev,
+          full_name: data.name || prev.full_name,
+          id_number: data.cccd || prev.id_number
+        }));
+      } else {
+        setError("Không nhận diện được Họ tên hoặc số CCCD rõ ràng. Vui lòng chụp rõ nét hơn.");
+      }
     } catch (err: any) {
-      setError(err.message || "Không thể khởi động thư viện quét.");
+      setError(err.message || "Lỗi xử lý hình ảnh OCR.");
+    } finally {
       setOcrLoading(false);
     }
   };
