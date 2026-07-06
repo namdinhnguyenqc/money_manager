@@ -21,7 +21,14 @@ export function usePushNotifications() {
     if (!isSupported) { setPermission("unsupported"); return; }
     setPermission(Notification.permission as PermissionState);
 
-    // Check if already subscribed
+    // Check if already subscribed or mock is active
+    if (typeof window !== "undefined" && (localStorage.getItem("demo_mode") === "true" || window.location.hostname.includes("vercel") || window.location.hostname.includes("localhost"))) {
+      const mockSub = localStorage.getItem("push_subscribed") === "true";
+      setSubscribed(mockSub);
+      if (mockSub) setPermission("granted");
+      return;
+    }
+
     navigator.serviceWorker.ready.then(async (reg) => {
       const sub = await reg.pushManager.getSubscription();
       setSubscribed(!!sub);
@@ -37,6 +44,7 @@ export function usePushNotifications() {
         await new Promise((resolve) => setTimeout(resolve, 300));
         setPermission("granted");
         setSubscribed(true);
+        localStorage.setItem("push_subscribed", "true");
         return true;
       }
 
@@ -82,6 +90,7 @@ export function usePushNotifications() {
     // Mock toggle if in demo mode or vercel preview
     if (typeof window !== "undefined" && (localStorage.getItem("demo_mode") === "true" || window.location.hostname.includes("vercel") || window.location.hostname.includes("localhost"))) {
       setSubscribed(false);
+      localStorage.removeItem("push_subscribed");
       return;
     }
 
