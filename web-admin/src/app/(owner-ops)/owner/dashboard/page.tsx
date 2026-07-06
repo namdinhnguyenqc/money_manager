@@ -7,6 +7,7 @@ import {
   FileText, ArrowRight, Plus, Zap, Droplet, ChevronRight,
   TrendingUp, TrendingDown, Receipt, Settings, Wifi,
   BarChart3, ArrowUpRight, ArrowDownRight, Minus, PieChart,
+  CalendarDays
 } from 'lucide-react';
 import { formatMoney, normalizeRoomStatus } from '@/lib/rentalOps';
 import RBACGuard from '@/components/RBACGuard';
@@ -17,7 +18,17 @@ const MONTH_NAMES = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T
 export default function OwnerDashboard() {
   const dashboardQuery = useOwnerDashboardInit();
   const [slowLoad, setSlowLoad] = useState(false);
-  const [chartMonths, setChartMonths] = useState(6);
+  const [chartMonths, setChartMonths] = useState(12); // Default to 12 months (1 year) as requested by user
+
+  const rooms = dashboardQuery.data?.rooms ?? [];
+  const transactions = dashboardQuery.data?.transactions ?? [];
+  const invoices = dashboardQuery.data?.invoices ?? [];
+
+  const now = new Date();
+  const curM = now.getMonth(), curY = now.getFullYear();
+
+  // State to support review of different months
+  const [selectedPeriod, setSelectedPeriod] = useState({ month: curM + 1, year: curY });
 
   React.useEffect(() => {
     if (!dashboardQuery.isLoading) { setSlowLoad(false); return; }
@@ -25,10 +36,7 @@ export default function OwnerDashboard() {
     return () => clearTimeout(t);
   }, [dashboardQuery.isLoading]);
 
-  const rooms = dashboardQuery.data?.rooms ?? [];
-  const transactions = dashboardQuery.data?.transactions ?? [];
-  const invoices = dashboardQuery.data?.invoices ?? [];
-
+  // Keep stats for current vacancy & occupancy
   const stats = useMemo(() => {
     const total = rooms.length;
     const occupied = rooms.filter(r => normalizeRoomStatus(r) === 'occupied').length;
@@ -39,16 +47,39 @@ export default function OwnerDashboard() {
     return { total, occupied, vacant, reserved, maintenance, occupancyRate };
   }, [rooms]);
 
-  const now = new Date();
-  const curM = now.getMonth(), curY = now.getFullYear();
-
-  const financial = useMemo(() => {
+  // Financial overview details calculated dynamically based on selectedPeriod
+  const selectedPeriodFinancial = useMemo(() => {
     const thisMonth = transactions.filter(t => {
       const d = new Date(t.date);
-      return d.getMonth() === curM && d.getFullYear() === curY;
+      return d.getMonth() === (selectedPeriod.month - 1) && d.getFullYear() === selectedPeriod.year;
     });
     const income = thisMonth.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const expense = thisMonth.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+
+    // Last month comparison for selectedPeriod
+    const prevM = selectedPeriod.month === 1 ? 11 : selectedPeriod.month - 2;
+    const prevY = selectedPeriod.month === 1 ? selectedPeriod.year - 1 : selectedPeriod.year;
+    const prevIncome = transactions
+      .filter(t => { const d = new Date(t.date); return d.getMonth() === prevM && d.getFullYear() === prevY && t.type === 'income'; })
+      .reduce((s, t) => s + t.amount, 0);
+    const incomeChange = prevIncome > 0 ? Math.round(((income - prevIncome) / prevIncome) * 100) : null;
+
+    return { income, expense, profit: income - expense, incomeChange };
+  }, [transactions, selectedPeriod]);
+
+  const financial = useMemo(() => {
+    const income = transactions
+      .filter(t => {
+        const d = new Date(t.date);
+        return d.getMonth() === curM && d.getFullYear() === curY && t.type === 'income';
+      })
+      .reduce((s, t) => s + t.amount, 0);
+    const expense = transactions
+      .filter(t => {
+        const d = new Date(t.date);
+        return d.getMonth() === curM && d.getFullYear() === curY && t.type === 'expense';
+      })
+      .reduce((s, t) => s + t.amount, 0);
 
     // Build monthly breakdown for chart
     const months = Array.from({ length: chartMonths }, (_, i) => {
@@ -64,20 +95,12 @@ export default function OwnerDashboard() {
     });
     const maxVal = Math.max(...months.map(m => Math.max(m.rev, m.exp)), 1);
 
-    // Last month comparison
-    const prevM = curM === 0 ? 11 : curM - 1;
-    const prevY = curM === 0 ? curY - 1 : curY;
-    const prevIncome = transactions
-      .filter(t => { const d = new Date(t.date); return d.getMonth() === prevM && d.getFullYear() === prevY && t.type === 'income'; })
-      .reduce((s, t) => s + t.amount, 0);
-    const incomeChange = prevIncome > 0 ? Math.round(((income - prevIncome) / prevIncome) * 100) : null;
-
-    return { income, expense, profit: income - expense, months, maxVal, incomeChange };
+    return { income, expense, profit: income - expense, months, maxVal };
   }, [transactions, chartMonths, curM, curY]);
 
   // Utility breakdown from invoices (more accurate than transactions)
   const utilities = useMemo(() => {
-    const thisMonthInvoices = invoices.filter(inv => inv.month === curM + 1 && inv.year === curY);
+    const thisMonthInvoices = invoices.filter(inv => inv.month === selectedPeriod.month && inv.year === selectedPeriod.year);
     let rent = 0, electricity = 0, water = 0, other = 0;
     for (const inv of thisMonthInvoices) {
       rent += inv.room_fee ?? 0;
@@ -93,6 +116,8 @@ export default function OwnerDashboard() {
     if (electricity === 0 && water === 0) {
       for (const tx of transactions) {
         if (tx.type !== 'income') continue;
+        const d = new Date(tx.date);
+        if (d.getMonth() !== (selectedPeriod.month - 1) || d.getFullYear() !== selectedPeriod.year) continue;
         const text = [tx.description, (tx as any).category_name].join(' ').toLowerCase();
         const amt = Math.abs(Number(tx.amount || 0));
         if (text.includes('điện') || text.includes('electric')) electricity += amt;
@@ -103,11 +128,11 @@ export default function OwnerDashboard() {
     }
     const total = rent + electricity + water + other;
     return { rent, electricity, water, other, total };
-  }, [invoices, transactions, curM, curY]);
+  }, [invoices, transactions, selectedPeriod]);
 
   // ── DONUT 1 DATA: REVENUE COMPOSITION ──
   const revenueChartData = useMemo(() => {
-    const rent = utilities.rent || (financial.income - utilities.electricity - utilities.water - utilities.other);
+    const rent = utilities.rent || (selectedPeriodFinancial.income - utilities.electricity - utilities.water - utilities.other);
     const elec = utilities.electricity;
     const water = utilities.water;
     const other = utilities.other;
@@ -117,11 +142,11 @@ export default function OwnerDashboard() {
       { label: "Tiền nước", value: water, color: "#06B6D4" },      // Cyan
       { label: "Dịch vụ khác", value: other, color: "#8B5CF6" },   // Violet
     ];
-  }, [utilities, financial.income]);
+  }, [utilities, selectedPeriodFinancial.income]);
 
   // ── DONUT 2 DATA: COLLECTION EFFICIENCY ──
   const collectionChartData = useMemo(() => {
-    const thisMonthInvoices = invoices.filter(inv => inv.month === curM + 1 && inv.year === curY);
+    const thisMonthInvoices = invoices.filter(inv => inv.month === selectedPeriod.month && inv.year === selectedPeriod.year);
     let billed = 0, paid = 0;
     for (const inv of thisMonthInvoices) {
       billed += Math.round(Number(inv.total_amount || 0));
@@ -138,7 +163,7 @@ export default function OwnerDashboard() {
         { label: "Chưa thu", value: unpaid, color: "#EF4444" },    // Red
       ]
     };
-  }, [invoices, curM, curY]);
+  }, [invoices, selectedPeriod]);
 
   // ── SYSTEM DATA INSIGHTS ──
   const analystInsights = useMemo(() => {
@@ -146,37 +171,37 @@ export default function OwnerDashboard() {
     
     // Occupancy insight
     if (stats.occupancyRate >= 90) {
-      list.push("Tỷ lệ lấp đầy rất tốt (>= 90%). Hãy duy trì dịch vụ để giữ chân khách thuê.");
+      list.push("Tỷ lệ lấp đầy rất tốt (>= 90%). Hãy duy trì chất lượng dịch vụ để giữ chân khách thuê.");
     } else if (stats.occupancyRate >= 70) {
-      list.push(`Tỷ lệ lấp đầy trung bình (${stats.occupancyRate}%). Đang có ${stats.vacant} phòng trống cần tìm khách.`);
+      list.push(`Tỷ lệ lấp đầy trung bình (${stats.occupancyRate}%). Đang còn ${stats.vacant} phòng trống.`);
     } else {
-      list.push(`⚠️ Tỷ lệ phòng trống cao (${stats.vacant} phòng). Cân nhắc giảm giá hoặc tặng ưu đãi cọc.`);
+      list.push(`⚠️ Cảnh báo: Tỷ lệ phòng trống cao (${stats.vacant} phòng). Cân nhắc giảm giá hoặc ưu đãi cọc.`);
     }
 
     // Collection rate insight
     if (collectionChartData.billed > 0) {
       if (collectionChartData.rate >= 90) {
-        list.push("Hiệu suất thu tiền xuất sắc. Hầu hết hóa đơn đã được thanh toán đúng kỳ.");
+        list.push(`Hiệu suất thu tiền T${selectedPeriod.month} xuất sắc. Hóa đơn hầu hết đã hoàn thành.`);
       } else if (collectionChartData.rate >= 70) {
-        list.push(`⚠️ Còn lại ${formatMoney(collectionChartData.unpaid)} tiền phòng chưa thu hồi trong tháng.`);
+        list.push(`⚠️ Tiền phòng chưa thu T${selectedPeriod.month} còn lại ${formatMoney(collectionChartData.unpaid)}.`);
       } else {
-        list.push(`🚨 Cảnh báo dòng tiền: Tỷ lệ thu hồi chỉ đạt ${collectionChartData.rate}%. Cần đốc thúc thanh toán gấp.`);
+        list.push(`🚨 Cảnh báo dòng tiền T${selectedPeriod.month} quá thấp: Mới thu hồi được ${collectionChartData.rate}%.`);
       }
     }
 
     // Expense ratio
-    const expenseRatio = financial.income > 0 ? (financial.expense / financial.income) * 100 : 0;
+    const expenseRatio = selectedPeriodFinancial.income > 0 ? (selectedPeriodFinancial.expense / selectedPeriodFinancial.income) * 100 : 0;
     if (expenseRatio > 40) {
-      list.push(`⚠️ Chi phí vận hành cao (${Math.round(expenseRatio)}% doanh thu). Cần rà soát các hao hụt lớn.`);
-    } else if (financial.income > 0) {
-      list.push(`Vận hành hiệu quả, biên lợi nhuận ròng đạt ${Math.round(100 - expenseRatio)}%.`);
+      list.push(`⚠️ Chi phí vận hành tháng này khá cao, chiếm ${Math.round(expenseRatio)}% doanh thu tổng.`);
+    } else if (selectedPeriodFinancial.income > 0) {
+      list.push(`Chi phí vận hành được kiểm soát tốt, biên lợi nhuận ròng đạt ${Math.round(100 - expenseRatio)}%.`);
     }
 
     if (list.length === 0) {
-      list.push("Hệ thống chưa tích lũy đủ dữ liệu để đưa ra phân tích tài chính.");
+      list.push("Hệ thống chưa tích lũy đủ dữ liệu thu chi để phân tích xu hướng.");
     }
     return list;
-  }, [stats, collectionChartData, financial]);
+  }, [stats, collectionChartData, selectedPeriodFinancial, selectedPeriod]);
 
   const overdueInvoices = useMemo(() => {
     const cm = curM + 1, cy = curY;
@@ -280,17 +305,17 @@ export default function OwnerDashboard() {
         {/* ── STAT CARDS ── */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard
-            label="Thu tháng này" value={formatMoney(financial.income)}
-            sub={financial.incomeChange != null
-              ? `${financial.incomeChange >= 0 ? '+' : ''}${financial.incomeChange}% so tháng trước`
-              : `Chi: ${formatMoney(financial.expense)}`}
+            label="Thu tháng này" value={formatMoney(selectedPeriodFinancial.income)}
+            sub={selectedPeriodFinancial.incomeChange != null
+              ? `${selectedPeriodFinancial.incomeChange >= 0 ? '+' : ''}${selectedPeriodFinancial.incomeChange}% so tháng trước`
+              : `Chi: ${formatMoney(selectedPeriodFinancial.expense)}`}
             icon={<TrendingUp size={18}/>} gradient
-            trend={financial.incomeChange}
+            trend={selectedPeriodFinancial.incomeChange}
           />
           <StatCard
-            label="Thu nhập ròng" value={formatMoney(financial.profit)}
-            sub={financial.income > 0 ? `Biên lợi nhuận ${Math.round((financial.profit / financial.income) * 100)}%` : '—'}
-            icon={<Wallet size={18}/>} color={financial.profit >= 0 ? "emerald" : "red"}
+            label="Thu nhập ròng" value={formatMoney(selectedPeriodFinancial.profit)}
+            sub={selectedPeriodFinancial.income > 0 ? `Biên lợi nhuận ${Math.round((selectedPeriodFinancial.profit / selectedPeriodFinancial.income) * 100)}%` : '—'}
+            icon={<Wallet size={18}/>} color={selectedPeriodFinancial.profit >= 0 ? "emerald" : "red"}
           />
           <StatCard
             label="Tỷ lệ lấp đầy" value={`${stats.occupancyRate}%`}
@@ -304,10 +329,10 @@ export default function OwnerDashboard() {
           />
         </div>
 
-        {/* ── FINANCIAL REPORT & ANALYSIS ── */}
+        {/* ── FINANCIAL REPORT & INTERACTIVE ANALYSIS ── */}
         <div className="grid gap-5 lg:grid-cols-5">
 
-          {/* Bar Chart: Doanh thu & Chi phí 6 tháng */}
+          {/* Bar Chart: Doanh thu & Chi phí 6/12 tháng */}
           <div className="lg:col-span-3 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col justify-between">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
@@ -316,7 +341,7 @@ export default function OwnerDashboard() {
                 </div>
                 <div>
                   <div className="text-sm font-black text-slate-900">Biến động dòng tiền</div>
-                  <div className="text-[11px] text-slate-500 font-medium">Lịch sử thu chi qua các tháng</div>
+                  <div className="text-[11px] text-slate-500 font-medium">Click chọn tháng bên dưới để xem báo cáo chi tiết</div>
                 </div>
               </div>
               <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
@@ -333,92 +358,95 @@ export default function OwnerDashboard() {
             </div>
 
             <div className="p-5 flex-1 flex flex-col justify-between">
-              {/* Summary stats */}
-              <div className="grid grid-cols-3 gap-3 mb-6">
-                <div className="rounded-xl bg-indigo-50/50 border border-indigo-100/50 p-3">
-                  <div className="text-[11px] font-bold text-indigo-500 uppercase tracking-wide mb-0.5">Thu T{curM + 1}</div>
-                  <div className="text-base font-black text-indigo-700">{formatMoney(financial.income)}</div>
+              {/* Summary stats for selected Month */}
+              <div className="grid grid-cols-3 gap-3 mb-6 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                <div className="text-center">
+                  <div className="text-[10px] font-bold text-indigo-500 uppercase tracking-wide mb-0.5">Doanh thu T{selectedPeriod.month}</div>
+                  <div className="text-sm sm:text-base font-black text-indigo-700">{formatMoney(selectedPeriodFinancial.income)}</div>
                 </div>
-                <div className="rounded-xl bg-red-50/50 border border-red-100/50 p-3">
-                  <div className="text-[11px] font-bold text-red-500 uppercase tracking-wide mb-0.5">Chi T{curM + 1}</div>
-                  <div className="text-base font-black text-red-600">{formatMoney(financial.expense)}</div>
+                <div className="text-center border-x border-slate-200">
+                  <div className="text-[10px] font-bold text-red-500 uppercase tracking-wide mb-0.5">Chi phí T{selectedPeriod.month}</div>
+                  <div className="text-sm sm:text-base font-black text-red-600">{formatMoney(selectedPeriodFinancial.expense)}</div>
                 </div>
-                <div className={`rounded-xl border p-3 ${financial.profit >= 0 ? 'bg-emerald-50/50 border-emerald-100/50' : 'bg-orange-50/50 border-orange-100/50'}`}>
-                  <div className={`text-[11px] font-bold uppercase tracking-wide mb-0.5 ${financial.profit >= 0 ? 'text-emerald-600' : 'text-orange-600'}`}>Ròng T{curM + 1}</div>
-                  <div className={`text-base font-black ${financial.profit >= 0 ? 'text-emerald-700' : 'text-orange-700'}`}>{formatMoney(financial.profit)}</div>
+                <div className="text-center">
+                  <div className={`text-[10px] font-bold uppercase tracking-wide mb-0.5 ${selectedPeriodFinancial.profit >= 0 ? 'text-emerald-600' : 'text-orange-600'}`}>Ròng T{selectedPeriod.month}</div>
+                  <div className={`text-sm sm:text-base font-black ${selectedPeriodFinancial.profit >= 0 ? 'text-emerald-700' : 'text-orange-700'}`}>{formatMoney(selectedPeriodFinancial.profit)}</div>
                 </div>
               </div>
 
-              {/* Chart elements */}
-              <div className="flex items-end gap-2 h-40 mb-3 pt-4">
+              {/* Bar Elements */}
+              <div className="flex items-end gap-1.5 sm:gap-2 h-44 mb-3 pt-4">
                 {financial.months.map((m, i) => {
-                  const isLast = i === financial.months.length - 1;
-                  const revH = financial.maxVal > 0 ? Math.max(4, Math.round((m.rev / financial.maxVal) * 120)) : 4;
-                  const expH = financial.maxVal > 0 ? Math.max(2, Math.round((m.exp / financial.maxVal) * 120)) : 2;
+                  const isSelected = m.month === selectedPeriod.month && m.year === selectedPeriod.year;
+                  const revH = financial.maxVal > 0 ? Math.max(4, Math.round((m.rev / financial.maxVal) * 135)) : 4;
+                  const expH = financial.maxVal > 0 ? Math.max(2, Math.round((m.exp / financial.maxVal) * 135)) : 2;
                   return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1 group/bar">
-                      <div className="hidden group-hover/bar:flex flex-col items-center absolute z-10 -mt-16 bg-slate-900 text-white text-[10px] rounded-lg px-2 py-1.5 pointer-events-none whitespace-nowrap shadow-lg">
-                        <span className="text-indigo-300 font-bold">Thu: {formatMoney(m.rev)}</span>
-                        <span className="text-red-300">Chi: {formatMoney(m.exp)}</span>
-                      </div>
-                      <div className="relative flex items-end gap-1 w-full justify-center">
+                    <div 
+                      key={i} 
+                      onClick={() => setSelectedPeriod({ month: m.month, year: m.year })}
+                      className={`flex-1 flex flex-col items-center gap-1 group/bar cursor-pointer transition-all ${isSelected ? 'scale-105' : 'hover:scale-[1.03] opacity-65 hover:opacity-100'}`}
+                    >
+                      <div className="relative flex items-end gap-0.5 w-full justify-center">
                         <div
-                          className={`w-3.5 rounded-t-sm transition-all duration-300 ${isLast ? 'bg-indigo-500' : 'bg-indigo-200 group-hover/bar:bg-indigo-400'}`}
+                          className={`w-3.5 rounded-t-sm transition-all duration-300 ${isSelected ? 'bg-indigo-600 shadow-md ring-2 ring-indigo-300' : 'bg-indigo-300 group-hover/bar:bg-indigo-400'}`}
                           style={{ height: `${revH}px` }}
+                          title={`Doanh thu T${m.month}: ${formatMoney(m.rev)}`}
                         />
                         {m.exp > 0 && (
                           <div
-                            className={`w-3.5 rounded-t-sm transition-all duration-300 ${isLast ? 'bg-red-400' : 'bg-red-200 group-hover/bar:bg-red-300'}`}
+                            className={`w-3.5 rounded-t-sm transition-all duration-300 ${isSelected ? 'bg-red-500 shadow-md ring-2 ring-red-300' : 'bg-red-300 group-hover/bar:bg-red-400'}`}
                             style={{ height: `${expH}px` }}
+                            title={`Chi phí T${m.month}: ${formatMoney(m.exp)}`}
                           />
                         )}
                       </div>
-                      <div className={`text-xs font-bold ${isLast ? 'text-indigo-600' : 'text-slate-400'}`}>{m.label}</div>
+                      <div className={`text-[11px] font-extrabold mt-1.5 transition-all ${isSelected ? 'text-indigo-600 scale-110 font-black' : 'text-slate-400'}`}>{m.label}</div>
                     </div>
                   );
                 })}
               </div>
 
-              <div className="flex items-center gap-4 justify-center text-xs text-slate-500 pt-2 border-t border-slate-50">
+              <div className="flex items-center gap-4 justify-center text-xs text-slate-500 pt-2.5 border-t border-slate-50">
                 <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-indigo-400"/> Tổng thu</div>
                 <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-red-400"/> Chi phí</div>
+                <span className="text-[10px] text-slate-400 font-semibold italic ml-auto hidden sm:inline">💡 Click chọn cột mốc để phân tích tháng tương ứng</span>
               </div>
             </div>
           </div>
 
-          {/* Donut Charts & Analyst Insights (Senior Data Analysis style) */}
+          {/* Donut Charts & Analyst Insights (Data analysis senior layout) */}
           <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-6 flex flex-col justify-between">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
                 <PieChart size={18} />
               </div>
-              <div>
-                <h3 className="text-sm font-black text-slate-900">Phân tích cấu trúc</h3>
-                <p className="text-xs text-slate-500 font-medium">Báo cáo chi tiết tài chính tháng {curM + 1}</p>
+              <div className="min-w-0">
+                <h3 className="text-sm font-black text-slate-900 truncate">Cấu trúc & Hiệu suất nguồn thu</h3>
+                <p className="text-xs text-slate-500 font-medium truncate">Chi tiết phân tích tháng {selectedPeriod.month}/{selectedPeriod.year}</p>
               </div>
             </div>
 
-            {/* Circular Charts */}
+            {/* Circular Charts (Donuts scaled up to 130px size) */}
             <div className="grid grid-cols-2 gap-4 justify-items-center">
               {/* Donut 1: Revenue breakdown */}
               <div className="flex flex-col items-center">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Doanh thu</span>
-                <DonutChart data={revenueChartData} totalLabel="Thu phòng" />
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Cơ cấu doanh thu</span>
+                <DonutChart data={revenueChartData} totalLabel="Tổng doanh thu" />
               </div>
               {/* Donut 2: Collection efficiency */}
               <div className="flex flex-col items-center">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Tỷ lệ thu</span>
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Tỷ lệ thu hồi</span>
                 <DonutChart
                   data={collectionChartData.data}
-                  totalLabel="Tổng lập"
+                  totalLabel="Tổng hóa đơn"
                   totalValue={collectionChartData.billed}
                 />
               </div>
             </div>
 
-            {/* Legend split */}
+            {/* Legend details */}
             <div className="grid grid-cols-2 gap-4 text-xs pt-4 border-t border-slate-100">
-              {/* Left Legend: Revenue details */}
+              {/* Left Legend: Revenue items */}
               <div className="space-y-1.5">
                 {revenueChartData.map((d, i) => (
                   <div key={i} className="flex items-center justify-between gap-1.5">
@@ -430,24 +458,24 @@ export default function OwnerDashboard() {
                   </div>
                 ))}
               </div>
-              {/* Right Legend: Collection details */}
+              {/* Right Legend: Collection rate details */}
               <div className="space-y-1.5 border-l border-slate-100 pl-4">
                 <div className="flex items-center justify-between gap-1.5">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                    <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
                     <span className="text-slate-500">Đã thu</span>
                   </div>
                   <span className="font-bold text-emerald-600 shrink-0">{formatMoney(collectionChartData.paid)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-1.5">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <div className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
-                    <span className="text-slate-500">Còn nợ</span>
+                    <div className="h-2.5 w-2.5 rounded-full bg-red-500 shrink-0" />
+                    <span className="text-slate-500">Chưa thu</span>
                   </div>
                   <span className="font-bold text-red-600 shrink-0">{formatMoney(collectionChartData.unpaid)}</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-slate-50 pt-1.5">
-                  <span className="text-slate-500 font-semibold">Tỷ suất:</span>
+                  <span className="text-slate-500 font-semibold">Tỷ lệ:</span>
                   <span className={`font-black ${collectionChartData.rate >= 90 ? 'text-emerald-600' : collectionChartData.rate >= 75 ? 'text-amber-600' : 'text-red-600'}`}>
                     {collectionChartData.rate}%
                   </span>
@@ -458,7 +486,7 @@ export default function OwnerDashboard() {
             {/* Smart Analyst Advice Box */}
             <div className="rounded-xl bg-slate-50 border border-slate-200/50 p-3.5 text-xs text-slate-700">
               <div className="font-bold text-slate-900 mb-1.5 flex items-center gap-1.5">
-                💡 Gợi ý của chuyên gia dữ liệu:
+                💡 Đánh giá hiệu suất:
               </div>
               <ul className="list-disc pl-4 space-y-1.5 text-slate-600 font-medium leading-relaxed">
                 {analystInsights.map((insight, idx) => (
@@ -604,7 +632,7 @@ export default function OwnerDashboard() {
   );
 }
 
-// ── Native SVG DonutChart Component ────────────────────────
+// ── Native SVG DonutChart Component (scaled up to 130px size) ────────────────────────
 function DonutChart({ data, totalLabel, totalValue }: {
   data: Array<{ label: string; value: number; color: string }>;
   totalLabel: string;
@@ -615,7 +643,7 @@ function DonutChart({ data, totalLabel, totalValue }: {
   
   if (total === 0) {
     return (
-      <div className="flex items-center justify-center h-28 w-28 rounded-full border-2 border-dashed border-slate-200 text-[10px] text-slate-400 font-semibold">
+      <div className="flex items-center justify-center h-[130px] w-[130px] rounded-full border-2 border-dashed border-slate-200 text-[10px] text-slate-400 font-semibold">
         Chưa có số liệu
       </div>
     );
@@ -623,7 +651,7 @@ function DonutChart({ data, totalLabel, totalValue }: {
 
   return (
     <div className="relative flex items-center justify-center">
-      <svg width="110" height="110" viewBox="0 0 120 120" className="-rotate-90">
+      <svg width="130" height="130" viewBox="0 0 120 120" className="-rotate-90">
         <circle cx="60" cy="60" r="50" fill="transparent" stroke="#f1f5f9" strokeWidth="12" />
         {data.map((item, idx) => {
           if (item.value <= 0) return null;
@@ -651,7 +679,7 @@ function DonutChart({ data, totalLabel, totalValue }: {
       </svg>
       <div className="absolute flex flex-col items-center justify-center text-center">
         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{totalLabel}</span>
-        <span className="text-xs font-black text-slate-900 mt-0.5 truncate max-w-[80px]">
+        <span className="text-xs font-black text-slate-900 mt-0.5 truncate max-w-[90px]">
           {formatMoney(total)}
         </span>
       </div>
