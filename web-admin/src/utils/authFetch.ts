@@ -47,7 +47,12 @@ const REFRESH_LOCK_TTL_MS = 8000;
 const REFRESH_WAIT_TIMEOUT_MS = 10000;
 const REFRESH_WAIT_INTERVAL_MS = 120;
 const DEFAULT_AUTH_FETCH_TIMEOUT_MS = 20000;
+// Render can cold-start the API after an idle period. Keep the first attempt
+// bounded, then wake the instance and retry once instead of surfacing a
+// transient timeout as an authentication failure.
 const REFRESH_FETCH_TIMEOUT_MS = 15000;
+const REFRESH_WAKE_TIMEOUT_MS = 20000;
+const REFRESH_RETRY_TIMEOUT_MS = 30000;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -69,6 +74,25 @@ async function fetchWithTimeout(input: string, init: RequestInit = {}, timeoutMs
     throw error;
   } finally {
     window.clearTimeout(timeout);
+  }
+}
+
+function isTransientNetworkError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return error.name === "AbortError" || /timed out|fetch failed|network/i.test(error.message);
+}
+
+async function wakeBackend() {
+  try {
+    await fetchWithTimeout(`${API_URL}/health`, {
+      method: "GET",
+      cache: "no-store",
+      credentials: "omit",
+    }, REFRESH_WAKE_TIMEOUT_MS);
+  } catch (error) {
+    logAuthEvent("AUTH_REFRESH_WAKE_FAILED", {
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -178,7 +202,19 @@ export async function refreshAccessToken() {
       logAuthEvent("AUTH_REFRESH_NETWORK_ERROR", {
         message: error instanceof Error ? error.message : String(error),
       });
-      throw error;
+      if (!isTransientNetworkError(error)) throw error;
+
+      // A sleeping Render instance can exceed the first request deadline. A
+      // health request gives it a cheap, unauthenticated wake-up path. The
+      // retry is safe with the backend's refresh replay grace window.
+      await wakeBackend();
+      res = await fetchWithTimeout(`${API_URL}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+        credentials: "include",
+        cache: "no-store",
+      }, REFRESH_RETRY_TIMEOUT_MS);
     } finally {
       releaseRefreshLock(owner);
     }
