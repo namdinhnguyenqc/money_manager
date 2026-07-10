@@ -40,6 +40,9 @@ describe("ProfileFormCard", () => {
       />
     );
 
+    await screen.findByRole("option", { name: "TP. Hồ Chí Minh" });
+    await screen.findByRole("option", { name: "Quận 1" });
+
     const fullName = screen.getByLabelText(/Họ và tên/i) as HTMLInputElement;
     const address = screen.getByLabelText(/Địa chỉ chi tiết/i) as HTMLTextAreaElement;
     const phone = screen.getByLabelText(/Số điện thoại/i) as HTMLInputElement;
@@ -77,6 +80,9 @@ describe("ProfileFormCard", () => {
         onSubmit={vi.fn()}
       />
     );
+
+    await screen.findByRole("option", { name: "TP. Hồ Chí Minh" });
+    await screen.findByRole("option", { name: "Quận 1" });
 
     expect(screen.getByText("Số điện thoại này đã được sử dụng bởi tài khoản khác.")).toBeInTheDocument();
 

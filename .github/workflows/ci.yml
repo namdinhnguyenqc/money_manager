@@ -15,25 +15,25 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/workflows/node@v4
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install Monorepo Dependencies
-        run: |
-          npm install
-          npm --prefix backend install
-          npm --prefix web-admin install
+        run: npm ci
+
+      - name: Lint Active Applications
+        run: npm run lint
+
+      - name: Type-check Active Applications
+        run: npm run typecheck
 
       - name: Build Backend (Hono)
-        run: |
-          npm --prefix backend run build
+        run: npm --prefix backend run build
 
-      - name: Run Backend Unit Tests
-        run: |
-          npm --prefix backend test
+      - name: Run Unit Tests
+        run: npm test
 
       - name: Build Frontend (Next.js)
-        run: |
-          npm --prefix web-admin run build
+        run: npm --prefix web-admin run build

@@ -11,8 +11,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
-    include: ['**/__tests__/**/*.test.tsx'],
-    reporters: ['default', 'json'],
-    outputFile: 'reports/unit-test-results.json',
+    include: ['**/__tests__/**/*.test.{ts,tsx}'],
+    reporters: ['default'],
   },
 })

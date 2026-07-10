@@ -12,11 +12,22 @@ import { parseJson } from "../utils/validation.js";
 import { requireAuth, getClientIp, getDeviceInfo } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
+import {
+  buildTrustedOrigins,
+  isNativeClientPlatform,
+  isTrustedBrowserOrigin,
+} from "../security/origins.js";
 
 const tenantAuthRoutes = new Hono<AppEnv>();
 
 const BCRYPT_ROUNDS = 10;
 const REFRESH_REPLAY_GRACE_MS = 10_000;
+const isProd = process.env.NODE_ENV === "production";
+const trustedBrowserOrigins = buildTrustedOrigins([
+  ...env.CORS_ORIGINS,
+  env.WEB_ADMIN_URL,
+  env.SITE_URL,
+]);
 
 // ─────────────────────────────────────────────────────────
 // In-memory grace period map for concurrent refresh requests
@@ -46,7 +57,6 @@ const cleanupRecentRefreshRotations = () => {
 // ─────────────────────────────────────────────────────────
 // Cookie helpers (same pattern as auth.ts)
 // ─────────────────────────────────────────────────────────
-const isProd = process.env.NODE_ENV === "production";
 const cookieOptions = `Path=/; HttpOnly; SameSite=${isProd ? "None" : "Lax"}; Max-Age=${env.REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60}${isProd ? "; Secure" : ""}`;
 
 const setRefreshCookie = (c: any, refreshToken: string) => {
@@ -289,7 +299,7 @@ tenantAuthRoutes.post("/register", async (c) => {
       },
     };
 
-    if (c.req.header("x-client-platform")) {
+    if (isNativeClientPlatform(c.req.header("x-client-platform"))) {
       responseData.refreshToken = refreshToken;
     }
 
@@ -618,7 +628,7 @@ tenantAuthRoutes.post("/login", async (c) => {
       },
     };
 
-    if (c.req.header("x-client-platform")) {
+    if (isNativeClientPlatform(c.req.header("x-client-platform"))) {
       responseData.refreshToken = refreshToken;
     }
 
@@ -636,6 +646,13 @@ tenantAuthRoutes.post("/login", async (c) => {
 // POST /refresh — Token rotation (same logic as auth.ts)
 // ─────────────────────────────────────────────────────────
 tenantAuthRoutes.post("/refresh", async (c) => {
+  if (!isTrustedBrowserOrigin({
+    origin: c.req.header("Origin"),
+    isProduction: isProd,
+    trustedOrigins: trustedBrowserOrigins,
+  })) {
+    return c.json({ code: "UNTRUSTED_ORIGIN", message: "Nguồn yêu cầu không được phép." }, 403);
+  }
   const body = await c.req.json().catch(() => ({}));
   const refreshToken = body?.refreshToken || getCookieValue(c.req.header("Cookie"), "refreshToken");
   const parsed = refreshSchema.safeParse({ refreshToken });
@@ -677,7 +694,7 @@ tenantAuthRoutes.post("/refresh", async (c) => {
           status: recentRotation.user.status,
         },
       };
-      if (c.req.header("x-client-platform")) {
+      if (isNativeClientPlatform(c.req.header("x-client-platform"))) {
         graceResponse.refreshToken = recentRotation.refreshToken;
       }
       return c.json(graceResponse);
@@ -778,7 +795,7 @@ tenantAuthRoutes.post("/refresh", async (c) => {
     },
   };
 
-  if (c.req.header("x-client-platform")) {
+  if (isNativeClientPlatform(c.req.header("x-client-platform"))) {
     responseData.refreshToken = nextRefreshToken;
   }
 
