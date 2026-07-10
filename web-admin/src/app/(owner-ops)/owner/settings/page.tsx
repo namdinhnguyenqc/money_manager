@@ -914,7 +914,7 @@ export default function OwnerSettingsPage() {
                       <p className="text-xs font-black text-blue-800">Hướng dẫn cấu hình SePay của bạn</p>
                       <ol className="space-y-1.5 text-xs text-blue-700 font-medium list-decimal list-inside leading-relaxed">
                         <li>Đăng nhập <span className="font-mono font-bold">SePay.vn</span> → Webhook → Thêm webhook mới</li>
-                        <li>Dán <strong>URL Webhook bên dưới</strong> vào ô "URL nhận dữ liệu"</li>
+                        <li>Dán <strong>URL Webhook bên dưới</strong> vào ô &ldquo;URL nhận dữ liệu&rdquo;</li>
                         <li>SePay sẽ tạo <strong>Webhook Secret</strong> và <strong>API Token</strong> cho tài khoản của bạn</li>
                         <li>Copy 2 giá trị đó vào ô bên dưới rồi nhấn <strong>Lưu thay đổi</strong></li>
                       </ol>

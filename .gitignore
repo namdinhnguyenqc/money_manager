@@ -12,11 +12,16 @@ coverage/
 .env.local
 .env.production
 *.log
+*.tsbuildinfo
+**/reports/*.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
 # Subdirectories
+backend/package-lock.json
+mobile/package-lock.json
+web-admin/package-lock.json
 web-admin/node_modules/
 web-admin/.next/
 web-admin/out/

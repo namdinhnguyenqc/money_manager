@@ -15,10 +15,20 @@ import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
 import { buildProfileAuthMeta, getUserProfile } from "../lib/profileStore.js";
 import { getRoleId } from "../lib/roles.js";
+import {
+  buildTrustedOrigins,
+  isNativeClientPlatform,
+  isTrustedBrowserOrigin,
+} from "../security/origins.js";
 
 const authRoutes = new Hono<AppEnv>();
 
 const isProd = process.env.NODE_ENV === "production";
+const trustedBrowserOrigins = buildTrustedOrigins([
+  ...env.CORS_ORIGINS,
+  env.WEB_ADMIN_URL,
+  env.SITE_URL,
+]);
 const cookieOptions = `Path=/; HttpOnly; SameSite=${isProd ? "None" : "Lax"}; Max-Age=${env.REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60}${isProd ? "; Secure" : ""}`;
 const REFRESH_REPLAY_GRACE_MS = 10_000;
 
@@ -660,7 +670,7 @@ authRoutes.post("/google", async (c) => {
 
   if ((result as any).refreshToken) {
     setRefreshCookie(c, (result as any).refreshToken);
-    if (!c.req.header("x-client-platform")) {
+    if (!isNativeClientPlatform(c.req.header("x-client-platform"))) {
       delete (result as any).refreshToken;
     }
   }
@@ -679,7 +689,7 @@ authRoutes.post("/owner-google", async (c) => {
 
   if ((result as any).refreshToken) {
     setRefreshCookie(c, (result as any).refreshToken);
-    if (!c.req.header("x-client-platform")) {
+    if (!isNativeClientPlatform(c.req.header("x-client-platform"))) {
       delete (result as any).refreshToken;
     }
   }
@@ -688,6 +698,13 @@ authRoutes.post("/owner-google", async (c) => {
 
 // POST /auth/refresh
 authRoutes.post("/refresh", async (c) => {
+  if (!isTrustedBrowserOrigin({
+    origin: c.req.header("Origin"),
+    isProduction: isProd,
+    trustedOrigins: trustedBrowserOrigins,
+  })) {
+    return c.json({ code: "UNTRUSTED_ORIGIN", message: "Nguồn yêu cầu không được phép." }, 403);
+  }
   const body = await c.req.json().catch(() => ({}));
   const refreshToken = body?.refreshToken || getCookieValue(c.req.header("Cookie"), "refreshToken");
   const parsed = refreshSchema.safeParse({ refreshToken });
@@ -714,7 +731,7 @@ authRoutes.post("/refresh", async (c) => {
     if (recentRotation && recentRotation.expiresAtMs > Date.now() && recentRotation.userId === tokenRecord.user_id) {
       setRefreshCookie(c, recentRotation.refreshToken);
       auditLog("REFRESH_REPLAY_GRACE", tokenRecord.user_id, { sessionId: recentRotation.nextSessionId });
-      return c.json({
+      const replayResponse: any = {
         accessToken: recentRotation.accessToken,
         session: {
           access_token: recentRotation.accessToken,
@@ -728,7 +745,11 @@ authRoutes.post("/refresh", async (c) => {
           role: recentRotation.user.role,
           status: recentRotation.user.status,
         },
-      });
+      };
+      if (isNativeClientPlatform(c.req.header("x-client-platform"))) {
+        replayResponse.refreshToken = recentRotation.refreshToken;
+      }
+      return c.json(replayResponse);
     }
 
     // Check DB grace period for distributed environment (e.g. concurrent requests hitting different processes/instances)
@@ -839,7 +860,7 @@ authRoutes.post("/refresh", async (c) => {
     nextStep: profileMeta.nextStep,
   };
 
-  if (c.req.header("x-client-platform")) {
+  if (isNativeClientPlatform(c.req.header("x-client-platform"))) {
     responseData.refreshToken = nextRefreshToken;
   }
 
@@ -848,6 +869,13 @@ authRoutes.post("/refresh", async (c) => {
 
 // POST /auth/logout
 authRoutes.post("/logout", async (c) => {
+  if (!isTrustedBrowserOrigin({
+    origin: c.req.header("Origin"),
+    isProduction: isProd,
+    trustedOrigins: trustedBrowserOrigins,
+  })) {
+    return c.json({ code: "UNTRUSTED_ORIGIN", message: "Nguồn yêu cầu không được phép." }, 403);
+  }
   const authHeader = c.req.header("Authorization");
   const bearerToken = authHeader?.toLowerCase().startsWith("bearer ") ? authHeader.slice(7).trim() : "";
   if (bearerToken) {

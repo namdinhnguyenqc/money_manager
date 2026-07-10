@@ -10,6 +10,10 @@
     "local:backend": "npm --prefix backend run dev",
     "local:ui": "npm --prefix web-admin run dev",
     "local": "npm run local:backend & npm run local:ui",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "quality": "npm run lint && npm run typecheck && npm run test",
     "build": "npm --prefix backend run build",
     "start": "npm --prefix backend start"
   },
@@ -17,7 +21,7 @@
     "metro-runtime": "^0.83.3"
   },
   "overrides": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
   }
 }

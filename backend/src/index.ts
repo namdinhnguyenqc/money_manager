@@ -34,8 +34,15 @@ import { publicTaxonomyRoutes, adminTaxonomyRoutes } from "./routes/articleTaxon
 import { requireCompletedProfile } from "./middleware/requireCompletedProfile.js";
 
 import { randomUUID } from "crypto";
+import { buildTrustedOrigins, isAllowedCorsOrigin } from "./security/origins.js";
 
 const app = new Hono<AppEnv>();
+const isProduction = process.env.NODE_ENV === "production";
+const trustedOrigins = buildTrustedOrigins([
+  ...env.CORS_ORIGINS,
+  env.WEB_ADMIN_URL,
+  env.SITE_URL,
+]);
 
 app.use("*", async (c, next) => {
   const requestId = c.req.header("X-Request-ID") || randomUUID();
@@ -102,25 +109,17 @@ app.use(
   "*",
   cors({
     origin: (origin) => {
-      if (!origin) return null;
-      // In development/local mode, allow all origins to avoid port conflicts
-      if (process.env.NODE_ENV !== "production") {
-        return origin;
-      }
-      // In production, allow verified origins, vercel.app domains, and local/onrender domains
-      const isAllowed =
-        env.CORS_ORIGINS.includes(origin) ||
-        origin.endsWith(".vercel.app") ||
-        origin.endsWith(".onrender.com") ||
-        origin.endsWith(".trocare.vn") ||
-        origin === "https://trocare.vn" ||
-        origin.includes("localhost:") ||
-        origin.includes("127.0.0.1:");
-      
-      return isAllowed ? origin : null;
+      return isAllowedCorsOrigin({ origin, isProduction, trustedOrigins }) ? origin : null;
     },
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Client-Platform",
+      "X-Idempotency-Key",
+      "X-Request-ID",
+    ],
+    exposeHeaders: ["X-Request-ID"],
     credentials: true,
   })
 );

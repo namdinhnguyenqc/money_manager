@@ -194,7 +194,7 @@ export default function CategoriesPage() {
         <Card className="flex flex-col items-center gap-2 py-12 text-center">
           <Tag size={36} className="text-slate-300" />
           <div className="text-sm font-semibold text-slate-700">Chưa có danh mục {activeTab === "income" ? "thu" : "chi"} nào</div>
-          <div className="text-xs text-slate-400">Nhấn "Thêm danh mục" để tạo mới</div>
+          <div className="text-xs text-slate-400">Nhấn &ldquo;Thêm danh mục&rdquo; để tạo mới</div>
         </Card>
       ) : (
         <div className="grid gap-2.5 sm:grid-cols-2">
