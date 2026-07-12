@@ -28,6 +28,7 @@ export default function InvoiceDetailPage() {
   const [copied, setCopied] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const loadInvoiceOnly = async () => {
     try {
@@ -101,22 +102,52 @@ export default function InvoiceDetailPage() {
     setTimeout(() => setCopied(null), 1500);
   };
 
+  // Capture the invoice card as a PNG and share/download it — so the owner can
+  // send the actual bill image to Zalo/Messenger (matches the mobile app).
   const handleShare = async () => {
     setSharing(true);
-    const text = [
-      `THÔNG BÁO TIỀN PHÒNG TRỌ T${invoice.month}/${invoice.year}`,
-      `Kính gửi: ${invoice.tenant_name || "Khách thuê"}`,
-      `Phòng: ${invoice.room_name || ""}`,
-      ``,
-      `Tổng phải trả: ${formatMoney(outstanding)} đ`,
-      `Ngân hàng: ${getBankLabel(bankId)} — ${accountNo}`,
-      `Chủ TK: ${accountName}`,
-      `Nội dung CK: ${paymentCode}`,
-    ].join("\n");
     try {
-      if (navigator.share) await navigator.share({ title: "Hóa đơn TrọCare", text });
-      else { await navigator.clipboard.writeText(text); setCopied("share"); setTimeout(() => setCopied(null), 2000); }
-    } finally { setSharing(false); }
+      const node = cardRef.current;
+      if (!node) throw new Error("no-card");
+
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(node, {
+        backgroundColor: "#FFFEFB",
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+
+      const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+      if (!blob) throw new Error("no-blob");
+
+      const fileName = `HoaDon_${(invoice.room_name || "phong").replace(/\s+/g, "")}_T${invoice.month}-${invoice.year}.png`;
+      const file = new File([blob], fileName, { type: "image/png" });
+
+      // Prefer native share sheet with the image file (mobile → Zalo/Messenger).
+      const nav = navigator as any;
+      if (nav.canShare && nav.canShare({ files: [file] })) {
+        await nav.share({
+          files: [file],
+          title: "Hóa đơn TrọCare",
+          text: `Hóa đơn ${invoice.room_name || ""} T${invoice.month}/${invoice.year}`,
+        });
+      } else {
+        // Desktop / unsupported: download the PNG so the owner can attach it.
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast("Đã tải ảnh hóa đơn — gửi qua Zalo/Messenger.", "success");
+      }
+    } catch (err: any) {
+      if (err?.name === "AbortError") return; // user cancelled the share sheet
+      showToast("Không tạo được ảnh hóa đơn. Vui lòng thử lại.", "error");
+    } finally {
+      setSharing(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -142,7 +173,7 @@ export default function InvoiceDetailPage() {
       </Link>
 
       {/* Paper card — match mobile style */}
-      <div className="rounded-2xl border border-slate-300 bg-[#FFFEFB] shadow-sm overflow-hidden">
+      <div ref={cardRef} className="rounded-2xl border border-slate-300 bg-[#FFFEFB] shadow-sm overflow-hidden">
         {/* Title */}
         <div className="border-b border-slate-200 px-5 py-4 text-center">
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400">TrọCare</p>
@@ -270,8 +301,8 @@ export default function InvoiceDetailPage() {
           disabled={sharing}
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition-all"
         >
-          {copied === "share" ? <Check size={17} className="text-emerald-600" /> : <Share2 size={17} />}
-          {copied === "share" ? "Đã sao chép" : "Chia sẻ Zalo / Messenger"}
+          <Share2 size={17} />
+          {sharing ? "Đang tạo ảnh..." : "Chia sẻ ảnh (Zalo / Messenger)"}
         </button>
         {outstanding > 0 && (
           <Link
