@@ -74,12 +74,18 @@ export default function BulkInvoiceModal({ isOpen, onClose, onSuccess, pendingRo
               apiGet<any>(`/invoices/latest-meter-readings?roomId=${room.id}`)
             ]);
 
+            // Prefer the latest invoice reading (subsequent months). On the FIRST
+            // bill there is none, so fall back to the contract's starting meter
+            // reading — never 0, which would overcount usage by the whole meter.
+            const contract = contractRes?.data;
+            const latestElec = readingsRes?.data?.elec_old;
+            const latestWater = readingsRes?.data?.water_old;
             return {
               roomId: room.id,
-              contract: contractRes?.data,
-              elecOld: Number(readingsRes?.data?.elec_old ?? 0),
-              waterOld: Number(readingsRes?.data?.water_old ?? 0),
-              roomFee: Number(contractRes?.data?.rent_amount ?? room.price),
+              contract,
+              elecOld: Number(latestElec ?? contract?.electric_start ?? contract?.electricStart ?? 0),
+              waterOld: Number(latestWater ?? contract?.water_start ?? contract?.waterStart ?? 0),
+              roomFee: Number(contract?.rent_amount ?? room.price),
             };
           } catch (e) {
             return { roomId: room.id, error: "Lỗi tải thông tin" };
