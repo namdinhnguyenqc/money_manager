@@ -48,9 +48,12 @@ export const env = {
   SEPAY_WEBHOOK_SECRET: optional("SEPAY_WEBHOOK_SECRET", ""),
   SEPAY_API_KEY: optional("SEPAY_API_KEY", ""),
   SEPAY_PAYMENT_PREFIX: optional("SEPAY_PAYMENT_PREFIX", "TCINV"),
-  // Fail-closed: reject SePay webhooks that carry no valid secret/api-key.
-  // Defaults to ON in production so an unconfigured webhook cannot be spoofed.
-  SEPAY_REQUIRE_AUTH: (process.env.SEPAY_REQUIRE_AUTH ?? (isProduction ? "true" : "false")).toLowerCase() === "true",
+  // When ON, reject SePay webhooks that carry no configured secret/api-key at all.
+  // Default OFF: an unconfigured deployment must still accept real payments rather
+  // than 401 them away (losing money). If a secret/api-key IS configured — via env
+  // or the owner's SePay settings — it is still verified strictly regardless.
+  // Set SEPAY_REQUIRE_AUTH=true only after a secret is configured, to harden.
+  SEPAY_REQUIRE_AUTH: (process.env.SEPAY_REQUIRE_AUTH ?? "false").toLowerCase() === "true",
   ZALO_APP_ID: optional("ZALO_APP_ID", ""),
   ZALO_APP_SECRET: optional("ZALO_APP_SECRET", ""),
   ZALO_REDIRECT_URI: optional("ZALO_REDIRECT_URI", ""),
