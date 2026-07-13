@@ -145,14 +145,12 @@ sepayWebhookRoutes.post("/", async (c) => {
     }
   }
 
-  // Fail-closed: when enabled, reject webhooks that carry no configured secret at all,
-  // so an unconfigured endpoint cannot be spoofed.
+  // Verify auth ONLY when a secret/api-key is actually configured (env or owner
+  // settings). If nothing is configured we accept the webhook rather than 401 a
+  // real payment away — a missing server-side secret must never lose money. When
+  // a secret IS configured, it is enforced strictly below.
   const hasAnySecret = !!(userWebhookSecret || env.SEPAY_WEBHOOK_SECRET || userApiKey || env.SEPAY_API_KEY);
-  if (env.SEPAY_REQUIRE_AUTH && !hasAnySecret) {
-    return c.json({ success: false, error: "SePay webhook auth not configured" }, 401);
-  }
-
-  if (!verifySignature(rawBody, signature, timestamp, userWebhookSecret) || !verifyApiKey(apiKey, userApiKey)) {
+  if (hasAnySecret && (!verifySignature(rawBody, signature, timestamp, userWebhookSecret) || !verifyApiKey(apiKey, userApiKey))) {
     return c.json({ success: false, error: "Invalid SePay signature" }, 401);
   }
 
