@@ -18,6 +18,7 @@ export type ApplyInvoicePaymentResult = {
   allocatedAmount: number;
   overpaidAmount: number;
   status: "paid" | "partial";
+  idempotent: boolean;
 };
 
 const toDateOnly = (value?: string): string => {
@@ -101,6 +102,7 @@ export async function applyInvoicePayment(
       allocatedAmount: Number(result.allocated_amount),
       overpaidAmount: Number(result.overpaid_amount),
       status: result.status as "paid" | "partial",
+      idempotent: result.idempotent === true,
     },
   };
 }

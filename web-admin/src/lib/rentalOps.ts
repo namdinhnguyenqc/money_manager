@@ -593,8 +593,8 @@ export async function loadWallets() {
   return (res?.data ?? []) as Wallet[];
 }
 
-export async function loadPaymentChannels() {
-  const res = await apiGet<any>("/payment-channels");
+export async function loadPaymentChannels(includeDisabled = false) {
+  const res = await apiGet<any>(`/payment-channels${includeDisabled ? "?includeDisabled=true" : ""}`);
   return (res?.data ?? []) as PaymentChannel[];
 }
 
