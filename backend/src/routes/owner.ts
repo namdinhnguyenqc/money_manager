@@ -779,9 +779,14 @@ ownerRoutes.post("/sepay/events/:id/reprocess", async (c) => {
     return c.json({ error: "Không tìm thấy hóa đơn khớp mã thanh toán. Vui lòng kiểm tra lại mã thanh toán trong nội dung chuyển khoản." }, 404);
   }
 
+  const transferAmount = Number(event.transfer_amount);
+  if (!Number.isFinite(transferAmount) || transferAmount <= 0) {
+    return c.json({ error: "Số tiền giao dịch không hợp lệ nên không thể đối soát." }, 400);
+  }
+
   // Find channel (shared resolver keeps webhook + reprocess in sync)
   const { resolveSepayChannel } = await import("../services/sepayReconcile.js");
-  const channel = await resolveSepayChannel(db, { invoice, accountNumber: event.account_number });
+  const channel = await resolveSepayChannel(supabaseAdmin, { invoice, accountNumber: event.account_number });
 
   if (!channel) {
     return c.json({ error: "Kênh thanh toán chưa được gán ví hoặc tài khoản ngân hàng chưa được cấu hình. Vui lòng kiểm tra lại thiết lập SePay." }, 400);
@@ -790,9 +795,9 @@ ownerRoutes.post("/sepay/events/:id/reprocess", async (c) => {
   const { applyInvoicePayment } = await import("../services/invoicePayments.js");
   const roomRes = await db.from("rooms").select("name").eq("id", invoice.room_id).eq("user_id", user.id).maybeSingle();
 
-  const paymentRes = await applyInvoicePayment(db, {
+  const paymentRes = await applyInvoicePayment(supabaseAdmin, {
     invoice,
-    amount: event.transfer_amount,
+    amount: transferAmount,
     walletId: String(channel.wallet_id),
     source: "sepay",
     date: event.raw_payload?.transactionDate || event.raw_payload?.transaction_date || null,
@@ -808,7 +813,7 @@ ownerRoutes.post("/sepay/events/:id/reprocess", async (c) => {
   });
 
   if (paymentRes.error || !paymentRes.data) {
-    await db.from("sepay_webhook_events").update({
+    await supabaseAdmin.from("sepay_webhook_events").update({
       status: "error",
       error_message: paymentRes.error || "Thử lại thất bại",
       user_id: user.id, // Update user_id since we now matched it
@@ -819,7 +824,7 @@ ownerRoutes.post("/sepay/events/:id/reprocess", async (c) => {
   }
 
   const newStatus = paymentRes.data.overpaidAmount > 0 ? "overpaid" : paymentRes.data.status;
-  await db.from("sepay_webhook_events").update({
+  await supabaseAdmin.from("sepay_webhook_events").update({
     status: newStatus,
     transaction_id: paymentRes.data.transaction.id,
     payment_channel_id: channel.id,

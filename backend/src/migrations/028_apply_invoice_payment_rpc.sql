@@ -13,6 +13,7 @@ CREATE OR REPLACE FUNCTION public.apply_invoice_payment_atomic(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = pg_catalog, public
 AS $$
 DECLARE
   v_invoice         record;
@@ -23,8 +24,12 @@ DECLARE
   v_overpaid        numeric;
   v_next_paid       numeric;
   v_next_status     text;
-  v_tx_id           bigint;
+  v_tx_id           uuid;
 BEGIN
+  IF auth.uid() IS NOT NULL AND auth.uid() <> p_user_id THEN
+    RAISE EXCEPTION 'Not authorized to apply payment for this user';
+  END IF;
+
   -- 1. Pessimistic lock on invoice row to prevent race conditions
   SELECT * INTO v_invoice
   FROM public.invoices
@@ -92,7 +97,7 @@ BEGIN
   )
   VALUES (
     p_user_id, 'income', p_amount, p_description, NULL,
-    p_wallet_id::bigint, NULL, p_date, p_invoice_id, v_invoice.contract_id,
+    p_wallet_id::uuid, NULL, p_date, p_invoice_id, v_invoice.contract_id,
     p_source, p_external_ref,
     p_metadata || jsonb_build_object(
       'allocated_amount', v_allocated,
@@ -113,7 +118,7 @@ BEGIN
   SET
     balance    = COALESCE(balance, 0) + p_amount,
     updated_at = now()
-  WHERE id = p_wallet_id::bigint;
+  WHERE id = p_wallet_id::uuid AND user_id = p_user_id;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Wallet % not found', p_wallet_id;
@@ -135,5 +140,6 @@ END;
 $$;
 
 -- Grant execute rights to authenticated role and service role
-GRANT EXECUTE ON FUNCTION public.apply_invoice_payment_atomic TO authenticated;
-GRANT EXECUTE ON FUNCTION public.apply_invoice_payment_atomic TO service_role;
+REVOKE ALL ON FUNCTION public.apply_invoice_payment_atomic(uuid, uuid, text, numeric, text, date, text, text, jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.apply_invoice_payment_atomic(uuid, uuid, text, numeric, text, date, text, text, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.apply_invoice_payment_atomic(uuid, uuid, text, numeric, text, date, text, text, jsonb) TO service_role;

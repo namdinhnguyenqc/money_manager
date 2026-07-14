@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import crypto from "crypto";
 import { env } from "../config/env.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 import { applyInvoicePayment } from "../services/invoicePayments.js";
@@ -7,6 +6,7 @@ import { getTenantUserIdByContractId, notifyPaymentSuccess } from "../services/n
 import { sendWebPushToUser } from "../services/webPushService.js";
 import { extractPaymentCodeFromPayload } from "../utils/paymentCodes.js";
 import { resolveSepayChannel } from "../services/sepayReconcile.js";
+import { extractSepayApiKey, verifySepayWebhookAuth } from "../services/sepayAuth.js";
 import type { AppEnv } from "../types.js";
 
 const sepayWebhookRoutes = new Hono<AppEnv>();
@@ -15,40 +15,6 @@ const jsonOk = () => new Response(JSON.stringify({ success: true }), {
   status: 200,
   headers: { "content-type": "application/json" },
 });
-
-const timingSafeEqualText = (left: string, right: string) => {
-  const a = Buffer.from(left);
-  const b = Buffer.from(right);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
-};
-
-const verifySignature = (rawBody: string, signature?: string, timestamp?: string, customSecret?: string | null) => {
-  const activeSecret = customSecret || env.SEPAY_WEBHOOK_SECRET;
-  if (!activeSecret) return true;
-  if (!signature) return false;
-
-  const cleaned = signature.replace(/^sha256=/i, "");
-  const candidates = [
-    crypto.createHmac("sha256", activeSecret).update(`${timestamp || ""}.${rawBody}`).digest("hex"),
-    crypto.createHmac("sha256", activeSecret).update(rawBody).digest("hex"),
-  ];
-
-  return candidates.some((candidate) => timingSafeEqualText(candidate, cleaned));
-};
-
-const verifyApiKey = (apiKey?: string, customApiKey?: string | null) => {
-  const activeApiKey = customApiKey || env.SEPAY_API_KEY;
-  if (!activeApiKey) return true;
-  return apiKey === activeApiKey;
-};
-
-// SePay sends credentials as `Authorization: Apikey <key>` (not Bearer).
-// Accept x-api-key, "Apikey <key>" and "Bearer <key>" forms.
-const extractApiKey = (apiKeyHeader?: string, authHeader?: string) => {
-  if (apiKeyHeader) return apiKeyHeader.trim();
-  if (!authHeader) return undefined;
-  return authHeader.replace(/^(Bearer|Apikey)\s+/i, "").trim();
-};
 
 const insertEvent = async (payload: Record<string, unknown>) => {
   const { data, error } = await supabaseAdmin
@@ -98,7 +64,7 @@ sepayWebhookRoutes.post("/", async (c) => {
   const rawBody = await c.req.text();
   const signature = c.req.header("x-sepay-signature");
   const timestamp = c.req.header("x-sepay-timestamp");
-  const apiKey = extractApiKey(c.req.header("x-api-key"), c.req.header("authorization"));
+  const apiKey = extractSepayApiKey(c.req.header("x-api-key"), c.req.header("authorization"));
   const urlUserId = c.req.query("user_id") || c.req.query("userId");
  
   let payload: any;
@@ -149,9 +115,17 @@ sepayWebhookRoutes.post("/", async (c) => {
   // settings). If nothing is configured we accept the webhook rather than 401 a
   // real payment away — a missing server-side secret must never lose money. When
   // a secret IS configured, it is enforced strictly below.
-  const hasAnySecret = !!(userWebhookSecret || env.SEPAY_WEBHOOK_SECRET || userApiKey || env.SEPAY_API_KEY);
-  if (hasAnySecret && (!verifySignature(rawBody, signature, timestamp, userWebhookSecret) || !verifyApiKey(apiKey, userApiKey))) {
-    return c.json({ success: false, error: "Invalid SePay signature" }, 401);
+  const authValid = verifySepayWebhookAuth({
+    rawBody,
+    signature,
+    timestamp,
+    apiKey,
+    configuredSecret: userWebhookSecret || env.SEPAY_WEBHOOK_SECRET,
+    configuredApiKey: userApiKey || env.SEPAY_API_KEY,
+    requireAuth: env.SEPAY_REQUIRE_AUTH,
+  });
+  if (!authValid) {
+    return c.json({ success: false, error: "Invalid SePay webhook credentials" }, 401);
   }
 
   const sepayTransactionId = String(payload.id || payload.referenceCode || payload.reference_code || "");
@@ -172,8 +146,25 @@ sepayWebhookRoutes.post("/", async (c) => {
   const transferAmount = Number(payload.transferAmount ?? payload.transfer_amount ?? payload.amount ?? 0);
   const accountNumber = String(payload.accountNumber || payload.account_number || "");
 
+  if (!Number.isFinite(transferAmount) || transferAmount <= 0) {
+    await insertEvent({
+      user_id: resolvedUserId,
+      sepay_transaction_id: sepayTransactionId,
+      gateway: payload.gateway || null,
+      account_number: accountNumber || null,
+      transfer_type: transferType || null,
+      transfer_amount: 0,
+      payment_code: paymentCode || null,
+      status: "ignored",
+      raw_payload: payload,
+      error_message: "Invalid transfer amount",
+    });
+    return jsonOk();
+  }
+
   if (transferType && !["in", "credit"].includes(transferType)) {
     await insertEvent({
+      user_id: resolvedUserId,
       sepay_transaction_id: sepayTransactionId,
       gateway: payload.gateway || null,
       account_number: accountNumber || null,
@@ -188,6 +179,7 @@ sepayWebhookRoutes.post("/", async (c) => {
 
   if (!paymentCode) {
     await insertEvent({
+      user_id: resolvedUserId,
       sepay_transaction_id: sepayTransactionId,
       gateway: payload.gateway || null,
       account_number: accountNumber || null,
@@ -208,6 +200,7 @@ sepayWebhookRoutes.post("/", async (c) => {
 
   if (invoiceRes.error || !invoiceRes.data) {
     await insertEvent({
+      user_id: resolvedUserId,
       sepay_transaction_id: sepayTransactionId,
       gateway: payload.gateway || null,
       account_number: accountNumber || null,
@@ -222,6 +215,21 @@ sepayWebhookRoutes.post("/", async (c) => {
   }
 
   const invoice = invoiceRes.data;
+  if (urlUserId && invoice.user_id !== urlUserId) {
+    await insertEvent({
+      user_id: urlUserId,
+      sepay_transaction_id: sepayTransactionId,
+      gateway: payload.gateway || null,
+      account_number: accountNumber || null,
+      transfer_type: transferType || null,
+      transfer_amount: transferAmount,
+      payment_code: paymentCode,
+      status: "unmatched",
+      raw_payload: payload,
+      error_message: "Payment code does not belong to webhook owner",
+    });
+    return jsonOk();
+  }
   const channel = await resolveSepayChannel(supabaseAdmin, { invoice, accountNumber });
 
   if (!channel) {
@@ -284,18 +292,21 @@ sepayWebhookRoutes.post("/", async (c) => {
     return jsonOk();
   }
 
-  await notifyOwnerPaymentReceived(
-    String(invoice.user_id),
-    invoice,
-    roomRes.data?.name || null,
-    transferAmount,
-    paymentRes.data.status,
-  );
+  if (!paymentRes.data.idempotent) {
+    await notifyOwnerPaymentReceived(
+      String(invoice.user_id),
+      invoice,
+      roomRes.data?.name || null,
+      transferAmount,
+      paymentRes.data.status,
+    );
+  }
 
   // Success path: Trigger FCM notification and create auto expense for tenant
-  try {
-    const tenantUserId = await getTenantUserIdByContractId(invoice.contract_id);
-    if (tenantUserId) {
+  if (!paymentRes.data.idempotent) {
+    try {
+      const tenantUserId = await getTenantUserIdByContractId(invoice.contract_id);
+      if (tenantUserId) {
       // 1. Notify the tenant
       await notifyPaymentSuccess(tenantUserId, invoice, transferAmount);
 
@@ -333,10 +344,11 @@ sepayWebhookRoutes.post("/", async (c) => {
         source: "auto_invoice",
         reference_id: invoice.id,
       });
-      console.log(`Auto expense transaction created for Tenant User ${tenantUserId}`);
+        console.log(`Auto expense transaction created for Tenant User ${tenantUserId}`);
+      }
+    } catch (notifyErr: any) {
+      console.error("Non-blocking error during tenant FCM notification or auto expense creation:", notifyErr.message);
     }
-  } catch (notifyErr: any) {
-    console.error("Non-blocking error during tenant FCM notification or auto expense creation:", notifyErr.message);
   }
 
   const status = paymentRes.data.overpaidAmount > 0 ? "overpaid" : paymentRes.data.status;

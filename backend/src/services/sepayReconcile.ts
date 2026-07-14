@@ -24,7 +24,11 @@ export async function resolveSepayChannel(
     channel = channelRes.data;
   }
 
-  const usable = (ch: any) => ch?.wallet_id && ch.auto_reconcile_enabled !== false;
+  const usable = (ch: any) =>
+    ch?.provider === "sepay" &&
+    ch?.enabled !== false &&
+    Boolean(ch?.wallet_id) &&
+    ch?.auto_reconcile_enabled === true;
 
   if (!usable(channel) && accountNumber) {
     const channelRes = await db

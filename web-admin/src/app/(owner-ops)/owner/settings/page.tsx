@@ -186,7 +186,7 @@ export default function OwnerSettingsPage() {
         apiGet<any>("/rental/services?activeOnly=0"),
         apiGet<any>("/wallets"),
         apiGet<any>("/bank-config"),
-        loadPaymentChannels(),
+        loadPaymentChannels(true),
         apiGet<any>("/me/profile"),
         loadCategories()
       ]);
@@ -536,10 +536,9 @@ export default function OwnerSettingsPage() {
     try {
       setSavingExtension(true);
       await updatePaymentChannel(channel.id, {
-        displayName: channel.displayName || channel.display_name || "Kênh thanh toán",
-        isDefault: true,
+        isDefault: !(channel.isDefault || channel.is_default),
       });
-      setSuccess("Đã đặt kênh thanh toán mặc định.");
+      setSuccess((channel.isDefault || channel.is_default) ? "Đã bỏ kênh mặc định." : "Đã đặt kênh mặc định.");
       await invalidateOwnerOpsQueries(queryClient);
       load();
     } catch (err: any) {
@@ -549,16 +548,16 @@ export default function OwnerSettingsPage() {
     }
   };
 
-  const handleDisablePaymentChannel = async (channel: PaymentChannel) => {
-    if (!window.confirm("Tắt kênh thanh toán này?")) return;
+  const handleDeletePaymentChannel = async (channel: PaymentChannel) => {
+    if (!window.confirm("Xóa vĩnh viễn kênh SePay này? Hành động không thể hoàn tác.")) return;
     try {
       setSavingExtension(true);
       await disablePaymentChannel(channel.id);
-      setSuccess("Đã tắt kênh thanh toán.");
+      setSuccess("Đã xóa kênh SePay.");
       await invalidateOwnerOpsQueries(queryClient);
       load();
     } catch (err: any) {
-      setError(err.message || "Không tắt được kênh thanh toán.");
+      setError(err.message || "Không xóa được kênh SePay.");
     } finally {
       setSavingExtension(false);
     }
@@ -812,7 +811,7 @@ export default function OwnerSettingsPage() {
                     ) : sepayChannels.map((channel) => {
                       const wallet = wallets.find((item) => String(item.id) === String(channel.wallet_id || channel.walletId));
                       return (
-                        <div key={channel.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-all">
+                        <div key={channel.id} className={`rounded-xl border p-4 transition-colors ${channel.enabled === false ? "border-slate-200 bg-slate-50" : "border-slate-200 bg-white"}`}>
                           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                             <div>
                               <div className="flex flex-wrap items-center gap-2">
@@ -834,12 +833,36 @@ export default function OwnerSettingsPage() {
                                 </div>
                               )}
                             </div>
-                            <div className="flex flex-wrap gap-1.5">
-                              <Button variant="outline" onClick={() => handleSetDefaultPaymentChannel(channel)} disabled={savingExtension} className="text-[10px] px-2.5 py-1.5 border-slate-200 font-bold hover:bg-slate-50 rounded-xl">Mặc định</Button>
-                              <Button variant="outline" onClick={() => handleTogglePaymentChannel(channel)} disabled={savingExtension} className="text-[10px] px-2.5 py-1.5 border-slate-200 font-bold hover:bg-slate-50 rounded-xl">
-                                {channel.enabled ? "Tạm tắt" : "Kích hoạt lại"}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Button
+                                variant="outline"
+                                onClick={() => handleSetDefaultPaymentChannel(channel)}
+                                disabled={savingExtension}
+                                aria-pressed={Boolean(channel.isDefault || channel.is_default)}
+                                className={`gap-1.5 rounded-lg px-3 py-2 text-xs font-bold ${(channel.isDefault || channel.is_default) ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}
+                              >
+                                {(channel.isDefault || channel.is_default) ? <ToggleRight size={15} /> : <ToggleLeft size={15} />}
+                                Mặc định
                               </Button>
-                              <Button variant="outline" onClick={() => handleDisablePaymentChannel(channel)} disabled={savingExtension} className="text-[10px] px-2.5 py-1.5 border-red-100 hover:border-red-200 text-red-600 hover:bg-red-50 font-bold rounded-xl">Xoá kênh</Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => handleTogglePaymentChannel(channel)}
+                                disabled={savingExtension}
+                                aria-pressed={channel.enabled === false}
+                                className="gap-1.5 rounded-lg border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                              >
+                                {channel.enabled === false ? <Eye size={14} /> : <EyeOff size={14} />}
+                                {channel.enabled === false ? "Hiện" : "Ẩn"}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => handleDeletePaymentChannel(channel)}
+                                disabled={savingExtension}
+                                className="gap-1.5 rounded-lg border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 size={14} />
+                                Xóa
+                              </Button>
                             </div>
                           </div>
                         </div>
@@ -1049,6 +1072,7 @@ export default function OwnerSettingsPage() {
                         <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                           {sepayEvents.map((event) => {
                             const isExpanded = expandedEventId === event.id;
+                            const isReconciled = ["paid", "partial", "overpaid"].includes(event.status);
                             return (
                               <React.Fragment key={event.id}>
                                 <tr className="hover:bg-slate-50/50 transition-colors">
@@ -1068,7 +1092,7 @@ export default function OwnerSettingsPage() {
                                   </td>
                                   <td className="px-4 py-3 whitespace-nowrap">
                                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase ${
-                                      event.status === "paid" || event.status === "overpaid"
+                                      isReconciled
                                         ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                                         : event.status === "pending_wallet"
                                         ? "bg-blue-50 text-blue-700 border border-blue-100"
@@ -1080,6 +1104,8 @@ export default function OwnerSettingsPage() {
                                     }`}>
                                       {event.status === "paid"
                                         ? "Thành công"
+                                        : event.status === "partial"
+                                        ? "Thanh toán một phần"
                                         : event.status === "overpaid"
                                         ? "Thanh toán dư"
                                         : event.status === "pending_wallet"
@@ -1150,26 +1176,26 @@ export default function OwnerSettingsPage() {
 
                                             {/* Step 3: Reconcile / Paid */}
                                             <div className="flex items-center gap-3 sm:flex-col sm:text-center z-10 w-full sm:w-1/4">
-                                              {event.status === "paid" || event.status === "overpaid" ? (
+                                              {isReconciled ? (
                                                 <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500 flex items-center justify-center text-emerald-400 font-extrabold text-xs shrink-0 shadow-lg shadow-emerald-500/10">✓</div>
                                               ) : event.status === "ignored" ? (
                                                 <div className="w-8 h-8 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-400 font-extrabold text-xs shrink-0">Ø</div>
                                               ) : event.status === "pending_wallet" ? (
-                                                <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-500 flex items-center justify-center text-blue-400 font-extrabold text-xs shrink-0">✓</div>
+                                                <div className="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500 flex items-center justify-center text-amber-400 font-extrabold text-xs shrink-0">!</div>
                                               ) : (
                                                 <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 font-extrabold text-xs shrink-0">3</div>
                                               )}
                                               <div className="flex flex-col sm:items-center">
                                                 <span className="text-xs font-bold text-white">Đối soát gạch nợ</span>
                                                 <span className="text-[9px] text-slate-400 mt-0.5">
-                                                  {event.status === "paid" || event.status === "overpaid" ? "Gạch nợ thành công" : event.status === "ignored" ? "Bỏ qua" : event.status === "pending_wallet" ? "Chờ nạp ví" : "Chưa hoàn tất"}
+                                                  {isReconciled ? "Gạch nợ thành công" : event.status === "ignored" ? "Bỏ qua" : event.status === "pending_wallet" ? "Thiếu ví nhận tiền" : "Chưa hoàn tất"}
                                                 </span>
                                               </div>
                                             </div>
 
                                             {/* Step 4: Wallet Credited */}
                                             <div className="flex items-center gap-3 sm:flex-col sm:text-center z-10 w-full sm:w-1/4">
-                                              {event.status === "paid" || event.status === "overpaid" || event.status === "pending_wallet" ? (
+                                              {isReconciled ? (
                                                 <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500 flex items-center justify-center text-emerald-400 font-extrabold text-xs shrink-0 shadow-lg shadow-emerald-500/10">✓</div>
                                               ) : (
                                                 <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 font-extrabold text-xs shrink-0">4</div>
@@ -1177,7 +1203,7 @@ export default function OwnerSettingsPage() {
                                               <div className="flex flex-col sm:items-center">
                                                 <span className="text-xs font-bold text-white">Ghi nhận doanh thu</span>
                                                 <span className="text-[9px] text-slate-400 mt-0.5">
-                                                  {event.status === "paid" || event.status === "overpaid" || event.status === "pending_wallet" ? "Đã ghi nhận Ví" : "Chưa ghi nhận"}
+                                                  {isReconciled ? "Đã ghi nhận vào ví" : "Chưa ghi nhận"}
                                                 </span>
                                               </div>
                                             </div>
