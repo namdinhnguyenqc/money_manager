@@ -8,6 +8,7 @@
  */
 
 import { useEffect } from 'react';
+import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
@@ -28,6 +29,7 @@ import { setAuthEventListener } from '@/lib/api';
 import { logPerfEvent, markAppStart } from '@/lib/telemetry/appPerformance';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
+import { getNotificationRoute, registerPushIfAlreadyAllowed } from '@/lib/pushNotifications';
 
 // Keep splash screen visible while loading
 SplashScreen.preventAutoHideAsync();
@@ -85,6 +87,26 @@ export default function RootLayout() {
   useEffect(() => {
     hydrate();
   }, [hydrate]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !canEnterApp) return;
+    registerPushIfAlreadyAllowed().catch((error) => {
+      console.warn('Unable to refresh push token:', error?.message || error);
+    });
+  }, [isAuthenticated, canEnterApp]);
+
+  useEffect(() => {
+    const openNotification = (response: Notifications.NotificationResponse) => {
+      const data = response.notification.request.content.data as Record<string, unknown>;
+      const route = getNotificationRoute(data);
+      if (route) router.push(route as any);
+    };
+    const subscription = Notifications.addNotificationResponseReceivedListener(openNotification);
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) openNotification(response);
+    }).catch(() => {});
+    return () => subscription.remove();
+  }, [router]);
 
   // Set up auth event listener for 401/403
   useEffect(() => {

@@ -48,6 +48,7 @@ const sections: Array<{
   {
     title: 'Tài khoản',
     items: [
+      { icon: 'notifications-outline', label: 'Cài đặt thông báo', detail: 'Nhận tiền, thanh toán và thông báo đẩy', route: '/notifications/settings' as any },
       { icon: 'help-circle-outline', label: 'Báo cáo lỗi / Góp ý', detail: 'Gửi góp ý và báo lỗi hệ thống', route: '/feedback' as any },
       { icon: 'log-out-outline', label: 'Đăng xuất', detail: 'Thoát khỏi tài khoản hiện tại', action: 'logout', tone: 'danger' },
     ],

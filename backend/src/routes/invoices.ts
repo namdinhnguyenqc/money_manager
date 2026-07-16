@@ -7,6 +7,8 @@ import type { AppEnv } from "../types.js";
 import { parseJson, toId } from "../utils/validation.js";
 import { env } from "../config/env.js";
 import { applyInvoicePayment } from "../services/invoicePayments.js";
+import { notifyOwnerPaymentReceived } from "../services/ownerPaymentNotifications.js";
+import { getTenantUserIdByInvoiceId, notifyPaymentSuccess } from "../services/notificationService.js";
 import { getTenantUserIdByContractId, notifyInvoiceCreated } from "../services/notificationService.js";
 import { readMeterNumber } from "../services/meterOcr.js";
 
@@ -1189,6 +1191,19 @@ invoicesRoutes.post("/:id/collect-payment", async (c) => {
   });
 
   if (paymentRes.error || !paymentRes.data) return c.json({ error: paymentRes.error || "Failed to collect payment" }, 400);
+  if (!paymentRes.data.idempotent) {
+    await notifyOwnerPaymentReceived(
+      String(user.id),
+      invoice,
+      roomRes.data?.name || null,
+      collectAmount,
+      paymentRes.data.status,
+    );
+    const tenantUserId = await getTenantUserIdByInvoiceId(invoice.id);
+    if (tenantUserId) {
+      await notifyPaymentSuccess(tenantUserId, invoice, collectAmount);
+    }
+  }
   return c.json({ data: { invoice: paymentRes.data.invoice, transaction: paymentRes.data.transaction } });
 });
 
@@ -1252,6 +1267,19 @@ invoicesRoutes.post("/bulk-collect-payment", async (c) => {
     }
 
     totalCollected += dueAmount;
+    if (!paymentRes.data.idempotent) {
+      await notifyOwnerPaymentReceived(
+        String(user.id),
+        invoice,
+        roomMap.get(invoice.room_id) ?? null,
+        dueAmount,
+        paymentRes.data.status,
+      );
+      const tenantUserId = await getTenantUserIdByInvoiceId(invoice.id);
+      if (tenantUserId) {
+        await notifyPaymentSuccess(tenantUserId, invoice, dueAmount);
+      }
+    }
     results.push({ invoiceId: invoice.id, status: "success", amount: dueAmount, transactionId: paymentRes.data.transaction.id });
   }
 

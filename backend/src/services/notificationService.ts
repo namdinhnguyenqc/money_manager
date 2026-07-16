@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../lib/supabase.js";
 import { sendPushNotification } from "./firebaseService.js";
+import { resolvePaymentNotificationChannels } from "./notificationPreferences.js";
 
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" })
@@ -19,25 +20,28 @@ export async function createNotification(params: {
     const channel = params.channel || "both";
     const data = params.data || {};
 
-    // 1. Log in DB (for in-app notification inbox)
-    const { data: notif, error } = await supabaseAdmin
-      .from("notifications")
-      .insert({
-        user_id: params.userId,
-        title: params.title,
-        body: params.body,
-        type: params.type,
-        data,
-        channel,
-        is_read: false,
-        sent_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    let notificationId: string | undefined;
+    if (channel === "in_app" || channel === "both") {
+      const { data: notif, error } = await supabaseAdmin
+        .from("notifications")
+        .insert({
+          user_id: params.userId,
+          title: params.title,
+          body: params.body,
+          type: params.type,
+          data,
+          channel,
+          is_read: false,
+          sent_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
 
-    if (error) {
-      console.error("Failed to save notification in DB:", error.message);
-      return { success: false, error: error.message };
+      if (error) {
+        console.error("Failed to save notification in DB:", error.message);
+        return { success: false, error: error.message };
+      }
+      notificationId = notif.id;
     }
 
     // 2. If channel includes 'push', send FCM
@@ -48,7 +52,7 @@ export async function createNotification(params: {
         body: params.body,
         data: {
           ...data,
-          notification_id: notif.id,
+          ...(notificationId ? { notification_id: notificationId } : {}),
           type: params.type,
         },
       }).catch((pushErr) => {
@@ -56,7 +60,7 @@ export async function createNotification(params: {
       });
     }
 
-    return { success: true, id: notif.id };
+    return { success: true, id: notificationId };
   } catch (err: any) {
     console.error("Unexpected error creating notification:", err.message);
     return { success: false, error: err.message };
@@ -126,6 +130,8 @@ export async function notifyPaymentSuccess(
   invoice: { id: string; payment_code: string },
   amount: number
 ): Promise<void> {
+  const channels = await resolvePaymentNotificationChannels(tenantUserId, "sent");
+  if (!channels.inApp && !channels.push) return;
   const formattedAmount = formatCurrency(amount);
   await createNotification({
     userId: tenantUserId,
@@ -137,7 +143,7 @@ export async function notifyPaymentSuccess(
       payment_code: invoice.payment_code,
       amount: amount.toString(),
     },
-    channel: "both",
+    channel: channels.inApp && channels.push ? "both" : channels.push ? "push" : "in_app",
   });
 }
 

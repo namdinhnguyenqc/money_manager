@@ -10,6 +10,8 @@ import Tesseract from "tesseract.js";
 import sharp from "sharp";
 
 import { isRolePremium, limitsFromRole, getRoleId } from "../lib/roles.js";
+import { registerFcmToken, unregisterFcmToken } from "../services/firebaseService.js";
+import { getNotificationPreferences, saveNotificationPreferences } from "../services/notificationPreferences.js";
 
 /**
  * Resolve the plan limits for the given user.
@@ -651,6 +653,11 @@ ownerRoutes.get("/notifications", async (c) => {
 
   if (error) {
     console.error("Failed to fetch owner notifications:", error.message);
+    // Deploys and database migrations may complete a few minutes apart. Keep
+    // the inbox usable until the idempotent notification migration is applied.
+    if (error.code === "42P01" || error.code === "PGRST205") {
+      return c.json({ data: [], unreadCount: 0 });
+    }
     return c.json({ error: "Failed to fetch notifications" }, 500);
   }
   const rows = (data ?? []).map((item: any) => ({
@@ -667,6 +674,61 @@ ownerRoutes.get("/notifications", async (c) => {
     data: rows,
     unreadCount: rows.filter((item) => !item.readAt).length,
   });
+});
+
+const notificationPreferencesSchema = z.object({
+  notificationsEnabled: z.boolean().optional(),
+  pushEnabled: z.boolean().optional(),
+  inAppEnabled: z.boolean().optional(),
+  paymentReceivedEnabled: z.boolean().optional(),
+  paymentSentEnabled: z.boolean().optional(),
+});
+
+ownerRoutes.get("/notification-preferences", async (c) => {
+  const currentUser = c.get("user");
+  return c.json({ data: await getNotificationPreferences(currentUser.id) });
+});
+
+ownerRoutes.patch("/notification-preferences", async (c) => {
+  const currentUser = c.get("user");
+  const body = await c.req.json().catch(() => null);
+  const parsed = notificationPreferencesSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: "Cài đặt thông báo không hợp lệ" }, 400);
+  try {
+    return c.json({ data: await saveNotificationPreferences(currentUser.id, parsed.data) });
+  } catch (error: any) {
+    return c.json({ error: error.message || "Không thể lưu cài đặt thông báo" }, 500);
+  }
+});
+
+const notificationDeviceSchema = z.object({
+  token: z.string().min(10),
+  deviceType: z.enum(["ios", "android", "web"]),
+  deviceName: z.string().max(100).optional(),
+});
+
+ownerRoutes.post("/notification-devices", async (c) => {
+  const currentUser = c.get("user");
+  const body = await c.req.json().catch(() => null);
+  const parsed = notificationDeviceSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: "Device token không hợp lệ" }, 400);
+  const result = await registerFcmToken(
+    currentUser.id,
+    parsed.data.token,
+    parsed.data.deviceType,
+    parsed.data.deviceName,
+    "owner",
+  );
+  return result.success ? c.json({ success: true }) : c.json({ error: result.error }, 500);
+});
+
+ownerRoutes.delete("/notification-devices", async (c) => {
+  const currentUser = c.get("user");
+  const body = await c.req.json().catch(() => null);
+  const token = typeof body?.token === "string" ? body.token : "";
+  if (!token) return c.json({ error: "Device token is required" }, 400);
+  const result = await unregisterFcmToken(currentUser.id, token);
+  return result.success ? c.json({ success: true }) : c.json({ error: result.error }, 500);
 });
 
 ownerRoutes.post("/notifications/:id/read", async (c) => {

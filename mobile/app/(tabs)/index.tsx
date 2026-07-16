@@ -1,160 +1,98 @@
-/**
- * TrọCare Mobile — Dashboard Screen
- * Dual-segmented premium dashboard: Room Rental & Trading Business.
- * Interactive charts, KPI aggregates, visual financial progress bars, refined micro-animations.
- */
-
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  TouchableOpacity,
-  Platform,
+  ActivityIndicator,
   Image,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
-import Card from '@/components/ui/Card';
-import StatusBadge from '@/components/ui/StatusBadge';
-import { ApiClientError, apiGet } from '@/lib/api';
+import { apiGet } from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
 import { logPerfEvent, markFirstScreenReady } from '@/lib/telemetry/appPerformance';
 
-interface DashboardData {
-  facilities: any[];
+type DashboardData = {
+  boardingHouses: any[];
   rooms: any[];
   invoices: any[];
   wallets: any[];
-  tradingStats: {
-    unsoldCapital: number;
-    unsoldCount: number;
-    realizedProfit: number;
-    soldCount: number;
-  } | null;
-  recentTransactions: any[];
+  transactions: any[];
   deposits: any[];
-}
+};
 
-interface DashboardSummary {
-  roomStats?: {
-    total: number;
-    occupied: number;
-    vacant: number;
-    reserved: number;
-    maintenance: number;
-    occupancyRate: number;
-  };
-  financialStats?: {
-    income: number;
-    expense: number;
-    profit: number;
-    chartData?: any[];
-  };
-  overdueInvoices?: {
-    count: number;
-    amount: number;
-  };
-}
+type LedgerTab = 'invoices' | 'transactions';
 
-const formatMoney = (value?: number | null) =>
+const EMPTY_DATA: DashboardData = {
+  boardingHouses: [],
+  rooms: [],
+  invoices: [],
+  wallets: [],
+  transactions: [],
+  deposits: [],
+};
+
+const money = (value?: number | null) =>
   `${new Intl.NumberFormat('vi-VN').format(Math.round(Number(value || 0)))} ₫`;
 
-function buildSummaryFromDashboardInit(res: any): DashboardSummary {
-  const rooms = res?.rooms ?? [];
-  const invoices = res?.invoices ?? [];
-  const transactions = res?.transactions ?? [];
+const compactMoney = (value?: number | null) => {
+  const amount = Number(value || 0);
+  if (Math.abs(amount) >= 1_000_000_000) {
+    return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(amount / 1_000_000_000)} tỷ`;
+  }
+  if (Math.abs(amount) >= 1_000_000) {
+    return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(amount / 1_000_000)} tr`;
+  }
+  return money(amount);
+};
+
+const isInCurrentMonth = (date?: string | null) => {
+  if (!date) return false;
+  const value = new Date(date);
   const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
-
-  const occupied = rooms.filter((r: any) => r.status === 'occupied').length;
-  const vacant = rooms.filter((r: any) => r.status === 'vacant').length;
-  const reserved = rooms.filter((r: any) => r.status === 'reserved').length;
-  const maintenance = rooms.filter((r: any) => r.status === 'maintenance').length;
-  const thisMonthTxs = transactions.filter((t: any) => {
-    if (!t.date) return false;
-    const txDate = new Date(t.date);
-    return txDate.getMonth() + 1 === currentMonth && txDate.getFullYear() === currentYear;
-  });
-  const income = thisMonthTxs
-    .filter((t: any) => t.type === 'income')
-    .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
-  const expense = thisMonthTxs
-    .filter((t: any) => t.type === 'expense')
-    .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
-  const overdueInvoices = invoices.filter((i: any) => {
-    const total = Number(i.total_amount || 0);
-    const paid = Number(i.paid_amount || 0);
-    const invoiceYear = Number(i.year || 0);
-    const invoiceMonth = Number(i.month || 0);
-    const isPastPeriod = invoiceYear < currentYear || (invoiceYear === currentYear && invoiceMonth < currentMonth);
-    return isPastPeriod && total > 0 && paid < total;
-  });
-  const overdueAmount = overdueInvoices.reduce((sum: number, i: any) => (
-    sum + Math.max(0, Number(i.total_amount || 0) - Number(i.paid_amount || 0))
-  ), 0);
-
-  return {
-    roomStats: {
-      total: rooms.length,
-      occupied,
-      vacant,
-      reserved,
-      maintenance,
-      occupancyRate: rooms.length > 0 ? Math.round((occupied / rooms.length) * 100) : 0,
-    },
-    financialStats: {
-      income,
-      expense,
-      profit: income - expense,
-    },
-    overdueInvoices: {
-      count: overdueInvoices.length,
-      amount: overdueAmount,
-    },
-  };
-}
+  return value.getMonth() === now.getMonth() && value.getFullYear() === now.getFullYear();
+};
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const [data] = useState<DashboardData | null>(null);
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(true);
+  const user = useAuthStore((state) => state.user) as any;
+  const [data, setData] = useState<DashboardData>(EMPTY_DATA);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [hideBalance, setHideBalance] = useState(false);
-  const [ledgerTab, setLedgerTab] = useState<'paid' | 'cashflow'>('paid');
+  const [ledgerTab, setLedgerTab] = useState<LedgerTab>('invoices');
 
   const fetchData = useCallback(async (forceRefresh = false) => {
     try {
-      logPerfEvent("HOME_SUMMARY_START", { forceRefresh });
-      const res = await apiGet<any>('/owner/dashboard-summary', { forceRefresh, cacheTtlMs: 60 * 1000 });
-      setSummary(res ?? null);
-      logPerfEvent("HOME_SUMMARY_READY", { success: true });
-    } catch (error: any) {
-      const canFallback = error instanceof ApiClientError && error.status === 404;
-      if (!canFallback) {
-        logPerfEvent("HOME_SUMMARY_READY", { success: false, message: String(error?.message || error) });
-        return;
-      }
-
-      try {
-        logPerfEvent("HOME_SUMMARY_FALLBACK_START", { reason: "dashboard_summary_404" });
-        const fallback = await apiGet<any>('/owner/dashboard-init', { forceRefresh, cacheTtlMs: 60 * 1000 });
-        setSummary(buildSummaryFromDashboardInit(fallback));
-        logPerfEvent("HOME_SUMMARY_READY", { success: true, source: "dashboard-init-fallback" });
-      } catch (fallbackError: any) {
-        logPerfEvent("HOME_SUMMARY_READY", {
-          success: false,
-          source: "dashboard-init-fallback",
-          message: String(fallbackError?.message || fallbackError),
-        });
-      }
+      setError(null);
+      logPerfEvent('HOME_DATA_START', { forceRefresh });
+      const result = await apiGet<any>('/owner/dashboard-init', {
+        forceRefresh,
+        cacheTtlMs: 60 * 1000,
+      });
+      setData({
+        boardingHouses: result?.boardingHouses ?? [],
+        rooms: result?.rooms ?? [],
+        invoices: result?.invoices ?? [],
+        wallets: result?.wallets ?? [],
+        transactions: result?.transactions ?? [],
+        deposits: result?.deposits ?? [],
+      });
+      logPerfEvent('HOME_DATA_READY', { success: true });
+    } catch (requestError: any) {
+      setError('Không thể cập nhật tổng quan. Kiểm tra kết nối và thử lại.');
+      logPerfEvent('HOME_DATA_READY', {
+        success: false,
+        message: String(requestError?.message || requestError),
+      });
     } finally {
-      setSummaryLoading(false);
+      setLoading(false);
       setRefreshing(false);
     }
   }, []);
@@ -164,1214 +102,475 @@ export default function DashboardScreen() {
   }, [fetchData]);
 
   useEffect(() => {
-    markFirstScreenReady({ screen: "dashboard", hasSummary: Boolean(summary) });
-  }, [summary]);
+    markFirstScreenReady({ screen: 'dashboard', hasSummary: !loading && !error });
+  }, [error, loading]);
+
+  const stats = useMemo(() => {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    const monthTransactions = data.transactions.filter((item) => isInCurrentMonth(item.date));
+    const income = monthTransactions
+      .filter((item) => item.type === 'income')
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const expense = monthTransactions
+      .filter((item) => item.type === 'expense')
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const monthInvoices = data.invoices.filter(
+      (item) => Number(item.month) === month && Number(item.year) === year,
+    );
+    const expected = monthInvoices.reduce((sum, item) => sum + Number(item.total_amount || 0), 0);
+    const collected = monthInvoices.reduce((sum, item) => sum + Number(item.paid_amount || 0), 0);
+    const outstanding = Math.max(0, expected - collected);
+    const overdue = data.invoices.filter((item) => {
+      const isPast = Number(item.year) < year || (Number(item.year) === year && Number(item.month) < month);
+      return isPast && Number(item.paid_amount || 0) < Number(item.total_amount || 0);
+    });
+    const overdueAmount = overdue.reduce(
+      (sum, item) => sum + Math.max(0, Number(item.total_amount || 0) - Number(item.paid_amount || 0)),
+      0,
+    );
+    const occupied = data.rooms.filter((room) => room.status === 'occupied').length;
+    const vacant = data.rooms.filter((room) => room.status === 'vacant').length;
+    const reserved = data.rooms.filter((room) => room.status === 'reserved').length;
+    const maintenance = data.rooms.filter((room) => room.status === 'maintenance').length;
+    const balance = data.wallets.reduce((sum, wallet) => sum + Number(wallet.balance || 0), 0);
+    const deposits = data.deposits
+      .filter((deposit) => deposit.status === 'holding')
+      .reduce((sum, deposit) => sum + Number(deposit.amount || 0), 0);
+
+    return {
+      month,
+      income,
+      expense,
+      profit: income - expense,
+      expected,
+      collected,
+      outstanding,
+      collectionRate: expected > 0 ? Math.min(100, Math.round((collected / expected) * 100)) : 0,
+      overdue,
+      overdueAmount,
+      occupied,
+      vacant,
+      reserved,
+      maintenance,
+      totalRooms: data.rooms.length,
+      occupancyRate: data.rooms.length ? Math.round((occupied / data.rooms.length) * 100) : 0,
+      balance,
+      deposits,
+      monthTransactions,
+      paidInvoices: monthInvoices.filter(
+        (item) => Number(item.total_amount || 0) > 0 && Number(item.paid_amount || 0) >= Number(item.total_amount || 0),
+      ),
+    };
+  }, [data]);
+
+  const displayName = user?.fullName || user?.name || user?.full_name || 'Chủ trọ';
+  const firstName = String(displayName).trim().split(/\s+/).pop() || 'bạn';
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchData(true);
   };
 
-  // Room Rental calculations
-  const rooms = data?.rooms || [];
-  const invoices = data?.invoices || [];
-  const totalRooms = summary?.roomStats?.total ?? rooms.length;
-  const vacant = summary?.roomStats?.vacant ?? rooms.filter((r: any) => r.status === 'vacant').length;
-  const occupied = summary?.roomStats?.occupied ?? rooms.filter((r: any) => r.status === 'occupied').length;
-  const maintenance = summary?.roomStats?.maintenance ?? rooms.filter((r: any) => r.status === 'maintenance').length;
-  const reserved = summary?.roomStats?.reserved ?? rooms.filter((r: any) => r.status === 'reserved').length;
-
-  const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
-
-  // Financial calculations
-  const monthInvoices = invoices.filter((i: any) => i.month === currentMonth && i.year === currentYear);
-  const totalExpected = monthInvoices.reduce((sum: number, i: any) => sum + Number(i.total_amount || 0), 0);
-  const totalCollected = monthInvoices.reduce((sum: number, i: any) => sum + Number(i.paid_amount || 0), 0);
-  const totalOutstanding = Math.max(0, totalExpected - totalCollected);
-  const collectedPercentage = totalExpected > 0 ? (totalCollected / totalExpected) * 100 : 0;
-
-  const unpaidCount = monthInvoices.filter((i: any) => {
-    const paid = Number(i.paid_amount || 0);
-    const total = Number(i.total_amount || 0);
-    return paid < total;
-  }).length;
-
-  // New detailed report calculations (month transactions)
-  const thisMonthTxs = (data?.recentTransactions || []).filter((t: any) => {
-    if (!t.date) return false;
-    const td = new Date(t.date);
-    return td.getMonth() + 1 === currentMonth && td.getFullYear() === currentYear;
-  });
-  const totalIncome = summary?.financialStats?.income ?? thisMonthTxs.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
-  const totalExpense = summary?.financialStats?.expense ?? thisMonthTxs.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
-  const netProfit = summary?.financialStats?.profit ?? totalIncome - totalExpense;
-
-  const totalDepositsHeld = (data?.deposits || [])
-    .filter((d: any) => d.status === 'holding')
-    .reduce((sum: number, d: any) => sum + Number(d.amount || 0), 0);
-
-  // Trading Business calculations
-  const tradingStats = data?.tradingStats || { unsoldCapital: 0, unsoldCount: 0, realizedProfit: 0, soldCount: 0 };
-  const wallets = data?.wallets || [];
-  const tradingWallet = wallets.find((w: any) => w.type === 'trading') || wallets[0];
-  const recentInvoices = invoices.slice(0, 4);
-
-  const paidMonthInvoices = monthInvoices.filter((i: any) => {
-    const paid = Number(i.paid_amount || 0);
-    const total = Number(i.total_amount || 0);
-    return paid >= total && total > 0;
-  });
-  const overdueInvoices = invoices.filter((i: any) => {
-    const paid = Math.round(Number(i.paid_amount || 0));
-    const total = Math.round(Number(i.total_amount || 0));
-    const isPastPeriod = Number(i.year || 0) < currentYear || (Number(i.year || 0) === currentYear && Number(i.month || 0) < currentMonth);
-    return isPastPeriod && total > 0 && paid < total;
-  });
-  const overdueAmount = summary?.overdueInvoices?.amount ?? overdueInvoices.reduce((sum: number, i: any) => (
-    sum + Math.max(0, Number(i.total_amount || 0) - Number(i.paid_amount || 0))
-  ), 0);
-
-  const thisMonthTransactions = thisMonthTxs.slice(0, 4);
-
-  const totalBalance = (data?.wallets || []).reduce((sum: number, w: any) => sum + Number(w.balance || 0), 0);
+  if (loading) {
+    return <HomeSkeleton />;
+  }
 
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scroll}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+      }
     >
-      <View style={styles.subContainer}>
-        {summaryLoading ? (
-          <View style={styles.inlineLoading}>
-            <Text style={styles.inlineLoadingText}>Đang cập nhật tổng quan...</Text>
-          </View>
-        ) : null}
+      <View style={styles.greetingRow}>
+        <View style={styles.greetingCopy}>
+          <Text style={styles.greeting}>Xin chào, {firstName}</Text>
+          <Text style={styles.greetingHint}>Tổng quan vận hành tháng {stats.month}</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.avatarButton}
+          onPress={() => router.push('/profile')}
+          accessibilityRole="button"
+          accessibilityLabel="Mở hồ sơ cá nhân"
+          activeOpacity={0.72}
+        >
+          <Image
+            source={require('@/assets/brand/transparent/trocare-symbol-tc-transparent-128.png')}
+            style={styles.avatarImage}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+      </View>
 
-        {/* Premium Balance Header Card */}
-        <View style={styles.headerBalanceCard}>
-          <View style={styles.balanceHeaderRow}>
-            <View>
-              <Text style={styles.balanceTitle}>TỔNG SỐ DƯ KHẢ DỤNG</Text>
-              <Text style={styles.balanceValText}>
-                {hideBalance ? '••••••' : (
-                  <>
-                    {new Intl.NumberFormat('vi-VN').format(Math.round(Number(totalBalance || 0)))}{' '}
-                    <Text style={{ textDecorationLine: 'underline' }}>đ</Text>
-                  </>
-                )}
+      {error ? (
+        <View style={styles.errorBanner}>
+          <Ionicons name="cloud-offline-outline" size={21} color={styles.errorTitle.color} />
+          <View style={styles.errorCopy}>
+            <Text style={styles.errorTitle}>Chưa tải được dữ liệu</Text>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchData(true)} activeOpacity={0.72}>
+            <Text style={styles.retryText}>Thử lại</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      <View style={styles.hero}>
+        <View style={styles.heroAccent} />
+        <View style={styles.heroHeader}>
+          <View>
+            <Text style={styles.heroLabel}>LỢI NHUẬN RÒNG THÁNG {stats.month}</Text>
+            {stats.income === 0 && stats.expense === 0 ? (
+              <Text style={styles.heroEmptyTitle}>Chưa có dòng tiền tháng này</Text>
+            ) : (
+              <Text style={[styles.heroAmount, stats.profit < 0 && styles.heroAmountNegative]}>
+                {hideBalance ? '••••••••' : money(stats.profit)}
               </Text>
-            </View>
-            <TouchableOpacity onPress={() => setHideBalance(!hideBalance)} style={styles.eyeBtn}>
-              <Ionicons
-                name={hideBalance ? 'eye-off' : 'eye'}
-                size={22}
-                color="#0056D2"
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Quick Balance Actions inside Card */}
-          <View style={styles.balanceActionsRow}>
-            <TouchableOpacity
-              style={styles.balanceActionItem}
-              onPress={() => router.push('/transactions/new')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.balanceActionIcon}>
-                <Ionicons name="arrow-down-outline" size={20} color="#0056D2" />
-              </View>
-              <Text style={styles.balanceActionLabel}>Lập phiếu thu</Text>
-            </TouchableOpacity>
-
-            <View style={styles.balanceActionDivider} />
-
-            <TouchableOpacity
-              style={styles.balanceActionItem}
-              onPress={() => router.push('/transactions/new')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.balanceActionIcon}>
-                <Ionicons name="arrow-up-outline" size={20} color="#0056D2" />
-              </View>
-              <Text style={styles.balanceActionLabel}>Lập phiếu chi</Text>
-            </TouchableOpacity>
-
-            <View style={styles.balanceActionDivider} />
-
-            <TouchableOpacity
-              style={styles.balanceActionItem}
-              onPress={() => router.push('/(tabs)/transactions')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.balanceActionIcon}>
-                <Ionicons name="reader-outline" size={20} color="#0056D2" />
-              </View>
-              <Text style={styles.balanceActionLabel}>Xem sổ quỹ</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* iOS Storage-style Unified Room Status Bar */}
-        <Card style={styles.roomStatusBarCard}>
-          <View style={styles.roomStatusHeader}>
-            <Ionicons name="bed-outline" size={18} color={Colors.primary} />
-            <Text style={styles.roomStatusTitle}>Trạng thái phòng trọ ({totalRooms} phòng)</Text>
-          </View>
-
-          {/* Proportional Segment Bar */}
-          <View style={styles.proportionalBar}>
-            {occupied > 0 && (
-              <View style={[styles.barSegment, { flex: occupied, backgroundColor: Colors.primary }]} />
-            )}
-            {vacant > 0 && (
-              <View style={[styles.barSegment, { flex: vacant, backgroundColor: Colors.successDark }]} />
-            )}
-            {reserved > 0 && (
-              <View style={[styles.barSegment, { flex: reserved, backgroundColor: Colors.warning }]} />
-            )}
-            {maintenance > 0 && (
-              <View style={[styles.barSegment, { flex: maintenance, backgroundColor: Colors.danger }]} />
-            )}
-            {totalRooms === 0 && (
-              <View style={[styles.barSegment, { flex: 1, backgroundColor: Colors.border }]} />
             )}
           </View>
-
-          {/* Legends Grid */}
-          <View style={styles.roomLegendsRow}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
-              <Text style={styles.legendLabel}>Đang thuê ({occupied})</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: Colors.successDark }]} />
-              <Text style={styles.legendLabel}>Trống ({vacant})</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: Colors.warning }]} />
-              <Text style={styles.legendLabel}>Đã cọc ({reserved})</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: Colors.danger }]} />
-              <Text style={styles.legendLabel}>Bảo trì ({maintenance})</Text>
-            </View>
-          </View>
-        </Card>
-
-        {/* MoMo-style Grid of Utilities / Quick Actions */}
-        <View style={styles.momoGridSection}>
-          <Text style={styles.momoSectionTitle}>Tác vụ nhanh quản lý</Text>
-          <View style={styles.momoGrid}>
-            <View style={styles.momoRow}>
-              <TouchableOpacity style={styles.momoItem} onPress={() => router.push('/invoice/new')}>
-                <View style={[styles.momoIconWrapper, { backgroundColor: '#e0f2fe' }]}>
-                  <Ionicons name="receipt-outline" size={20} color="#0284c7" />
-                </View>
-                <Text style={styles.momoLabel}>Tạo hóa đơn</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.momoItem} onPress={() => router.push('/payment/new')}>
-                <View style={[styles.momoIconWrapper, { backgroundColor: '#dcfce7' }]}>
-                  <Ionicons name="cash-outline" size={20} color="#15803d" />
-                </View>
-                <Text style={styles.momoLabel}>Thu tiền</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.momoItem} onPress={() => router.push('/deposit/new')}>
-                <View style={[styles.momoIconWrapper, { backgroundColor: '#fef3c7' }]}>
-                  <Ionicons name="bookmark-outline" size={20} color="#b45309" />
-                </View>
-                <Text style={styles.momoLabel}>Nhận cọc</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.momoItem} onPress={() => router.push('/contract/new')}>
-                <View style={[styles.momoIconWrapper, { backgroundColor: '#f3e8ff' }]}>
-                  <Ionicons name="document-attach-outline" size={20} color="#7e22ce" />
-                </View>
-                <Text style={styles.momoLabel}>Tạo hợp đồng</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.momoRow}>
-              <TouchableOpacity style={styles.momoItem} onPress={() => router.push('/tenants')}>
-                <View style={[styles.momoIconWrapper, { backgroundColor: '#ecfeff' }]}>
-                  <Ionicons name="people-outline" size={20} color="#0e7490" />
-                </View>
-                <Text style={styles.momoLabel}>Khách thuê</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.momoItem} onPress={() => router.push('/(tabs)/facilities')}>
-                <View style={[styles.momoIconWrapper, { backgroundColor: '#fce7f3' }]}>
-                  <Ionicons name="business-outline" size={20} color="#be185d" />
-                </View>
-                <Text style={styles.momoLabel}>Dãy trọ</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.momoItem} onPress={() => router.push('/(tabs)/transactions')}>
-                <View style={[styles.momoIconWrapper, { backgroundColor: '#ffe4e6' }]}>
-                  <Ionicons name="list-outline" size={20} color="#be123c" />
-                </View>
-                <Text style={styles.momoLabel}>Sổ quỹ</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.momoItem} onPress={() => router.push('/wallets')}>
-                <View style={[styles.momoIconWrapper, { backgroundColor: '#ccfbf1' }]}>
-                  <Ionicons name="wallet-outline" size={20} color="#0f766e" />
-                </View>
-                <Text style={styles.momoLabel}>Tài khoản ví</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {/* Premium Rental Financial Analytics Widget */}
-        <Card style={styles.financialCard}>
-          <View style={styles.financialHeader}>
-            <View>
-              <Text style={styles.financialTitle}>Tiền thuê tháng {currentMonth}</Text>
-              <Text style={styles.financialSubtitle}>Đã thu vs Chưa thu hóa đơn</Text>
-            </View>
-            <StatusBadge status={unpaidCount > 0 ? 'sent' : 'paid'} type="invoice" />
-          </View>
-
-          <View style={styles.amountShowRow}>
-            <View style={styles.amountItem}>
-              <Text style={styles.amountLabel}>Đã thu</Text>
-              <Text style={[styles.amountVal, { color: Colors.successDark }]}>{formatMoney(totalCollected)}</Text>
-            </View>
-            <View style={styles.dividerVertical} />
-            <View style={styles.amountItem}>
-              <Text style={styles.amountLabel}>Chưa thu</Text>
-              <Text style={[styles.amountVal, { color: Colors.danger }]}>{formatMoney(totalOutstanding)}</Text>
-            </View>
-          </View>
-
-          {/* Visual Progress Bar */}
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBarBg}>
-              <View style={[styles.progressBarFill, { width: `${Math.max(5, Math.min(100, collectedPercentage))}%` }]} />
-            </View>
-            <View style={styles.progressLabelRow}>
-              <Text style={styles.progressLabel}>{Math.round(collectedPercentage)}% đã thu</Text>
-              <Text style={styles.progressLabelRight}>{formatMoney(totalExpected)} tổng mục tiêu</Text>
-            </View>
-          </View>
-        </Card>
-
-        {overdueInvoices.length > 0 && (
           <TouchableOpacity
-            style={styles.overdueAlertCard}
-            onPress={() => router.push('/(tabs)/invoices')}
-            activeOpacity={0.78}
+            style={styles.heroIconButton}
+            onPress={() => setHideBalance((value) => !value)}
+            accessibilityRole="button"
+            accessibilityLabel={hideBalance ? 'Hiện số tiền' : 'Ẩn số tiền'}
           >
-            <View style={styles.overdueAlertIcon}>
-              <Ionicons name="warning-outline" size={20} color={Colors.danger} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.overdueAlertTitle}>
-                Có {overdueInvoices.length} hóa đơn quá hạn
-              </Text>
-              <Text style={styles.overdueAlertText}>
-                Còn phải thu {formatMoney(overdueAmount)} từ các kỳ đã qua.
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.danger} />
+            <Ionicons name={hideBalance ? 'eye-off-outline' : 'eye-outline'} size={20} color="#64748B" />
           </TouchableOpacity>
-        )}
-
-        {/* Premium Financial Report Panel */}
-        <Card style={styles.reportCard}>
-          <View style={styles.reportHeader}>
-            <View style={styles.reportTitleRow}>
-              <Ionicons name="bar-chart-outline" size={18} color={Colors.primary} />
-              <Text style={styles.reportTitle}>Báo cáo tài chính tháng {currentMonth}</Text>
-            </View>
-            <Text style={styles.reportSubtitle}>Doanh thu đã thu, chi phí vận hành & lợi nhuận thực tế</Text>
-          </View>
-
-          <View style={styles.reportGrid}>
-            <View style={styles.reportRow}>
-              <View style={[styles.reportItem, { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' }]}>
-                <View style={styles.reportItemHeader}>
-                  <Ionicons name="wallet-outline" size={15} color={Colors.primary} />
-                  <Text style={styles.reportItemLabel}>Lợi nhuận ròng</Text>
-                </View>
-                <Text style={[styles.reportItemVal, { color: netProfit >= 0 ? Colors.primary : Colors.danger }]}>
-                  {formatMoney(netProfit)}
-                </Text>
-              </View>
-
-              <View style={[styles.reportItem, { backgroundColor: '#f0f9ff', borderColor: '#bae6fd' }]}>
-                <View style={styles.reportItemHeader}>
-                  <Ionicons name="shield-checkmark-outline" size={15} color="#0284c7" />
-                  <Text style={styles.reportItemLabel}>Tiền cọc giữ hộ</Text>
-                </View>
-                <Text style={[styles.reportItemVal, { color: '#0284c7' }]}>
-                  {formatMoney(totalDepositsHeld)}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.reportRow}>
-              <View style={[styles.reportItem, { backgroundColor: '#eff6ff', borderColor: '#93c5fd' }]}>
-                <View style={styles.reportItemHeader}>
-                  <Ionicons name="trending-up-outline" size={15} color="#1d4ed8" />
-                  <Text style={styles.reportItemLabel}>Doanh thu đã thu</Text>
-                </View>
-                <Text style={[styles.reportItemVal, { color: '#1d4ed8' }]}>
-                  {formatMoney(totalIncome)}
-                </Text>
-              </View>
-
-              <View style={[styles.reportItem, { backgroundColor: '#f8fafc', borderColor: '#cbd5e1' }]}>
-                <View style={styles.reportItemHeader}>
-                  <Ionicons name="trending-down-outline" size={15} color="#475569" />
-                  <Text style={styles.reportItemLabel}>Chi phí vận hành</Text>
-                </View>
-                <Text style={[styles.reportItemVal, { color: '#475569' }]}>
-                  {formatMoney(totalExpense)}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={{ height: 1, backgroundColor: Colors.borderLight, marginVertical: 12 }} />
-
-          <TouchableOpacity 
-            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 4 }}
-            onPress={() => router.push('/(tabs)/reports')}
-            activeOpacity={0.7}
-          >
-            <Text style={{ fontSize: 13, fontFamily: Typography.fontFamily.bold, color: Colors.primary }}>
-              Xem báo cáo chi tiết
-            </Text>
-            <Ionicons name="arrow-forward" size={14} color={Colors.primary} />
-          </TouchableOpacity>
-        </Card>
-
-        {/* Simplified Invoice Ledger & Sổ Thu Chi Segment */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.ledgerTabContainer}>
-              <TouchableOpacity 
-                style={[styles.ledgerTabBtn, ledgerTab === 'paid' && styles.ledgerTabBtnActive]} 
-                onPress={() => setLedgerTab('paid')}
-                activeOpacity={0.72}
-              >
-                <Text style={[styles.ledgerTabText, ledgerTab === 'paid' && styles.ledgerTabTextActive]}>
-                  HĐ đã thanh toán
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.ledgerTabBtn, ledgerTab === 'cashflow' && styles.ledgerTabBtnActive]} 
-                onPress={() => setLedgerTab('cashflow')}
-                activeOpacity={0.72}
-              >
-                <Text style={[styles.ledgerTabText, ledgerTab === 'cashflow' && styles.ledgerTabTextActive]}>
-                  Sổ thu chi tháng
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity onPress={() => router.push(ledgerTab === 'paid' ? '/(tabs)/invoices' : '/(tabs)/transactions')}>
-              <Text style={styles.seeAll}>Xem tất cả</Text>
-            </TouchableOpacity>
-          </View>
-
-          {ledgerTab === 'paid' ? (
-            paidMonthInvoices.length === 0 ? (
-              <Card style={styles.emptyCard}>
-                <Ionicons name="shield-checkmark-outline" size={32} color={Colors.textMuted} style={{ alignSelf: 'center', marginBottom: 6 }} />
-                <Text style={styles.emptyText}>Chưa có hóa đơn nào đã thu</Text>
-              </Card>
-            ) : (
-              paidMonthInvoices.map((inv: any) => (
-                <TouchableOpacity
-                  key={inv.id}
-                  style={styles.invoiceItem}
-                  onPress={() => router.push(`/invoice/${inv.id}`)}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.invoiceRoom}>{inv.room_name || `Phòng`}</Text>
-                    <Text style={styles.invoicePeriod}>
-                      T{inv.month}/{inv.year} · {inv.tenant_name || 'Khách thuê'}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                    <Text style={styles.invoiceAmount}>{formatMoney(inv.total_amount)}</Text>
-                    <StatusBadge status="paid" type="invoice" />
-                  </View>
-                </TouchableOpacity>
-              ))
-            )
-          ) : (
-            thisMonthTransactions.length === 0 ? (
-              <Card style={styles.emptyCard}>
-                <Ionicons name="list-outline" size={32} color={Colors.textMuted} style={{ alignSelf: 'center', marginBottom: 6 }} />
-                <Text style={styles.emptyText}>Chưa phát sinh giao dịch nào</Text>
-              </Card>
-            ) : (
-              thisMonthTransactions.map((tx: any) => {
-                const isIncome = tx.type === 'income';
-                return (
-                  <View key={tx.id} style={styles.invoiceItem}>
-                    <View style={styles.txIconCol}>
-                      <View style={[styles.txIconWrapper, { backgroundColor: isIncome ? 'rgba(13, 148, 136, 0.08)' : 'rgba(244, 63, 94, 0.08)' }]}>
-                        <Ionicons 
-                          name={isIncome ? 'arrow-down' : 'arrow-up'} 
-                          size={14} 
-                          color={isIncome ? Colors.successDark : Colors.danger} 
-                        />
-                      </View>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.invoiceRoom} numberOfLines={1}>{tx.description || 'Giao dịch không tên'}</Text>
-                      <Text style={styles.invoicePeriod}>
-                        {tx.date ? new Date(tx.date).toLocaleDateString('vi-VN') : ''}
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
-                      <Text style={[styles.txAmountText, { color: isIncome ? Colors.successDark : Colors.danger }]}>
-                        {isIncome ? '+' : '-'}{formatMoney(tx.amount)}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })
-            )
-          )}
         </View>
+        <View style={styles.heroMetrics}>
+          <HeroMetric label="Đã thu" value={hideBalance ? '••••' : compactMoney(stats.income)} />
+          <View style={styles.heroDivider} />
+          <HeroMetric label="Chi phí" value={hideBalance ? '••••' : compactMoney(stats.expense)} />
+          <View style={styles.heroDivider} />
+          <HeroMetric label="Số dư ví" value={hideBalance ? '••••' : compactMoney(stats.balance)} />
+        </View>
+      </View>
+
+      <View style={styles.primaryActions}>
+        <PrimaryAction icon="receipt-outline" label="Tạo hóa đơn" onPress={() => router.push('/invoice/new')} />
+        <PrimaryAction icon="cash-outline" label="Thu tiền" onPress={() => router.push('/payment/new')} />
+        <PrimaryAction icon="bookmark-outline" label="Nhận cọc" onPress={() => router.push('/deposit/new')} />
+        <PrimaryAction icon="add-outline" label="Thêm mới" onPress={() => router.push('/transactions/new')} />
+      </View>
+
+      {stats.overdue.length > 0 ? (
+        <TouchableOpacity
+          style={styles.attentionRow}
+          onPress={() => router.push('/(tabs)/invoices')}
+          activeOpacity={0.76}
+        >
+          <View style={styles.attentionIcon}>
+            <Ionicons name="alert-circle-outline" size={20} color="#DC2626" />
+          </View>
+          <View style={styles.attentionCopy}>
+            <Text style={styles.attentionTitle}>{stats.overdue.length} hóa đơn cần xử lý</Text>
+            <Text style={styles.attentionText}>Quá hạn {money(stats.overdueAmount)}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+        </TouchableOpacity>
+      ) : null}
+
+      <SectionHeader title="Dòng tiền tháng này" action="Xem báo cáo" onPress={() => router.push('/(tabs)/reports')} />
+      <View style={styles.cashflowPanel}>
+        <View style={styles.collectionHeader}>
+          <View>
+            <Text style={styles.collectionLabel}>Tiến độ thu tiền phòng</Text>
+            <Text style={styles.collectionAmount}>{money(stats.collected)}</Text>
+          </View>
+          <Text style={styles.collectionRate}>{stats.collectionRate}%</Text>
+        </View>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${stats.collectionRate}%` }]} />
+        </View>
+        <View style={styles.cashflowRows}>
+          <MetricRow label="Tổng cần thu" value={money(stats.expected)} />
+          <MetricRow label="Còn phải thu" value={money(stats.outstanding)} valueStyle={stats.outstanding > 0 ? styles.warningValue : undefined} />
+          <MetricRow label="Tiền cọc đang giữ" value={money(stats.deposits)} last />
+        </View>
+      </View>
+
+      <SectionHeader title="Tình trạng phòng" action="Quản lý phòng" onPress={() => router.push('/(tabs)/facilities')} />
+      <TouchableOpacity style={styles.roomsPanel} onPress={() => router.push('/(tabs)/facilities')} activeOpacity={0.82}>
+        <View style={styles.occupancyBlock}>
+          <Text style={styles.occupancyValue}>{stats.occupancyRate}%</Text>
+          <Text style={styles.occupancyLabel}>lấp đầy</Text>
+        </View>
+        <View style={styles.roomDetails}>
+          <View style={styles.roomSummaryLine}>
+            <Text style={styles.roomSummaryTitle}>{stats.totalRooms} phòng</Text>
+            <Text style={styles.roomSummaryMeta}>{data.boardingHouses.length} dãy trọ</Text>
+          </View>
+          <View style={styles.roomBar}>
+            <View style={[styles.roomBarFill, { flex: Math.max(stats.occupied, 0.001), backgroundColor: Colors.primary }]} />
+            <View style={[styles.roomBarFill, { flex: Math.max(stats.vacant, 0.001), backgroundColor: '#059669' }]} />
+            <View style={[styles.roomBarFill, { flex: Math.max(stats.reserved, 0.001), backgroundColor: '#D97706' }]} />
+            <View style={[styles.roomBarFill, { flex: Math.max(stats.maintenance, 0.001), backgroundColor: '#CBD5E1' }]} />
+          </View>
+          <View style={styles.roomLegend}>
+            <LegendDot color={Colors.primary} label={`Đang thuê ${stats.occupied}`} />
+            <LegendDot color="#059669" label={`Trống ${stats.vacant}`} />
+            <LegendDot color="#D97706" label={`Đã cọc ${stats.reserved}`} />
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      <View style={styles.ledgerHeader}>
+        <View style={styles.ledgerTabs}>
+          <LedgerTabButton active={ledgerTab === 'invoices'} label="Hóa đơn đã thu" onPress={() => setLedgerTab('invoices')} />
+          <LedgerTabButton active={ledgerTab === 'transactions'} label="Sổ quỹ" onPress={() => setLedgerTab('transactions')} />
+        </View>
+        <TouchableOpacity onPress={() => router.push(ledgerTab === 'invoices' ? '/(tabs)/invoices' : '/(tabs)/transactions')}>
+          <Text style={styles.seeAll}>Tất cả</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.ledgerList}>
+        {ledgerTab === 'invoices' ? (
+          stats.paidInvoices.length ? (
+            stats.paidInvoices.slice(0, 4).map((invoice) => (
+              <TouchableOpacity key={invoice.id} style={styles.listRow} onPress={() => router.push(`/invoice/${invoice.id}`)}>
+                <View style={styles.listIcon}>
+                  <Ionicons name="checkmark-outline" size={18} color="#059669" />
+                </View>
+                <View style={styles.listCopy}>
+                  <Text style={styles.listTitle}>{invoice.room_name || 'Hóa đơn tiền phòng'}</Text>
+                  <Text style={styles.listMeta}>Kỳ T{invoice.month}/{invoice.year}</Text>
+                </View>
+                <Text style={styles.listAmount}>{money(invoice.total_amount)}</Text>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <EmptyLedger
+              icon="receipt-outline"
+              title="Chưa có hóa đơn đã thu"
+              description="Hóa đơn hoàn tất trong tháng sẽ xuất hiện tại đây."
+              action="Tạo hóa đơn"
+              onPress={() => router.push('/invoice/new')}
+            />
+          )
+        ) : stats.monthTransactions.length ? (
+          stats.monthTransactions.slice(0, 4).map((transaction) => {
+            const income = transaction.type === 'income';
+            return (
+              <View key={transaction.id} style={styles.listRow}>
+                <View style={styles.listIcon}>
+                  <Ionicons name={income ? 'arrow-down-outline' : 'arrow-up-outline'} size={18} color={income ? '#059669' : '#DC2626'} />
+                </View>
+                <View style={styles.listCopy}>
+                  <Text style={styles.listTitle} numberOfLines={1}>{transaction.description || 'Giao dịch'}</Text>
+                  <Text style={styles.listMeta}>{transaction.date ? new Date(transaction.date).toLocaleDateString('vi-VN') : 'Tháng này'}</Text>
+                </View>
+                <Text style={[styles.listAmount, income ? styles.incomeValue : styles.expenseValue]}>
+                  {income ? '+' : '-'}{money(transaction.amount)}
+                </Text>
+              </View>
+            );
+          })
+        ) : (
+          <EmptyLedger
+            icon="swap-vertical-outline"
+            title="Chưa có giao dịch tháng này"
+            description="Ghi khoản thu hoặc chi để theo dõi dòng tiền chính xác."
+            action="Lập phiếu thu chi"
+            onPress={() => router.push('/transactions/new')}
+          />
+        )}
       </View>
     </ScrollView>
   );
 }
 
-function QuickAction({
-  icon,
-  label,
-  color,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  color: string;
-  onPress: () => void;
-}) {
+function HomeSkeleton() {
   return (
-    <TouchableOpacity style={styles.quickAction} onPress={onPress} activeOpacity={0.7}>
-      <View style={[styles.quickActionIcon, { backgroundColor: `${color}10` }]}>
-        <Ionicons name={icon} size={22} color={color} />
+    <View style={styles.skeletonScreen}>
+      <View style={styles.skeletonGreeting} />
+      <View style={styles.skeletonHero}>
+        <ActivityIndicator color="#FFFFFF" />
       </View>
-      <Text style={styles.quickActionLabel} numberOfLines={2}>
-        {label}
-      </Text>
+      <View style={styles.skeletonActions}>
+        {[0, 1, 2, 3].map((item) => <View key={item} style={styles.skeletonAction} />)}
+      </View>
+      <View style={styles.skeletonLine} />
+      <View style={styles.skeletonPanel} />
+      <View style={styles.skeletonLineSmall} />
+      <View style={styles.skeletonPanelSmall} />
+    </View>
+  );
+}
+
+function HeroMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.heroMetric}>
+      <Text style={styles.heroMetricLabel}>{label}</Text>
+      <Text style={styles.heroMetricValue} numberOfLines={1}>{value}</Text>
+    </View>
+  );
+}
+
+function PrimaryAction({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.primaryAction} onPress={onPress} activeOpacity={0.68} accessibilityRole="button">
+      <View style={styles.primaryActionIcon}>
+        <Ionicons name={icon} size={21} color={Colors.primary} />
+      </View>
+      <Text style={styles.primaryActionLabel} numberOfLines={2}>{label}</Text>
     </TouchableOpacity>
   );
 }
 
-function QuickGridAction({
-  icon,
-  label,
-  color,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  color: string;
-  onPress: () => void;
-}) {
+function SectionHeader({ title, action, onPress }: { title: string; action: string; onPress: () => void }) {
   return (
-    <TouchableOpacity style={styles.quickGridAction} onPress={onPress} activeOpacity={0.7}>
-      <View style={[styles.quickActionIcon, { backgroundColor: `${color}10` }]}>
-        <Ionicons name={icon} size={20} color={color} />
-      </View>
-      <Text style={styles.quickActionLabel} numberOfLines={2}>
-        {label}
-      </Text>
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <TouchableOpacity onPress={onPress} hitSlop={8}>
+        <Text style={styles.sectionAction}>{action}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function MetricRow({ label, value, valueStyle, last }: { label: string; value: string; valueStyle?: object; last?: boolean }) {
+  return (
+    <View style={[styles.metricRow, last && styles.metricRowLast]}>
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={[styles.metricValue, valueStyle]}>{value}</Text>
+    </View>
+  );
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <View style={styles.legendItem}>
+      <View style={[styles.legendDot, { backgroundColor: color }]} />
+      <Text style={styles.legendText}>{label}</Text>
+    </View>
+  );
+}
+
+function LedgerTabButton({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={[styles.ledgerTab, active && styles.ledgerTabActive]} onPress={onPress} activeOpacity={0.72}>
+      <Text style={[styles.ledgerTabText, active && styles.ledgerTabTextActive]}>{label}</Text>
     </TouchableOpacity>
+  );
+}
+
+function EmptyLedger({ icon, title, description, action, onPress }: { icon: keyof typeof Ionicons.glyphMap; title: string; description: string; action: string; onPress: () => void }) {
+  return (
+    <View style={styles.emptyState}>
+      <View style={styles.emptyIcon}>
+        <Ionicons name={icon} size={24} color={Colors.textSecondary} />
+      </View>
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptyDescription}>{description}</Text>
+      <TouchableOpacity style={styles.emptyButton} onPress={onPress} activeOpacity={0.72}>
+        <Text style={styles.emptyButtonText}>{action}</Text>
+        <Ionicons name="arrow-forward-outline" size={16} color={Colors.primary} />
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  scroll: {
-    padding: 16,
-    paddingBottom: 110,
-    gap: 16,
-  },
-  inlineLoading: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  inlineLoadingText: {
-    fontSize: 12,
-    fontFamily: Typography.fontFamily.semibold,
-    color: Colors.textMuted,
-  },
-  loadingScreen: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.background,
-    paddingHorizontal: 24,
-  },
-  loadingLogoBadge: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
-    backgroundColor: Colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 3,
-    marginBottom: 18,
-  },
-  loadingLogo: {
-    width: 52,
-    height: 52,
-  },
-  loadingTitle: {
-    marginTop: 14,
-    fontSize: 17,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.textPrimary,
-  },
-  loadingSubtitle: {
-    marginTop: 6,
-    fontSize: 13,
-    fontFamily: Typography.fontFamily.medium,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-  segmentContainer: {
-    flexDirection: 'row',
-    backgroundColor: Colors.surface,
-    padding: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  segmentBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  segmentBtnActive: {
-    backgroundColor: Colors.primaryLight,
-  },
-  segmentText: {
-    fontSize: 13,
-    fontFamily: Typography.fontFamily.medium,
-    color: Colors.textSecondary,
-  },
-  segmentTextActive: {
-    color: Colors.primary,
-    fontFamily: Typography.fontFamily.semibold,
-  },
-  subContainer: {
-    gap: 16,
-  },
-  kpiGrid: {
-    gap: 10,
-  },
-  kpiRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  kpiCardItem: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    borderLeftWidth: 4,
-  },
-  kpiCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  kpiCardLabel: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.medium,
-    color: Colors.textMuted,
-  },
-  kpiCardVal: {
-    fontSize: 18,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.textPrimary,
-  },
-  financialCard: {
-    padding: 18,
-  },
-  financialHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 14,
-  },
-  financialTitle: {
-    fontSize: 16,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.textPrimary,
-    letterSpacing: -0.3,
-  },
-  financialSubtitle: {
-    fontSize: 12,
-    fontFamily: Typography.fontFamily.regular,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
-  amountShowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    marginBottom: 14,
-  },
-  amountItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  amountLabel: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.medium,
-    color: Colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.2,
-  },
-  amountVal: {
-    fontSize: 15,
-    fontFamily: Typography.fontFamily.bold,
-    marginTop: 2,
-  },
-  dividerVertical: {
-    width: 1,
-    height: 30,
-    backgroundColor: Colors.borderLight,
-  },
-  progressContainer: {
-    gap: 6,
-  },
-  progressBarBg: {
-    height: 8,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: Colors.primary,
-    borderRadius: 4,
-  },
-  progressLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  progressLabel: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.semibold,
-    color: Colors.primary,
-  },
-  progressLabelRight: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.medium,
-    color: Colors.textMuted,
-  },
-  overdueAlertCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: '#FFF7F9',
-    borderWidth: 1.5,
-    borderColor: 'rgba(244, 63, 94, 0.22)',
-  },
-  overdueAlertIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.dangerLight,
-  },
-  overdueAlertTitle: {
-    fontSize: 14,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.danger,
-  },
-  overdueAlertText: {
-    marginTop: 2,
-    fontSize: 12,
-    fontFamily: Typography.fontFamily.medium,
-    color: Colors.textSecondary,
-  },
-  section: {
-    gap: 10,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.textPrimary,
-    letterSpacing: -0.3,
-  },
-  seeAll: { fontSize: 13, fontFamily: Typography.fontFamily.semibold, color: Colors.primary },
-  headerBalanceCard: {
-    backgroundColor: '#D6E8FC',
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#C0D5FC',
-    shadowColor: '#0056D2',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  balanceHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  balanceTitle: {
-    fontSize: 12,
-    fontFamily: Typography.fontFamily.bold,
-    color: '#0056D2',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  balanceValText: {
-    fontSize: 32,
-    fontFamily: Typography.fontFamily.bold,
-    color: '#002E7A',
-    marginTop: 4,
-    letterSpacing: -0.5,
-  },
-  eyeBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#A8C9F8',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  balanceActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    shadowColor: '#0056D2',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  balanceActionItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  balanceActionDivider: {
-    width: 1,
-    height: '70%',
-    backgroundColor: '#E4EDF8',
-    alignSelf: 'center',
-  },
-  balanceActionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  balanceActionLabel: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.bold,
-    color: '#002E7A',
-  },
-  roomStatusBarCard: {
-    padding: 16,
-    marginBottom: 16,
-  },
-  roomStatusHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 14,
-  },
-  roomStatusTitle: {
-    fontSize: 14,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.textPrimary,
-  },
-  proportionalBar: {
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#e2e8f0',
-    flexDirection: 'row',
-    overflow: 'hidden',
-    marginBottom: 14,
-  },
-  barSegment: {
-    height: '100%',
-  },
-  roomLegendsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendLabel: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.medium,
-    color: Colors.textSecondary,
-  },
-  momoGridSection: {
-    marginBottom: 16,
-    backgroundColor: Colors.surface,
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  momoSectionTitle: {
-    fontSize: 14,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.textPrimary,
-    marginBottom: 12,
-  },
-  momoGrid: {
-    gap: 16,
-  },
-  momoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  momoItem: {
-    width: 68,
-    alignItems: 'center',
-    gap: 6,
-  },
-  momoIconWrapper: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  momoLabel: {
-    fontSize: 10,
-    fontFamily: Typography.fontFamily.medium,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  quickAction: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.surface,
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  quickActionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickActionLabel: {
-    fontSize: 10.5,
-    fontFamily: Typography.fontFamily.medium,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-  emptyCard: {
-    padding: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  emptyText: {
-    fontSize: 13,
-    fontFamily: Typography.fontFamily.regular,
-    color: Colors.textMuted,
-  },
-  invoiceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    gap: 12,
-  },
-  invoiceRoom: {
-    fontSize: 14,
-    fontFamily: Typography.fontFamily.semibold,
-    color: Colors.textPrimary,
-  },
-  invoicePeriod: {
-    fontSize: 12,
-    fontFamily: Typography.fontFamily.regular,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
-  invoiceAmount: {
-    fontSize: 14,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.textPrimary,
-  },
-  walletCard: {
-    padding: 18,
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
-  },
-  walletHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  walletTitle: {
-    fontSize: 12,
-    fontFamily: Typography.fontFamily.semibold,
-    color: Colors.appleBlue,
-    textTransform: 'uppercase',
-    letterSpacing: 0.2,
-  },
-  walletName: {
-    fontSize: 15,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.textPrimary,
-    marginTop: 2,
-  },
-  walletIconContainer: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: Colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-  },
-  walletBalance: {
-    fontSize: 26,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.textPrimary,
-    marginTop: 10,
-    letterSpacing: -0.5,
-  },
-  walletSubtext: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.regular,
-    color: Colors.textMuted,
-    marginTop: 6,
-    lineHeight: 15,
-  },
-  tradingPromoCard: {
-    padding: 16,
-    backgroundColor: '#fffdf5',
-    borderColor: '#fef08a',
-    gap: 8,
-  },
-  promoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  promoTitle: {
-    fontSize: 14,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.textPrimary,
-  },
-  promoDesc: {
-    fontSize: 12,
-    fontFamily: Typography.fontFamily.regular,
-    color: Colors.textSecondary,
-    lineHeight: 17,
-  },
-  promoBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: Colors.primary,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginTop: 6,
-  },
-  promoBtnText: {
-    fontSize: 12.5,
-    fontFamily: Typography.fontFamily.semibold,
-    color: Colors.textWhite,
-  },
-  reportCard: {
-    padding: 16,
-  },
-  reportHeader: {
-    marginBottom: 12,
-  },
-  reportTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  reportTitle: {
-    fontSize: 15,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.textPrimary,
-    letterSpacing: -0.3,
-  },
-  reportSubtitle: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.regular,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
-  reportGrid: {
-    gap: 8,
-  },
-  reportRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  reportItem: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  reportItemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  reportItemLabel: {
-    fontSize: 9,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.1,
-  },
-  reportItemVal: {
-    fontSize: 13.5,
-    fontFamily: Typography.fontFamily.bold,
-  },
-  actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  quickGridAction: {
-    width: '31.3%',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.surface,
-    paddingVertical: 12,
-    paddingHorizontal: 2,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  ledgerTabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#f1f5f9',
-    padding: 3,
-    borderRadius: 10,
-    gap: 2,
-  },
-  ledgerTabBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: 'transparent',
-  },
-  ledgerTabBtnActive: {
-    backgroundColor: '#fff',
-    shadowColor: Colors.textPrimary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  ledgerTabText: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.medium,
-    color: Colors.textSecondary,
-  },
-  ledgerTabTextActive: {
-    color: Colors.primary,
-    fontFamily: Typography.fontFamily.bold,
-  },
-  txIconCol: {
-    marginRight: 10,
-    justifyContent: 'center',
-  },
-  txIconWrapper: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  txAmountText: {
-    fontSize: 14,
-    fontFamily: Typography.fontFamily.bold,
-  },
+  screen: { flex: 1, backgroundColor: '#F8FAFC' },
+  content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 112 },
+  greetingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
+  greetingCopy: { flex: 1, paddingRight: 12 },
+  greeting: { fontSize: 20, lineHeight: 26, fontFamily: Typography.fontFamily.bold, color: '#0F172A', letterSpacing: -0.3 },
+  greetingHint: { marginTop: 3, fontSize: 13, lineHeight: 18, fontFamily: Typography.fontFamily.regular, color: '#64748B' },
+  avatarButton: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0' },
+  avatarImage: { width: 28, height: 28 },
+  errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, marginBottom: 16, borderRadius: 14, backgroundColor: '#FEF2F2' },
+  errorCopy: { flex: 1 },
+  errorTitle: { fontSize: 13, fontFamily: Typography.fontFamily.bold, color: '#991B1B' },
+  errorText: { marginTop: 2, fontSize: 11, lineHeight: 16, fontFamily: Typography.fontFamily.regular, color: '#7F1D1D' },
+  retryButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
+  retryText: { fontSize: 12, fontFamily: Typography.fontFamily.bold, color: '#DC2626' },
+  hero: { position: 'relative', overflow: 'hidden', borderRadius: 16, padding: 18, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0' },
+  heroAccent: { position: 'absolute', top: 0, left: 0, right: 0, height: 4, backgroundColor: '#2563EB' },
+  heroHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  heroLabel: { fontSize: 10.5, lineHeight: 14, fontFamily: Typography.fontFamily.semibold, color: '#2563EB', letterSpacing: 0.65 },
+  heroAmount: { marginTop: 7, fontSize: 28, lineHeight: 36, fontFamily: Typography.fontFamily.extrabold, color: '#0F172A', letterSpacing: -0.7 },
+  heroEmptyTitle: { marginTop: 7, fontSize: 19, lineHeight: 26, fontFamily: Typography.fontFamily.bold, color: '#0F172A', letterSpacing: -0.3 },
+  heroAmountNegative: { color: '#B91C1C' },
+  heroIconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginTop: -8, marginRight: -8 },
+  heroMetrics: { flexDirection: 'row', alignItems: 'center', marginTop: 17, paddingTop: 15, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E2E8F0' },
+  heroMetric: { flex: 1 },
+  heroMetricLabel: { fontSize: 10.5, lineHeight: 14, fontFamily: Typography.fontFamily.medium, color: '#64748B' },
+  heroMetricValue: { marginTop: 4, fontSize: 13, lineHeight: 18, fontFamily: Typography.fontFamily.bold, color: '#0F172A' },
+  heroDivider: { width: StyleSheet.hairlineWidth, height: 30, marginHorizontal: 12, backgroundColor: '#E2E8F0' },
+  primaryActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, marginBottom: 24, paddingHorizontal: 8, paddingVertical: 12, borderRadius: 16, backgroundColor: '#FFFFFF' },
+  primaryAction: { width: '24%', minHeight: 70, alignItems: 'center', justifyContent: 'flex-start' },
+  primaryActionIcon: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EFF6FF' },
+  primaryActionLabel: { marginTop: 7, fontSize: 11, lineHeight: 15, fontFamily: Typography.fontFamily.semibold, color: '#334155', textAlign: 'center' },
+  attentionRow: { flexDirection: 'row', alignItems: 'center', minHeight: 68, marginBottom: 24, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, backgroundColor: '#FFF7F7' },
+  attentionIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FEE2E2' },
+  attentionCopy: { flex: 1, marginHorizontal: 12 },
+  attentionTitle: { fontSize: 13, lineHeight: 18, fontFamily: Typography.fontFamily.bold, color: '#991B1B' },
+  attentionText: { marginTop: 2, fontSize: 12, lineHeight: 16, fontFamily: Typography.fontFamily.regular, color: '#7F1D1D' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  sectionTitle: { fontSize: 17, lineHeight: 22, fontFamily: Typography.fontFamily.bold, color: '#0F172A', letterSpacing: -0.25 },
+  sectionAction: { fontSize: 12, lineHeight: 18, fontFamily: Typography.fontFamily.semibold, color: '#2563EB' },
+  cashflowPanel: { borderRadius: 16, padding: 16, marginBottom: 26, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EDF1F5' },
+  collectionHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  collectionLabel: { fontSize: 12, lineHeight: 16, fontFamily: Typography.fontFamily.medium, color: '#64748B' },
+  collectionAmount: { marginTop: 4, fontSize: 22, lineHeight: 28, fontFamily: Typography.fontFamily.bold, color: '#0F172A', letterSpacing: -0.4 },
+  collectionRate: { fontSize: 20, lineHeight: 26, fontFamily: Typography.fontFamily.bold, color: '#2563EB' },
+  progressTrack: { height: 6, marginTop: 14, borderRadius: 3, overflow: 'hidden', backgroundColor: '#E2E8F0' },
+  progressFill: { height: '100%', borderRadius: 3, backgroundColor: '#2563EB' },
+  cashflowRows: { marginTop: 12 },
+  metricRow: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E2E8F0' },
+  metricRowLast: { borderBottomWidth: 0 },
+  metricLabel: { fontSize: 12.5, fontFamily: Typography.fontFamily.regular, color: '#64748B' },
+  metricValue: { fontSize: 13, fontFamily: Typography.fontFamily.semibold, color: '#0F172A' },
+  warningValue: { color: '#B45309' },
+  roomsPanel: { flexDirection: 'row', alignItems: 'stretch', minHeight: 128, borderRadius: 16, padding: 16, marginBottom: 26, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EDF1F5' },
+  occupancyBlock: { width: 86, alignItems: 'center', justifyContent: 'center', borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#E2E8F0' },
+  occupancyValue: { fontSize: 28, lineHeight: 34, fontFamily: Typography.fontFamily.extrabold, color: '#0F172A', letterSpacing: -0.7 },
+  occupancyLabel: { marginTop: 2, fontSize: 11, fontFamily: Typography.fontFamily.medium, color: '#64748B' },
+  roomDetails: { flex: 1, paddingLeft: 16, justifyContent: 'center' },
+  roomSummaryLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  roomSummaryTitle: { fontSize: 14, fontFamily: Typography.fontFamily.bold, color: '#0F172A' },
+  roomSummaryMeta: { fontSize: 11, fontFamily: Typography.fontFamily.medium, color: '#64748B' },
+  roomBar: { height: 7, flexDirection: 'row', gap: 2, marginTop: 12, overflow: 'hidden', borderRadius: 4, backgroundColor: '#E2E8F0' },
+  roomBarFill: { height: '100%' },
+  roomLegend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 10, rowGap: 6, marginTop: 12 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot: { width: 7, height: 7, borderRadius: 4 },
+  legendText: { fontSize: 10, fontFamily: Typography.fontFamily.medium, color: '#64748B' },
+  ledgerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  ledgerTabs: { flexDirection: 'row', gap: 4, padding: 3, borderRadius: 11, backgroundColor: '#E2E8F0' },
+  ledgerTab: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 8 },
+  ledgerTabActive: { backgroundColor: '#FFFFFF' },
+  ledgerTabText: { fontSize: 11, fontFamily: Typography.fontFamily.medium, color: '#64748B' },
+  ledgerTabTextActive: { fontFamily: Typography.fontFamily.bold, color: '#0F172A' },
+  seeAll: { fontSize: 12, fontFamily: Typography.fontFamily.semibold, color: '#2563EB' },
+  ledgerList: { overflow: 'hidden', borderRadius: 16, paddingHorizontal: 16, backgroundColor: '#FFFFFF' },
+  listRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E2E8F0' },
+  listIcon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F1F5F9' },
+  listCopy: { flex: 1, marginHorizontal: 12 },
+  listTitle: { fontSize: 13, lineHeight: 18, fontFamily: Typography.fontFamily.semibold, color: '#0F172A' },
+  listMeta: { marginTop: 2, fontSize: 11, lineHeight: 15, fontFamily: Typography.fontFamily.regular, color: '#64748B' },
+  listAmount: { maxWidth: 128, fontSize: 12.5, fontFamily: Typography.fontFamily.bold, color: '#0F172A', textAlign: 'right' },
+  incomeValue: { color: '#047857' },
+  expenseValue: { color: '#B91C1C' },
+  emptyState: { alignItems: 'center', paddingHorizontal: 20, paddingVertical: 28 },
+  emptyIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F1F5F9' },
+  emptyTitle: { marginTop: 12, fontSize: 14, lineHeight: 20, fontFamily: Typography.fontFamily.bold, color: '#0F172A', textAlign: 'center' },
+  emptyDescription: { maxWidth: 260, marginTop: 4, fontSize: 12, lineHeight: 17, fontFamily: Typography.fontFamily.regular, color: '#64748B', textAlign: 'center' },
+  emptyButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingHorizontal: 8 },
+  emptyButtonText: { fontSize: 12, fontFamily: Typography.fontFamily.bold, color: '#2563EB' },
+  skeletonScreen: { flex: 1, paddingHorizontal: 20, paddingTop: 22, backgroundColor: '#F8FAFC' },
+  skeletonGreeting: { width: 180, height: 24, borderRadius: 8, marginBottom: 22, backgroundColor: '#E2E8F0' },
+  skeletonHero: { height: 190, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F172A' },
+  skeletonActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 18, marginBottom: 28 },
+  skeletonAction: { width: 56, height: 68, borderRadius: 12, backgroundColor: '#E2E8F0' },
+  skeletonLine: { width: 170, height: 20, borderRadius: 7, marginBottom: 12, backgroundColor: '#E2E8F0' },
+  skeletonLineSmall: { width: 135, height: 20, borderRadius: 7, marginTop: 28, marginBottom: 12, backgroundColor: '#E2E8F0' },
+  skeletonPanel: { height: 184, borderRadius: 16, backgroundColor: '#FFFFFF' },
+  skeletonPanelSmall: { height: 132, borderRadius: 16, backgroundColor: '#FFFFFF' },
 });

@@ -113,16 +113,48 @@ export async function sendPushNotification(
     }
 
     const tokenStrings = tokens.map((t) => t.token);
+    const expoTokens = tokenStrings.filter((token) => /^ExponentPushToken\[.+\]$/.test(token));
+    const firebaseTokens = tokenStrings.filter((token) => !/^ExponentPushToken\[.+\]$/.test(token));
+    let expoSentCount = 0;
+    let expoFailedCount = 0;
+
+    if (expoTokens.length > 0) {
+      try {
+        const expoResponse = await fetch("https://exp.host/--/api/v2/push/send", {
+          method: "POST",
+          headers: { "content-type": "application/json", accept: "application/json" },
+          body: JSON.stringify(expoTokens.map((to) => ({
+            to,
+            title: notification.title,
+            body: notification.body,
+            data: notification.data || {},
+            sound: "default",
+          }))),
+        });
+        if (!expoResponse.ok) throw new Error(`Expo push returned ${expoResponse.status}`);
+        const payload: any = await expoResponse.json();
+        const tickets = Array.isArray(payload?.data) ? payload.data : [];
+        expoSentCount = tickets.filter((ticket: any) => ticket?.status === "ok").length;
+        expoFailedCount = Math.max(0, expoTokens.length - expoSentCount);
+      } catch (expoError: any) {
+        expoFailedCount = expoTokens.length;
+        console.error("Expo push send failed:", expoError.message);
+      }
+    }
+
+    if (firebaseTokens.length === 0) {
+      return { success: expoFailedCount === 0, sentCount: expoSentCount, failedCount: expoFailedCount };
+    }
     const messaging = await getFirebaseMessaging();
 
     if (!messaging || messaging.mocked) {
       console.info(`[Mock Push Notification] Sent to User ${userId}: "${notification.title}" - "${notification.body}"`);
-      return { success: true, sentCount: tokenStrings.length, failedCount: 0 };
+      return { success: expoFailedCount === 0, sentCount: expoSentCount + firebaseTokens.length, failedCount: expoFailedCount };
     }
 
     // 2. Send multicast
     const response = await messaging.sendEachForMulticast({
-      tokens: tokenStrings,
+      tokens: firebaseTokens,
       notification: {
         title: notification.title,
         body: notification.body,
@@ -142,9 +174,9 @@ export async function sendPushNotification(
           errCode === "messaging/invalid-registration-token" ||
           errCode === "messaging/registration-token-not-registered"
         ) {
-          tokensToRemove.push(tokenStrings[idx]);
+          tokensToRemove.push(firebaseTokens[idx]);
         }
-        console.error(`FCM send failed for token ${tokenStrings[idx].slice(0, 10)}...:`, resp.error?.message);
+        console.error(`FCM send failed for token ${firebaseTokens[idx].slice(0, 10)}...:`, resp.error?.message);
       }
     });
 
@@ -158,8 +190,8 @@ export async function sendPushNotification(
 
     return {
       success: true,
-      sentCount: response.successCount,
-      failedCount,
+      sentCount: expoSentCount + response.successCount,
+      failedCount: expoFailedCount + failedCount,
     };
   } catch (err: any) {
     console.error("Error sending push notification:", err.message);

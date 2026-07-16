@@ -19,6 +19,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
+    "firebase-admin": "^14.1.0",
     "google-auth-library": "^10.5.0",
     "hono": "^4.12.25",
     "jose": "^5.9.6",
