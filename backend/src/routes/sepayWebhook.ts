@@ -3,7 +3,7 @@ import { env } from "../config/env.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 import { applyInvoicePayment } from "../services/invoicePayments.js";
 import { getTenantUserIdByContractId, notifyPaymentSuccess } from "../services/notificationService.js";
-import { sendWebPushToUser } from "../services/webPushService.js";
+import { notifyOwnerPaymentReceived } from "../services/ownerPaymentNotifications.js";
 import { extractPaymentCodeFromPayload } from "../utils/paymentCodes.js";
 import { resolveSepayChannel } from "../services/sepayReconcile.js";
 import { extractSepayApiKey, verifySepayWebhookAuth } from "../services/sepayAuth.js";
@@ -23,41 +23,6 @@ const insertEvent = async (payload: Record<string, unknown>) => {
     .select("*")
     .single();
   return { data, error };
-};
-
-const notifyOwnerPaymentReceived = async (
-  ownerId: string,
-  invoice: any,
-  roomName: string | null,
-  amount: number,
-  status: "paid" | "partial",
-) => {
-  const formattedAmount = new Intl.NumberFormat("vi-VN").format(Math.round(amount));
-  const fullyPaid = status === "paid";
-  const { error } = await supabaseAdmin.from("rental_notifications").insert({
-    user_id: ownerId,
-    channel: "in_app",
-    event_type: "INVOICE_PAID",
-    payload: {
-      title: fullyPaid ? "Khách thuê đã thanh toán hóa đơn" : "Khách thuê đã thanh toán một phần",
-      body: `${roomName || "Phòng"} đã thanh toán ${formattedAmount} ₫ cho hóa đơn tháng ${invoice.month}/${invoice.year}.`,
-      invoiceId: invoice.id,
-      roomId: invoice.room_id,
-      transactionStatus: status,
-      paymentStatus: status,
-      amount,
-    },
-    delivered_at: new Date().toISOString(),
-  });
-
-  if (error) {
-    console.error("Failed to create owner payment notification:", error.message);
-  }
-
-  // Also send real-time web push to owner's browser
-  const title = fullyPaid ? "💰 Nhận tiền thành công!" : "💸 Nhận thanh toán một phần";
-  const body = `${roomName || "Phòng"} vừa thanh toán ${formattedAmount} ₫ (T${invoice.month}/${invoice.year})`;
-  sendWebPushToUser(ownerId, { title, body, url: `/invoices/${invoice.id}`, tag: `invoice-${invoice.id}` }).catch(() => {});
 };
 
 sepayWebhookRoutes.post("/", async (c) => {
