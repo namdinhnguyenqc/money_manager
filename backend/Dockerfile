@@ -1,7 +1,9 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+# backend/ has no package-lock.json (lockfile lives at the monorepo root), so
+# `npm ci` fails here. Use `npm install` which resolves from package.json alone.
+RUN npm install
 
 FROM node:22-alpine AS build
 WORKDIR /app
