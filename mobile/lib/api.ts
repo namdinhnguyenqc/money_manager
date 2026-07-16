@@ -169,21 +169,30 @@ export function setAuthEventListener(listener: AuthEventListener) {
 }
 
 // ─── Token Refresh ───
-let refreshPromise: Promise<boolean> | null = null;
+// 'ok'           → new access token saved, retry the request
+// 'auth_failed'  → refresh token is genuinely invalid/expired → log out
+// 'network_error'→ refresh could not reach the server (timeout, cold start,
+//                  offline, 5xx). The session is STILL VALID — never log out;
+//                  keep the user signed in and let them retry once the backend
+//                  is reachable. This is the fix for "kicked out in the evening"
+//                  when the free-tier backend was asleep during a cold start.
+type RefreshResult = 'ok' | 'auth_failed' | 'network_error';
 
-async function tryRefreshToken(): Promise<boolean> {
+let refreshPromise: Promise<RefreshResult> | null = null;
+
+async function tryRefreshToken(): Promise<RefreshResult> {
   if (refreshPromise) {
     console.log('[Token Refresh] Reusing existing refresh promise');
     return refreshPromise;
   }
 
-  refreshPromise = (async () => {
+  refreshPromise = (async (): Promise<RefreshResult> => {
     try {
       console.log('[Token Refresh] Starting token refresh flow...');
       const rt = await getRefreshToken();
       if (!rt) {
         console.warn('[Token Refresh] No refresh token found in SecureStore');
-        return false;
+        return 'auth_failed';
       }
 
       const res = await fetchWithTimeout(`${API_URL}/auth/refresh`, {
@@ -199,8 +208,14 @@ async function tryRefreshToken(): Promise<boolean> {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        console.error('[Token Refresh] Refresh request failed:', errorData);
-        return false;
+        // Only a real auth rejection (401/403) means the refresh token is dead.
+        // 5xx / other statuses are server-side transients → keep the session.
+        if (res.status === 401 || res.status === 403) {
+          console.error('[Token Refresh] Refresh token rejected:', errorData);
+          return 'auth_failed';
+        }
+        console.warn('[Token Refresh] Refresh transient failure, keeping session:', res.status);
+        return 'network_error';
       }
 
       const data = await res.json();
@@ -212,13 +227,15 @@ async function tryRefreshToken(): Promise<boolean> {
         ]);
         if (data?.refreshToken) console.log('[Token Refresh] New refresh token saved.');
         else console.warn('[Token Refresh] No refresh token returned in body.');
-        return true;
+        return 'ok';
       }
-      console.error('[Token Refresh] Response did not contain accessToken:', data);
-      return false;
+      console.warn('[Token Refresh] Response had no accessToken, keeping session:', data);
+      return 'network_error';
     } catch (err) {
-      console.error('[Token Refresh] Exception during token refresh:', err);
-      return false;
+      // Timeout / offline / DNS — the backend was unreachable (often a cold
+      // start on the free tier). The session is intact; do not log out.
+      console.warn('[Token Refresh] Network error during refresh, keeping session:', err);
+      return 'network_error';
     } finally {
       refreshPromise = null;
     }
@@ -398,12 +415,18 @@ async function request<T>(path: string, method: HttpMethod, body?: any, options:
 
     // Handle 401 — try token refresh once
     if (res.status === 401 && retry) {
-      const refreshed = await tryRefreshToken();
-      if (refreshed) {
+      const result = await tryRefreshToken();
+      if (result === 'ok') {
         return request<T>(path, method, body, { ...options, retry: false });
       }
-      authEventListener?.('logout');
-      throw new ApiClientError('Unauthorized', 401);
+      if (result === 'auth_failed') {
+        // Refresh token genuinely invalid/expired → sign out.
+        authEventListener?.('logout');
+        throw new ApiClientError('Unauthorized', 401);
+      }
+      // network_error: backend unreachable (e.g. cold start). Keep the session
+      // and surface a transient error so the app can retry — do NOT log out.
+      throw new ApiClientError('Không kết nối được máy chủ, vui lòng thử lại.', 0, { code: 'NETWORK_TIMEOUT' });
     }
 
     if (res.status === 401) {
