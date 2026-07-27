@@ -57,14 +57,32 @@ export const env = {
   ZALO_APP_ID: optional("ZALO_APP_ID", ""),
   ZALO_APP_SECRET: optional("ZALO_APP_SECRET", ""),
   ZALO_REDIRECT_URI: optional("ZALO_REDIRECT_URI", ""),
+  // Platform-owned OA. Admin connects this account once; individual owners do
+  // not need to complete Zalo OAuth for automated payment reminders.
+  ZALO_SHARED_OWNER_ID: optional("ZALO_SHARED_OWNER_ID", ""),
+  ZALO_PAYMENT_REMINDER_TEMPLATE_ID: optional("ZALO_PAYMENT_REMINDER_TEMPLATE_ID", ""),
+  ZALO_REMINDERS_ENABLED: (process.env.ZALO_REMINDERS_ENABLED ?? "false").toLowerCase() === "true",
   WEB_ADMIN_URL: optional("WEB_ADMIN_URL", "http://localhost:3001"),
   // Public site (web-admin) that serves /tin-tuc — used to trigger on-demand
   // ISR revalidation right after an article is created/updated/deleted.
   SITE_URL: optional("SITE_URL", "https://trocare-production.vercel.app"),
   REVALIDATE_SECRET: optional("REVALIDATE_SECRET", ""),
+  CRON_SECRET: optional("CRON_SECRET", ""),
+  // Optional distributed response cache. Upstash exposes Redis over HTTPS,
+  // which avoids opening long-lived TCP connections on Render/serverless.
+  UPSTASH_REDIS_REST_URL: optional("UPSTASH_REDIS_REST_URL", ""),
+  UPSTASH_REDIS_REST_TOKEN: optional("UPSTASH_REDIS_REST_TOKEN", ""),
   VAPID_PUBLIC_KEY: optional("VAPID_PUBLIC_KEY", ""),
   VAPID_PRIVATE_KEY: optional("VAPID_PRIVATE_KEY", ""),
   VAPID_SUBJECT: optional("VAPID_SUBJECT", "mailto:admin@trocare.vn"),
   // CORS: comma-separated list of allowed origins, e.g. "https://admin.yourdomain.com,https://app.yourdomain.com"
-  CORS_ORIGINS: optional("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3011,http://localhost:8081,http://localhost:19006").split(",").map(s => s.trim()),
+  // The production web-admin domains are always included, even if the CORS_ORIGINS
+  // env var on the host (e.g. Render) is missing or out of date — this is what
+  // caused "fetch failed" / CORS block on tcareproduction.vercel.app when the
+  // Render env var hadn't been updated to match the local .env.
+  CORS_ORIGINS: Array.from(new Set([
+    ...optional("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3011,http://localhost:8081,http://localhost:19006").split(",").map(s => s.trim()),
+    "https://trocare-production.vercel.app",
+    "https://tcareproduction.vercel.app",
+  ])),
 };
