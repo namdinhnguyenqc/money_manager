@@ -39,7 +39,11 @@ export const metadata: Metadata = {
     locale: "vi_VN",
     images: [
       {
-        url: "/brand/trocare-og-banner.png?v=1",
+        // The old /brand/trocare-og-banner.png never existed in public/ — every
+        // shared link (Zalo, Messenger, Facebook) showed no preview image
+        // because the OG fetch 404'd. /opengraph-image is generated at build
+        // time by src/app/opengraph-image.tsx and always resolves.
+        url: "/opengraph-image",
         width: 1200,
         height: 630,
         alt: "TrọCare - Phần mềm quản lý trọ miễn phí, vận hành an tâm",
@@ -50,7 +54,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Phần Mềm Quản Lý Trọ Miễn Phí, Quản Lý Phòng Trọ - TrọCare",
     description: "Phần mềm quản lý phòng trọ, hợp đồng, hóa đơn, thu chi và thanh toán QR tự động cho chủ trọ.",
-    images: ["/brand/trocare-og-banner.png?v=1"],
+    images: ["/opengraph-image"],
   },
 };
 
