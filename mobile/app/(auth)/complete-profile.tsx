@@ -28,7 +28,7 @@ import type { Province, District } from '@/lib/profile';
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
-  const { user, markProfilePendingApproval } = useAuthStore();
+  const { user, markProfilePendingApproval, setUser } = useAuthStore();
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -77,7 +77,7 @@ export default function CompleteProfileScreen() {
     try {
       const province = provinces.find((item) => item.code === provinceCode);
       const district = districts.find((item) => item.code === districtCode);
-      await completeProfile({
+      const res = await completeProfile({
         fullName: fullName.trim(),
         phone: onlyDigits(phone, 10),
         idCard: onlyDigits(idCard, 12),
@@ -88,8 +88,17 @@ export default function CompleteProfileScreen() {
         districtCode,
         districtName: district?.name || '',
       });
-      markProfilePendingApproval();
-      router.replace('/(auth)/pending-approval');
+      // Platform admin can toggle auto-approve ON — in that case the backend
+      // already activates the account and returns nextStep "DASHBOARD".
+      // Previously this screen ignored the response and always routed to
+      // pending-approval, so auto-approved owners got stuck waiting anyway.
+      if (res?.nextStep === 'DASHBOARD' && res?.user) {
+        setUser(res.user, true);
+        router.replace('/(tabs)');
+      } else {
+        markProfilePendingApproval();
+        router.replace('/(auth)/pending-approval');
+      }
     } catch (error: any) {
       // Handle field errors (e.g., duplicate phone) — preserve all inputs
       if (error?.fieldErrors) {

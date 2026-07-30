@@ -112,7 +112,11 @@ profileRoutes.post("/profile/complete", async (c) => {
       approvalStatus: result.status,
     },
     profile: result.profile,
-    nextStep: result.onboardingStep,
+    // The web client's complete-profile page routes on this literal value
+    // ("DASHBOARD" vs "PENDING_APPROVAL") — keep it a fixed contract rather
+    // than echoing the raw onboarding_step ("DONE"), which the client never
+    // matches against.
+    nextStep: result.status === "ACTIVE" ? "DASHBOARD" : "PENDING_APPROVAL",
   });
 });
 
