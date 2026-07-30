@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { CheckCircle2, Eye, RefreshCw, UserRound, XCircle, Sparkles, ShieldCheck, ShieldOff, Sliders, CheckSquare, Square, Search, ShieldAlert } from "lucide-react";
+import { CheckCircle2, Eye, RefreshCw, UserRound, XCircle, Sparkles, ShieldCheck, Sliders, CheckSquare, Square, Search, ShieldAlert } from "lucide-react";
 import { apiClient } from "@/lib/api";
 
 // Owner operation features mapping
@@ -283,25 +283,6 @@ export default function OwnerApprovalsPage() {
     }
   };
 
-  // Bật/tắt duyệt cho tài khoản đã ACTIVE — khác với updateApproval (chỉ dùng cho
-  // hồ sơ PENDING_APPROVAL lần đầu). Tắt = BLOCKED (khóa, giữ nguyên hồ sơ), có thể
-  // bật lại bất cứ lúc nào.
-  const toggleApprovalOn = async (id: string, turnOn: boolean) => {
-    setSavingId(id);
-    setError("");
-    try {
-      await apiClient(`/admin/users/${id}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: turnOn ? "ACTIVE" : "BLOCKED" }),
-      });
-      await load();
-    } catch (err: any) {
-      setError(err?.message || "Không cập nhật được trạng thái duyệt.");
-    } finally {
-      setSavingId(null);
-    }
-  };
-
   const handleUpdatePlan = async () => {
     if (!selectedItem) return;
     setUpdatingPlan(true);
@@ -549,18 +530,6 @@ export default function OwnerApprovalsPage() {
                                   </button>
                                 </>
                               )}
-                              {filterStatus === "ACTIVE" && (
-                                <button
-                                  disabled={savingId === item.id}
-                                  onClick={() => toggleApprovalOn(item.id, item.status !== "ACTIVE")}
-                                  className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-white shadow-sm transition disabled:opacity-50 ${
-                                    item.status === "ACTIVE" ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"
-                                  }`}
-                                >
-                                  {item.status === "ACTIVE" ? <ShieldOff size={11} /> : <ShieldCheck size={11} />}
-                                  {item.status === "ACTIVE" ? "Tắt duyệt" : "Bật duyệt"}
-                                </button>
-                              )}
                             </div>
                           </td>
                         </tr>
@@ -715,38 +684,19 @@ export default function OwnerApprovalsPage() {
                               </button>
                             </div>
                           ) : (
-                            <div className="space-y-2 pt-1 border-t border-slate-100 mt-2">
-                              {/* Bật/tắt duyệt — chỉ hiện khi hồ sơ đã qua bước duyệt ban đầu */}
-                              <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                                  {selectedItem.status === "ACTIVE" ? <ShieldCheck size={13} className="text-emerald-600" /> : <ShieldOff size={13} className="text-red-500" />}
-                                  Duyệt tài khoản
-                                </div>
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={selectedItem.status === "ACTIVE"}
-                                  disabled={savingId === selectedItem.id}
-                                  onClick={() => toggleApprovalOn(selectedItem.id, selectedItem.status !== "ACTIVE")}
-                                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${selectedItem.status === "ACTIVE" ? "bg-emerald-500" : "bg-slate-300"}`}
-                                >
-                                  <span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${selectedItem.status === "ACTIVE" ? "translate-x-6" : "translate-x-1"}`} />
-                                </button>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={handleUpdatePlan}
-                                disabled={updatingPlan || selectedPlan === (selectedItem.plan ?? (selectedItem.adminNote?.includes("premium") ? "premium" : "basic"))}
-                                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-40 shadow-sm"
-                              >
-                                {updatingPlan
-                                  ? "Đang lưu..."
-                                  : selectedPlan === (selectedItem.plan ?? (selectedItem.adminNote?.includes("premium") ? "premium" : "basic"))
-                                    ? "Gói không đổi"
-                                    : `Chuyển sang ${selectedPlan === "premium" ? "Premium ✦" : "Basic"}`
-                                }
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={handleUpdatePlan}
+                              disabled={updatingPlan || selectedPlan === (selectedItem.plan ?? (selectedItem.adminNote?.includes("premium") ? "premium" : "basic"))}
+                              className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-40 shadow-sm"
+                            >
+                              {updatingPlan
+                                ? "Đang lưu..."
+                                : selectedPlan === (selectedItem.plan ?? (selectedItem.adminNote?.includes("premium") ? "premium" : "basic"))
+                                  ? "Gói không đổi"
+                                  : `Chuyển sang ${selectedPlan === "premium" ? "Premium ✦" : "Basic"}`
+                              }
+                            </button>
                           )}
                         </div>
                       </div>
