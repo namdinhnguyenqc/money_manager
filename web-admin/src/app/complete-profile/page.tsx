@@ -78,8 +78,13 @@ export default function CompleteProfilePage() {
           onboardingStep: res.user.onboardingStep,
         });
       }
-      setToast("Đã gửi hồ sơ cho admin duyệt.");
-      router.replace("/pending-approval");
+      if (res.nextStep === "DASHBOARD") {
+        setToast("Hoàn tất hồ sơ thành công!");
+        router.replace("/owner/dashboard");
+      } else {
+        setToast("Đã gửi hồ sơ cho admin duyệt.");
+        router.replace("/pending-approval");
+      }
     } catch (err: any) {
       if (err instanceof ApiClientError && err.fieldErrors) {
         setServerErrors(Object.fromEntries(Object.entries(err.fieldErrors).map(([key, value]) => [key, value?.[0] || "Dữ liệu không hợp lệ"])));
