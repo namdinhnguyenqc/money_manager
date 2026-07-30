@@ -19,6 +19,33 @@ export type UserProfileResponse = UserProfileInput & {
   fullAddress: string;
 };
 
+export type ProfileCompletionResult = {
+  profile: UserProfileResponse;
+  status: string;
+  onboardingStep: string;
+};
+
+// Global admin toggle: when ON, a new owner who finishes their profile form
+// goes straight to ACTIVE/DONE (no manual review). When OFF (default), they
+// land in PENDING_APPROVAL and an admin must approve them by hand from the
+// "Duyệt tài khoản" page. Stored once, platform-wide — not per-owner.
+const OWNER_AUTO_APPROVE_KEY = "owner_auto_approve";
+
+export async function isOwnerAutoApproveEnabled(): Promise<boolean> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("admin_system_configs")
+      .select("value")
+      .eq("key", OWNER_AUTO_APPROVE_KEY)
+      .maybeSingle();
+    if (error || !data) return false;
+    const v = data.value;
+    return v === true || v === "true" || v === 1 || v === "1";
+  } catch {
+    return false;
+  }
+}
+
 export const provinces = [
   { code: "79", name: "TP. Hồ Chí Minh" },
   { code: "01", name: "Hà Nội" },
@@ -69,11 +96,12 @@ export async function getUserProfile(userId: string): Promise<UserProfileRespons
   return data ? toProfileResponse(data) : null;
 }
 
-export async function upsertUserProfile(userId: string, input: UserProfileInput): Promise<UserProfileResponse> {
+// Upserts the profile fields only (user_profiles row + users.name/avatar).
+// Never touches approval status — safe to call both on first-time completion
+// and on later edits by an already-approved owner.
+async function saveUserProfileFields(userId: string, input: UserProfileInput): Promise<UserProfileResponse> {
   const now = new Date().toISOString();
   const fullAddress = buildFullAddress(input);
-
-
 
   const { data, error } = await supabaseAdmin
     .from("user_profiles")
@@ -98,18 +126,43 @@ export async function upsertUserProfile(userId: string, input: UserProfileInput)
     throw new Error("PROFILE_UPSERT_FAILED");
   }
 
-  const userUpdatePayload: any = {
-    name: input.fullName,
-    avatar: input.avatarUrl ?? undefined,
-    is_profile_completed: true,
-    status: "PENDING_APPROVAL",
-    onboarding_step: "PENDING_APPROVAL",
-    updated_at: now,
-  };
+  const { error: userUpdateError } = await supabaseAdmin
+    .from("users")
+    .update({
+      name: input.fullName,
+      avatar: input.avatarUrl ?? undefined,
+      is_profile_completed: true,
+      updated_at: now,
+    })
+    .eq("id", userId);
+
+  if (userUpdateError) {
+    console.error("Failed to update user name/avatar:", userUpdateError.message);
+    throw new Error("PROFILE_UPDATE_FAILED");
+  }
+
+  return toProfileResponse(data);
+}
+
+// First-time profile completion: saves the profile fields AND decides the
+// resulting approval status (PENDING_APPROVAL, or ACTIVE/DONE when the
+// platform-wide auto-approve setting is on). Only call this from the
+// "complete my profile" flow — never from a plain profile edit, or an
+// already-approved owner would be bounced back to pending on every edit.
+export async function completeOwnerProfile(userId: string, input: UserProfileInput): Promise<ProfileCompletionResult> {
+  const profile = await saveUserProfileFields(userId, input);
+
+  const autoApprove = await isOwnerAutoApproveEnabled();
+  const targetStatus = autoApprove ? "ACTIVE" : "PENDING_APPROVAL";
+  const targetOnboardingStep = autoApprove ? "DONE" : "PENDING_APPROVAL";
 
   const { data: updatedUser, error: userUpdateError } = await supabaseAdmin
     .from("users")
-    .update(userUpdatePayload)
+    .update({
+      status: targetStatus,
+      onboarding_step: targetOnboardingStep,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", userId)
     .select("id,status,is_profile_completed,onboarding_step")
     .single();
@@ -122,13 +175,22 @@ export async function upsertUserProfile(userId: string, input: UserProfileInput)
   if (
     !updatedUser ||
     updatedUser.is_profile_completed !== true ||
-    updatedUser.onboarding_step !== "PENDING_APPROVAL"
+    updatedUser.onboarding_step !== targetOnboardingStep
   ) {
     console.error("User approval status was not persisted after profile completion:", updatedUser);
     throw new Error("PROFILE_APPROVAL_STATUS_NOT_PERSISTED");
   }
 
-  return toProfileResponse(data);
+  return {
+    profile,
+    status: updatedUser.status,
+    onboardingStep: updatedUser.onboarding_step,
+  };
+}
+
+// Plain profile edit for an already-onboarded owner — status is left as-is.
+export async function upsertUserProfile(userId: string, input: UserProfileInput): Promise<UserProfileResponse> {
+  return saveUserProfileFields(userId, input);
 }
 
 export async function findProfileByPhone(phone: string, exceptUserId?: string): Promise<UserProfileResponse | null> {

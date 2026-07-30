@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { clearAuthCacheForUser, requireAuth } from "../middleware/auth.js";
 import { parseJson } from "../utils/validation.js";
-import { buildProfileAuthMeta, findProfileByPhone, upsertUserProfile } from "../lib/profileStore.js";
+import { buildProfileAuthMeta, completeOwnerProfile, findProfileByPhone, upsertUserProfile } from "../lib/profileStore.js";
 import type { AppEnv } from "../types.js";
 
 const profileRoutes = new Hono<AppEnv>();
@@ -94,7 +94,7 @@ profileRoutes.post("/profile/complete", async (c) => {
   const duplicateResponse = await ensureUniqueProfilePhone(c, user.id, payload.phone);
   if (duplicateResponse) return duplicateResponse;
 
-  const profile = await upsertUserProfile(user.id, payload);
+  const result = await completeOwnerProfile(user.id, payload);
   clearAuthCacheForUser(user.id);
   return c.json({
     success: true,
@@ -102,17 +102,17 @@ profileRoutes.post("/profile/complete", async (c) => {
     user: {
       id: user.id,
       email: user.email,
-      name: profile.fullName,
-      avatarUrl: profile.avatarUrl ?? user.avatarUrl ?? null,
+      name: result.profile.fullName,
+      avatarUrl: result.profile.avatarUrl ?? user.avatarUrl ?? null,
       role: user.role,
-      status: "PENDING_APPROVAL",
+      status: result.status,
       authProvider: user.authProvider || "google",
       isProfileCompleted: true,
-      onboardingStep: "PENDING_APPROVAL",
-      approvalStatus: "PENDING_APPROVAL",
+      onboardingStep: result.onboardingStep,
+      approvalStatus: result.status,
     },
-    profile,
-    nextStep: "PENDING_APPROVAL",
+    profile: result.profile,
+    nextStep: result.onboardingStep,
   });
 });
 
