@@ -192,6 +192,16 @@ const updateRowWithSchemaFallback = async (
 
 const getActor = (c: any) => c.get("user");
 
+// The built-in username/password admin login (POST /auth/admin-login) issues
+// a synthetic actor with id "admin-builtin" that has no row in `users` — any
+// column with a foreign key back to users (e.g. admin_system_configs.updated_by,
+// audit_logs.user_id) rejects that id outright. Use this wherever such a column
+// is written so the built-in admin's actions don't 400 or silently drop audit
+// rows; a real UUID actor (Google-authenticated admins) passes through as-is.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const actorIdForFk = (actor: any): string | null =>
+  typeof actor?.id === "string" && UUID_RE.test(actor.id) ? actor.id : null;
+
 const writeAudit = async (
   c: any,
   input: {
@@ -207,9 +217,10 @@ const writeAudit = async (
   }
 ) => {
   const actor = getActor(c);
+  const actorId = actorIdForFk(actor);
   const payload: Record<string, unknown> = {
-    user_id: actor?.id,
-    actor_id: actor?.id,
+    user_id: actorId,
+    actor_id: actorId,
     actor_name: actor?.name || actor?.email || null,
     actor_role: actor?.role || null,
     action: input.action,
@@ -2103,7 +2114,7 @@ adminRoutes.patch("/system-config", ...adminWithPermission("system_config.update
     key: parsed.data.key,
     value: parsed.data.value,
     value_type: parsed.data.valueType || typeof parsed.data.value,
-    updated_by: getActor(c).id,
+    updated_by: actorIdForFk(getActor(c)),
     updated_reason: parsed.data.reason,
     updated_at: new Date().toISOString(),
   }, { onConflict: "key" }).select("*").single();
