@@ -53,3 +53,8 @@ test_rpc.ts
 *.apk
 
 .claude/worktrees/
+.env*
+
+# Test/build artifacts
+web-admin/playwright-report/
+web-admin/test-results/
