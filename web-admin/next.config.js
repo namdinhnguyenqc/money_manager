@@ -15,7 +15,7 @@ const safeApiUrl =
 
 export default {
   env: {
-    NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '1003393001588-t88qmf226231d6bhf08rld90bnt2719a.apps.googleusercontent.com',
     NEXT_PUBLIC_API_URL: safeApiUrl,
   },
   images: {
