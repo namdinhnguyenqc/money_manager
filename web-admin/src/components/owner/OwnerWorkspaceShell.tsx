@@ -92,6 +92,7 @@ const navSections: NavSection[] = [
         icon: Settings,
         children: [
           { href: "/owner/settings?tab=sepay-logs", label: "Kết nối SePay", icon: Layers },
+          { href: "/owner/settings?tab=zalo", label: "Kết nối Zalo", icon: MessageSquare },
           { href: "/owner/settings?tab=notifications", label: "Nhận thông báo", icon: Bell },
           { href: "/owner/settings?tab=pricing", label: "Bảng giá dịch vụ", icon: Zap },
           { href: "/owner/settings?tab=categories", label: "Danh mục thu chi", icon: Tag },
@@ -219,6 +220,7 @@ const getPageTitle = (path: string) => {
     if (path.startsWith("/owner/settings") || path === "/settings") {
       const tab = currentSearchParams?.get("tab");
       if (tab === "sepay-logs") return "Kết nối SePay";
+      if (tab === "zalo") return "Kết nối Zalo";
       if (tab === "notifications") return "Nhận thông báo";
       if (tab === "pricing") return "Bảng giá dịch vụ";
       if (tab === "categories") return "Danh mục thu chi";
@@ -838,7 +840,7 @@ const getPageTitle = (path: string) => {
             </button>
           </div>
         )}
-        <main className="has-bottom-nav flex-1 p-4 sm:p-6 lg:pb-6">{children}</main>
+        <main className="has-bottom-nav flex-1 px-4 py-4 sm:px-6 sm:py-5 lg:pb-6">{children}</main>
       </div>
 
       <OwnerBottomNav pathname={pathname} onMore={() => setSidebarOpen(true)} />
