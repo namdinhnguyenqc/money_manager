@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Alert, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
@@ -50,9 +50,14 @@ export default function NewPaymentScreen() {
       if (invoice_id) {
         const inv = invRes?.data ?? invRes;
         if (inv) {
-          setInvoice(inv);
           const outstanding = Number(inv.total_amount || 0) - Number(inv.paid_amount || 0);
-          setAmount(String(Math.max(0, outstanding)));
+          if (outstanding <= 0) {
+            setInvoice(null);
+            setLoadError('Hóa đơn này đã được thanh toán đủ, không cần thu thêm.');
+          } else {
+            setInvoice(inv);
+            setAmount(String(outstanding));
+          }
         } else {
           setLoadError('Không tìm thấy hóa đơn cần thu tiền.');
         }
@@ -64,11 +69,7 @@ export default function NewPaymentScreen() {
           return total > paid;
         });
         setOutstandingInvoices(unpaid);
-        if (unpaid.length > 0) {
-          setInvoice(unpaid[0]);
-          const outstanding = Number(unpaid[0].total_amount || 0) - Number(unpaid[0].paid_amount || 0);
-          setAmount(String(Math.max(0, outstanding)));
-        } else {
+        if (unpaid.length === 0) {
           setLoadError('Tất cả hóa đơn đã được thanh toán xong! Không có hóa đơn nào cần thu tiền.');
         }
       }
@@ -137,7 +138,7 @@ export default function NewPaymentScreen() {
         note: [transactionCode.trim() ? `Mã GD: ${transactionCode.trim()}` : '', note.trim()].filter(Boolean).join(' · ') || undefined,
       });
       Alert.alert('Thành công', 'Đã ghi nhận thanh toán.', [
-        { text: 'OK', onPress: () => router.replace(`/invoice/${activeInvoiceId}`) },
+        { text: 'Xem hóa đơn', onPress: () => router.replace(`/invoice/${activeInvoiceId}`) },
       ]);
     } catch (e: any) {
       Alert.alert('Lỗi', e?.message || 'Không thể ghi nhận thanh toán.');
@@ -163,6 +164,7 @@ export default function NewPaymentScreen() {
             <Button title="Thử lại" onPress={() => router.replace(`/payment/new?invoice_id=${invoice_id || ''}`)} variant="outline" size="md" />
           </View>
         ) : (
+        <>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Outstanding Invoice Selector (General Collection Mode) */}
           {!invoice_id && outstandingInvoices.length > 0 && (
@@ -298,16 +300,25 @@ export default function NewPaymentScreen() {
             multiline
           />
 
+        </ScrollView>
+        <View style={styles.stickyFooter}>
+          <View style={styles.footerSummary}>
+            <Text style={styles.footerLabel}>{invoice?.room_name || 'Hóa đơn'}</Text>
+            <Text style={styles.footerAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
+              {formatMoney(Number(amount || 0))}
+            </Text>
+          </View>
           <Button
-            title="Ghi nhận thanh toán"
+            title="Xác nhận thu tiền"
             onPress={handleSubmit}
             variant="success"
             size="lg"
-            fullWidth
             loading={loading}
             icon={<Ionicons name="checkmark-circle-outline" size={18} color={Colors.textWhite} />}
+            style={styles.footerButton}
           />
-        </ScrollView>
+        </View>
+        </>
         )}
       </SafeAreaView>
     </>
@@ -316,6 +327,11 @@ export default function NewPaymentScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  stickyFooter: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 8 : 14, backgroundColor: Colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
+  footerSummary: { flex: 1, minWidth: 0 },
+  footerLabel: { fontSize: 11, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  footerAmount: { marginTop: 2, fontSize: 19, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  footerButton: { minWidth: 170, paddingHorizontal: 14 },
   invoicePickerScroll: {
     flexDirection: 'row',
     gap: 8,

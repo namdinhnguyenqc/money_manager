@@ -16,6 +16,7 @@ import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Button from '@/components/ui/Button';
 import { CardSkeleton } from '@/components/ui/Skeleton';
+import DataErrorState from '@/components/ui/DataErrorState';
 import { useFacilityStore } from '@/store/facilityStore';
 import { logPerfEvent } from '@/lib/telemetry/appPerformance';
 
@@ -47,6 +48,7 @@ export default function FacilitiesScreen() {
   const { facilities, fetchFacilities } = useFacilityStore();
   const [loading, setLoading] = useState(facilities.length === 0);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
 
@@ -54,10 +56,12 @@ export default function FacilitiesScreen() {
     const tab = "facilities";
     logPerfEvent("SECONDARY_DATA_START", { tab, forceRefresh: force });
     try {
+      setLoadError('');
       await fetchFacilities(force);
       logPerfEvent("TAB_DATA_READY_FACILITIES", { success: true, itemCount: useFacilityStore.getState().facilities.length });
       logPerfEvent("SECONDARY_DATA_READY", { tab, success: true });
     } catch (error: any) {
+      setLoadError(error?.message || 'Không thể tải danh sách dãy trọ.');
       logPerfEvent("TAB_DATA_READY_FACILITIES", { success: false, message: String(error?.message || error) });
       logPerfEvent("SECONDARY_DATA_READY", { tab, success: false });
     } finally {
@@ -124,6 +128,10 @@ export default function FacilitiesScreen() {
     );
   }
 
+  if (loadError && facilities.length === 0) {
+    return <DataErrorState message={loadError} onRetry={() => { setLoading(true); fetchData(true); }} />;
+  }
+
   const renderHeader = () => (
     <View style={styles.headerContent}>
       <View style={styles.onboardingPanel}>
@@ -132,26 +140,17 @@ export default function FacilitiesScreen() {
             <Text style={styles.stepBadgeText}>{setupState.step}/4</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.panelTitle}>{setupState.label}</Text>
-            <Text style={styles.panelDesc}>Flow chuẩn: dãy trọ, phòng, hợp đồng, hóa đơn.</Text>
+            <Text style={styles.panelTitle}>Thiết lập vận hành</Text>
+            <Text style={styles.panelDesc}>Bước {setupState.step}/4 · {setupState.label}</Text>
           </View>
         </View>
-        <View style={styles.stepTrack}>
-          <SetupStep index={1} label="Dãy" active={setupState.step >= 1} />
-          <SetupStep index={2} label="Phòng" active={setupState.step >= 2} />
-          <SetupStep index={3} label="Hợp đồng" active={setupState.step >= 3} />
-          <SetupStep index={4} label="Hóa đơn" active={setupState.step >= 4} />
-        </View>
-        <Button
-          title={setupState.label}
-          onPress={setupState.action}
-          size="sm"
-          icon={<Ionicons name="arrow-forward" size={15} color={Colors.textWhite} />}
-          style={styles.nextButton}
-        />
+        <TouchableOpacity style={styles.nextButton} onPress={setupState.action} activeOpacity={0.72}>
+          <Text style={styles.nextButtonText}>Tiếp tục</Text>
+          <Ionicons name="arrow-forward" size={16} color={Colors.primary} />
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.statsGrid}>
+      <View style={styles.statsGrid} accessibilityLabel={`${totals.facilities} dãy, ${totals.rooms} phòng, ${totals.vacant} phòng trống, ${totals.occupied} phòng đã thuê`}>
         <StatBox label="Dãy" value={totals.facilities} />
         <StatBox label="Phòng" value={totals.rooms} />
         <StatBox label="Trống" value={totals.vacant} tone="success" />
@@ -242,9 +241,6 @@ export default function FacilitiesScreen() {
         )}
       />
 
-      <TouchableOpacity style={styles.fab} onPress={() => router.push('/facility/new' as any)} activeOpacity={0.82}>
-        <Ionicons name="add" size={24} color={Colors.textWhite} />
-      </TouchableOpacity>
     </View>
   );
 }
@@ -292,14 +288,14 @@ function MiniAction({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyp
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   skeletonList: { padding: 16, gap: 12 },
-  list: { padding: 16, paddingBottom: 112, gap: 12 },
-  headerContent: { gap: 12, marginBottom: 2 },
-  onboardingPanel: { borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, padding: 14 },
+  list: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 104, gap: 14 },
+  headerContent: { gap: 12, marginBottom: 4 },
+  onboardingPanel: { borderRadius: 16, backgroundColor: Colors.surface, borderWidth: 1, borderColor: '#E2E8F0', padding: 16 },
   panelTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  stepBadge: { width: 42, height: 42, borderRadius: 11, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  stepBadge: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center' },
   stepBadgeText: { fontSize: 13, fontFamily: Typography.fontFamily.bold, color: Colors.primary },
-  panelTitle: { fontSize: 16, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
-  panelDesc: { marginTop: 3, fontSize: 12, fontFamily: Typography.fontFamily.regular, color: Colors.textSecondary },
+  panelTitle: { fontSize: 15, lineHeight: 20, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  panelDesc: { marginTop: 3, fontSize: 12, lineHeight: 17, fontFamily: Typography.fontFamily.regular, color: Colors.textSecondary },
   stepTrack: { flexDirection: 'row', justifyContent: 'space-between', gap: 6, marginTop: 14 },
   setupStep: { flex: 1, alignItems: 'center', gap: 6 },
   setupDot: { width: 26, height: 26, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
@@ -308,11 +304,12 @@ const styles = StyleSheet.create({
   setupDotTextActive: { color: Colors.textWhite },
   setupLabel: { fontSize: 10, fontFamily: Typography.fontFamily.medium, color: Colors.textMuted },
   setupLabelActive: { color: Colors.textPrimary },
-  nextButton: { marginTop: 14, alignSelf: 'flex-start' },
-  statsGrid: { flexDirection: 'row', gap: 8 },
-  statBox: { flex: 1, minWidth: 0, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, padding: 10 },
-  statValue: { fontSize: 18, fontFamily: Typography.fontFamily.bold },
-  statLabel: { marginTop: 2, fontSize: 11, fontFamily: Typography.fontFamily.medium, color: Colors.textMuted },
+  nextButton: { minHeight: 44, marginTop: 10, marginLeft: 56, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  nextButtonText: { fontSize: 12, fontFamily: Typography.fontFamily.bold, color: Colors.primary },
+  statsGrid: { flexDirection: 'row', paddingVertical: 13, borderRadius: 16, backgroundColor: Colors.surface },
+  statBox: { flex: 1, minWidth: 0, paddingHorizontal: 10, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#E2E8F0' },
+  statValue: { fontSize: 18, lineHeight: 24, fontFamily: Typography.fontFamily.bold },
+  statLabel: { marginTop: 1, fontSize: 10.5, lineHeight: 15, fontFamily: Typography.fontFamily.medium, color: '#64748B' },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 12 },
   searchInput: { flex: 1, padding: 0, fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textPrimary },
   filterScroll: { gap: 8 },
@@ -323,18 +320,17 @@ const styles = StyleSheet.create({
   emptyPanel: { alignItems: 'center', paddingVertical: 54, paddingHorizontal: 28 },
   emptyTitle: { marginTop: 12, fontSize: 17, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
   emptyDesc: { marginTop: 5, fontSize: 13, fontFamily: Typography.fontFamily.regular, color: Colors.textMuted, textAlign: 'center', lineHeight: 19 },
-  facilityCard: { gap: 14, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, padding: 14 },
+  facilityCard: { gap: 14, borderRadius: 16, backgroundColor: Colors.surface, borderWidth: 1, borderColor: '#E2E8F0', padding: 16 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   facilityIcon: { width: 38, height: 38, borderRadius: 10, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
   facilityInfo: { flex: 1, minWidth: 0 },
   facilityName: { fontSize: 15, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
   facilityAddress: { marginTop: 3, fontSize: 12, fontFamily: Typography.fontFamily.regular, color: Colors.textMuted },
   roomSummary: { flexDirection: 'row', gap: 8 },
-  roomCount: { flex: 1, minWidth: 0, borderRadius: 10, backgroundColor: Colors.background, paddingVertical: 8, alignItems: 'center' },
+  roomCount: { flex: 1, minWidth: 0, paddingVertical: 7, alignItems: 'center', borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#E2E8F0' },
   roomValue: { fontSize: 15, fontFamily: Typography.fontFamily.bold },
   roomLabel: { marginTop: 2, fontSize: 10, fontFamily: Typography.fontFamily.medium, color: Colors.textMuted },
   actionRow: { flexDirection: 'row', gap: 8 },
-  miniAction: { flex: 1, minHeight: 36, borderRadius: 10, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5 },
+  miniAction: { flex: 1, minHeight: 44, borderRadius: 10, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5 },
   miniActionText: { fontSize: 11, fontFamily: Typography.fontFamily.semibold, color: Colors.primary },
-  fab: { position: 'absolute', right: 18, bottom: 92, width: 52, height: 52, borderRadius: 16, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', elevation: 5 },
 });

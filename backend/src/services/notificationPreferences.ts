@@ -6,6 +6,7 @@ export type NotificationPreferences = {
   inAppEnabled: boolean;
   paymentReceivedEnabled: boolean;
   paymentSentEnabled: boolean;
+  paymentReminderEnabled: boolean;
 };
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
@@ -14,6 +15,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   inAppEnabled: true,
   paymentReceivedEnabled: true,
   paymentSentEnabled: true,
+  paymentReminderEnabled: true,
 };
 
 const toApi = (row: any): NotificationPreferences => ({
@@ -22,6 +24,7 @@ const toApi = (row: any): NotificationPreferences => ({
   inAppEnabled: row?.in_app_enabled !== false,
   paymentReceivedEnabled: row?.payment_received_enabled !== false,
   paymentSentEnabled: row?.payment_sent_enabled !== false,
+  paymentReminderEnabled: row?.payment_reminder_enabled !== false,
 });
 
 export async function getNotificationPreferences(userId: string): Promise<NotificationPreferences> {
@@ -54,6 +57,7 @@ export async function saveNotificationPreferences(
       in_app_enabled: next.inAppEnabled,
       payment_received_enabled: next.paymentReceivedEnabled,
       payment_sent_enabled: next.paymentSentEnabled,
+      payment_reminder_enabled: next.paymentReminderEnabled,
     }, { onConflict: "user_id" })
     .select("*")
     .single();

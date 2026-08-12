@@ -34,6 +34,29 @@ interface AuthState {
   markProfilePendingApproval: () => void;
 }
 
+const SECURE_STORE_READ_TIMEOUT_MS = 2500;
+
+class SecureStoreReadTimeoutError extends Error {
+  constructor() {
+    super('SecureStore read timed out');
+    this.name = 'SecureStoreReadTimeoutError';
+  }
+}
+
+async function getAccessTokenWithTimeout(): Promise<string | null> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      getAccessToken(),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new SecureStoreReadTimeoutError()), SECURE_STORE_READ_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
 const clearUserCaches = () => {
   useFacilityStore.getState().clearCache();
 };
@@ -55,7 +78,9 @@ function decodeJwtPayload(token: string): Record<string, any> | null {
 function getUserFromToken(token: string): AuthUser | null {
   const payload = decodeJwtPayload(token);
   if (!payload?.sub || !payload?.email || !payload?.role) return null;
-  if (payload.exp && Number(payload.exp) * 1000 <= Date.now()) return null;
+  // An expired access token still contains a valid cached identity. Keep it long
+  // enough for checkAuth() to run the refresh-token flow. Clearing both tokens
+  // here used to sign users out whenever they reopened the app after JWT expiry.
   return {
     id: String(payload.sub),
     email: String(payload.email),
@@ -81,7 +106,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     logPerfEvent("TOKEN_HYDRATE_START");
     set({ isLoading: true });
     try {
-      const token = await getAccessToken();
+      const token = await getAccessTokenWithTimeout();
       if (!token) {
         set({ user: null, isAuthenticated: false, isProfileCompleted: false, approvalStatus: null, onboardingStep: null, isLoading: false, isHydrated: true });
         markLoginTimeline("TOKEN_HYDRATE_DONE", { hasToken: false, authenticated: false });
@@ -141,6 +166,22 @@ export const useAuthStore = create<AuthState>((set) => ({
           });
         });
     } catch (error) {
+      if (error instanceof SecureStoreReadTimeoutError) {
+        // Never trap the user behind the boot screen. Keep stored credentials
+        // untouched so a later launch can recover, but continue to Login now.
+        set({
+          user: null,
+          isAuthenticated: false,
+          isProfileCompleted: false,
+          approvalStatus: null,
+          onboardingStep: null,
+          isLoading: false,
+          isHydrated: true,
+        });
+        markLoginTimeline('TOKEN_HYDRATE_DONE', { authenticated: false, storageTimeout: true });
+        logPerfEvent('TOKEN_HYDRATE_DONE', { authenticated: false, storageTimeout: true });
+        return;
+      }
       if (error instanceof ApiClientError && ![400, 401, 403].includes(error.status)) {
         set({ isLoading: false, isHydrated: true });
         markLoginTimeline("TOKEN_HYDRATE_DONE", { hasToken: true, authenticated: false, transientError: true, status: error.status });

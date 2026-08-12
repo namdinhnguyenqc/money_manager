@@ -6,6 +6,8 @@ import { Platform } from 'react-native';
 import { apiPost } from '@/lib/api';
 
 const PUSH_TOKEN_KEY = 'trocare_expo_push_token';
+const LAST_HANDLED_NOTIFICATION_RESPONSE_KEY = 'trocare_last_handled_notification_response';
+const notificationResponsesInProcess = new Set<string>();
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -69,4 +71,28 @@ export function getNotificationRoute(data: Record<string, unknown> | undefined):
   const roomId = data.room_id || data.roomId;
   if (roomId) return `/room/${String(roomId)}`;
   return '/notifications';
+}
+
+/**
+ * Expo keeps the last tapped notification response until it is explicitly
+ * cleared. Persist the identifier as a second guard so a process restart or
+ * background resume can never replay an old navigation action.
+ */
+export async function consumeNotificationResponseOnce(
+  response: Notifications.NotificationResponse,
+): Promise<boolean> {
+  const responseKey = [
+    response.notification.request.identifier,
+    response.actionIdentifier,
+  ].join(':');
+  if (notificationResponsesInProcess.has(responseKey)) return false;
+  notificationResponsesInProcess.add(responseKey);
+  const lastHandled = await SecureStore.getItemAsync(LAST_HANDLED_NOTIFICATION_RESPONSE_KEY);
+  if (lastHandled === responseKey) {
+    Notifications.clearLastNotificationResponse();
+    return false;
+  }
+  await SecureStore.setItemAsync(LAST_HANDLED_NOTIFICATION_RESPONSE_KEY, responseKey);
+  Notifications.clearLastNotificationResponse();
+  return true;
 }

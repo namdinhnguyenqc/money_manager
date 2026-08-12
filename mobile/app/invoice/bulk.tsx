@@ -4,7 +4,7 @@
  * Allows owner to batch generate invoices for multiple rooms in a cycle.
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,13 +16,15 @@ import {
   TextInput,
   RefreshControl,
   Modal,
+  AppState,
 } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Button from '@/components/ui/Button';
 import Toast from '@/components/ui/Toast';
+import MeterOcrAction from '@/components/invoice/MeterOcrAction';
 import {
   loadBoardingHouses,
   loadPendingBilling,
@@ -35,8 +37,26 @@ import {
   RentalRoom,
   ContractView,
   loadServiceConfigs,
+  calculateProratedRoomFee,
 } from '@/lib/rentalOps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+type MeterReview = {
+  confidence?: number;
+  imageUri?: string;
+  needsReview: boolean;
+};
+
+const parseMeterDraft = (value: string | null) => {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+};
 
 interface RoomBillingState {
   room: RentalRoom;
@@ -48,6 +68,8 @@ interface RoomBillingState {
   roomFee: number;
   loading: boolean;
   error?: string;
+  elecReview?: MeterReview;
+  waterReview?: MeterReview;
 }
 
 export default function BulkInvoiceScreen() {
@@ -74,15 +96,27 @@ export default function BulkInvoiceScreen() {
   const [selectedBhId, setSelectedBhId] = useState<string>('all');
   const [billingStates, setBillingStates] = useState<Record<string, RoomBillingState>>({});
   const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string>>(new Set());
+  const [captureVisible, setCaptureVisible] = useState(false);
+  const [captureIndex, setCaptureIndex] = useState(0);
+  const hasLoadedRef = useRef(false);
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Initialize data
-  const initData = useCallback(async () => {
-    try {
-      setLoading(true);
+  const draftKey = `trocare-meter-draft:${period.year}-${period.month}`;
 
-      const services = await loadServiceConfigs(false);
+  // Initialize data
+  const initData = useCallback(async (forceRefresh = false) => {
+    try {
+      if (hasLoadedRef.current) setRefreshing(true);
+      else setLoading(true);
+
+      const requestOptions = forceRefresh ? { forceRefresh: true } : undefined;
+      const [services, bhs, pending, savedDraft] = await Promise.all([
+        loadServiceConfigs(false, requestOptions),
+        loadBoardingHouses(requestOptions),
+        loadPendingBilling(period.month, period.year, undefined, requestOptions),
+        AsyncStorage.getItem(draftKey).catch(() => null),
+      ]);
       if (services.length === 0) {
         Alert.alert(
           'Chưa cấu hình dịch vụ',
@@ -104,11 +138,9 @@ export default function BulkInvoiceScreen() {
         return;
       }
 
-      const bhs = await loadBoardingHouses();
       setBoardingHouses(bhs);
 
-      // Load active contracts awaiting billing for selected period
-      const pending = await loadPendingBilling(period.month, period.year);
+      const draft = parseMeterDraft(savedDraft) as Record<string, Pick<RoomBillingState, 'elecNew' | 'waterNew' | 'elecReview' | 'waterReview'>>;
       
       const initialState: Record<string, RoomBillingState> = {};
       const newSelectedRoomIds = new Set<string>();
@@ -117,11 +149,13 @@ export default function BulkInvoiceScreen() {
         initialState[room.id] = {
           room,
           elecOld: 0,
-          elecNew: '',
+          elecNew: draft[room.id]?.elecNew || '',
           waterOld: 0,
-          waterNew: '',
+          waterNew: draft[room.id]?.waterNew || '',
           roomFee: Number(room.price || 0),
           loading: true,
+          elecReview: draft[room.id]?.elecReview,
+          waterReview: draft[room.id]?.waterReview,
         };
         newSelectedRoomIds.add(room.id); // Check all by default
       });
@@ -134,8 +168,8 @@ export default function BulkInvoiceScreen() {
         pending.map(async (room) => {
           try {
             const [contractData, readings] = await Promise.all([
-              loadContract(room.contract_id!),
-              loadLatestMeterReadings(room.id),
+              loadContract(room.contract_id!, requestOptions),
+              loadLatestMeterReadings(room.id, requestOptions),
             ]);
 
             setBillingStates((prev) => {
@@ -147,7 +181,12 @@ export default function BulkInvoiceScreen() {
                   contract: contractData || undefined,
                   elecOld: Number(readings.elec_old || 0),
                   waterOld: Number(readings.water_old || 0),
-                  roomFee: Number(contractData?.rent_amount ?? room.price),
+                  roomFee: calculateProratedRoomFee(
+                    Number(contractData?.rent_amount ?? room.price),
+                    contractData?.start_date ?? room.start_date,
+                    period.month,
+                    period.year,
+                  ),
                   loading: false,
                 },
               };
@@ -170,18 +209,30 @@ export default function BulkInvoiceScreen() {
     } catch (e: any) {
       setToast({ message: e?.message || 'Lỗi tải danh sách lập hóa đơn.', type: 'error' });
     } finally {
+      hasLoadedRef.current = true;
       setLoading(false);
       setRefreshing(false);
     }
-  }, [period.month, period.year]);
+  }, [period.month, period.year, draftKey, router]);
+
+  useFocusEffect(useCallback(() => {
+    void initData(true);
+  }, [initData]));
 
   useEffect(() => {
-    initData();
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (previousState !== 'active' && nextState === 'active') {
+        void initData(true);
+      }
+      previousState = nextState;
+    });
+    return () => subscription.remove();
   }, [initData]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    initData();
+    void initData(true);
   };
 
   const handleBack = useCallback(() => {
@@ -205,6 +256,34 @@ export default function BulkInvoiceScreen() {
       };
     });
   };
+
+  const acceptOcrResult = (
+    roomId: string,
+    meter: 'electricity' | 'water',
+    result: { confidence: number; imageUri: string; needsReview: boolean },
+  ) => {
+    setBillingStates((prev) => prev[roomId] ? {
+      ...prev,
+      [roomId]: {
+        ...prev[roomId],
+        [meter === 'electricity' ? 'elecReview' : 'waterReview']: result,
+      },
+    } : prev);
+  };
+
+  useEffect(() => {
+    if (loading || Object.keys(billingStates).length === 0) return;
+    const timer = setTimeout(() => {
+      const draft = Object.fromEntries(Object.entries(billingStates).map(([id, state]) => [id, {
+        elecNew: state.elecNew,
+        waterNew: state.waterNew,
+        elecReview: state.elecReview,
+        waterReview: state.waterReview,
+      }]));
+      AsyncStorage.setItem(draftKey, JSON.stringify(draft)).catch(() => undefined);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [billingStates, draftKey, loading]);
 
   // Toggle selection checkbox
   const toggleRoomSelection = (roomId: string) => {
@@ -362,7 +441,7 @@ export default function BulkInvoiceScreen() {
   };
 
   // Submit batch payload
-  const handleBulkSubmit = async () => {
+  const handleBulkSubmit = async (reviewWarningsConfirmed = false) => {
     const selectedList = Object.values(billingStates)
       .filter((state) => selectedRoomIds.has(state.room.id))
       .filter((state) => selectedBhId === 'all' || state.room.boarding_house_id === selectedBhId);
@@ -396,6 +475,21 @@ export default function BulkInvoiceScreen() {
       }
     }
 
+    const warningRooms = selectedList.filter((state) =>
+      state.elecReview?.needsReview || state.waterReview?.needsReview
+    );
+    if (!reviewWarningsConfirmed && warningRooms.length > 0) {
+      Alert.alert(
+        'Có chỉ số cần kiểm tra',
+        `${warningRooms.length} phòng có kết quả OCR độ tin cậy thấp hoặc bất thường. Bạn nên kiểm tra ảnh và chỉ số trước khi lập hóa đơn.`,
+        [
+          { text: 'Quay lại kiểm tra', style: 'cancel' },
+          { text: 'Tôi đã kiểm tra', onPress: () => handleBulkSubmit(true) },
+        ],
+      );
+      return;
+    }
+
     try {
       setSubmitting(true);
       setProgressMsg(`Đang khởi tạo lập ${selectedList.length} hóa đơn...`);
@@ -404,6 +498,8 @@ export default function BulkInvoiceScreen() {
       
       setProgressMsg(`Đang lập hóa đơn trên máy chủ...`);
       await bulkCreateInvoices(payloads);
+
+      await AsyncStorage.removeItem(draftKey).catch(() => undefined);
 
       setToast({ message: `Lập thành công ${payloads.length} hóa đơn!`, type: 'success' });
       setTimeout(() => {
@@ -457,6 +553,18 @@ export default function BulkInvoiceScreen() {
     return filteredStates.length > 0 && visibleSelectedCount === filteredStates.length;
   }, [filteredStates, visibleSelectedCount]);
 
+  const captureStates = useMemo(() => filteredStates.filter((state) => {
+    const services = state.contract?.applied_services_snapshot || [];
+    return services.some((service) => {
+      const name = service.name.toLowerCase();
+      return name.includes('điện') || name.includes('nước');
+    });
+  }), [filteredStates]);
+  const currentCapture = captureStates[captureIndex];
+  const reviewCount = useMemo(() => captureStates.filter((state) =>
+    state.elecReview?.needsReview || state.waterReview?.needsReview
+  ).length, [captureStates]);
+
   if (loading && Object.keys(billingStates).length === 0) {
     return (
       <View style={styles.stateContainer}>
@@ -476,7 +584,15 @@ export default function BulkInvoiceScreen() {
           <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.customHeaderTitle}>Lập hóa đơn hàng loạt</Text>
-        <View style={{ width: 36 }} />
+        <TouchableOpacity
+          style={styles.captureHeaderButton}
+          onPress={() => { setCaptureIndex(0); setCaptureVisible(true); }}
+          disabled={captureStates.length === 0}
+          accessibilityRole="button"
+          accessibilityLabel="Bắt đầu ghi chỉ số nhanh"
+        >
+          <Ionicons name="camera-outline" size={18} color={captureStates.length ? Colors.primary : Colors.textMuted} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.commandPanel}>
@@ -526,6 +642,24 @@ export default function BulkInvoiceScreen() {
             Đã chọn {visibleSelectedCount}/{filteredStates.length} phòng
           </Text>
         </View>
+      )}
+
+      {captureStates.length > 0 && (
+        <TouchableOpacity
+          style={styles.captureBanner}
+          onPress={() => { setCaptureIndex(0); setCaptureVisible(true); }}
+          activeOpacity={0.76}
+        >
+          <View style={styles.captureBannerIcon}>
+            <Ionicons name="scan-outline" size={20} color={Colors.primary} />
+          </View>
+          <View style={styles.captureBannerCopy}>
+            <Text style={styles.captureBannerTitle}>Ghi chỉ số nhanh</Text>
+            <Text style={styles.captureBannerText}>Đi tuần tự {captureStates.length} phòng · tự lưu nháp</Text>
+          </View>
+          {reviewCount > 0 ? <Text style={styles.reviewCount}>{reviewCount} cần xem</Text> : null}
+          <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+        </TouchableOpacity>
       )}
 
       {/* Main Billing Rooms Form */}
@@ -629,13 +763,27 @@ export default function BulkInvoiceScreen() {
                               <Ionicons name="flash-outline" size={12} color="#EAB308" />
                               <Text style={styles.inputFieldLabel}>Điện (Cũ: {state.elecOld})</Text>
                             </View>
-                            <TextInput
-                              placeholder="Số điện mới"
-                              keyboardType="numeric"
-                              value={state.elecNew}
-                              onChangeText={(v) => handleInputChange(state.room.id, 'elecNew', v)}
-                              style={styles.textInput}
-                            />
+                            <View style={styles.meterInputRow}>
+                              <TextInput
+                                placeholder="Số điện mới"
+                                keyboardType="numeric"
+                                value={state.elecNew}
+                                onChangeText={(v) => handleInputChange(state.room.id, 'elecNew', v)}
+                                style={[styles.textInput, styles.meterTextInput]}
+                              />
+                              <MeterOcrAction
+                                compact
+                                meter="electricity"
+                                previousValue={state.elecOld}
+                                onValueSuggested={(value) => handleInputChange(state.room.id, 'elecNew', value)}
+                                onResultAccepted={(result) => acceptOcrResult(state.room.id, 'electricity', result)}
+                              />
+                            </View>
+                            {state.elecReview ? (
+                              <Text style={[styles.reviewLabel, state.elecReview.needsReview && styles.reviewLabelWarning]}>
+                                {state.elecReview.needsReview ? 'Cần kiểm tra' : `Đã đọc · ${state.elecReview.confidence}%`}
+                              </Text>
+                            ) : null}
                           </View>
                         )}
 
@@ -645,13 +793,27 @@ export default function BulkInvoiceScreen() {
                               <Ionicons name="water-outline" size={12} color="#06B6D4" />
                               <Text style={styles.inputFieldLabel}>Nước (Cũ: {state.waterOld})</Text>
                             </View>
-                            <TextInput
-                              placeholder="Số nước mới"
-                              keyboardType="numeric"
-                              value={state.waterNew}
-                              onChangeText={(v) => handleInputChange(state.room.id, 'waterNew', v)}
-                              style={styles.textInput}
-                            />
+                            <View style={styles.meterInputRow}>
+                              <TextInput
+                                placeholder="Số nước mới"
+                                keyboardType="numeric"
+                                value={state.waterNew}
+                                onChangeText={(v) => handleInputChange(state.room.id, 'waterNew', v)}
+                                style={[styles.textInput, styles.meterTextInput]}
+                              />
+                              <MeterOcrAction
+                                compact
+                                meter="water"
+                                previousValue={state.waterOld}
+                                onValueSuggested={(value) => handleInputChange(state.room.id, 'waterNew', value)}
+                                onResultAccepted={(result) => acceptOcrResult(state.room.id, 'water', result)}
+                              />
+                            </View>
+                            {state.waterReview ? (
+                              <Text style={[styles.reviewLabel, state.waterReview.needsReview && styles.reviewLabelWarning]}>
+                                {state.waterReview.needsReview ? 'Cần kiểm tra' : `Đã đọc · ${state.waterReview.confidence}%`}
+                              </Text>
+                            ) : null}
                           </View>
                         )}
                       </View>
@@ -674,7 +836,7 @@ export default function BulkInvoiceScreen() {
           <Button
             title="Tạo hóa đơn"
             variant="primary"
-            onPress={handleBulkSubmit}
+            onPress={() => handleBulkSubmit()}
             disabled={submitting || visibleSelectedCount === 0}
             style={styles.submitButton}
             textStyle={styles.submitButtonText}
@@ -690,6 +852,83 @@ export default function BulkInvoiceScreen() {
             <ActivityIndicator size="large" color={Colors.primary} />
             <Text style={styles.progressTitle}>Đang tạo hóa đơn...</Text>
             <Text style={styles.progressSub}>{progressMsg}</Text>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={captureVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setCaptureVisible(false)}>
+        <View style={[styles.captureSheet, { paddingTop: insets.top }]}>
+          <View style={styles.captureSheetHeader}>
+            <TouchableOpacity style={styles.sheetClose} onPress={() => setCaptureVisible(false)} accessibilityLabel="Đóng ghi chỉ số">
+              <Ionicons name="close" size={22} color={Colors.textPrimary} />
+            </TouchableOpacity>
+            <View style={styles.sheetHeading}>
+              <Text style={styles.sheetTitle}>Ghi chỉ số</Text>
+              <Text style={styles.sheetProgress}>{captureIndex + 1}/{captureStates.length}</Text>
+            </View>
+            <View style={styles.sheetClose} />
+          </View>
+
+          {currentCapture ? (() => {
+            const services = currentCapture.contract?.applied_services_snapshot || [];
+            const hasElec = services.some((service) => service.name.toLowerCase().includes('điện'));
+            const hasWater = services.some((service) => service.name.toLowerCase().includes('nước'));
+            return (
+              <ScrollView contentContainerStyle={styles.captureSheetContent}>
+                <View style={styles.captureRoomHeader}>
+                  <Text style={styles.captureRoomName}>{currentCapture.room.name}</Text>
+                  <Text style={styles.captureTenant}>{currentCapture.room.tenant_name || 'Chưa có tên khách thuê'}</Text>
+                </View>
+                {hasElec ? (
+                  <View style={styles.captureMeterRow}>
+                    <View style={styles.captureMeterCopy}>
+                      <Text style={styles.captureMeterTitle}>Điện</Text>
+                      <Text style={styles.captureMeterOld}>Chỉ số trước: {currentCapture.elecOld}</Text>
+                      <Text style={styles.captureMeterValue}>{currentCapture.elecNew || 'Chưa ghi'}</Text>
+                    </View>
+                    <MeterOcrAction
+                      meter="electricity"
+                      previousValue={currentCapture.elecOld}
+                      onValueSuggested={(value) => handleInputChange(currentCapture.room.id, 'elecNew', value)}
+                      onResultAccepted={(result) => acceptOcrResult(currentCapture.room.id, 'electricity', result)}
+                    />
+                  </View>
+                ) : null}
+                {hasWater ? (
+                  <View style={styles.captureMeterRow}>
+                    <View style={styles.captureMeterCopy}>
+                      <Text style={styles.captureMeterTitle}>Nước</Text>
+                      <Text style={styles.captureMeterOld}>Chỉ số trước: {currentCapture.waterOld}</Text>
+                      <Text style={styles.captureMeterValue}>{currentCapture.waterNew || 'Chưa ghi'}</Text>
+                    </View>
+                    <MeterOcrAction
+                      meter="water"
+                      previousValue={currentCapture.waterOld}
+                      onValueSuggested={(value) => handleInputChange(currentCapture.room.id, 'waterNew', value)}
+                      onResultAccepted={(result) => acceptOcrResult(currentCapture.room.id, 'water', result)}
+                    />
+                  </View>
+                ) : null}
+                <Text style={styles.captureHint}>Kết quả có độ tin cậy thấp sẽ được đánh dấu để kiểm tra. Ảnh không bao giờ tự ghi đè chỉ số nếu bạn chưa xác nhận.</Text>
+              </ScrollView>
+            );
+          })() : null}
+
+          <View style={[styles.captureNav, { paddingBottom: 12 + insets.bottom }]}>
+            <Button
+              title="Phòng trước"
+              variant="outline"
+              onPress={() => setCaptureIndex((index) => Math.max(0, index - 1))}
+              disabled={captureIndex === 0}
+              style={styles.captureNavButton}
+            />
+            <Button
+              title={captureIndex === captureStates.length - 1 ? 'Xong' : 'Phòng tiếp'}
+              onPress={() => captureIndex === captureStates.length - 1
+                ? setCaptureVisible(false)
+                : setCaptureIndex((index) => index + 1)}
+              style={styles.captureNavButton}
+            />
           </View>
         </View>
       </Modal>
@@ -724,6 +963,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: Colors.borderLight,
+  },
+  captureHeaderButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   customHeaderTitle: {
     fontSize: 16,
@@ -802,6 +1049,31 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.semibold,
     color: Colors.textSecondary,
   },
+  captureBanner: {
+    minHeight: 64,
+    marginHorizontal: 16,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  captureBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captureBannerCopy: { flex: 1, minWidth: 0 },
+  captureBannerTitle: { fontSize: 14, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  captureBannerText: { marginTop: 2, fontSize: 12, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  reviewCount: { fontSize: 11, fontFamily: Typography.fontFamily.bold, color: Colors.warning },
 
   roomCard: {
     backgroundColor: Colors.surface,
@@ -875,8 +1147,12 @@ const styles = StyleSheet.create({
   inputCol: { flex: 1, gap: 6 },
   inputLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   inputFieldLabel: { fontSize: 10, fontFamily: Typography.fontFamily.bold, color: Colors.textSecondary },
+  reviewLabel: { fontSize: 10, fontFamily: Typography.fontFamily.semibold, color: Colors.success },
+  reviewLabelWarning: { color: Colors.warning },
+  meterInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  meterTextInput: { flex: 1, minWidth: 0 },
   textInput: {
-    height: 42,
+    height: 44,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 10,
@@ -886,6 +1162,49 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     color: Colors.textPrimary,
   },
+  captureSheet: { flex: 1, backgroundColor: Colors.background },
+  captureSheetHeader: {
+    minHeight: 60,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  sheetClose: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  sheetHeading: { alignItems: 'center' },
+  sheetTitle: { fontSize: 17, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  sheetProgress: { marginTop: 2, fontSize: 11, fontFamily: Typography.fontFamily.semibold, color: Colors.textSecondary },
+  captureSheetContent: { padding: 20, gap: 12, paddingBottom: 120 },
+  captureRoomHeader: { paddingVertical: 8 },
+  captureRoomName: { fontSize: 24, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  captureTenant: { marginTop: 4, fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  captureMeterRow: {
+    minHeight: 132,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  captureMeterCopy: { flex: 1, minWidth: 0 },
+  captureMeterTitle: { fontSize: 16, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  captureMeterOld: { marginTop: 5, fontSize: 12, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  captureMeterValue: { marginTop: 12, fontSize: 24, fontFamily: Typography.fontFamily.bold, color: Colors.primary },
+  captureHint: { fontSize: 12, lineHeight: 18, fontFamily: Typography.fontFamily.regular, color: Colors.textSecondary },
+  captureNav: {
+    position: 'absolute', left: 0, right: 0, bottom: 0,
+    paddingHorizontal: 16, paddingTop: 12,
+    flexDirection: 'row', gap: 10,
+    borderTopWidth: 1, borderTopColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  captureNavButton: { flex: 1 },
 
   bottomBar: {
     position: 'absolute',
@@ -988,12 +1307,10 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     gap: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
     shadowColor: Colors.textPrimary,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.15,
-    shadowRadius: 16,
+    shadowRadius: 8,
     elevation: 10,
   },
   progressTitle: { fontSize: 15, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },

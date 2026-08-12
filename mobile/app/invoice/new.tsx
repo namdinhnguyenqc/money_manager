@@ -24,6 +24,7 @@ import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Toast from '@/components/ui/Toast';
+import MeterOcrAction from '@/components/invoice/MeterOcrAction';
 import {
   loadContract,
   loadContracts,
@@ -35,9 +36,18 @@ import {
   describeServiceType,
   getServiceUnitLabel,
   loadServiceConfigs,
+  calculateProratedRoomFee,
+  getRoomFeeProration,
 } from '@/lib/rentalOps';
 
 const period = currentPeriod();
+
+const isValidIsoDate = (value: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+};
 
 export default function NewInvoiceScreen() {
   const router = useRouter();
@@ -242,7 +252,12 @@ export default function NewInvoiceScreen() {
 
     const otherAmount = fees.reduce((sum: number, f: any) => sum + Number(f.amount || 0), 0);
     const previousDebt = Math.max(0, Number(form.previousDebt || 0));
-    const rent = Number(contract.rent_amount || 0);
+    const rent = calculateProratedRoomFee(
+      Number(contract.rent_amount || 0),
+      contract.start_date,
+      period.month,
+      period.year,
+    );
 
     return {
       electricUsed,
@@ -273,6 +288,11 @@ export default function NewInvoiceScreen() {
       return;
     }
 
+    if (!isValidIsoDate(form.dueDate)) {
+      Alert.alert('Ngày chưa hợp lệ', 'Hạn thanh toán cần có định dạng YYYY-MM-DD, ví dụ 2026-07-25.');
+      return;
+    }
+
     try {
       setSubmitting(true);
       const invoice = await createInvoiceForContract(contract, {
@@ -284,6 +304,8 @@ export default function NewInvoiceScreen() {
         electricNew: electricityIsMetered ? Number(form.electricNew || 0) : 0,
         waterOld: waterIsMetered ? Number(form.waterOld || 0) : 0,
         waterNew: waterIsMetered ? Number(form.waterNew || 0) : 0,
+        dueDate: form.dueDate,
+        note: form.note.trim() || undefined,
         items: fees.filter((f) => f.name.trim()).map((f) => ({ name: f.name.trim(), amount: Number(f.amount || 0) })),
       });
 
@@ -295,6 +317,10 @@ export default function NewInvoiceScreen() {
       setSubmitting(false);
     }
   };
+
+  const roomFeeProration = contract
+    ? getRoomFeeProration(contract.start_date, period.month, period.year)
+    : null;
 
   const handleContractChange = (id: string) => {
     setSelectedContractId(id);
@@ -373,15 +399,33 @@ export default function NewInvoiceScreen() {
               </View>
               <View style={styles.divider} />
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Tiền phòng cố định:</Text>
-                <Text style={styles.infoValue}>{formatMoney(contract.rent_amount)}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.infoLabel}>
+                    {roomFeeProration ? 'Tiền phòng tháng đầu' : 'Tiền phòng'}
+                  </Text>
+                  {roomFeeProration ? (
+                    <Text style={styles.prorationHint}>
+                      {roomFeeProration.billableDays}/{roomFeeProration.daysInMonth} ngày · từ {contract.start_date}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={styles.infoValue}>{formatMoney(computed.rent)}</Text>
               </View>
             </Card>
 
             {/* Electricity Section */}
             {electricityService && (
               <Card style={styles.card}>
-                <Text style={styles.sectionHeader}>Điện</Text>
+                <View style={styles.meterHeaderRow}>
+                  <Text style={[styles.sectionHeader, styles.meterHeaderTitle]}>Điện</Text>
+                  {electricityIsMetered ? (
+                    <MeterOcrAction
+                      meter="electricity"
+                      previousValue={Number(form.electricOld || 0)}
+                      onValueSuggested={(value) => setForm((current) => ({ ...current, electricNew: value }))}
+                    />
+                  ) : null}
+                </View>
                 {electricityIsMetered ? (
                   <View style={styles.meterContainer}>
                     <View style={styles.inputRow}>
@@ -429,7 +473,16 @@ export default function NewInvoiceScreen() {
             {/* Water Section */}
             {waterService && (
               <Card style={styles.card}>
-                <Text style={styles.sectionHeader}>Nước</Text>
+                <View style={styles.meterHeaderRow}>
+                  <Text style={[styles.sectionHeader, styles.meterHeaderTitle]}>Nước</Text>
+                  {waterIsMetered ? (
+                    <MeterOcrAction
+                      meter="water"
+                      previousValue={Number(form.waterOld || 0)}
+                      onValueSuggested={(value) => setForm((current) => ({ ...current, waterNew: value }))}
+                    />
+                  ) : null}
+                </View>
                 {waterIsMetered ? (
                   <View style={styles.meterContainer}>
                     <View style={styles.inputRow}>
@@ -620,8 +673,11 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: '#e0f2fe', marginVertical: 12 },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   infoLabel: { fontSize: 13, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  prorationHint: { marginTop: 3, fontSize: 11, fontFamily: Typography.fontFamily.regular, color: Colors.textMuted },
   infoValue: { fontSize: 15, fontFamily: Typography.fontFamily.bold, color: Colors.primary },
   sectionHeader: { fontSize: 15, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary, marginBottom: 14, letterSpacing: -0.3 },
+  meterHeaderRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 },
+  meterHeaderTitle: { marginBottom: 0 },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   pickerRow: { flexDirection: 'row', gap: 8 },
   pickerItem: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: 'transparent', marginRight: 8 },

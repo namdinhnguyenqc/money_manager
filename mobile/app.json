@@ -2,11 +2,11 @@
   "expo": {
     "name": "TrọCare Owner",
     "slug": "trocare-mobile",
-    "version": "1.0.0",
+    "version": "1.0.4",
     "description": "TroCare Owner giúp chủ trọ quản lý dãy trọ, phòng, khách thuê, hợp đồng, hóa đơn, thu chi và thanh toán.",
     "privacyPolicyUrl": "https://trocare-production.vercel.app/privacy",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/brand/transparent/trocare-launcher-foreground-1024.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "scheme": "trocare",
@@ -26,7 +26,7 @@
       }
     },
     "android": {
-      "versionCode": 1,
+      "versionCode": 5,
       "usesCleartextTraffic": false,
       "permissions": [
         "android.permission.INTERNET",
@@ -37,8 +37,8 @@
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0066FF"
+        "foregroundImage": "./assets/brand/transparent/trocare-launcher-foreground-1024.png",
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": false,
       "package": "com.trocare.mobile"

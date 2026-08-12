@@ -1,6 +1,6 @@
 /**
- * TrọCare Mobile — Bento Card Component
- * Matching web-admin's bento-card style with border-radius 16px and premium shadow.
+ * TrọCare Mobile — grouped surface component.
+ * Flat by default so financial data, not decoration, owns the hierarchy.
  */
 
 import React from 'react';
@@ -38,11 +38,6 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
-    shadowColor: Colors.shadowBento,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 20,
-    elevation: 3,
   },
   border: {
     borderWidth: 1,

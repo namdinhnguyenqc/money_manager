@@ -11,6 +11,7 @@ import { notifyOwnerPaymentReceived } from "../services/ownerPaymentNotification
 import { getTenantUserIdByInvoiceId, notifyPaymentSuccess } from "../services/notificationService.js";
 import { getTenantUserIdByContractId, notifyInvoiceCreated } from "../services/notificationService.js";
 import { readMeterNumber } from "../services/meterOcr.js";
+import { resolveInvoiceRoomFee } from "../utils/billing.js";
 
 
 const invoicesRoutes = new Hono<AppEnv>();
@@ -66,6 +67,7 @@ const createInvoiceSchema = z.object({
   waterOld: nullableNumber,
   waterNew: nullableNumber,
   invoiceNote: nullableString,
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 const markPaidSchema = z.object({
@@ -164,6 +166,7 @@ invoicesRoutes.get("/", async (c) => {
   const user = c.get("user");
   const monthRaw = c.req.query("month");
   const yearRaw = c.req.query("year");
+  const yearFromRaw = c.req.query("yearFrom");
   const roomIdRaw = c.req.query("roomId");
   const statusRaw = c.req.query("status");
   const buildingId = c.req.query("buildingId");
@@ -172,40 +175,59 @@ invoicesRoutes.get("/", async (c) => {
 
 
   const db = c.get("supabase");
-  let query = db.from("invoices").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-
-  if (!includeOverdueCarryover && monthRaw) query = query.eq("month", Number(monthRaw));
-  if (!includeOverdueCarryover && yearRaw) query = query.eq("year", Number(yearRaw));
-  if (roomIdRaw) query = query.eq("room_id", roomIdRaw);
-  if (statusRaw) query = query.eq("status", String(statusRaw).toLowerCase());
-
+  let buildingRoomIds: string[] | null = null;
   if (buildingId) {
     const roomsRes = await db.from("rooms").select("id").eq("boarding_house_id", buildingId).eq("user_id", user.id);
     if (roomsRes.error) return c.json({ error: roomsRes.error.message }, 500);
-    const roomIds = (roomsRes.data || []).map((r) => r.id);
-    if (roomIds.length > 0) {
-      query = query.in("room_id", roomIds);
-    } else {
-      return c.json({ data: [] });
-    }
+    buildingRoomIds = (roomsRes.data || []).map((r) => r.id);
+    if (buildingRoomIds.length === 0) return c.json({ data: [] });
   }
 
-  const invRes = await query;
-  if (invRes.error) return c.json({ error: invRes.error.message }, 500);
+  const applyCommonFilters = (source: any) => {
+    let filteredQuery = source;
+    if (roomIdRaw) filteredQuery = filteredQuery.eq("room_id", roomIdRaw);
+    if (statusRaw) filteredQuery = filteredQuery.eq("status", String(statusRaw).toLowerCase());
+    if (buildingRoomIds) filteredQuery = filteredQuery.in("room_id", buildingRoomIds);
+    return filteredQuery;
+  };
 
-  let invoices = invRes.data ?? [];
+  let invoices: any[] = [];
   if (includeOverdueCarryover && monthRaw && yearRaw) {
     const selectedMonth = Number(monthRaw);
     const selectedYear = Number(yearRaw);
-    invoices = invoices.filter((inv) => {
-      const invMonth = Number(inv.month || 0);
-      const invYear = Number(inv.year || 0);
-      const isCurrentPeriod = invMonth === selectedMonth && invYear === selectedYear;
-      const isBeforePeriod = invYear < selectedYear || (invYear === selectedYear && invMonth < selectedMonth);
+
+    // Keep filtering in Postgres. The previous implementation downloaded the
+    // owner's complete invoice history before discarding most rows in JS.
+    const currentPeriodQuery = applyCommonFilters(
+      db.from("invoices").select("*").eq("user_id", user.id)
+        .eq("month", selectedMonth).eq("year", selectedYear)
+        .order("created_at", { ascending: false }),
+    );
+    const overdueQuery = applyCommonFilters(
+      db.from("invoices").select("*").eq("user_id", user.id)
+        .or(`year.lt.${selectedYear},and(year.eq.${selectedYear},month.lt.${selectedMonth})`)
+        .neq("status", "paid")
+        .order("year", { ascending: false }).order("month", { ascending: false }),
+    );
+    const [currentRes, overdueRes] = await Promise.all([currentPeriodQuery, overdueQuery]);
+    if (currentRes.error) return c.json({ error: currentRes.error.message }, 500);
+    if (overdueRes.error) return c.json({ error: overdueRes.error.message }, 500);
+
+    const unpaidOverdue = (overdueRes.data || []).filter((inv: any) => {
       const total = Math.round(Number(inv.total_amount || 0));
       const paid = Math.round(Number(inv.paid_amount || 0));
-      return isCurrentPeriod || (isBeforePeriod && total > 0 && paid < total);
+      return total > 0 && paid < total;
     });
+    invoices = [...(currentRes.data || []), ...unpaidOverdue];
+  } else {
+    let query = db.from("invoices").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+    if (monthRaw) query = query.eq("month", Number(monthRaw));
+    if (yearRaw) query = query.eq("year", Number(yearRaw));
+    if (yearFromRaw) query = query.gte("year", Number(yearFromRaw));
+    query = applyCommonFilters(query);
+    const invRes = await query;
+    if (invRes.error) return c.json({ error: invRes.error.message }, 500);
+    invoices = invRes.data ?? [];
   }
   if (invoices.length === 0) return c.json({ data: [] });
 
@@ -798,7 +820,14 @@ invoicesRoutes.post("/", async (c) => {
     }
   }
 
-  const roomFee = parsed.data.roomFee ?? Number(contract.rent_amount ?? roomRes.data?.price ?? 0);
+  const monthlyRent = Number(contract.rent_amount ?? roomRes.data?.price ?? 0);
+  const roomFee = resolveInvoiceRoomFee({
+    requestedRoomFee: parsed.data.roomFee,
+    monthlyRent,
+    contractStartDate: contract.start_date,
+    month: parsed.data.month,
+    year: parsed.data.year,
+  });
   const previousDebt = parsed.data.previousDebt ?? 0;
   const serviceFees = items.reduce((sum, item) => sum + item.amount, 0);
   const total = roomFee + serviceFees + previousDebt;
@@ -837,6 +866,7 @@ invoicesRoutes.post("/", async (c) => {
       water_old: waterOld,
       water_new: parsed.data.waterNew ?? null,
       note: parsed.data.invoiceNote ?? null,
+      due_date: parsed.data.dueDate ?? null,
       payment_code: generatePaymentCode(),
       payment_channel_id: paymentChannel?.id || null,
     })
@@ -969,10 +999,18 @@ invoicesRoutes.post("/ocr-meter-readings", async (c) => {
   const body = ocrMeterSchema.safeParse(parsed);
   if (!body.success) return c.json({ error: "Dữ liệu ảnh không hợp lệ", details: body.error.format() }, 400);
 
+  const totalEncodedBytes = body.data.images.reduce((sum, image) => sum + image.dataUrl.length, 0);
+  if (totalEncodedBytes > 24 * 1024 * 1024) {
+    return c.json({ error: "Tổng dung lượng ảnh quá lớn. Vui lòng gửi từng nhóm nhỏ." }, 413);
+  }
+
   const results = await Promise.all(
     body.data.images.map(async ({ id, dataUrl }) => {
       const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
       if (!match) return { id, number: null, rawText: "", confidence: 0, error: "Ảnh không đúng định dạng" };
+      if (!match[1].startsWith("image/") || match[2].length > 8 * 1024 * 1024) {
+        return { id, number: null, rawText: "", confidence: 0, error: "Ảnh không hợp lệ hoặc vượt quá 6 MB" };
+      }
       try {
         const buffer = Buffer.from(match[2], "base64");
         const { rawText, number, confidence } = await readMeterNumber(buffer);
@@ -1415,7 +1453,12 @@ invoicesRoutes.post("/auto-generate", async (c) => {
         }
       }
 
-      const roomFee = Number(contract.rent_amount ?? room.price ?? 0);
+      const roomFee = resolveInvoiceRoomFee({
+        monthlyRent: Number(contract.rent_amount ?? room.price ?? 0),
+        contractStartDate: contract.start_date,
+        month,
+        year,
+      });
       const serviceFees = items.reduce((sum, item) => sum + item.amount, 0);
       const total = roomFee + serviceFees;
 
@@ -1520,6 +1563,27 @@ invoicesRoutes.post("/bulk-create", async (c) => {
         continue;
       }
 
+      const contractRes = await db
+        .from("contracts")
+        .select("rent_amount,start_date")
+        .eq("id", invData.contractId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (contractRes.error || !contractRes.data) {
+        results.push({ roomId: invData.roomId, error: contractRes.error?.message || "Không tìm thấy hợp đồng." });
+        continue;
+      }
+
+      const requestedRoomFee = Number(invData.roomFee || 0);
+      const roomFee = resolveInvoiceRoomFee({
+        requestedRoomFee,
+        monthlyRent: Number(contractRes.data.rent_amount || requestedRoomFee),
+        contractStartDate: contractRes.data.start_date,
+        month: Number(invData.month),
+        year: Number(invData.year),
+      });
+      const totalAmount = Math.max(0, Number(invData.totalAmount || 0) - requestedRoomFee + roomFee);
+
       // Logic tương tự như route POST / nhưng dành cho bulk
       const payload = {
         user_id: user.id,
@@ -1527,8 +1591,8 @@ invoicesRoutes.post("/bulk-create", async (c) => {
         contract_id: invData.contractId,
         month: invData.month,
         year: invData.year,
-        room_fee: invData.roomFee,
-        total_amount: invData.totalAmount,
+        room_fee: roomFee,
+        total_amount: totalAmount,
         previous_debt: invData.previousDebt || 0,
         elec_old: invData.elecOld,
         elec_new: invData.elecNew,

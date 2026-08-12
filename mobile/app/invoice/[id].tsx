@@ -235,7 +235,7 @@ export default function InvoiceDetailScreen() {
             disabled={sharingInvoice}
             icon={<Ionicons name="share-social-outline" size={18} color={Colors.textPrimary} />}
           />
-          {outstanding > 0 && (
+          {total > 0 && paid < total && outstanding > 0 && (
             <Button
               title="Thu tiền"
               variant="success"

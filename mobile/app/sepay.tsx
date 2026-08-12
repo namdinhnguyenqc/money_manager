@@ -3,18 +3,19 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Share } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Share, TouchableOpacity, Alert } from 'react-native';
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { apiGet } from '@/lib/api';
+import { apiGet, apiPost } from '@/lib/api';
 import type { PaymentChannel } from '@/lib/rentalOps';
 import { formatMoney } from '@/lib/rentalOps';
+import Config from '@/constants/Config';
 
-const SEPAY_WEBHOOK_URL = 'https://trocare-production.vercel.app/webhooks/sepay';
+const SEPAY_WEBHOOK_URL = `${Config.API_URL.replace(/\/$/, '')}/webhooks/sepay`;
 
 const API_ROWS = [
   { method: 'POST', path: '/webhooks/sepay', desc: 'Webhook nhận giao dịch SePay' },
@@ -30,6 +31,8 @@ export default function SepayScreen() {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [eventFilter, setEventFilter] = useState<'needs_action' | 'matched' | 'all'>('needs_action');
+  const [reprocessingId, setReprocessingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -57,6 +60,28 @@ export default function SepayScreen() {
 
   const shareWebhook = () => {
     Share.share({ title: 'SePay Webhook URL', message: SEPAY_WEBHOOK_URL }).catch(() => {});
+  };
+
+  const filteredEvents = useMemo(() => {
+    if (eventFilter === 'all') return events;
+    if (eventFilter === 'matched') {
+      return events.filter((event) => ['paid', 'partial', 'overpaid'].includes(String(event.status || '')));
+    }
+    return events.filter((event) => ['pending_wallet', 'unmatched', 'error'].includes(String(event.status || '')));
+  }, [eventFilter, events]);
+
+  const reprocessEvent = async (event: any) => {
+    if (!event?.id || reprocessingId) return;
+    try {
+      setReprocessingId(String(event.id));
+      await apiPost(`/owner/sepay/events/${event.id}/reprocess`, {});
+      await load();
+      Alert.alert('Đã đối soát lại', 'Giao dịch đã được xử lý với cấu hình hiện tại.');
+    } catch (error: any) {
+      Alert.alert('Chưa thể đối soát', error?.message || 'Hãy kiểm tra mã thanh toán và ví liên kết rồi thử lại.');
+    } finally {
+      setReprocessingId(null);
+    }
   };
 
   const onRefresh = () => {
@@ -149,14 +174,36 @@ export default function SepayScreen() {
             <Ionicons name="time-outline" size={18} color={Colors.primary} />
             <Text style={styles.sectionTitle}>Nhật ký webhook gần đây</Text>
           </View>
+          <View style={styles.filterRow}>
+            {([
+              ['needs_action', `Cần xử lý (${metrics.unresolved})`],
+              ['matched', 'Đã khớp'],
+              ['all', 'Tất cả'],
+            ] as const).map(([key, label]) => (
+              <TouchableOpacity
+                key={key}
+                style={[styles.filterChip, eventFilter === key && styles.filterChipActive]}
+                onPress={() => setEventFilter(key)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: eventFilter === key }}
+              >
+                <Text style={[styles.filterChipText, eventFilter === key && styles.filterChipTextActive]}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           {loading ? (
             <Text style={styles.mutedText}>Đang tải nhật ký...</Text>
-          ) : events.length === 0 ? (
-            <Text style={styles.emptyText}>Chưa nhận giao dịch nào từ SePay.</Text>
+          ) : filteredEvents.length === 0 ? (
+            <Text style={styles.emptyText}>{eventFilter === 'needs_action' ? 'Không có giao dịch nào cần xử lý.' : 'Chưa có giao dịch trong nhóm này.'}</Text>
           ) : (
             <View style={styles.list}>
-              {events.slice(0, 20).map((event) => (
-                <EventRow key={event.id} event={event} />
+              {filteredEvents.slice(0, 50).map((event) => (
+                <EventRow
+                  key={event.id}
+                  event={event}
+                  reprocessing={reprocessingId === String(event.id)}
+                  onReprocess={() => reprocessEvent(event)}
+                />
               ))}
             </View>
           )}
@@ -196,7 +243,7 @@ function ChannelRow({ channel }: { channel: PaymentChannel }) {
   );
 }
 
-function EventRow({ event }: { event: any }) {
+function EventRow({ event, reprocessing, onReprocess }: { event: any; reprocessing: boolean; onReprocess: () => void }) {
   const status = String(event.status || '');
   const ok = status === 'paid' || status === 'overpaid';
   const warning = status === 'pending_wallet' || status === 'unmatched';
@@ -210,6 +257,18 @@ function EventRow({ event }: { event: any }) {
       <View style={styles.eventRight}>
         <Text style={styles.eventAmount}>+{formatMoney(event.transfer_amount || 0)}</Text>
         <Text style={[styles.statusBadge, ok ? styles.okBadge : warning ? styles.warnBadge : styles.errorBadge]}>{getStatusLabel(status)}</Text>
+        {(warning || status === 'error') ? (
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={onReprocess}
+            disabled={reprocessing}
+            accessibilityRole="button"
+            accessibilityLabel="Thử đối soát lại giao dịch"
+          >
+            <Ionicons name="refresh-outline" size={14} color={Colors.primary} />
+            <Text style={styles.retryText}>{reprocessing ? 'Đang xử lý' : 'Thử lại'}</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </View>
   );
@@ -245,6 +304,11 @@ const styles = StyleSheet.create({
   sectionCard: { padding: 16 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   sectionTitle: { fontSize: 14, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  filterChip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  filterChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  filterChipText: { fontSize: 12, fontFamily: Typography.fontFamily.semibold, color: Colors.textSecondary },
+  filterChipTextActive: { color: Colors.primary },
   webhookBox: { borderWidth: 1, borderColor: Colors.border, backgroundColor: '#F8FAFC', borderRadius: 10, padding: 12 },
   webhookText: { fontSize: 12, lineHeight: 17, fontFamily: Typography.fontFamily.bold, color: Colors.textSecondary },
   mutedText: { fontSize: 12, fontFamily: Typography.fontFamily.medium, color: Colors.textMuted },
@@ -277,5 +341,7 @@ const styles = StyleSheet.create({
   eventCode: { fontSize: 12, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
   eventRight: { alignItems: 'flex-end', gap: 6 },
   eventAmount: { fontSize: 12, fontFamily: Typography.fontFamily.bold, color: Colors.success },
+  retryButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8 },
+  retryText: { fontSize: 11, fontFamily: Typography.fontFamily.bold, color: Colors.primary },
   errorText: { marginTop: 4, fontSize: 10, lineHeight: 14, fontFamily: Typography.fontFamily.medium, color: Colors.danger },
 });

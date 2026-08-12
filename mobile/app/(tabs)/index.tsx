@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  AppState,
   Image,
   RefreshControl,
   ScrollView,
@@ -10,12 +10,13 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
-import { apiGet } from '@/lib/api';
+import { apiGet, getPersistentApiCache } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { logPerfEvent, markFirstScreenReady } from '@/lib/telemetry/appPerformance';
+import Skeleton from '@/components/ui/Skeleton';
 
 type DashboardData = {
   boardingHouses: any[];
@@ -36,6 +37,18 @@ const EMPTY_DATA: DashboardData = {
   transactions: [],
   deposits: [],
 };
+
+const DASHBOARD_PATH = '/owner/dashboard-init';
+const DASHBOARD_DISK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+const normalizeDashboard = (result: any): DashboardData => ({
+  boardingHouses: result?.boardingHouses ?? [],
+  rooms: result?.rooms ?? [],
+  invoices: result?.invoices ?? [],
+  wallets: result?.wallets ?? [],
+  transactions: result?.transactions ?? [],
+  deposits: result?.deposits ?? [],
+});
 
 const money = (value?: number | null) =>
   `${new Intl.NumberFormat('vi-VN').format(Math.round(Number(value || 0)))} ₫`;
@@ -67,38 +80,65 @@ export default function DashboardScreen() {
   const [error, setError] = useState<string | null>(null);
   const [hideBalance, setHideBalance] = useState(false);
   const [ledgerTab, setLedgerTab] = useState<LedgerTab>('invoices');
+  const hasLoadedRef = useRef(false);
 
   const fetchData = useCallback(async (forceRefresh = false) => {
+    let renderedCachedData = false;
     try {
       setError(null);
       logPerfEvent('HOME_DATA_START', { forceRefresh });
-      const result = await apiGet<any>('/owner/dashboard-init', {
+
+      // Stale-while-revalidate: on a cold launch paint the last successful
+      // dashboard immediately, then refresh quietly from the network.
+      if (!forceRefresh) {
+        const cached = await getPersistentApiCache<DashboardData>(
+          DASHBOARD_PATH,
+          DASHBOARD_DISK_MAX_AGE_MS,
+        );
+        if (cached) {
+          renderedCachedData = true;
+          setData(normalizeDashboard(cached));
+          setLoading(false);
+          logPerfEvent('HOME_DATA_READY', { success: true, source: 'persistent-cache' });
+        }
+      }
+
+      const result = await apiGet<any>(DASHBOARD_PATH, {
         forceRefresh,
         cacheTtlMs: 60 * 1000,
+        persistCache: true,
       });
-      setData({
-        boardingHouses: result?.boardingHouses ?? [],
-        rooms: result?.rooms ?? [],
-        invoices: result?.invoices ?? [],
-        wallets: result?.wallets ?? [],
-        transactions: result?.transactions ?? [],
-        deposits: result?.deposits ?? [],
-      });
-      logPerfEvent('HOME_DATA_READY', { success: true });
+      setData(normalizeDashboard(result));
+      logPerfEvent('HOME_DATA_READY', { success: true, source: 'network' });
     } catch (requestError: any) {
-      setError('Không thể cập nhật tổng quan. Kiểm tra kết nối và thử lại.');
+      if (!renderedCachedData) {
+        setError('Không thể cập nhật tổng quan. Kiểm tra kết nối và thử lại.');
+      }
       logPerfEvent('HOME_DATA_READY', {
-        success: false,
+        success: renderedCachedData,
+        source: renderedCachedData ? 'persistent-cache-offline' : 'network-error',
         message: String(requestError?.message || requestError),
       });
     } finally {
+      hasLoadedRef.current = true;
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
+  useFocusEffect(useCallback(() => {
+    void fetchData(hasLoadedRef.current);
+  }, [fetchData]));
+
   useEffect(() => {
-    fetchData();
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (previousState !== 'active' && nextState === 'active') {
+        void fetchData(true);
+      }
+      previousState = nextState;
+    });
+    return () => subscription.remove();
   }, [fetchData]);
 
   useEffect(() => {
@@ -130,10 +170,11 @@ export default function DashboardScreen() {
       (sum, item) => sum + Math.max(0, Number(item.total_amount || 0) - Number(item.paid_amount || 0)),
       0,
     );
-    const occupied = data.rooms.filter((room) => room.status === 'occupied').length;
-    const vacant = data.rooms.filter((room) => room.status === 'vacant').length;
-    const reserved = data.rooms.filter((room) => room.status === 'reserved').length;
-    const maintenance = data.rooms.filter((room) => room.status === 'maintenance').length;
+    const roomStatus = (room: any) => String(room.status || '').trim().toLowerCase();
+    const occupied = data.rooms.filter((room) => ['occupied', 'occupied_soon'].includes(roomStatus(room))).length;
+    const vacant = data.rooms.filter((room) => ['vacant', 'available'].includes(roomStatus(room))).length;
+    const reserved = data.rooms.filter((room) => roomStatus(room) === 'reserved').length;
+    const maintenance = data.rooms.filter((room) => roomStatus(room) === 'maintenance').length;
     const balance = data.wallets.reduce((sum, wallet) => sum + Number(wallet.balance || 0), 0);
     const deposits = data.deposits
       .filter((deposit) => deposit.status === 'holding')
@@ -252,7 +293,9 @@ export default function DashboardScreen() {
 
       <View style={styles.primaryActions}>
         <PrimaryAction icon="receipt-outline" label="Tạo hóa đơn" onPress={() => router.push('/invoice/new')} />
-        <PrimaryAction icon="cash-outline" label="Thu tiền" onPress={() => router.push('/payment/new')} />
+        {stats.outstanding > 0 || stats.overdueAmount > 0 ? (
+          <PrimaryAction icon="cash-outline" label="Thu tiền" onPress={() => router.push('/payment/new')} />
+        ) : null}
         <PrimaryAction icon="bookmark-outline" label="Nhận cọc" onPress={() => router.push('/deposit/new')} />
         <PrimaryAction icon="add-outline" label="Thêm mới" onPress={() => router.push('/transactions/new')} />
       </View>
@@ -386,19 +429,80 @@ export default function DashboardScreen() {
 
 function HomeSkeleton() {
   return (
-    <View style={styles.skeletonScreen}>
-      <View style={styles.skeletonGreeting} />
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.skeletonScreen}
+      showsVerticalScrollIndicator={false}
+      accessibilityLabel="Đang tải tổng quan"
+    >
+      <View style={styles.skeletonGreetingRow}>
+        <View style={styles.skeletonGreetingCopy}>
+          <Skeleton width={156} height={22} borderRadius={7} />
+          <Skeleton width={118} height={12} borderRadius={5} style={styles.skeletonGreetingHint} />
+        </View>
+        <Skeleton width={44} height={44} borderRadius={14} />
+      </View>
+
       <View style={styles.skeletonHero}>
-        <ActivityIndicator color="#FFFFFF" />
+        <View style={styles.skeletonHeroAccent} />
+        <Skeleton width={126} height={10} borderRadius={4} />
+        <Skeleton width="66%" height={30} borderRadius={8} style={styles.skeletonHeroAmount} />
+        <View style={styles.skeletonHeroMetrics}>
+          {[0, 1, 2].map((item) => (
+            <View key={item} style={styles.skeletonMetric}>
+              <Skeleton width={48} height={9} borderRadius={4} />
+              <Skeleton width="78%" height={14} borderRadius={5} style={styles.skeletonMetricValue} />
+            </View>
+          ))}
+        </View>
       </View>
+
       <View style={styles.skeletonActions}>
-        {[0, 1, 2, 3].map((item) => <View key={item} style={styles.skeletonAction} />)}
+        {[0, 1, 2, 3].map((item) => (
+          <View key={item} style={styles.skeletonAction}>
+            <Skeleton width={42} height={42} borderRadius={12} />
+            <Skeleton width={52} height={10} borderRadius={4} style={styles.skeletonActionLabel} />
+          </View>
+        ))}
       </View>
-      <View style={styles.skeletonLine} />
-      <View style={styles.skeletonPanel} />
-      <View style={styles.skeletonLineSmall} />
-      <View style={styles.skeletonPanelSmall} />
-    </View>
+
+      <View style={styles.skeletonSectionHeader}>
+        <Skeleton width={144} height={18} borderRadius={6} />
+        <Skeleton width={72} height={12} borderRadius={5} />
+      </View>
+      <View style={styles.skeletonPanel}>
+        <View style={styles.skeletonPanelTop}>
+          <View style={styles.skeletonPanelCopy}>
+            <Skeleton width={130} height={11} borderRadius={4} />
+            <Skeleton width={176} height={24} borderRadius={7} style={styles.skeletonPanelAmount} />
+          </View>
+          <Skeleton width={44} height={24} borderRadius={7} />
+        </View>
+        <Skeleton width="100%" height={6} borderRadius={3} style={styles.skeletonProgress} />
+        {[0, 1, 2].map((item) => (
+          <View key={item} style={styles.skeletonDataRow}>
+            <Skeleton width={105} height={11} borderRadius={4} />
+            <Skeleton width={92} height={12} borderRadius={4} />
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.skeletonSectionHeaderSecond}>
+        <Skeleton width={120} height={18} borderRadius={6} />
+        <Skeleton width={80} height={12} borderRadius={5} />
+      </View>
+      <View style={styles.skeletonRoomsPanel}>
+        <View style={styles.skeletonOccupancy}>
+          <Skeleton width={52} height={29} borderRadius={7} />
+          <Skeleton width={42} height={10} borderRadius={4} style={styles.skeletonOccupancyLabel} />
+        </View>
+        <View style={styles.skeletonRoomsCopy}>
+          <Skeleton width="70%" height={14} borderRadius={5} />
+          <Skeleton width="100%" height={7} borderRadius={4} style={styles.skeletonRoomBar} />
+          <Skeleton width="84%" height={10} borderRadius={4} style={styles.skeletonRoomLegend} />
+        </View>
+      </View>
+    </ScrollView>
   );
 }
 
@@ -564,13 +668,31 @@ const styles = StyleSheet.create({
   emptyDescription: { maxWidth: 260, marginTop: 4, fontSize: 12, lineHeight: 17, fontFamily: Typography.fontFamily.regular, color: '#64748B', textAlign: 'center' },
   emptyButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingHorizontal: 8 },
   emptyButtonText: { fontSize: 12, fontFamily: Typography.fontFamily.bold, color: '#2563EB' },
-  skeletonScreen: { flex: 1, paddingHorizontal: 20, paddingTop: 22, backgroundColor: '#F8FAFC' },
-  skeletonGreeting: { width: 180, height: 24, borderRadius: 8, marginBottom: 22, backgroundColor: '#E2E8F0' },
-  skeletonHero: { height: 190, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F172A' },
-  skeletonActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 18, marginBottom: 28 },
-  skeletonAction: { width: 56, height: 68, borderRadius: 12, backgroundColor: '#E2E8F0' },
-  skeletonLine: { width: 170, height: 20, borderRadius: 7, marginBottom: 12, backgroundColor: '#E2E8F0' },
-  skeletonLineSmall: { width: 135, height: 20, borderRadius: 7, marginTop: 28, marginBottom: 12, backgroundColor: '#E2E8F0' },
-  skeletonPanel: { height: 184, borderRadius: 16, backgroundColor: '#FFFFFF' },
-  skeletonPanelSmall: { height: 132, borderRadius: 16, backgroundColor: '#FFFFFF' },
+  skeletonScreen: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 112, backgroundColor: '#F8FAFC' },
+  skeletonGreetingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
+  skeletonGreetingCopy: { flex: 1 },
+  skeletonGreetingHint: { marginTop: 7 },
+  skeletonHero: { position: 'relative', overflow: 'hidden', minHeight: 156, borderRadius: 16, padding: 18, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0' },
+  skeletonHeroAccent: { position: 'absolute', top: 0, left: 0, right: 0, height: 4, backgroundColor: '#BFDBFE' },
+  skeletonHeroAmount: { marginTop: 10 },
+  skeletonHeroMetrics: { flexDirection: 'row', gap: 18, marginTop: 22, paddingTop: 15, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E2E8F0' },
+  skeletonMetric: { flex: 1 },
+  skeletonMetricValue: { marginTop: 6 },
+  skeletonActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, marginBottom: 24, paddingHorizontal: 8, paddingVertical: 12, borderRadius: 16, backgroundColor: '#FFFFFF' },
+  skeletonAction: { width: '24%', minHeight: 70, alignItems: 'center' },
+  skeletonActionLabel: { marginTop: 8 },
+  skeletonSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  skeletonSectionHeaderSecond: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 26, marginBottom: 12 },
+  skeletonPanel: { minHeight: 184, borderRadius: 16, padding: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EDF1F5' },
+  skeletonPanelTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  skeletonPanelCopy: { flex: 1 },
+  skeletonPanelAmount: { marginTop: 7 },
+  skeletonProgress: { marginTop: 16, marginBottom: 8 },
+  skeletonDataRow: { minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#F1F5F9' },
+  skeletonRoomsPanel: { minHeight: 128, flexDirection: 'row', alignItems: 'stretch', borderRadius: 16, padding: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EDF1F5' },
+  skeletonOccupancy: { width: 86, alignItems: 'center', justifyContent: 'center', borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#E2E8F0' },
+  skeletonOccupancyLabel: { marginTop: 7 },
+  skeletonRoomsCopy: { flex: 1, justifyContent: 'center', paddingLeft: 16 },
+  skeletonRoomBar: { marginTop: 15 },
+  skeletonRoomLegend: { marginTop: 14 },
 });

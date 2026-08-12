@@ -28,6 +28,7 @@ import { supabaseAdmin } from "./lib/supabase.js";
 import { ownerFeedbackRoutes, adminFeedbackRoutes } from "./routes/feedback.js";
 import adminArticlesRoutes from "./routes/adminArticles.js";
 import publicArticlesRoutes from "./routes/publicArticles.js";
+import jobsRoutes from "./routes/jobs.js";
 import { publicTaxonomyRoutes, adminTaxonomyRoutes } from "./routes/articleTaxonomy.js";
 
 
@@ -130,6 +131,7 @@ app.route("/api/auth", authRoutes);
 app.route("/me", profileRoutes);
 app.route("/locations", locationRoutes);
 app.route("/webhooks/sepay", sepayWebhookRoutes);
+app.route("/internal/jobs", jobsRoutes);
 app.route("/admin", adminRoutes);
 app.route("/tenant-auth", tenantAuthRoutes);
 app.route("/tenant", tenantApiRoutes);

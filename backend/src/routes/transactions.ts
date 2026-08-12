@@ -45,7 +45,7 @@ const updateTxSchema = z
 transactionsRoutes.get("/", async (c) => {
   const user = c.get("user");
   const walletIdRaw = c.req.query("walletId");
-  const limit = Math.min(Number(c.req.query("limit") || 50), 200);
+  const limit = Math.min(Number(c.req.query("limit") || 50), 500);
   const offset = Math.max(Number(c.req.query("offset") || 0), 0);
 
   const db = c.get("supabase");
@@ -61,6 +61,11 @@ transactionsRoutes.get("/", async (c) => {
   if (walletIdRaw) {
     query = query.eq("wallet_id", walletIdRaw);
   }
+
+  const dateFrom = c.req.query("dateFrom");
+  const dateTo = c.req.query("dateTo");
+  if (dateFrom) query = query.gte("date", dateFrom);
+  if (dateTo) query = query.lte("date", dateTo);
   
   const invoiceIdRaw = c.req.query("invoiceId");
   if (invoiceIdRaw) {

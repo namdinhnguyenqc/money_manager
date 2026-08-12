@@ -7,15 +7,15 @@
 
 const Colors = {
   // ─── Brand Primary (Premium White & Blue) ───
-  primary: '#0071e3',       // Royal iOS Apple Blue
-  primaryDark: '#005bb5',
+  primary: '#2563EB',
+  primaryDark: '#1D4ED8',
   primaryLight: '#F0F9FF',  // Soft sky blue backing
-  primaryAlpha20: 'rgba(0, 113, 227, 0.12)',
-  primaryAlpha50: 'rgba(0, 113, 227, 0.4)',
+  primaryAlpha20: 'rgba(37, 99, 235, 0.12)',
+  primaryAlpha50: 'rgba(37, 99, 235, 0.4)',
 
   // ─── Semantic Brand Overrides (Unique & Fresh) ───
-  appleBlue: '#0071e3',
-  appleBlueHover: '#0077ed',
+  appleBlue: '#2563EB',
+  appleBlueHover: '#1D4ED8',
   appleRed: '#F43F5E',      // Coral Crimson
   appleGreen: '#0D9488',    // Mint Teal
 
@@ -29,15 +29,15 @@ const Colors = {
   warningLight: 'rgba(234, 179, 8, 0.08)',
 
   // ─── Ethereal Alabaster Surfaces ───
-  background: '#F4F4F6',    // Premium matte snow white backing (Alabaster)
+  background: '#F8FAFC',
   surface: '#FFFFFF',       // Pure white porcelain card surface
-  border: '#EAEAEF',        // Sleek light gray borders
-  borderLight: 'rgba(234, 234, 239, 0.6)',
+  border: '#E2E8F0',
+  borderLight: '#E2E8F0',
 
   // ─── Typography (High Contrast Charcoal) ───
   textPrimary: '#0F172A',   // Charcoal text
   textSecondary: '#475569', // Medium slate text
-  textMuted: '#94A3B8',     // Muted gray text
+  textMuted: '#64748B',
   textWhite: '#ffffff',
 
   // ─── Shadows (Custom ethereal glows) ───
