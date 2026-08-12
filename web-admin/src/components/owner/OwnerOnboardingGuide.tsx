@@ -77,6 +77,11 @@ export default function OwnerOnboardingGuide({
 
   // Auto-detect completed steps by inspecting owner data count
   useEffect(() => {
+    if (cachedCompleted) {
+      setLoading(false);
+      return;
+    }
+
     const detectProgress = async () => {
       try {
         const [housesRes, roomsRes, servicesRes, contractsRes, invoicesRes] = await Promise.allSettled([

@@ -30,9 +30,19 @@ type TenantWithRoom = Tenant & {
 const pageSize = 12;
 
 export default function OwnerTenantsPage() {
-  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("owner_tenants_cache");
+        return saved ? JSON.parse(saved) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
   const [rooms, setRooms] = useState<RentalRoom[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(tenants.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<"active" | "all">("active");
@@ -135,15 +145,23 @@ export default function OwnerTenantsPage() {
   };
 
   const load = async () => {
-    setLoading(true);
+    if (tenants.length === 0) setLoading(true);
     setError(null);
     try {
       const [tenantRes, roomData] = await Promise.all([
         apiGet<any>("/rental/tenants"),
         loadRentalRooms(),
       ]);
-      setTenants(tenantRes?.data ?? []);
+      const nextTenants = tenantRes?.data ?? [];
+      setTenants(nextTenants);
       setRooms(roomData);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("owner_tenants_cache", JSON.stringify(nextTenants));
+        } catch (e) {
+          // Ignore cache save errors
+        }
+      }
     } catch (err: any) {
       setError(err?.message ?? "Không tải được danh sách khách thuê.");
     } finally {
