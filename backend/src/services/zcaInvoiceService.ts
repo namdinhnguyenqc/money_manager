@@ -54,6 +54,23 @@ export type ZcaBulkInvoiceResult = {
   failed: ZcaBulkInvoiceItem[];
 };
 
+export type ZcaBulkJobStatus = "queued" | "running" | "completed" | "failed";
+
+export type ZcaBulkInvoiceJob = {
+  id: string;
+  ownerId: string;
+  status: ZcaBulkJobStatus;
+  total: number;
+  processed: number;
+  currentInvoiceId?: string | null;
+  currentLabel?: string | null;
+  error?: string | null;
+  summary: ZcaBulkInvoiceResult;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string | null;
+};
+
 type ZcaCredentials = {
   cookie: any[];
   imei: string;
@@ -73,6 +90,7 @@ type ZcaLoginEvent = {
 
 const loginSessions = new Map<string, PendingLogin>();
 const apiCache = new Map<string, { api: ZcaApi; cachedAt: number }>();
+const bulkJobs = new Map<string, ZcaBulkInvoiceJob>();
 const BANK_LABELS: Record<string, string> = {
   "970416": "ACB",
   ACB: "ACB",
@@ -452,6 +470,81 @@ const pushFailedByError = (summary: ZcaBulkInvoiceResult, bundle: InvoiceBundle,
   summary.failed.push(item);
 };
 
+const createEmptyBulkSummary = (selected: number): ZcaBulkInvoiceResult => ({
+  selected,
+  sent: [],
+  paidSkipped: [],
+  missingPhone: [],
+  zaloNotFound: [],
+  failed: [],
+});
+
+const cloneBulkJob = (job: ZcaBulkInvoiceJob): ZcaBulkInvoiceJob => ({
+  ...job,
+  summary: {
+    selected: job.summary.selected,
+    sent: [...job.summary.sent],
+    paidSkipped: [...job.summary.paidSkipped],
+    missingPhone: [...job.summary.missingPhone],
+    zaloNotFound: [...job.summary.zaloNotFound],
+    failed: [...job.summary.failed],
+  },
+});
+
+const cleanupOldBulkJobs = () => {
+  const cutoff = Date.now() - 60 * 60_000;
+  for (const [id, job] of bulkJobs.entries()) {
+    if (new Date(job.updatedAt).getTime() < cutoff) bulkJobs.delete(id);
+  }
+};
+
+const runBulkJob = async (jobId: string, invoiceIds: string[], phonesMap: Record<string, string>) => {
+  const job = bulkJobs.get(jobId);
+  if (!job) return;
+  job.status = "running";
+  job.updatedAt = new Date().toISOString();
+
+  for (const invoiceId of invoiceIds) {
+    let bundle: InvoiceBundle | null = null;
+    try {
+      bundle = await loadInvoiceBundle(job.ownerId, invoiceId);
+      const phone = cleanPhone(phonesMap[invoiceId] || bundle.tenant.phone || "");
+      job.currentInvoiceId = invoiceId;
+      job.currentLabel = `${bundle.room?.name || bundle.invoice.room_name || "Phòng"} · ${bundle.tenant?.name || bundle.invoice.tenant_name || "Khách thuê"}`;
+      job.updatedAt = new Date().toISOString();
+
+      if (getInvoiceOutstanding(bundle.invoice) <= 0) {
+        job.summary.paidSkipped.push(bundleToBulkItem(bundle, { phone, reason: "Hóa đơn đã thanh toán." }));
+        continue;
+      }
+
+      if (!/^0\d{9}$/.test(phone)) {
+        job.summary.missingPhone.push(bundleToBulkItem(bundle, { phone, reason: "Khách thuê chưa có SĐT hợp lệ." }));
+        continue;
+      }
+
+      await sendInvoiceImageViaZca(job.ownerId, invoiceId, phone);
+      job.summary.sent.push(bundleToBulkItem(bundle, { phone }));
+      await sleep(850);
+    } catch (error: any) {
+      if (bundle) {
+        pushFailedByError(job.summary, bundle, error, phonesMap[invoiceId]);
+      } else {
+        job.summary.failed.push({ invoiceId, reason: error?.message || "Không xử lý được hóa đơn." });
+      }
+    } finally {
+      job.processed += 1;
+      job.updatedAt = new Date().toISOString();
+    }
+  }
+
+  job.status = "completed";
+  job.currentInvoiceId = null;
+  job.currentLabel = null;
+  job.completedAt = new Date().toISOString();
+  job.updatedAt = job.completedAt;
+};
+
 async function fetchImageAsDataUri(url: string) {
   if (!url) return "";
   try {
@@ -629,6 +722,45 @@ export async function renderInvoiceImageBuffer(ownerId: string, invoiceId: strin
   } finally {
     await rm(folder, { recursive: true, force: true });
   }
+}
+
+export function startInvoicesBulkZcaJob(ownerId: string, invoiceIds: string[], phonesMap: Record<string, string> = {}) {
+  cleanupOldBulkJobs();
+  const uniqueInvoiceIds = [...new Set(invoiceIds.filter(Boolean))];
+  const job: ZcaBulkInvoiceJob = {
+    id: randomUUID(),
+    ownerId,
+    status: "queued",
+    total: uniqueInvoiceIds.length,
+    processed: 0,
+    currentInvoiceId: null,
+    currentLabel: null,
+    error: null,
+    summary: createEmptyBulkSummary(uniqueInvoiceIds.length),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    completedAt: null,
+  };
+  bulkJobs.set(job.id, job);
+
+  queueMicrotask(() => {
+    runBulkJob(job.id, uniqueInvoiceIds, phonesMap).catch((error: any) => {
+      const failedJob = bulkJobs.get(job.id);
+      if (!failedJob) return;
+      failedJob.status = "failed";
+      failedJob.error = error?.message || "Không gửi được hóa đơn qua Zalo.";
+      failedJob.updatedAt = new Date().toISOString();
+      failedJob.completedAt = failedJob.updatedAt;
+    });
+  });
+
+  return cloneBulkJob(job);
+}
+
+export function getInvoicesBulkZcaJob(ownerId: string, jobId: string) {
+  const job = bulkJobs.get(jobId);
+  if (!job || job.ownerId !== ownerId) return null;
+  return cloneBulkJob(job);
 }
 
 export async function sendInvoiceImageViaZca(ownerId: string, invoiceId: string, phoneOverride?: string) {

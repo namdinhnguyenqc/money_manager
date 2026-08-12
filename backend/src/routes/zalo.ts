@@ -18,11 +18,13 @@ import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
 import {
   disconnectZca,
+  getInvoicesBulkZcaJob,
   getZcaLoginSession,
   getZcaStatus,
   renderInvoiceImageBuffer,
   sendInvoicesBulkViaZca,
   sendInvoiceImageViaZca,
+  startInvoicesBulkZcaJob,
   startZcaQrLogin,
 } from "../services/zcaInvoiceService.js";
 
@@ -581,8 +583,19 @@ zaloRoutes.post("/invoices/send-zalo-bulk", requireAuth, async (c) => {
   if (!body.success) return c.json({ error: "Danh sách hóa đơn hoặc số điện thoại không hợp lệ." }, 400);
 
   const { invoiceIds, phonesMap = {} } = body.data;
-  const summary = await sendInvoicesBulkViaZca(user.id, invoiceIds, phonesMap);
-  return c.json({ success: true, data: summary });
+  if (c.req.query("mode") === "sync") {
+    const summary = await sendInvoicesBulkViaZca(user.id, invoiceIds, phonesMap);
+    return c.json({ success: true, data: summary });
+  }
+  const job = startInvoicesBulkZcaJob(user.id, invoiceIds, phonesMap);
+  return c.json({ success: true, data: job });
+});
+
+zaloRoutes.get("/invoices/send-zalo-bulk/:jobId", requireAuth, async (c) => {
+  const user = c.get("user");
+  const job = getInvoicesBulkZcaJob(user.id, c.req.param("jobId"));
+  if (!job) return c.json({ success: false, error: "Không tìm thấy tiến trình gửi Zalo hoặc tiến trình đã hết hạn." }, 404);
+  return c.json({ success: true, data: job });
 });
 
 // GET /zalo/invoices/:invoiceId/zalo-history - Lấy lịch sử gửi tin của hóa đơn cụ thể
