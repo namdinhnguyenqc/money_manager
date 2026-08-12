@@ -66,7 +66,6 @@ import {
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input, { Label, Select as UISelect } from "@/components/ui/Input";
-import PageHeader from "@/components/ui/PageHeader";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import ZcaQrLoginPanel from "@/components/ZcaQrLoginPanel";
 
@@ -614,39 +613,8 @@ export default function OwnerSettingsPage() {
     return groups ? groups.join("  ") : clean;
   };
 
-  const tabs = [
-    { id: "sepay-logs", label: "Kết nối SePay", icon: Layers, desc: "Tích hợp API, Kênh thanh toán & Webhook logs" },
-    { id: "zalo", label: "Cấu hình Zalo (zca-js)", icon: Sparkles, desc: "Tích hợp Zalo Automation zca-js & gửi tin nhắn theo SĐT khách" },
-    { id: "notifications", label: "Nhận thông báo", icon: Bell, desc: "Cấu hình nhận thông tin qua trình duyệt và thiết bị" },
-    { id: "pricing", label: "Bảng giá", icon: Zap, desc: "Đơn giá các dịch vụ điện, nước, tiện ích" },
-    { id: "categories", label: "Danh mục thu chi", icon: Tag, desc: "Quản lý các khoản mục thu và chi phí phát sinh" },
-    { id: "extension", label: "Mở rộng", icon: Wallet, desc: "Quản lý dòng tiền, Ví lưu trữ và đối soát" },
-  ];
-
   return (
     <div className="w-full animate-in fade-in duration-500 pb-16">
-      <PageHeader
-        subtitle="Quản lý cấu hình, bảng giá và tự động hóa vận hành phòng trọ."
-        title="Cài đặt hệ thống"
-        actions={
-          <div className="flex gap-2.5">
-            <Button variant="outline" icon={<RefreshCw size={14} />} onClick={load} className="border-slate-200 hover:bg-slate-50 transition-all font-semibold rounded-xl text-slate-700">
-              Làm mới
-            </Button>
-            <Button 
-              variant="primary" 
-              icon={<Save size={14} />} 
-              onClick={handleSave} 
-              disabled={saving} 
-              loading={saving}
-              className="bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg shadow-slate-900/10 px-5 transition-all"
-            >
-              Lưu thay đổi
-            </Button>
-          </div>
-        }
-      />
-
       {(error || success) && (
         <div className={`mb-6 rounded-2xl p-4 text-sm font-semibold flex items-center gap-3 border shadow-sm transition-all animate-in slide-in-from-top-2 ${
           error 
@@ -665,33 +633,6 @@ export default function OwnerSettingsPage() {
         </div>
       ) : (
         <div className="w-full animate-in fade-in duration-300">
-          {/* Horizontal Tab Navigation */}
-          <div className="mb-6 flex gap-2 overflow-x-auto pb-2.5 scrollbar-none border-b border-slate-200/60">
-            {tabs.map((tab) => {
-              const TabIcon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    const url = new URL(window.location.href);
-                    url.searchParams.set("tab", tab.id);
-                    window.history.pushState({}, "", url.toString());
-                  }}
-                  className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all whitespace-nowrap border shrink-0 ${
-                    isActive
-                      ? "bg-slate-900 border-slate-900 text-white shadow-sm"
-                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <TabIcon size={14} className={isActive ? "text-white" : "text-slate-400"} />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
           {/* Premium Content Panel */}
           <Card className="flex-1 w-full lg:w-auto min-w-0 p-6 sm:p-8 rounded-[2rem] border border-slate-200/70 shadow-sm bg-white relative overflow-hidden transition-all duration-300">
             {/* Visual background sparkles for modern feel */}
