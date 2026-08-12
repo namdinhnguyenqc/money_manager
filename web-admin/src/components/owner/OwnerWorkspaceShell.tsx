@@ -141,24 +141,16 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
   const fetchHeaderNotifications = useCallback(async () => {
     try {
       const res = await apiGet<any>('/owner/notifications');
-      if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
+      if (res?.data && Array.isArray(res.data)) {
         setNotificationItems(res.data);
         setUnreadCount(res.unreadCount ?? res.data.filter((n: any) => !n.readAt).length);
       } else {
-        setNotificationItems([
-          { id: "1", eventType: "payment", title: "Hóa đơn thanh toán", body: "SePay đã tự động gạch nợ thành công.", createdAt: "10 phút trước", href: "/invoices" },
-          { id: "2", eventType: "contract", title: "Hợp đồng sắp hết hạn", body: "Hợp đồng thuê sẽ hết hiệu lực sau 15 ngày.", createdAt: "2 giờ trước", href: "/contracts" },
-          { id: "3", eventType: "repair", title: "Yêu cầu sửa chữa mới", body: "Phòng 304 báo hỏng vòi nước nhà vệ sinh.", createdAt: "1 ngày trước", href: "/owner/feedback" }
-        ]);
-        setUnreadCount(3);
+        setNotificationItems([]);
+        setUnreadCount(0);
       }
     } catch {
-      setNotificationItems([
-        { id: "1", eventType: "payment", title: "Hóa đơn thanh toán", body: "SePay đã tự động gạch nợ thành công.", createdAt: "10 phút trước", href: "/invoices" },
-        { id: "2", eventType: "contract", title: "Hợp đồng sắp hết hạn", body: "Hợp đồng thuê sẽ hết hiệu lực sau 15 ngày.", createdAt: "2 giờ trước", href: "/contracts" },
-        { id: "3", eventType: "repair", title: "Yêu cầu sửa chữa mới", body: "Phòng 304 báo hỏng vòi nước nhà vệ sinh.", createdAt: "1 ngày trước", href: "/owner/feedback" }
-      ]);
-      setUnreadCount(3);
+      setNotificationItems([]);
+      setUnreadCount(0);
     }
   }, []);
 
