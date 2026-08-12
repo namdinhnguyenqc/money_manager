@@ -679,13 +679,13 @@ export default function OwnerSettingsPage() {
             {/* Visual background sparkles for modern feel */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-slate-100/30 rounded-full -mr-32 -mt-32 pointer-events-none blur-3xl"></div>
 
-            <AnimatePresence mode="wait">
+            <AnimatePresence>
               <motion.div
                 key={activeTab}
-                initial={{ opacity: 0, y: 15 }}
+                initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.1, ease: "easeOut" }}
                 className="w-full h-full"
               >
 
