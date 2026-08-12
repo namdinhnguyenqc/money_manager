@@ -32,7 +32,7 @@ const navItems = [
   { href: "/admin/owner-approvals", label: "Duyệt tài khoản", icon: Users },
   { href: "/admin/owner-permissions", label: "Phân quyền Owner", icon: ShieldCheck },
   { href: "/admin/feedback", label: "Báo cáo lỗi", icon: Bug, hasBadge: true },
-  { href: "/admin/settings", label: "Cài đặt", icon: Settings, isPlaceholder: true },
+  { href: "/admin/settings", label: "Cài đặt", icon: Settings },
 ];
 
 const primaryAdminActions = [

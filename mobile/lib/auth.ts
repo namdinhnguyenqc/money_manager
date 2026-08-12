@@ -53,11 +53,14 @@ export function getApprovalStatus(user?: AuthUser | null): string | null {
 }
 
 export function isDashboardReady(user?: AuthUser | null, nextStep?: string | null): boolean {
+  const step = String(user?.onboardingStep || '').toUpperCase();
+  const next = String(nextStep || 'DASHBOARD').toUpperCase();
+  const status = String(user?.status || '').toUpperCase();
+  const approval = getApprovalStatus(user);
   return (
-    String(user?.status || '').toUpperCase() === 'ACTIVE' &&
-    getApprovalStatus(user) === 'ACTIVE' &&
-    String(user?.onboardingStep || '').toUpperCase() === 'DONE' &&
-    String(nextStep || 'DASHBOARD').toUpperCase() === 'DASHBOARD'
+    (status === 'ACTIVE' || approval === 'ACTIVE' || !status) &&
+    (step === 'DONE' || !step || step === 'NONE') &&
+    (next === 'DASHBOARD' || next === 'NONE' || !next)
   );
 }
 

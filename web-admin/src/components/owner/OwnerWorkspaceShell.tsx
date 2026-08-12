@@ -216,11 +216,6 @@ const getPageTitle = (path: string) => {
         return;
       }
       const storedUser = getStoredSessionUser();
-      if (storedUser.isProfileCompleted === false) {
-        setLoading(false);
-        router.replace("/complete-profile");
-        return;
-      }
       if (storedUser.status === "PENDING_APPROVAL" || storedUser.approvalStatus === "PENDING_APPROVAL") {
         setLoading(false);
         router.replace("/pending-approval");

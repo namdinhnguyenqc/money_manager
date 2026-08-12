@@ -13,7 +13,7 @@ import { parseJson } from "../utils/validation.js";
 import { requireAuth, getClientIp, getDeviceInfo, revokeAccessToken } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
-import { buildProfileAuthMeta, getUserProfile } from "../lib/profileStore.js";
+import { buildProfileAuthMeta, getUserProfile, isOwnerAutoApproveEnabled, isOwnerRequireProfileFormEnabled } from "../lib/profileStore.js";
 import { getRoleId } from "../lib/roles.js";
 import {
   buildTrustedOrigins,
@@ -420,6 +420,12 @@ async function upsertOwnerGoogleUser(input: {
 
   if (!existingUser) {
     // Automatically allow any email to be an owner when logging in via this portal
+    const requireForm = await isOwnerRequireProfileFormEnabled();
+    const autoApprove = await isOwnerAutoApproveEnabled();
+    const effectiveIsProfileCompleted = requireForm ? isProfileCompleted : true;
+    const effectiveStep = effectiveIsProfileCompleted
+      ? (autoApprove ? "DONE" : "PENDING_APPROVAL")
+      : "COMPLETE_PROFILE";
 
     const { data: createdUser, error: createError } = await supabaseAdmin
       .from("users")
@@ -432,8 +438,8 @@ async function upsertOwnerGoogleUser(input: {
         role_id: ownerBasicRoleId, // OWNER_BASIC default
         status: "ACTIVE",
         provider: "GOOGLE",
-        is_profile_completed: isProfileCompleted,
-        onboarding_step: isProfileCompleted ? "PENDING_APPROVAL" : "COMPLETE_PROFILE",
+        is_profile_completed: effectiveIsProfileCompleted,
+        onboarding_step: effectiveStep,
         last_login_at: new Date().toISOString(),
       })
       .select()

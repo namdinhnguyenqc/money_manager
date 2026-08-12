@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { CheckCircle2, Eye, RefreshCw, UserRound, XCircle, Sparkles, ShieldCheck, Sliders, CheckSquare, Square } from "lucide-react";
+import { CheckCircle2, Eye, RefreshCw, UserRound, XCircle, Sparkles, ShieldCheck, Sliders, CheckSquare, Square, ToggleLeft, ToggleRight, Settings } from "lucide-react";
 import { apiGet, apiPatch } from "@/utils/apiClient";
 
 // Owner operation features mapping
@@ -89,6 +89,78 @@ export default function OwnerApprovalsPage() {
   const [filterStatus, setFilterStatus] = useState<"PENDING_APPROVAL" | "ACTIVE">("PENDING_APPROVAL");
   const [selectedPlan, setSelectedPlan] = useState<"basic" | "premium">("basic");
   const [updatingPlan, setUpdatingPlan] = useState(false);
+
+  // Platform Automation System Config Toggles
+  const [requireProfileForm, setRequireProfileForm] = useState<boolean | null>(null);
+  const [requireProfileFormSaving, setRequireProfileFormSaving] = useState(false);
+  const [autoApprove, setAutoApprove] = useState<boolean | null>(null);
+  const [autoApproveSaving, setAutoApproveSaving] = useState(false);
+
+  const loadSystemConfigs = useCallback(async () => {
+    try {
+      const res = await apiGet<{ data: any[] }>("/admin/system-config");
+      const list = res.data || [];
+      const formRow = list.find((r) => r.key === "owner_require_profile_form");
+      const approveRow = list.find((r) => r.key === "owner_auto_approve");
+
+      const formVal = formRow?.value;
+      setRequireProfileForm(formVal === undefined || formVal === true || formVal === "true" || formVal === 1 || formVal === "1");
+
+      const approveVal = approveRow?.value;
+      setAutoApprove(approveVal === true || approveVal === "true" || approveVal === 1 || approveVal === "1");
+    } catch {
+      setRequireProfileForm(true);
+      setAutoApprove(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSystemConfigs();
+  }, [loadSystemConfigs]);
+
+  const toggleRequireProfileForm = async () => {
+    if (requireProfileForm === null) return;
+    const next = !requireProfileForm;
+    setRequireProfileFormSaving(true);
+    setError("");
+    try {
+      await apiPatch("/admin/system-config", {
+        key: "owner_require_profile_form",
+        value: next,
+        valueType: "boolean",
+        reason: next
+          ? "Bật yêu cầu điền form hồ sơ với Owner mới"
+          : "Tắt form hồ sơ — bỏ qua điền thông tin cá nhân cho Owner mới",
+      });
+      setRequireProfileForm(next);
+    } catch (err: any) {
+      setError(err?.message || "Không cập nhật được cấu hình form hồ sơ.");
+    } finally {
+      setRequireProfileFormSaving(false);
+    }
+  };
+
+  const toggleAutoApprove = async () => {
+    if (autoApprove === null) return;
+    const next = !autoApprove;
+    setAutoApproveSaving(true);
+    setError("");
+    try {
+      await apiPatch("/admin/system-config", {
+        key: "owner_auto_approve",
+        value: next,
+        valueType: "boolean",
+        reason: next
+          ? "Bật tự động duyệt tài khoản chủ trọ mới"
+          : "Tắt tự động duyệt — chuyển về duyệt thủ công",
+      });
+      setAutoApprove(next);
+    } catch (err: any) {
+      setError(err?.message || "Không cập nhật được cấu hình tự động duyệt.");
+    } finally {
+      setAutoApproveSaving(false);
+    }
+  };
 
   const [searchEmail, setSearchEmail] = useState("");
   const [nonOwnerResults, setNonOwnerResults] = useState<any[]>([]);
@@ -314,6 +386,8 @@ export default function OwnerApprovalsPage() {
             </button>
           </div>
         </div>
+
+
 
         {/* ── Section: Promote User to Owner ── */}
         <section className="mb-6 rounded-[12px] border border-slate-200 bg-white p-5 shadow-sm">
