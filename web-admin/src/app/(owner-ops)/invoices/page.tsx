@@ -19,6 +19,7 @@ import {
 import { apiDelete, apiGet, apiPost } from "@/utils/apiClient";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
+import MetricCard from "@/components/ui/MetricCard";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
@@ -493,23 +494,11 @@ export default function InvoicesPage() {
       />
 
       {/* At-a-glance money summary */}
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div className="rounded-2xl p-4 text-white shadow-sm" style={{ background: "linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)" }}>
-          <div className="text-[11px] font-bold uppercase tracking-widest text-white/80">Tổng hóa đơn</div>
-          <div className="mt-1 text-xl font-black leading-tight">{formatMoney(summary.billed)}</div>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Đã thu</div>
-          <div className="mt-1 text-xl font-black leading-tight text-emerald-600">{formatMoney(summary.collected)}</div>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Còn phải thu</div>
-          <div className="mt-1 text-xl font-black leading-tight text-red-600">{formatMoney(summary.outstanding)}</div>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Quá hạn</div>
-          <div className="mt-1 text-xl font-black leading-tight text-amber-600">{overdueCarryCount} <span className="text-sm font-bold text-slate-400">hóa đơn</span></div>
-        </div>
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <MetricCard label="Tổng hóa đơn" value={formatMoney(summary.billed)} tone="primary" />
+        <MetricCard label="Đã thu" value={formatMoney(summary.collected)} tone="success" />
+        <MetricCard label="Còn phải thu" value={formatMoney(summary.outstanding)} tone="danger" />
+        <MetricCard label="Quá hạn" value={`${overdueCarryCount} hóa đơn`} tone="warning" />
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">

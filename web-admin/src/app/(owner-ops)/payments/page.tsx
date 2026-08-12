@@ -2,13 +2,14 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { RefreshCw } from "lucide-react";
+import { Banknote, Landmark, RefreshCw, Smartphone, WalletCards } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BoardingHouse, Transaction, formatMoney, loadBoardingHouses, loadTransactions } from "@/lib/rentalOps";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input, { Label, Select } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
+import MetricCard from "@/components/ui/MetricCard";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
 
@@ -113,12 +114,12 @@ export default function PaymentsPage() {
 
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="mb-4 grid gap-3 md:grid-cols-5">
-        <PaymentSummaryCard label="Tổng thu" value={total} gradient />
-        <PaymentSummaryCard label="Tiền mặt" value={totalCash} />
-        <PaymentSummaryCard label="Chuyển khoản" value={totalBank} />
-        <PaymentSummaryCard label="Ví điện tử" value={totalWallet} />
-        <PaymentSummaryCard label="SePay tự động" value={totalSepay} />
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <MetricCard label="Tổng thu" value={formatMoney(total)} icon={<WalletCards size={18} />} tone="primary" />
+        <MetricCard label="Tiền mặt" value={formatMoney(totalCash)} icon={<Banknote size={18} />} />
+        <MetricCard label="Chuyển khoản" value={formatMoney(totalBank)} icon={<Landmark size={18} />} />
+        <MetricCard label="Ví điện tử" value={formatMoney(totalWallet)} icon={<Smartphone size={18} />} />
+        <MetricCard label="SePay tự động" value={formatMoney(totalSepay)} icon={<RefreshCw size={18} />} tone="success" />
       </div>
 
       <DataTable
@@ -180,22 +181,5 @@ export default function PaymentsPage() {
         Ghi nhận thanh toán mới bắt đầu từ trang chi tiết hóa đơn: <Link href="/invoices" className="font-semibold text-blue-700 hover:underline">mở danh sách hóa đơn</Link>.
       </div>
     </div>
-  );
-}
-
-function PaymentSummaryCard({ label, value, gradient = false }: { label: string; value: number; gradient?: boolean }) {
-  if (gradient) {
-    return (
-      <div className="rounded-2xl p-4 text-white shadow-sm" style={{ background: "linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)" }}>
-        <div className="text-xs font-semibold text-white/90">{label}</div>
-        <div className="mt-1 text-xl font-black whitespace-nowrap">{formatMoney(value)}</div>
-      </div>
-    );
-  }
-  return (
-    <Card className="p-4">
-      <div className="text-xs font-semibold text-slate-500">{label}</div>
-      <div className="mt-1 text-lg font-bold text-slate-900 whitespace-nowrap">{formatMoney(value)}</div>
-    </Card>
   );
 }
