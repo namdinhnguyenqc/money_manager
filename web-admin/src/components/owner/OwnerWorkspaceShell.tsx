@@ -133,7 +133,7 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
   const queryClient = useQueryClient();
   const pathname = usePathname();
 
-  const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(() => Boolean(pathname && pathname.startsWith("/owner/settings")));
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationItems, setNotificationItems] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(3);
@@ -607,14 +607,35 @@ const getPageTitle = (path: string) => {
             </button>
             <Logo />
           </div>
-          <div className="relative">
-            <button
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-950 text-sm font-bold text-white shadow-sm shadow-blue-200 transition active:scale-95"
-              aria-label="Tài khoản"
-            >
-              {(ownerName || "O").charAt(0).toUpperCase()}
-            </button>
+          <div className="flex items-center gap-2">
+            {/* Mobile Notification Bell */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  const next = !notificationsOpen;
+                  setNotificationsOpen(next);
+                  if (next) fetchHeaderNotifications();
+                }}
+                className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 transition-all active:scale-95"
+                title="Thông báo hệ thống"
+              >
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-xs">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            <div className="relative">
+              <button
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-950 text-sm font-bold text-white shadow-sm shadow-blue-200 transition active:scale-95"
+                aria-label="Tài khoản"
+              >
+                {(ownerName || "O").charAt(0).toUpperCase()}
+              </button>
 
             {dropdownOpen && (
               <>
@@ -651,7 +672,8 @@ const getPageTitle = (path: string) => {
               </>
             )}
           </div>
-        </header>
+        </div>
+      </header>
 
         {/* Desktop Header */}
         <header className="hidden lg:flex items-center justify-between bg-white border-b border-slate-100 px-6 py-3.5 sticky top-0 z-20">
