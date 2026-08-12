@@ -767,7 +767,7 @@ export default function OwnerSettingsPage() {
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
                         <span className="text-sm font-bold text-slate-900 block">Kích hoạt gửi Zalo tự động</span>
-                        <span className="text-xs text-slate-500 font-medium">Cho phép hiển thị nút "Gửi Zalo qua SĐT" sau khi lập hóa đơn thành công.</span>
+                        <span className="text-xs text-slate-500 font-medium">Cho phép hiển thị nút &quot;Gửi Zalo qua SĐT&quot; sau khi lập hóa đơn thành công.</span>
                       </div>
                       <input
                         type="checkbox"
@@ -789,7 +789,7 @@ export default function OwnerSettingsPage() {
                           <option value="zns_oa">Zalo Official Account (ZNS Template)</option>
                         </UISelect>
                         <p className="mt-1 text-[11px] text-slate-400 font-medium">
-                          `zca-js`: Gửi tin nhắn thoại/văn bản trực tiếp từ tài khoản Zalo cá nhân qua SĐT khách thuê.
+                          {"zca-js: Gửi tin nhắn thoại/văn bản trực tiếp từ tài khoản Zalo cá nhân qua SĐT khách thuê."}
                         </p>
                       </div>
 
