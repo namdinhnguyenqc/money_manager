@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Home, LayoutDashboard, LogOut, Menu, Users, X, Bug, UserCheck, ShieldCheck, Newspaper } from "lucide-react";
+import { Home, LayoutDashboard, LogOut, Menu, Users, X, Bug, UserCheck, ShieldCheck, Newspaper, Settings } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import Logo from "@/components/ui/Logo";
 import { API_URL, apiClient } from "@/lib/api";
@@ -180,6 +180,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Link href="/admin/owner-permissions" className={navClass("/admin/owner-permissions")}>
             <ShieldCheck size={18} />
             <span className="text-sm font-medium">Phân quyền Owner</span>
+          </Link>
+          <Link href="/admin/settings" className={navClass("/admin/settings")}>
+            <Settings size={18} />
+            <span className="text-sm font-medium">Cài đặt hệ thống</span>
           </Link>
         </nav>
 

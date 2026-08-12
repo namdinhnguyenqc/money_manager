@@ -31,6 +31,10 @@ export type ProfileCompletionResult = {
 // "Duyệt tài khoản" page. Stored once, platform-wide — not per-owner.
 const OWNER_AUTO_APPROVE_KEY = "owner_auto_approve";
 
+// Global admin toggle: when ON (default), new owners must complete the profile form (/complete-profile).
+// When OFF, the profile form requirement is bypassed for new owners.
+const OWNER_REQUIRE_PROFILE_FORM_KEY = "owner_require_profile_form";
+
 export async function isOwnerAutoApproveEnabled(): Promise<boolean> {
   try {
     const { data, error } = await supabaseAdmin
@@ -43,6 +47,21 @@ export async function isOwnerAutoApproveEnabled(): Promise<boolean> {
     return v === true || v === "true" || v === 1 || v === "1";
   } catch {
     return false;
+  }
+}
+
+export async function isOwnerRequireProfileFormEnabled(): Promise<boolean> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("admin_system_configs")
+      .select("value")
+      .eq("key", OWNER_REQUIRE_PROFILE_FORM_KEY)
+      .maybeSingle();
+    if (error || !data) return true; // Default true (require profile form)
+    const v = data.value;
+    return v === true || v === "true" || v === 1 || v === "1";
+  } catch {
+    return true;
   }
 }
 
@@ -227,7 +246,9 @@ export async function buildProfileAuthMeta(user: any, preFetchedProfile?: any) {
     profile = toProfileResponse(profile);
   }
   const status = String(user.status || "").toUpperCase();
+  const requireForm = await isOwnerRequireProfileFormEnabled();
   const isProfileCompleted = Boolean(
+    !requireForm ||
     profile ||
     user.is_profile_completed === true ||
     user.onboarding_step === "DONE" ||
@@ -245,11 +266,11 @@ export async function buildProfileAuthMeta(user: any, preFetchedProfile?: any) {
     ? "COMPLETE_PROFILE"
     : user.onboarding_step === "REJECTED"
       ? "REJECTED"
-    : hasProfileButNoApprovalState || user.onboarding_step === "PENDING_APPROVAL"
-      ? "PENDING_APPROVAL"
-      : status === "ACTIVE" || user.onboarding_step === "DONE"
-        ? "DONE"
-        : "PENDING_APPROVAL";
+    : (!requireForm && (status === "ACTIVE" || !status)) || status === "ACTIVE" || user.onboarding_step === "DONE"
+      ? "DONE"
+      : hasProfileButNoApprovalState || user.onboarding_step === "PENDING_APPROVAL"
+        ? "PENDING_APPROVAL"
+        : "DONE";
 
   return {
     profile,

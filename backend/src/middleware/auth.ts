@@ -4,6 +4,7 @@ import type { CurrentUser } from "../types.js";
 import { env } from "../config/env.js";
 import { supabaseAdmin, createUserClient } from "../lib/supabase.js";
 import { verifyAccessToken } from "../lib/auth.js";
+import { isOwnerAutoApproveEnabled, isOwnerRequireProfileFormEnabled } from "../lib/profileStore.js";
 import { createHash } from "crypto";
 
 const extractBearer = (headerValue: string | undefined): string | null => {
@@ -300,11 +301,18 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
       provider: "GOOGLE",
     };
 
+    const requireForm = await isOwnerRequireProfileFormEnabled();
+    const autoApprove = await isOwnerAutoApproveEnabled();
+    const isProfileCompleted = !requireForm;
+    const onboardingStep = isProfileCompleted
+      ? (autoApprove ? "DONE" : "PENDING_APPROVAL")
+      : "COMPLETE_PROFILE";
+
     // Only add columns if they are expected to exist, or let catch handle it
     const { data: newUser, error: createError } = await supabaseAdmin.from("users").insert({
       ...insertPayload,
-      is_profile_completed: false,
-      onboarding_step: "COMPLETE_PROFILE",
+      is_profile_completed: isProfileCompleted,
+      onboarding_step: onboardingStep,
     }).select().single();
 
     if (createError) {

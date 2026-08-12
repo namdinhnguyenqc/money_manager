@@ -258,23 +258,57 @@ export default function OwnerApprovalsPage() {
   // a new owner who finishes their signup form goes straight to the
   // dashboard (no manual review). When OFF, they land in "Chờ duyệt" and an
   // admin must approve them here by hand.
+  const [requireProfileForm, setRequireProfileForm] = useState<boolean | null>(null);
+  const [requireProfileFormSaving, setRequireProfileFormSaving] = useState(false);
   const [autoApprove, setAutoApprove] = useState<boolean | null>(null);
   const [autoApproveSaving, setAutoApproveSaving] = useState(false);
 
-  const loadAutoApprove = useCallback(async () => {
+  const loadSystemConfigs = useCallback(async () => {
     try {
       const res = await apiClient<{ data: any[] }>("/admin/system-config");
-      const row = (res.data || []).find((r) => r.key === "owner_auto_approve");
-      const v = row?.value;
-      setAutoApprove(v === true || v === "true" || v === 1 || v === "1");
+      const list = res.data || [];
+      const formRow = list.find((r) => r.key === "owner_require_profile_form");
+      const approveRow = list.find((r) => r.key === "owner_auto_approve");
+
+      const formVal = formRow?.value;
+      setRequireProfileForm(formVal === undefined || formVal === true || formVal === "true" || formVal === 1 || formVal === "1");
+
+      const approveVal = approveRow?.value;
+      setAutoApprove(approveVal === true || approveVal === "true" || approveVal === 1 || approveVal === "1");
     } catch {
+      setRequireProfileForm(true);
       setAutoApprove(false);
     }
   }, []);
 
   useEffect(() => {
-    loadAutoApprove();
-  }, [loadAutoApprove]);
+    loadSystemConfigs();
+  }, [loadSystemConfigs]);
+
+  const toggleRequireProfileForm = async () => {
+    if (requireProfileForm === null) return;
+    const next = !requireProfileForm;
+    setRequireProfileFormSaving(true);
+    setError("");
+    try {
+      await apiClient("/admin/system-config", {
+        method: "PATCH",
+        body: JSON.stringify({
+          key: "owner_require_profile_form",
+          value: next,
+          valueType: "boolean",
+          reason: next
+            ? "Bật yêu cầu điền form hồ sơ với Owner mới"
+            : "Tắt form hồ sơ — bỏ qua điền thông tin cá nhân cho Owner mới",
+        }),
+      });
+      setRequireProfileForm(next);
+    } catch (err: any) {
+      setError(err?.message || "Không cập nhật được cấu hình form hồ sơ.");
+    } finally {
+      setRequireProfileFormSaving(false);
+    }
+  };
 
   const toggleAutoApprove = async () => {
     if (autoApprove === null) return;
@@ -406,30 +440,7 @@ export default function OwnerApprovalsPage() {
           </div>
         </div>
 
-        {/* Global setting: auto-approve new owner signups */}
-        <section className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-sm font-black text-slate-900">
-              {autoApprove ? <ShieldCheck size={16} className="text-emerald-600" /> : <ShieldAlert size={16} className="text-amber-500" />}
-              Tự động duyệt tài khoản mới
-            </div>
-            <p className="mt-1 text-xs text-slate-500">
-              {autoApprove
-                ? "Đang BẬT: khách điền xong form đăng ký sẽ vào thẳng dashboard, không cần admin duyệt."
-                : "Đang TẮT: khách điền xong form sẽ ở trạng thái Chờ duyệt, admin phải duyệt tay ở danh sách bên dưới."}
-            </p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={autoApprove === true}
-            disabled={autoApprove === null || autoApproveSaving}
-            onClick={toggleAutoApprove}
-            className={`relative h-8 w-14 shrink-0 rounded-full transition-colors disabled:opacity-50 ${autoApprove ? "bg-emerald-500" : "bg-slate-300"}`}
-          >
-            <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${autoApprove ? "translate-x-7" : "translate-x-1"}`} />
-          </button>
-        </section>
+
 
         {/* Promote User to Owner Section */}
         <section className="mb-6 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md/5">

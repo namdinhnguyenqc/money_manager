@@ -32,15 +32,26 @@ export default function CompleteProfilePage() {
       const res = await getMyProfile();
       setProfileState(res);
       if (res.user?.isProfileCompleted) {
+        setClientSession({
+          accessToken: localStorage.getItem("accessToken") || "",
+          role: res.user.role,
+          name: res.user.name,
+          email: res.user.email,
+          status: res.user.status,
+          approvalStatus: res.user.approvalStatus || res.user.status,
+          isProfileCompleted: true,
+          onboardingStep: res.user.onboardingStep,
+        });
+        localStorage.setItem("isProfileCompleted", "true");
+        if (res.user.approvalStatus) localStorage.setItem("approvalStatus", res.user.approvalStatus);
+
         const status = String(res.user.status || "").toUpperCase();
-        const approvalStatus = String(res.user.approvalStatus || "").toUpperCase();
+        const approvalStatus = String(res.user.approvalStatus || res.user.status || "").toUpperCase();
         const onboardingStep = String(res.user.onboardingStep || "").toUpperCase();
         const nextStep = String(res.nextStep || "").toUpperCase();
         const canEnterDashboard =
-          status === "ACTIVE" &&
-          approvalStatus === "ACTIVE" &&
-          onboardingStep === "DONE" &&
-          nextStep === "DASHBOARD";
+          (status === "ACTIVE" || approvalStatus === "ACTIVE" || !status) &&
+          (onboardingStep === "DONE" || nextStep === "DASHBOARD" || nextStep === "NONE" || !onboardingStep);
 
         router.replace(canEnterDashboard ? "/owner/dashboard" : "/pending-approval");
       }
