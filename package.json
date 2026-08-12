@@ -13,9 +13,8 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "quality": "npm run lint && npm run typecheck && npm run test",
-    "build": "npm --prefix backend run build",
-    "start": "npm --prefix backend start"
+    "build": "npm --prefix web-admin run build",
+    "start": "npm --prefix web-admin start"
   },
   "dependencies": {
     "metro-runtime": "^0.83.3",

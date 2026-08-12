@@ -12,6 +12,8 @@ coverage/
 .env.local
 .env.production
 *.log
+/backups/
+/.local-video-output/
 *.tsbuildinfo
 **/reports/*.json
 npm-debug.log*
