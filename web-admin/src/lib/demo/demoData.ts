@@ -160,8 +160,14 @@ export function resolveDemoPayload(pathname: string, method: string, search: URL
   if (p === "/owner/permissions") return { permissions: ALL_PERMISSIONS };
   if (p === "/owner/dashboard-init") return dashboardInit();
   if (p === "/owner/boarding-houses") return { data: FACILITIES };
+  if (p.startsWith("/owner/boarding-houses/") && p.endsWith("/rooms")) {
+    const parts = p.split("/");
+    const bhId = parts[3];
+    const rooms = bhId ? ROOMS.filter((r) => r.boarding_house_id === bhId) : ROOMS;
+    return { data: rooms };
+  }
   if (p === "/owner/rooms" || p === "/rental/rooms") {
-    const bh = search.get("buildingId") || search.get("boardingHouseId");
+    const bh = search.get("buildingId") || search.get("boardingHouseId") || search.get("facility_id") || search.get("facilityId");
     const rooms = bh ? ROOMS.filter((r) => r.boarding_house_id === bh) : ROOMS;
     return { data: rooms };
   }
