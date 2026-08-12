@@ -409,15 +409,17 @@ ownerRoutes.get("/boarding-houses/:id/rooms", async (c) => {
   const bhId = c.req.param("id");
   const { status = "" } = c.req.query();
 
-  const bhCheck = await c
-    .get("supabase")
-    .from("boarding_houses")
-    .select("owner_id")
-    .eq("id", bhId)
-    .single();
+  if (currentUser.role !== "ADMIN" && currentUser.role !== "SUPER_ADMIN") {
+    const bhCheck = await c
+      .get("supabase")
+      .from("boarding_houses")
+      .select("owner_id")
+      .eq("id", bhId)
+      .maybeSingle();
 
-  if (!bhCheck.data || bhCheck.data.owner_id !== currentUser.id) {
-    return c.json({ error: "Boarding house not found or access denied" }, 404);
+    if (bhCheck.data && bhCheck.data.owner_id && bhCheck.data.owner_id !== currentUser.id) {
+      return c.json({ error: "Boarding house not found or access denied" }, 404);
+    }
   }
 
   let query = c

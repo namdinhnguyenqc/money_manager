@@ -70,8 +70,8 @@ export default function OwnerOnboardingGuide({
       try {
         const [housesRes, roomsRes, contractsRes, invoicesRes] = await Promise.allSettled([
           apiGet<{ data?: any[] }>("/owner/boarding-houses"),
-          apiGet<{ data?: any[] }>("/rooms"),
-          apiGet<{ data?: any[] }>("/contracts"),
+          apiGet<{ data?: any[] }>("/rental/rooms"),
+          apiGet<{ data?: any[] }>("/rental/contracts"),
           apiGet<{ data?: any[] }>("/invoices"),
         ]);
 

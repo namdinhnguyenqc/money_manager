@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2, Edit2, MapPin, Plus, RefreshCw, Trash2, Lock } from "lucide-react";
 import { apiPost } from "@/utils/apiClient";
-import { BoardingHouse, loadBoardingHouses, loadOwnerRooms, deleteBoardingHouse, updateBoardingHouse, normalizeRoomStatus } from "@/lib/rentalOps";
+import { BoardingHouse, loadBoardingHouses, loadOwnerRooms, loadRentalRooms, deleteBoardingHouse, updateBoardingHouse, normalizeRoomStatus } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 type Summary = { total: number; available: number; occupied: number; maintenance: number };
@@ -31,11 +31,11 @@ export default function OwnerBoardingHousesPage() {
       setHouses(nextHouses);
       const entries = await Promise.all(
         nextHouses.map(async (house) => {
-          const rooms = await loadOwnerRooms(house.id).catch(() => []);
+          const rooms = await loadRentalRooms(house.id).catch(() => loadOwnerRooms(house.id)).catch(() => []);
           return [
             house.id,
             rooms.reduce(
-              (acc, room) => {
+              (acc: Summary, room: any) => {
                 acc.total += 1;
                 const s = String(normalizeRoomStatus(room));
                 if (s === "occupied" || s === "expiring_soon" || s === "expired") acc.occupied += 1;
