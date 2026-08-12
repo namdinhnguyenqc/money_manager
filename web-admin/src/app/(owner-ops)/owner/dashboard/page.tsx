@@ -332,7 +332,7 @@ export default function OwnerDashboard() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-xs sm:text-sm font-extrabold text-amber-900">{overdueInvoices.length} hóa đơn đang chờ thanh toán / quá hạn</div>
-              <div className="text-xs text-amber-700 font-medium mt-0.5">Nợ đọng luỹ kế trước T{selectedPeriod.month}/{selectedPeriod.year}: <span className="font-bold">{formatMoney(overdueAmount)}</span></div>
+              <div className="text-xs text-amber-700 font-medium mt-0.5">Tổng nợ đọng cần thu: <span className="font-bold">{formatMoney(overdueAmount)}</span></div>
             </div>
             <span className="hidden sm:inline-flex items-center gap-1 text-xs font-bold text-amber-800 bg-white/80 border border-amber-200 px-3 py-1.5 rounded-xl shrink-0">
               Xem chi tiết <ChevronRight size={14} />
@@ -660,43 +660,35 @@ export default function OwnerDashboard() {
             </div>
           </div>
 
-          {/* Module 3: Cơ cấu doanh thu (theo hoá đơn phát sinh trong kỳ) */}
+          {/* Module 3: Cơ cấu doanh thu */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Cơ cấu doanh thu</h4>
-              {utilities.total > 0 && (
-                <span className="text-[11px] font-bold text-blue-600">
-                  {formatMoney(utilities.total)}
-                </span>
-              )}
+              <span className="text-[11px] font-bold text-blue-600">
+                {formatMoney(utilities.total || selectedPeriodFinancial.income)}
+              </span>
             </div>
 
-            {utilities.total > 0 ? (
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-blue-500" /> Tiền phòng</span>
-                  <span className="font-bold text-slate-800">{formatMoney(utilities.rent)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-amber-500" /> Tiền điện</span>
-                  <span className="font-bold text-slate-800">{formatMoney(utilities.electricity)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-cyan-500" /> Tiền nước</span>
-                  <span className="font-bold text-slate-800">{formatMoney(utilities.water)}</span>
-                </div>
-                {utilities.other > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-purple-500" /> Dịch vụ khác</span>
-                    <span className="font-bold text-slate-800">{formatMoney(utilities.other)}</span>
-                  </div>
-                )}
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-blue-500" /> Tiền phòng</span>
+                <span className="font-bold text-slate-800">{formatMoney(utilities.rent || actualRent)}</span>
               </div>
-            ) : (
-              <div className="py-2 text-xs font-medium text-slate-400">
-                Chưa phát sinh hoá đơn cho T{selectedPeriod.month}/{selectedPeriod.year}.
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-amber-500" /> Tiền điện</span>
+                <span className="font-bold text-slate-800">{formatMoney(utilities.electricity)}</span>
               </div>
-            )}
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-cyan-500" /> Tiền nước</span>
+                <span className="font-bold text-slate-800">{formatMoney(utilities.water)}</span>
+              </div>
+              {utilities.other > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-purple-500" /> Dịch vụ khác</span>
+                  <span className="font-bold text-slate-800">{formatMoney(utilities.other)}</span>
+                </div>
+              )}
+            </div>
           </div>
 
         </div>
