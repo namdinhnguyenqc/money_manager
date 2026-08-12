@@ -20,6 +20,7 @@ import {
   disconnectZca,
   getZcaLoginSession,
   getZcaStatus,
+  sendInvoicesBulkViaZca,
   sendInvoiceImageViaZca,
   startZcaQrLogin,
 } from "../services/zcaInvoiceService.js";
@@ -562,89 +563,8 @@ zaloRoutes.post("/invoices/send-zalo-bulk", requireAuth, async (c) => {
   if (!body.success) return c.json({ error: "Danh sách hóa đơn hoặc số điện thoại không hợp lệ." }, 400);
 
   const { invoiceIds, phonesMap = {} } = body.data;
-  const db = c.get("supabase");
-
-  const oaConn = await getZaloConnection(user.id, "OA");
-  if (!oaConn || !oaConn.oa_id) {
-    return c.json({ error: "Zalo Official Account chưa kết nối. Không thể gửi hàng loạt." }, 400);
-  }
-
-  const successList: string[] = [];
-  const failedList: Array<{ invoiceId: string; error: string }> = [];
-
-  // Parallel/sequential batch processing with fault tolerance: if one fails, it does not stop the others
-  for (const invId of invoiceIds) {
-    try {
-      const { invoice, tenant, payload } = await constructInvoicePayload(db, invId, user);
-
-      const targetPhone = phonesMap[invId] || tenant.phone;
-      if (!targetPhone) {
-        failedList.push({ invoiceId: invId, error: "Chưa cấu hình số điện thoại khách thuê." });
-        continue;
-      }
-
-      // Update tenant phone dynamically if provided
-      if (phonesMap[invId] && !tenant.phone) {
-        await db.from("tenants").update({ phone: phonesMap[invId] }).eq("id", tenant.id);
-      }
-
-      const logData: ZaloNotificationLog = {
-        invoice_id: invId,
-        tenant_id: tenant.id,
-        phone_number: targetPhone,
-        template_id: "zbs_invoice_v1",
-        message_payload: payload,
-        send_status: "PENDING",
-        retry_count: 0,
-      };
-
-      const { data: insertedLog, error: logErr } = await db
-        .from("invoice_zalo_notifications")
-        .insert(logData)
-        .select("id")
-        .single();
-      if (logErr) throw new Error(`Lỗi tạo lịch sử gửi tin: ${logErr.message}`);
-      const logId = insertedLog.id;
-
-      const sendResult = await sendZBSNotification(logData, user.id);
-
-      if (sendResult.success) {
-        await db
-          .from("invoice_zalo_notifications")
-          .update({
-            send_status: "SENT",
-            zalo_message_id: sendResult.msgId,
-            sent_at: new Date().toISOString(),
-          })
-          .eq("id", logId);
-        successList.push(invId);
-      } else {
-        await db
-          .from("invoice_zalo_notifications")
-          .update({
-            send_status: "FAILED",
-            error_code: sendResult.errCode,
-            error_message: sendResult.errMsg,
-          })
-          .eq("id", logId);
-        failedList.push({
-          invoiceId: invId,
-          error: `Gửi Zalo thất bại (${sendResult.errCode}): ${sendResult.errMsg}`,
-        });
-      }
-    } catch (err: any) {
-      failedList.push({ invoiceId: invId, error: err.message || "Lỗi xử lý hóa đơn." });
-    }
-  }
-
-  return c.json({
-    success: true,
-    totalSent: invoiceIds.length,
-    successCount: successList.length,
-    failedCount: failedList.length,
-    successList,
-    failedList,
-  });
+  const summary = await sendInvoicesBulkViaZca(user.id, invoiceIds, phonesMap);
+  return c.json({ success: true, data: summary });
 });
 
 // GET /zalo/invoices/:invoiceId/zalo-history - Lấy lịch sử gửi tin của hóa đơn cụ thể
