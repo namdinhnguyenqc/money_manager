@@ -24,6 +24,7 @@ import {
   renderInvoiceImageBuffer,
   sendInvoicesBulkViaZca,
   sendInvoiceImageViaZca,
+  sendPaymentReminderViaZca,
   startInvoicesBulkZcaJob,
   startZcaQrLogin,
 } from "../services/zcaInvoiceService.js";
@@ -499,6 +500,21 @@ zaloRoutes.post("/invoices/:invoiceId/send-zalo", requireAuth, async (c) => {
   } catch (err: any) {
     console.error("ZCA invoice image sending error:", err);
     return c.json({ success: false, error: err.message || "Gửi ảnh hóa đơn qua Zalo thất bại." }, 400);
+  }
+});
+
+// POST /zalo/invoices/:invoiceId/send-reminder-zalo - Gửi tin nhắn nhắc nợ, không đính kèm ảnh hóa đơn.
+zaloRoutes.post("/invoices/:invoiceId/send-reminder-zalo", requireAuth, async (c) => {
+  const user = c.get("user");
+  const invoiceId = c.req.param("invoiceId");
+  const parsed = await c.req.json().catch(() => ({}));
+  const body = sendZaloSchema.safeParse(parsed);
+  if (!body.success) return c.json({ error: "Dữ liệu điện thoại không hợp lệ." }, 400);
+  try {
+    const result = await sendPaymentReminderViaZca(user.id, invoiceId, body.data.phoneNumber);
+    return c.json({ success: true, message: "Đã gửi tin nhắn nhắc nợ qua Zalo.", data: result });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || "Không gửi được nhắc nợ qua Zalo." }, 400);
   }
 });
 
