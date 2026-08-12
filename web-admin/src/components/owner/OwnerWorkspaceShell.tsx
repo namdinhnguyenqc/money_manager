@@ -661,58 +661,49 @@ const getPageTitle = (path: string) => {
           <div className="flex items-center gap-4">
             
 
-            {/* Notification Bell & HDSD Quick Buttons */}
-            <div className="flex items-center gap-2">
-              <Link
-                href="/owner/dashboard"
+            {/* Notification Bell Dropdown */}
+            <div className="relative">
+              <button
                 onClick={() => {
-                  if (typeof window !== "undefined") {
-                    window.dispatchEvent(new CustomEvent("open_onboarding_guide_modal"));
-                  }
+                  const next = !notificationsOpen;
+                  setNotificationsOpen(next);
+                  if (next) fetchHeaderNotifications();
                 }}
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-black text-indigo-700 hover:bg-indigo-100 transition active:scale-95 shadow-2xs"
-                title="Sổ tay hướng dẫn sử dụng cho Owner mới"
+                className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 transition-all active:scale-95"
+                title="Thông báo hệ thống"
               >
-                <Sparkles size={14} className="text-indigo-600" />
-                HDSD (5 Bước)
-              </Link>
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-xs">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
 
-              {/* Notification Bell Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    const next = !notificationsOpen;
-                    setNotificationsOpen(next);
-                    if (next) fetchHeaderNotifications();
-                  }}
-                  className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 transition-all active:scale-95"
-                  title="Thông báo hệ thống"
-                >
-                  <Bell size={18} />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-xs">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-
-                {notificationsOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setNotificationsOpen(false)} />
-                    <div className="absolute right-0 mt-2.5 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-                        <span className="text-xs font-black text-slate-800">Thông báo hệ thống</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setUnreadCount(0);
-                            setNotificationsOpen(false);
-                          }}
-                          className="text-[10px] font-bold text-blue-600 hover:underline"
-                        >
-                          Đọc tất cả
-                        </button>
-                      </div>
+              {notificationsOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setNotificationsOpen(false)} />
+                  <div className="absolute right-0 mt-2.5 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+                      <span className="text-xs font-black text-slate-800">Thông báo hệ thống</span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setUnreadCount(0);
+                          setNotificationItems((prev) => prev.map((n) => ({ ...n, readAt: new Date().toISOString() })));
+                          setNotificationsOpen(false);
+                          try {
+                            const { apiPost } = await import("@/utils/apiClient");
+                            await apiPost("/owner/notifications/read-all", {});
+                          } catch {
+                            // Suppress fallback error
+                          }
+                        }}
+                        className="text-[10px] font-bold text-blue-600 hover:underline"
+                      >
+                        Đọc tất cả
+                      </button>
+                    </div>
 
                       <div className="space-y-2 max-h-64 overflow-y-auto">
                         {notificationItems.length > 0 ? (
@@ -765,7 +756,6 @@ const getPageTitle = (path: string) => {
                   </>
                 )}
               </div>
-            </div>
 
 {/* Profile Dropdown */}
             <div className="relative">
