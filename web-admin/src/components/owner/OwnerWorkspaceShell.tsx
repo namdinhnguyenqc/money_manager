@@ -439,10 +439,9 @@ const getPageTitle = (path: string) => {
               {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
             </button>
           </div>
-          <div className={`flex items-center gap-3 px-5 pb-5 transition-all duration-300 ${isCollapsed ? "lg:hidden" : ""}`}>
+          <div className={`flex items-center gap-3 px-5 pb-4 transition-all duration-300 ${isCollapsed ? "lg:hidden" : ""}`}>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold text-slate-900">{ownerName}</div>
-              <div className="truncate text-xs text-slate-500">{ownerEmail || "owner workspace"}</div>
+              <div className="truncate text-sm font-semibold text-slate-900">Chào, {ownerName || "bạn"}</div>
             </div>
             <button className="shrink-0 text-slate-500 lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Đóng menu">
               <X size={20} />
