@@ -32,6 +32,24 @@ type InvoiceBundle = {
   paymentChannel: any | null;
 };
 
+export type ZcaBulkInvoiceItem = {
+  invoiceId: string;
+  invoiceCode?: string | null;
+  roomName?: string | null;
+  tenantName?: string | null;
+  phone?: string | null;
+  reason?: string;
+};
+
+export type ZcaBulkInvoiceResult = {
+  selected: number;
+  sent: ZcaBulkInvoiceItem[];
+  paidSkipped: ZcaBulkInvoiceItem[];
+  missingPhone: ZcaBulkInvoiceItem[];
+  zaloNotFound: ZcaBulkInvoiceItem[];
+  failed: ZcaBulkInvoiceItem[];
+};
+
 type ZcaCredentials = {
   cookie: any[];
   imei: string;
@@ -94,6 +112,8 @@ const escapeXml = (value: unknown) =>
 
 const money = (value: unknown) =>
   `${new Intl.NumberFormat("vi-VN").format(Math.round(Number(value || 0)))} đ`;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const textLines = (value: unknown, max = 36) => {
   const words = String(value || "").split(/\s+/).filter(Boolean);
@@ -330,6 +350,32 @@ async function loadInvoiceBundle(ownerId: string, invoiceId: string): Promise<In
   };
 }
 
+const getInvoiceOutstanding = (invoice: any) =>
+  Math.max(0, Math.round(Number(invoice?.total_amount || 0)) - Math.round(Number(invoice?.paid_amount || 0)));
+
+const bundleToBulkItem = (bundle: InvoiceBundle, extra: Partial<ZcaBulkInvoiceItem> = {}): ZcaBulkInvoiceItem => ({
+  invoiceId: bundle.invoice.id,
+  invoiceCode: bundle.invoice.payment_code || String(bundle.invoice.id || "").slice(0, 8),
+  roomName: bundle.room?.name || bundle.invoice.room_name || null,
+  tenantName: bundle.tenant?.name || bundle.invoice.tenant_name || null,
+  phone: cleanPhone(extra.phone || bundle.tenant?.phone || ""),
+  ...extra,
+});
+
+const pushFailedByError = (summary: ZcaBulkInvoiceResult, bundle: InvoiceBundle, error: any, phone?: string) => {
+  const message = error?.message || "Không gửi được hóa đơn qua Zalo.";
+  const item = bundleToBulkItem(bundle, { phone: phone || bundle.tenant?.phone || null, reason: message });
+  if (/không tìm thấy tài khoản zalo/i.test(message)) {
+    summary.zaloNotFound.push(item);
+    return;
+  }
+  if (/số điện thoại|10 chữ số|chưa cấu hình số điện thoại/i.test(message)) {
+    summary.missingPhone.push(item);
+    return;
+  }
+  summary.failed.push(item);
+};
+
 async function fetchImageAsDataUri(url: string) {
   if (!url) return "";
   try {
@@ -526,4 +572,46 @@ export async function sendInvoiceImageViaZca(ownerId: string, invoiceId: string,
   } finally {
     await rm(folder, { recursive: true, force: true });
   }
+}
+
+export async function sendInvoicesBulkViaZca(ownerId: string, invoiceIds: string[], phonesMap: Record<string, string> = {}) {
+  const uniqueInvoiceIds = [...new Set(invoiceIds.filter(Boolean))];
+  const summary: ZcaBulkInvoiceResult = {
+    selected: uniqueInvoiceIds.length,
+    sent: [],
+    paidSkipped: [],
+    missingPhone: [],
+    zaloNotFound: [],
+    failed: [],
+  };
+
+  for (const invoiceId of uniqueInvoiceIds) {
+    let bundle: InvoiceBundle | null = null;
+    try {
+      bundle = await loadInvoiceBundle(ownerId, invoiceId);
+      const phone = cleanPhone(phonesMap[invoiceId] || bundle.tenant.phone || "");
+
+      if (getInvoiceOutstanding(bundle.invoice) <= 0) {
+        summary.paidSkipped.push(bundleToBulkItem(bundle, { phone, reason: "Hóa đơn đã thanh toán." }));
+        continue;
+      }
+
+      if (!/^0\d{9}$/.test(phone)) {
+        summary.missingPhone.push(bundleToBulkItem(bundle, { phone, reason: "Khách thuê chưa có SĐT hợp lệ." }));
+        continue;
+      }
+
+      await sendInvoiceImageViaZca(ownerId, invoiceId, phone);
+      summary.sent.push(bundleToBulkItem(bundle, { phone }));
+      await sleep(650);
+    } catch (error: any) {
+      if (bundle) {
+        pushFailedByError(summary, bundle, error, phonesMap[invoiceId]);
+      } else {
+        summary.failed.push({ invoiceId, reason: error?.message || "Không xử lý được hóa đơn." });
+      }
+    }
+  }
+
+  return summary;
 }

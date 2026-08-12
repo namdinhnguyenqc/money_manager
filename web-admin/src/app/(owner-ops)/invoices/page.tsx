@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { RefreshCw, Trash2, Calendar, ChevronLeft, ChevronRight, FileSpreadsheet, AlertTriangle } from "lucide-react";
+import { RefreshCw, Trash2, Calendar, ChevronLeft, ChevronRight, FileSpreadsheet, AlertTriangle, Send, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import StatusBadge from "@/components/ops/StatusBadge";
 import { 
@@ -16,7 +16,7 @@ import {
   loadPendingBilling,
   normalizeInvoiceStatus 
 } from "@/lib/rentalOps";
-import { apiDelete } from "@/utils/apiClient";
+import { apiDelete, apiPost } from "@/utils/apiClient";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
 import DataTable from "@/components/ui/DataTable";
@@ -29,6 +29,24 @@ const ExportExcelModal = dynamic(() => import("@/components/ops/ExportExcelModal
 
 const statusTabs = ["Tất cả", "Chưa lập HĐ", "Chưa gửi", "Đã gửi", "Quá hạn", "Đã thanh toán"];
 const pageSize = 10;
+
+type ZaloBatchItem = {
+  invoiceId: string;
+  invoiceCode?: string | null;
+  roomName?: string | null;
+  tenantName?: string | null;
+  phone?: string | null;
+  reason?: string;
+};
+
+type ZaloBatchSummary = {
+  selected: number;
+  sent: ZaloBatchItem[];
+  paidSkipped: ZaloBatchItem[];
+  missingPhone: ZaloBatchItem[];
+  zaloNotFound: ZaloBatchItem[];
+  failed: ZaloBatchItem[];
+};
 
 const isInvoiceBeforePeriod = (invoice: Invoice, period: { month: number; year: number }) => {
   return invoice.year < period.year || (invoice.year === period.year && invoice.month < period.month);
@@ -60,6 +78,50 @@ const matchesStatus = (invoice: Invoice, filter: string, period: { month: number
   return false;
 };
 
+function ZaloBatchGroup({
+  title,
+  tone,
+  items,
+  empty,
+}: {
+  title: string;
+  tone: "amber" | "red" | "slate";
+  items: ZaloBatchItem[];
+  empty: string;
+}) {
+  const toneClass = {
+    amber: "border-amber-200 bg-amber-50 text-amber-800",
+    red: "border-red-200 bg-red-50 text-red-800",
+    slate: "border-slate-200 bg-slate-50 text-slate-700",
+  }[tone];
+
+  return (
+    <div className={`rounded-xl border p-3 ${toneClass}`}>
+      <div className="text-xs font-black uppercase tracking-wide">
+        {title} ({items.length})
+      </div>
+      {items.length === 0 ? (
+        <div className="mt-2 text-xs opacity-75">{empty}</div>
+      ) : (
+        <div className="mt-2 max-h-44 space-y-2 overflow-auto pr-1">
+          {items.map((item) => (
+            <div key={`${title}-${item.invoiceId}`} className="rounded-lg bg-white/70 px-2.5 py-2 text-xs">
+              <div className="font-bold text-slate-900">
+                {item.roomName || item.invoiceCode || item.invoiceId}
+                {item.tenantName ? ` · ${item.tenantName}` : ""}
+              </div>
+              <div className="mt-0.5 text-slate-600">
+                {item.phone ? `SĐT: ${item.phone}` : "Chưa có SĐT"}
+                {item.reason ? ` · ${item.reason}` : ""}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function InvoicesPage() {
   const queryClient = useQueryClient();
   const [houses, setHouses] = useState<BoardingHouse[]>([]);
@@ -72,6 +134,8 @@ export default function InvoicesPage() {
   const [generating, setGenerating] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [sendingZalo, setSendingZalo] = useState(false);
+  const [zaloSummary, setZaloSummary] = useState<ZaloBatchSummary | null>(null);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
 
@@ -125,11 +189,14 @@ export default function InvoicesPage() {
 
   const handleSelectAll = (checked: boolean) => {
     if (filter === "Chưa lập HĐ") return;
-    const newSelected: Record<string, boolean> = {};
-    visibleInvoices.forEach((inv) => {
-      newSelected[inv.id] = checked;
+    setSelected((prev) => {
+      const next = { ...prev };
+      visibleInvoices.forEach((inv) => {
+        if (checked) next[inv.id] = true;
+        else delete next[inv.id];
+      });
+      return next;
     });
-    setSelected(newSelected);
   };
 
   const handleBulkDelete = async () => {
@@ -192,6 +259,10 @@ export default function InvoicesPage() {
   const visibleInvoices = useMemo(() => filteredInvoices.slice((page - 1) * pageSize, page * pageSize), [filteredInvoices, page]);
   const visiblePendingRooms = useMemo(() => pendingRooms.slice((page - 1) * pageSize, page * pageSize), [pendingRooms, page]);
   const selectedCount = Object.values(selected).filter(Boolean).length;
+  const selectedIds = useMemo(
+    () => Object.entries(selected).filter(([, value]) => value).map(([id]) => id),
+    [selected],
+  );
 
   // At-a-glance money summary for the current view.
   const summary = useMemo(() => {
@@ -202,6 +273,35 @@ export default function InvoicesPage() {
     }
     return { billed, collected, outstanding: Math.max(0, billed - collected) };
   }, [invoices]);
+
+  const zaloSummaryText = useMemo(() => {
+    if (!zaloSummary) return "";
+    return [
+      `Đã chọn ${zaloSummary.selected}`,
+      `Gửi thành công ${zaloSummary.sent.length}`,
+      `Đã thanh toán bỏ qua ${zaloSummary.paidSkipped.length}`,
+      `Thiếu SĐT ${zaloSummary.missingPhone.length}`,
+      `Không tìm thấy Zalo ${zaloSummary.zaloNotFound.length}`,
+      `Lỗi gửi ${zaloSummary.failed.length}`,
+    ].join(" • ");
+  }, [zaloSummary]);
+
+  const handleBulkSendZalo = async () => {
+    if (selectedIds.length === 0 || sendingZalo) return;
+    setSendingZalo(true);
+    setError("");
+    setZaloSummary(null);
+    try {
+      const res = await apiPost<any>("/api/invoices/send-zalo-bulk", { invoiceIds: selectedIds });
+      const nextSummary = res?.data as ZaloBatchSummary | undefined;
+      if (!res?.success || !nextSummary) throw new Error(res?.error || "Không gửi được hóa đơn qua Zalo.");
+      setZaloSummary(nextSummary);
+    } catch (err: any) {
+      setError(err?.message || "Không gửi được hóa đơn qua Zalo. Vui lòng kiểm tra kết nối Zalo.");
+    } finally {
+      setSendingZalo(false);
+    }
+  };
 
   useEffect(() => setPage(1), [filter, selectedHouse, period]);
 
@@ -306,10 +406,55 @@ export default function InvoicesPage() {
       )}
 
       {selectedCount > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          <span className="font-semibold">{selectedCount} hóa đơn đã chọn</span>
-          <Button variant="danger" size="sm" icon={<Trash2 size={13} />} onClick={handleBulkDelete}>Xóa</Button>
+        <div className="sticky top-3 z-20 mb-4 rounded-xl border border-blue-200 bg-blue-50/95 px-4 py-3 text-sm text-blue-800 shadow-sm backdrop-blur">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-bold">{selectedCount} hóa đơn đã chọn</span>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Send size={13} />}
+              onClick={handleBulkSendZalo}
+              loading={sendingZalo}
+              disabled={sendingZalo}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {sendingZalo ? "Đang gửi..." : "Gửi qua Zalo"}
+            </Button>
+            <Button variant="danger" size="sm" icon={<Trash2 size={13} />} onClick={handleBulkDelete} disabled={sendingZalo}>Xóa</Button>
+            <button
+              type="button"
+              onClick={() => setSelected({})}
+              disabled={sendingZalo}
+              className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+            >
+              <X size={13} /> Bỏ chọn
+            </button>
+          </div>
+          {sendingZalo && (
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-blue-100">
+              <div className="h-full w-1/2 animate-pulse rounded-full bg-blue-600" />
+            </div>
+          )}
+        </div>
+      )}
 
+      {zaloSummary && (
+        <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="text-sm font-black text-slate-900">Kết quả gửi Zalo</div>
+              <div className="mt-1 text-sm font-semibold text-slate-600">{zaloSummaryText}</div>
+            </div>
+            <button type="button" onClick={() => setZaloSummary(null)} className="self-start rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <ZaloBatchGroup title="Thiếu SĐT" tone="amber" items={zaloSummary.missingPhone} empty="Không có hóa đơn thiếu SĐT." />
+            <ZaloBatchGroup title="Không tìm thấy Zalo" tone="red" items={zaloSummary.zaloNotFound} empty="Không có lỗi tìm Zalo." />
+            <ZaloBatchGroup title="Lỗi gửi khác" tone="slate" items={zaloSummary.failed} empty="Không có lỗi gửi khác." />
+          </div>
         </div>
       )}
 
