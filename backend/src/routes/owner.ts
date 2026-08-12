@@ -866,21 +866,37 @@ ownerRoutes.post("/sepay/events/:id/reprocess", async (c) => {
 
   if (evErr || !event) return c.json({ error: "Không tìm thấy sự kiện." }, 404);
 
-  // Find invoice first
-  const invoiceRes = await db.from("invoices").select("*").eq("payment_code", event.payment_code).maybeSingle();
-  const invoice = invoiceRes.data;
+  // Find invoice: Tier 1 (Map mã payment_code), Tier 2 (Map tiền exact transfer amount)
+  let invoice: any = null;
+  if (event.payment_code) {
+    const invoiceRes = await db.from("invoices").select("*").eq("payment_code", event.payment_code).maybeSingle();
+    invoice = invoiceRes.data;
+  }
+
+  const transferAmount = Number(event.transfer_amount);
+
+  if (!invoice && Number.isFinite(transferAmount) && transferAmount > 0) {
+    const matchRes = await db
+      .from("invoices")
+      .select("*")
+      .eq("user_id", user.id)
+      .neq("status", "paid");
+
+    if (matchRes.data && matchRes.data.length > 0) {
+      const exactMatches = matchRes.data.filter((inv: any) => {
+        const remaining = Number(inv.total_amount || 0) - Number(inv.paid_amount || 0);
+        return Math.abs(remaining - transferAmount) < 1;
+      });
+
+      if (exactMatches.length === 1) {
+        invoice = exactMatches[0];
+      }
+    }
+  }
 
   // Verify ownership:
-  // If event has user_id, it must match user.id
-  // If event doesn't have user_id, the matched invoice must exist and belong to user.id
-  if (event.user_id) {
-    if (event.user_id !== user.id) {
-      return c.json({ error: "Bạn không có quyền xử lý sự kiện này." }, 403);
-    }
-  } else {
-    if (!invoice || invoice.user_id !== user.id) {
-      return c.json({ error: "Bạn không có quyền xử lý sự kiện này hoặc không tìm thấy hóa đơn khớp mã thanh toán." }, 403);
-    }
+  if (event.user_id && event.user_id !== user.id) {
+    return c.json({ error: "Bạn không có quyền xử lý sự kiện này." }, 403);
   }
 
   if (!["pending_wallet", "unmatched", "error"].includes(event.status)) {
@@ -888,10 +904,9 @@ ownerRoutes.post("/sepay/events/:id/reprocess", async (c) => {
   }
 
   if (!invoice) {
-    return c.json({ error: "Không tìm thấy hóa đơn khớp mã thanh toán. Vui lòng kiểm tra lại mã thanh toán trong nội dung chuyển khoản." }, 404);
+    return c.json({ error: "Không tìm thấy hóa đơn khớp mã thanh toán hoặc khớp chính xác số tiền cần thu." }, 404);
   }
 
-  const transferAmount = Number(event.transfer_amount);
   if (!Number.isFinite(transferAmount) || transferAmount <= 0) {
     return c.json({ error: "Số tiền giao dịch không hợp lệ nên không thể đối soát." }, 400);
   }
