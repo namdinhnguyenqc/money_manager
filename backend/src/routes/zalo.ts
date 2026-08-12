@@ -43,6 +43,10 @@ const bulkSendZaloSchema = z.object({
   phonesMap: z.record(z.string(), z.string()).optional(), // invoiceId -> phoneNumber if missing
 });
 
+const isMissingZaloNotificationsTableError = (error: any) =>
+  ["PGRST205", "42P01"].includes(String(error?.code || "")) ||
+  /invoice_zalo_notifications|Could not find the table|schema cache|does not exist/i.test(String(error?.message || ""));
+
 // -------------------------------------------------------------
 // 0. ZCA-JS PERSONAL ZALO SESSION (QR LOGIN + SEND IMAGE)
 // -------------------------------------------------------------
@@ -346,12 +350,15 @@ zaloRoutes.get("/integrations/zalo-oa/status", requireAuth, async (c) => {
   }
 
   // Fetch real Connection / Message Event logs for settings auditing
-  const { data: dbLogs } = await db
+  const { data: dbLogs, error: logsError } = await db
     .from("invoice_zalo_notifications")
     .select("id, invoice_id, phone_number, template_id, send_status, error_message, sent_at, created_at, invoices(payment_code)")
     .eq("invoices.user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(100);
+  if (logsError && !isMissingZaloNotificationsTableError(logsError)) {
+    console.warn("[zalo] Could not load invoice Zalo notification logs:", logsError.message);
+  }
   const logs = dbLogs || [];
 
   return c.json({
@@ -610,7 +617,12 @@ zaloRoutes.get("/invoices/:invoiceId/zalo-history", requireAuth, async (c) => {
     .eq("invoice_id", invoiceId)
     .order("created_at", { ascending: false });
 
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) {
+    if (isMissingZaloNotificationsTableError(error)) {
+      return c.json({ data: [], warning: "Zalo history table is not available yet." });
+    }
+    return c.json({ error: error.message }, 500);
+  }
   return c.json({ data: data || [] });
 });
 
