@@ -12,6 +12,8 @@ import sharp from "sharp";
 import { isRolePremium, limitsFromRole, getRoleId } from "../lib/roles.js";
 import { registerFcmToken, unregisterFcmToken } from "../services/firebaseService.js";
 import { getNotificationPreferences, saveNotificationPreferences } from "../services/notificationPreferences.js";
+import { notifyOwnerPaymentReceived } from "../services/ownerPaymentNotifications.js";
+import { getTenantUserIdByInvoiceId, notifyPaymentSuccess } from "../services/notificationService.js";
 
 /**
  * Resolve the plan limits for the given user.
@@ -55,52 +57,53 @@ ownerRoutes.use("*", requireAuth, requireOwner);
 // ============================================================
 // DASHBOARD BULK ENDPOINT (PHASE 4)
 // ============================================================
-ownerRoutes.get("/dashboard-init", async (c) => {
+ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
   const currentUser = c.get("user");
   const supabase = c.get("supabase");
 
   // Parallel Supabase queries for performance
-  const eighteenMonthsAgo = new Date();
-  eighteenMonthsAgo.setMonth(eighteenMonthsAgo.getMonth() - 17, 1);
-  eighteenMonthsAgo.setHours(0, 0, 0, 0);
+  const currentMonthStart = new Date();
+  currentMonthStart.setDate(1);
+  currentMonthStart.setHours(0, 0, 0, 0);
 
   const [bhRes, roomsRes, walletsRes, settingsRes, transactionsRes, invoicesRes, depositsRes] = await Promise.all([
-    supabase.from("boarding_houses").select(`
-      id, name, address, status, created_at,
-      rooms(id, status)
-    `).eq("owner_id", currentUser.id),
-    supabase.from("rooms").select("id, name, price, status, num_people, has_ac").eq("user_id", currentUser.id),
-    supabase.from("wallets").select("*").eq("user_id", currentUser.id),
+    supabase.from("boarding_houses").select("id").eq("owner_id", currentUser.id),
+    supabase.from("rooms").select("id, status").eq("user_id", currentUser.id),
+    supabase.from("wallets").select("id, name, balance").eq("user_id", currentUser.id),
     supabase.from("users").select("id, status, is_profile_completed").eq("id", currentUser.id).single(),
     supabase
       .from("transactions")
       .select("id, type, amount, description, date, wallet_id, category_id, invoice_id")
       .eq("user_id", currentUser.id)
-      .gte("date", eighteenMonthsAgo.toISOString().slice(0, 10))
+      // Home only renders current-month cash flow. Historical transactions are
+      // loaded by the dedicated ledger screen, so do not block app startup on them.
+      .gte("date", currentMonthStart.toISOString().slice(0, 10))
       .order("date", { ascending: false })
-      .limit(800),
+      .limit(300),
     supabase
       .from("invoices")
-      .select(`
-        id, room_id, contract_id, month, year, room_fee, total_amount, paid_amount, status,
-        elec_old, elec_new, water_old, water_new, created_at,
-        items:invoice_items(id, name, amount, quantity, unit_price)
-      `)
+      // Dashboard calculations only require invoice totals and period. Removing
+      // nested invoice_items dramatically reduces JSON and database work.
+      .select("id, room_id, month, year, total_amount, paid_amount, status, created_at")
       .eq("user_id", currentUser.id)
       .order("year", { ascending: false })
       .order("month", { ascending: false })
       .limit(600),
     supabase
       .from("deposits")
-      .select("*")
+      .select("id, amount, status")
       .eq("user_id", currentUser.id)
+      .eq("status", "holding")
       .order("created_at", { ascending: false })
-      .limit(400),
+      .limit(200),
   ]);
 
   return c.json({
     boardingHouses: bhRes.data || [],
-    rooms: roomsRes.data || [],
+    rooms: (roomsRes.data || []).map((room) => ({
+      ...room,
+      status: String(room.status || "").trim().toLowerCase(),
+    })),
     wallets: walletsRes.data || [],
     transactions: transactionsRes.data || [],
     invoices: invoicesRes.data || [],
@@ -435,10 +438,18 @@ ownerRoutes.get("/boarding-houses/:id/rooms", async (c) => {
 
   return c.json({
     data: data?.map((r) => ({
+      ...r,
       id: r.id,
       name: r.name,
       boardingHouseId: r.boarding_house_id,
+      boarding_house_id: r.boarding_house_id,
+      building_id: r.boarding_house_id,
+      facility_id: r.boarding_house_id,
       price: r.price,
+      area: r.area ?? 0,
+      maxPeople: r.max_people ?? 1,
+      numPeople: r.num_people ?? 0,
+      hasAc: r.has_ac ?? false,
       status: r.status,
       createdAt: r.created_at,
     })),
@@ -682,6 +693,7 @@ const notificationPreferencesSchema = z.object({
   inAppEnabled: z.boolean().optional(),
   paymentReceivedEnabled: z.boolean().optional(),
   paymentSentEnabled: z.boolean().optional(),
+  paymentReminderEnabled: z.boolean().optional(),
 });
 
 ownerRoutes.get("/notification-preferences", async (c) => {
@@ -896,6 +908,27 @@ ownerRoutes.post("/sepay/events/:id/reprocess", async (c) => {
     overpaid_amount: paymentRes.data.overpaidAmount,
     error_message: null,
   }).eq("id", eventId);
+
+  // Reprocessing must produce the same notifications as a successful live
+  // webhook. Notification delivery is best-effort: the reconciled payment must
+  // remain successful even when FCM is temporarily unavailable.
+  if (!paymentRes.data.idempotent) {
+    try {
+      await notifyOwnerPaymentReceived(
+        String(user.id),
+        invoice,
+        roomRes.data?.name || null,
+        transferAmount,
+        paymentRes.data.status,
+      );
+      const tenantUserId = await getTenantUserIdByInvoiceId(invoice.id);
+      if (tenantUserId) {
+        await notifyPaymentSuccess(tenantUserId, invoice, transferAmount);
+      }
+    } catch (notificationError) {
+      console.error("Failed to send payment notifications after SePay reprocess:", notificationError);
+    }
+  }
 
   return c.json({ ok: true, status: newStatus });
 });

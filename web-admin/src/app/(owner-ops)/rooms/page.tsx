@@ -35,7 +35,7 @@ export default function AllRoomsPage() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const facilityIdFilter = searchParams.get("facility_id") || "";
+  const facilityIdFilter = searchParams.get("facility_id") || searchParams.get("facilityId") || searchParams.get("buildingId") || searchParams.get("house_id") || "";
   const [roomFilter, setRoomFilter] = useState("Tất cả");
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
@@ -43,25 +43,37 @@ export default function AllRoomsPage() {
   const [page, setPage] = useState(1);
 
   const housesQuery = useQuery({ queryKey: ["facilities"], queryFn: loadBoardingHouses, staleTime: 60_000 });
-  const roomsQuery = useQuery({ queryKey: ["rooms", "all"], queryFn: () => loadRentalRooms(), staleTime: 30_000 });
+  const roomsQuery = useQuery({
+    queryKey: ["rooms", facilityIdFilter || "all"],
+    queryFn: () => loadRentalRooms(facilityIdFilter || undefined),
+    staleTime: 30_000,
+  });
 
   const rooms = roomsQuery.data || [];
   const houses = housesQuery.data || [];
-  const currentFacility = facilityIdFilter ? houses.find((h) => h.id === facilityIdFilter) : null;
-
-  const getFacilityName = (room: RentalRoom) => {
-    const fid = (room as any).building_id || (room as any).facility_id;
-    return houses.find((h) => h.id === fid)?.name || "";
-  };
+  const currentFacility = facilityIdFilter ? houses.find((h) => String(h.id) === String(facilityIdFilter)) : null;
 
   const getFacilityId = (room: RentalRoom) =>
-    (room as any).building_id || (room as any).facility_id || "";
+    String(
+      (room as any).building_id ||
+        (room as any).facility_id ||
+        (room as any).boarding_house_id ||
+        (room as any).boardingHouseId ||
+        (room as any).house_id ||
+        (room as any).houseId ||
+        ""
+    );
+
+  const getFacilityName = (room: RentalRoom) => {
+    const fid = getFacilityId(room);
+    return houses.find((h) => String(h.id) === String(fid))?.name || "";
+  };
 
   const filteredRooms = useMemo(() => rooms.filter((room) => {
     // Filter by facility if coming from boarding-houses page
     if (facilityIdFilter) {
-      const fid = (room as any).building_id || (room as any).facility_id;
-      if (fid !== facilityIdFilter) return false;
+      const fid = getFacilityId(room);
+      if (fid && String(fid) !== String(facilityIdFilter)) return false;
     }
     const status = String(room.status || "").toLowerCase() || "vacant";
     if (roomFilter === "Trống") return status !== "occupied" && status !== "maintenance";
