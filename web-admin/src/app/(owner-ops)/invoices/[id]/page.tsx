@@ -294,15 +294,36 @@ export default function InvoiceDetailPage() {
         </div>
       )}
 
+      {/* Zalo Notification & zca-js Section */}
+      <ZaloNotificationSection invoice={invoice} onStatusChange={loadInvoiceOnly} />
+
       {/* Actions */}
       <div className="mt-4 flex flex-col gap-3">
+        {(invoice as any).tenant_phone ? (
+          <a
+            href={`https://zalo.me/${(invoice as any).tenant_phone.replace(/\D/g, "")}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white hover:bg-blue-700 active:scale-95 transition-all shadow-md shadow-blue-600/10"
+          >
+            <Share2 size={17} /> Gửi hóa đơn qua Zalo (SĐT: {(invoice as any).tenant_phone}) ↗
+          </a>
+        ) : (
+          <button
+            onClick={() => showToast("Khách thuê chưa có SĐT. Vui lòng cập nhật SĐT trong Zalo section bên trên.", "info")}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-3 text-sm font-bold text-slate-400 cursor-not-allowed"
+          >
+            <Share2 size={17} /> Khách chưa có SĐT Zalo
+          </button>
+        )}
+
         <button
           onClick={handleShare}
           disabled={sharing}
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition-all"
         >
-          <Share2 size={17} />
-          {sharing ? "Đang tạo ảnh..." : "Chia sẻ ảnh (Zalo / Messenger)"}
+          <Copy size={17} />
+          {sharing ? "Đang tạo ảnh..." : "Chia sẻ ảnh hóa đơn (Zalo / Messenger)"}
         </button>
         {outstanding > 0 && (
           <Link

@@ -598,6 +598,7 @@ export default function OwnerSettingsPage() {
 
   const tabs = [
     { id: "sepay-logs", label: "Kết nối SePay", icon: Layers, desc: "Tích hợp API, Kênh thanh toán & Webhook logs" },
+    { id: "zalo", label: "Cấu hình Zalo (zca-js)", icon: Sparkles, desc: "Tích hợp Zalo Automation zca-js & gửi tin nhắn theo SĐT khách" },
     { id: "notifications", label: "Nhận thông báo", icon: Bell, desc: "Cấu hình nhận thông tin qua trình duyệt và thiết bị" },
     { id: "pricing", label: "Bảng giá", icon: Zap, desc: "Đơn giá các dịch vụ điện, nước, tiện ích" },
     { id: "categories", label: "Danh mục thu chi", icon: Tag, desc: "Quản lý các khoản mục thu và chi phí phát sinh" },
@@ -738,7 +739,149 @@ export default function OwnerSettingsPage() {
               </div>
             )}
 
-{activeTab === "sepay-logs" && (
+            {activeTab === "zalo" && (
+              <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center border border-blue-100">
+                      <Sparkles size={20} className="text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight">Cấu hình Zalo Automation (zca-js)</h3>
+                      <p className="text-xs text-slate-500 font-medium">Tự động gửi thông báo hóa đơn tiền phòng trực tiếp theo Số Điện Thoại khách thuê.</p>
+                    </div>
+                  </div>
+                  <a
+                    href="https://github.com/RFS-ADRENO/zca-js"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100 transition-all"
+                  >
+                    Github zca-js ↗
+                  </a>
+                </div>
+
+                {/* Main Zalo Config Form */}
+                <div className="space-y-5">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <span className="text-sm font-bold text-slate-900 block">Kích hoạt gửi Zalo tự động</span>
+                        <span className="text-xs text-slate-500 font-medium">Cho phép hiển thị nút "Gửi Zalo qua SĐT" sau khi lập hóa đơn thành công.</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={getValue("zalo_enabled", true)}
+                        onChange={(e) => handleChange("zalo_enabled", e.target.checked, "boolean", "zalo")}
+                        className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2 pt-3 border-t border-slate-100">
+                      <div>
+                        <Label>Phương thức kết nối Zalo</Label>
+                        <UISelect
+                          value={getValue("zalo_connection_mode", "zca-js")}
+                          onChange={(e) => handleChange("zalo_connection_mode", e.target.value, "string", "zalo")}
+                        >
+                          <option value="zca-js">zca-js (Zalo Chat Automation Node.js SDK)</option>
+                          <option value="zalo_me">zalo.me Direct Chat (Mở nhanh chat theo SĐT)</option>
+                          <option value="zns_oa">Zalo Official Account (ZNS Template)</option>
+                        </UISelect>
+                        <p className="mt-1 text-[11px] text-slate-400 font-medium">
+                          `zca-js`: Gửi tin nhắn thoại/văn bản trực tiếp từ tài khoản Zalo cá nhân qua SĐT khách thuê.
+                        </p>
+                      </div>
+
+                      <div>
+                        <Label>Số điện thoại Zalo tài khoản gửi</Label>
+                        <Input
+                          placeholder="0901234567"
+                          value={getValue("zalo_phone_sender", "")}
+                          onChange={(e) => handleChange("zalo_phone_sender", e.target.value, "string", "zalo")}
+                        />
+                        <p className="mt-1 text-[11px] text-slate-400 font-medium">
+                          Số điện thoại dùng để tạo Zalo Session / Login Cookie trong library `zca-js`.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Dữ liệu Zalo Cookie / zca-js Session Secret</Label>
+                      <textarea
+                        rows={3}
+                        placeholder='{"cookie": "...", "imei": "...", "userAgent": "..."}'
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-xs font-mono text-slate-800 focus:bg-white focus:border-blue-500 focus:outline-none"
+                        value={getValue("zalo_cookie_secret", "")}
+                        onChange={(e) => handleChange("zalo_cookie_secret", e.target.value, "string", "zalo")}
+                      />
+                      <p className="mt-1 text-[11px] text-slate-400 font-medium">
+                        Nhập chuỗi JSON Session Cookie thu được sau khi authenticate bằng `zca-js` CLI / script (`zalo.login()`).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Message Template Editor */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-slate-900">Nội dung mẫu tin nhắn hóa đơn Zalo</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleChange(
+                            "zalo_invoice_template",
+                            "Kính gửi anh/chị {tenant_name}, TrọCare xin gửi thông báo hóa đơn tiền phòng {room_name} kỳ T{month}/{year}:\n- Tiền phòng: {room_amount}đ\n- Điện nước & Dịch vụ: {service_amount}đ\n- Tổng cộng cần thanh toán: {total_amount}đ\n- Mã thanh toán: {payment_code}\n- Hạn đóng: {due_date}\n\nXem chi tiết hóa đơn & mã QR tại đây: {invoice_url}\nCảm ơn anh/chị!",
+                            "string",
+                            "zalo"
+                          )
+                        }
+                        className="text-xs font-bold text-blue-600 hover:underline"
+                      >
+                        Khôi phục mẫu mặc định
+                      </button>
+                    </div>
+
+                    <textarea
+                      rows={5}
+                      className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs font-medium text-slate-800 focus:border-blue-500 focus:outline-none"
+                      value={getValue(
+                        "zalo_invoice_template",
+                        "Kính gửi anh/chị {tenant_name}, TrọCare xin gửi thông báo hóa đơn tiền phòng {room_name} kỳ T{month}/{year}:\n- Tiền phòng: {room_amount}đ\n- Điện nước & Dịch vụ: {service_amount}đ\n- Tổng cộng cần thanh toán: {total_amount}đ\n- Mã thanh toán: {payment_code}\n- Hạn đóng: {due_date}\n\nXem chi tiết hóa đơn & mã QR tại đây: {invoice_url}\nCảm ơn anh/chị!"
+                      )}
+                      onChange={(e) => handleChange("zalo_invoice_template", e.target.value, "string", "zalo")}
+                    />
+
+                    <div className="rounded-xl bg-slate-50 p-3 border border-slate-100 text-[11px] text-slate-600 space-y-1 font-medium">
+                      <span className="font-bold text-slate-800">Các biến hỗ trợ chèn tự động:</span>
+                      <div className="grid grid-cols-2 gap-2 font-mono text-[10px] text-slate-700">
+                        <div>`{"{tenant_name}"}`: Tên khách thuê</div>
+                        <div>`{"{room_name}"}`: Tên phòng trọ</div>
+                        <div>`{"{month}"}` / `{"{year}"}`: Kỳ hóa đơn</div>
+                        <div>`{"{total_amount}"}`: Tổng tiền cần thu</div>
+                        <div>`{"{payment_code}"}`: Mã thanh toán TCINV...</div>
+                        <div>`{"{invoice_url}"}`: Link hóa đơn & QR</div>
+                        <div>`{"{due_date}"}`: Hạn thanh toán</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <Button
+                      variant="primary"
+                      icon={<Save size={14} />}
+                      onClick={handleSave}
+                      disabled={saving}
+                      loading={saving}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl px-6"
+                    >
+                      Lưu cấu hình Zalo (zca-js)
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "sepay-logs" && (
               <div className="space-y-8 animate-in fade-in duration-300">
                 {/* Header */}
                 <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-center lg:justify-between">
