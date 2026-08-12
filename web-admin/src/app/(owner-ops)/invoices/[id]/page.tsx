@@ -7,7 +7,6 @@ import { ArrowLeft, Check, Copy, Share2, Wallet, Trash2, History } from "lucide-
 import { Invoice, Transaction, BankConfig, buildInvoiceQrUrl, formatMoney, getInvoiceRemainingAmount, loadBankConfig, loadInvoice, normalizeInvoiceStatus, loadTransactions, loadSettingsMap } from "@/lib/rentalOps";
 import { apiDelete } from "@/utils/apiClient";
 import { useToast } from "@/components/ui/Toast";
-import ZaloNotificationSection from "@/components/ZaloNotificationSection";
 
 const BANK_LABELS: Record<string, string> = {
   "970416": "ACB", "ACB": "ACB", "970436": "Vietcombank", "970418": "BIDV",
@@ -272,8 +271,6 @@ export default function InvoiceDetailPage() {
         </div>
       </div>
 
-      {status !== "draft" && <ZaloNotificationSection invoice={invoice} onStatusChange={loadInvoiceOnly} />}
-
       {/* Transaction history */}
       {transactions.length > 0 && (
         <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -293,9 +290,6 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
       )}
-
-      {/* Zalo Notification & zca-js Section */}
-      <ZaloNotificationSection invoice={invoice} onStatusChange={loadInvoiceOnly} />
 
       {/* Actions */}
       <div className="mt-4 flex flex-col gap-3">
