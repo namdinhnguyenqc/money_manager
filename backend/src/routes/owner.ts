@@ -673,15 +673,40 @@ ownerRoutes.get("/notifications", async (c) => {
     }
     return c.json({ error: "Failed to fetch notifications" }, 500);
   }
-  const rows = (data ?? []).map((item: any) => ({
-    id: item.id,
-    eventType: item.event_type,
-    title: item.payload?.title ?? item.event_type,
-    body: item.payload?.body ?? "",
-    readAt: item.read_at,
-    createdAt: item.created_at,
-    payload: item.payload,
-  }));
+  const rows = (data ?? []).map((item: any) => {
+    const payload = item.payload || {};
+    const type = String(item.event_type || payload.type || "").toLowerCase();
+    let href = "/owner/notifications";
+
+    if (type.includes("invoice") || type.includes("payment")) {
+      if (payload.invoice_id || payload.invoiceId) {
+        href = `/invoices/${payload.invoice_id || payload.invoiceId}`;
+      } else if (type.includes("paid")) {
+        href = "/invoices?status=paid";
+      } else {
+        href = "/invoices";
+      }
+    } else if (type.includes("contract")) {
+      if (payload.contract_id || payload.contractId) {
+        href = `/contracts/${payload.contract_id || payload.contractId}`;
+      } else {
+        href = "/contracts";
+      }
+    } else if (type.includes("repair") || type.includes("feedback")) {
+      href = "/owner/feedback";
+    }
+
+    return {
+      id: item.id,
+      eventType: type,
+      title: payload.title ?? item.event_type ?? "Thông báo hệ thống",
+      body: payload.body ?? payload.message ?? "",
+      readAt: item.read_at,
+      createdAt: item.created_at,
+      href,
+      payload,
+    };
+  });
 
   return c.json({
     data: rows,
