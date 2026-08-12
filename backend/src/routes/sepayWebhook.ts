@@ -111,6 +111,24 @@ sepayWebhookRoutes.post("/", async (c) => {
   const transferAmount = Number(payload.transferAmount ?? payload.transfer_amount ?? payload.amount ?? 0);
   const accountNumber = String(payload.accountNumber || payload.account_number || "");
 
+  // A transfer with a mistyped/missing payment code still belongs in the
+  // owner's reconciliation inbox. Resolve ownership from the configured bank
+  // account before persisting it as unmatched. Existing code-based matching
+  // remains the primary path and is unchanged.
+  if (!resolvedUserId && accountNumber) {
+    const channelOwnerRes = await supabaseAdmin
+      .from("payment_channels")
+      .select("user_id")
+      .eq("provider", "sepay")
+      .eq("account_no", accountNumber)
+      .eq("enabled", true)
+      .limit(1)
+      .maybeSingle();
+    if (channelOwnerRes.data?.user_id) {
+      resolvedUserId = String(channelOwnerRes.data.user_id);
+    }
+  }
+
   if (!Number.isFinite(transferAmount) || transferAmount <= 0) {
     await insertEvent({
       user_id: resolvedUserId,
@@ -142,7 +160,41 @@ sepayWebhookRoutes.post("/", async (c) => {
     return jsonOk();
   }
 
-  if (!paymentCode) {
+  let invoice: any = null;
+
+  if (paymentCode) {
+    const invoiceRes = await supabaseAdmin
+      .from("invoices")
+      .select("*")
+      .eq("payment_code", paymentCode)
+      .maybeSingle();
+    if (invoiceRes.data) {
+      invoice = invoiceRes.data;
+    }
+  }
+
+  // Fallback: If payment code is omitted/unparsed, auto-match by exact transfer amount
+  // against unpaid invoices belonging to the bank account owner (resolvedUserId).
+  if (!invoice && resolvedUserId) {
+    const matchRes = await supabaseAdmin
+      .from("invoices")
+      .select("*")
+      .eq("user_id", resolvedUserId)
+      .neq("status", "paid");
+
+    if (matchRes.data && matchRes.data.length > 0) {
+      const exactMatches = matchRes.data.filter((inv: any) => {
+        const remaining = Number(inv.total_amount || 0) - Number(inv.paid_amount || 0);
+        return Math.abs(remaining - transferAmount) < 1;
+      });
+
+      if (exactMatches.length === 1) {
+        invoice = exactMatches[0];
+      }
+    }
+  }
+
+  if (!invoice) {
     await insertEvent({
       user_id: resolvedUserId,
       sepay_transaction_id: sepayTransactionId,
@@ -150,36 +202,13 @@ sepayWebhookRoutes.post("/", async (c) => {
       account_number: accountNumber || null,
       transfer_type: transferType || null,
       transfer_amount: transferAmount,
+      payment_code: paymentCode || null,
       status: "unmatched",
       raw_payload: payload,
-      error_message: "Missing payment code",
+      error_message: paymentCode ? "Invoice not found for payment code" : "Missing payment code and no exact amount match",
     });
     return jsonOk();
   }
-
-  const invoiceRes = await supabaseAdmin
-    .from("invoices")
-    .select("*")
-    .eq("payment_code", paymentCode)
-    .maybeSingle();
-
-  if (invoiceRes.error || !invoiceRes.data) {
-    await insertEvent({
-      user_id: resolvedUserId,
-      sepay_transaction_id: sepayTransactionId,
-      gateway: payload.gateway || null,
-      account_number: accountNumber || null,
-      transfer_type: transferType || null,
-      transfer_amount: transferAmount,
-      payment_code: paymentCode,
-      status: "unmatched",
-      raw_payload: payload,
-      error_message: invoiceRes.error?.message || "Invoice not found",
-    });
-    return jsonOk();
-  }
-
-  const invoice = invoiceRes.data;
   if (urlUserId && invoice.user_id !== urlUserId) {
     await insertEvent({
       user_id: urlUserId,
