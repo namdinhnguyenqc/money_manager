@@ -430,8 +430,8 @@ const getPageTitle = (path: string) => {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex flex-col border-r border-slate-200 bg-white transition-all duration-300 ease-out lg:pointer-events-auto lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto ${
-          sidebarOpen ? "pointer-events-auto translate-x-0" : "pointer-events-none -translate-x-full"
+        className={`fixed inset-y-0 left-0 z-30 flex flex-col border-r border-slate-200 bg-white transition-all duration-300 ease-out lg:pointer-events-auto lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:translate-x-0 ${
+          sidebarOpen ? "pointer-events-auto translate-x-0" : "pointer-events-none -translate-x-full lg:pointer-events-auto"
         } ${isCollapsed ? "w-72 lg:w-20" : "w-72"}`}
       >
         <div className="flex flex-col border-b border-slate-200 shrink-0">
