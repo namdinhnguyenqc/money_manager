@@ -9,7 +9,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["'Be Vietnam Pro'", 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ["'Inter'", 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
         primary: "#2563EB",
