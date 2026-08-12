@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const CANONICAL_HOST = 'tcareproduction.vercel.app'
+const CANONICAL_HOST = 'trocare-production.vercel.app'
 const ADMIN_PORTAL_HOST = 'tcareproduction.vercel.app'
 const PREVIEW_HOST_PREFIXES = [
   'trocare-production-',
   'tcare-production-',
   'tcare.production-',
-  'tcareproduction-',
 ]
 
 const shouldRedirectToCanonicalHost = (host: string) => {
   if (!host.endsWith('.vercel.app')) return false
-  if (host === CANONICAL_HOST) return false
+  if (host === CANONICAL_HOST || host === 'trocare-production.vercel.app') return false
   return PREVIEW_HOST_PREFIXES.some(prefix => host.startsWith(prefix))
 }
 
