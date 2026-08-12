@@ -486,7 +486,7 @@ const getPageTitle = (path: string) => {
                     <div key={item.href} className="flex flex-col gap-0.5">
                       <Link
                         href={isParent ? "#" : item.href}
-                        onClick={(e) => {
+                        onClick={(e: React.MouseEvent) => {
                           if (isParent) {
                             e.preventDefault();
                             setIsSettingsOpen(!isSettingsOpen);
