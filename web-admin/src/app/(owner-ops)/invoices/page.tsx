@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { RefreshCw, Trash2, Calendar, ChevronLeft, ChevronRight, FileSpreadsheet, AlertTriangle, Send, X } from "lucide-react";
+import { RefreshCw, Trash2, Calendar, ChevronLeft, ChevronRight, FileSpreadsheet, AlertTriangle, Send, X, CheckCircle2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import StatusBadge from "@/components/ops/StatusBadge";
 import { 
@@ -118,6 +118,81 @@ function ZaloBatchGroup({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function ZaloSendResultDialog({
+  summary,
+  onClose,
+}: {
+  summary: ZaloBatchSummary;
+  onClose: () => void;
+}) {
+  const unresolvedGroups = [
+    { title: "Thiếu SĐT", tone: "amber" as const, items: summary.missingPhone },
+    { title: "Không tìm thấy Zalo", tone: "red" as const, items: summary.zaloNotFound },
+    { title: "Lỗi gửi khác", tone: "slate" as const, items: summary.failed },
+  ].filter((group) => group.items.length > 0);
+  const unresolvedCount = unresolvedGroups.reduce((sum, group) => sum + group.items.length, 0);
+  const hasSent = summary.sent.length > 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="zalo-result-title">
+      <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
+          <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${hasSent ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
+            {hasSent ? <CheckCircle2 size={22} /> : <AlertTriangle size={21} />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 id="zalo-result-title" className="text-lg font-black text-slate-950">
+              {hasSent ? "Đã gửi Zalo thành công" : "Chưa gửi được hóa đơn nào"}
+            </h2>
+            <p className="mt-1 text-sm font-medium text-slate-600">
+              Đã chọn {summary.selected} • Gửi thành công {summary.sent.length}
+              {summary.paidSkipped.length > 0 ? ` • Bỏ qua đã thanh toán ${summary.paidSkipped.length}` : ""}
+              {unresolvedCount > 0 ? ` • Chưa gửi được ${unresolvedCount}` : ""}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-[8px] p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Đóng">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
+          {unresolvedGroups.length === 0 ? (
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+              Tất cả hóa đơn hợp lệ đã được gửi qua Zalo. Không có khách nào thiếu thông tin.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <div className="font-bold">Cần xử lý thêm trước khi gửi lại</div>
+                <div className="mt-1 text-amber-800">
+                  Các hóa đơn dưới đây chưa gửi được. Bạn bổ sung SĐT khách hoặc kiểm tra tài khoản Zalo rồi bấm gửi lại.
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {unresolvedGroups.map((group) => (
+                  <ZaloBatchGroup
+                    key={group.title}
+                    title={group.title}
+                    tone={group.tone}
+                    items={group.items}
+                    empty=""
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+          <button type="button" onClick={onClose} className="rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700">
+            Đã hiểu
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -274,18 +349,6 @@ export default function InvoicesPage() {
     return { billed, collected, outstanding: Math.max(0, billed - collected) };
   }, [invoices]);
 
-  const zaloSummaryText = useMemo(() => {
-    if (!zaloSummary) return "";
-    return [
-      `Đã chọn ${zaloSummary.selected}`,
-      `Gửi thành công ${zaloSummary.sent.length}`,
-      `Đã thanh toán bỏ qua ${zaloSummary.paidSkipped.length}`,
-      `Thiếu SĐT ${zaloSummary.missingPhone.length}`,
-      `Không tìm thấy Zalo ${zaloSummary.zaloNotFound.length}`,
-      `Lỗi gửi ${zaloSummary.failed.length}`,
-    ].join(" • ");
-  }, [zaloSummary]);
-
   const handleBulkSendZalo = async () => {
     if (selectedIds.length === 0 || sendingZalo) return;
     setSendingZalo(true);
@@ -296,6 +359,7 @@ export default function InvoicesPage() {
       const nextSummary = res?.data as ZaloBatchSummary | undefined;
       if (!res?.success || !nextSummary) throw new Error(res?.error || "Không gửi được hóa đơn qua Zalo.");
       setZaloSummary(nextSummary);
+      setSelected({});
     } catch (err: any) {
       setError(err?.message || "Không gửi được hóa đơn qua Zalo. Vui lòng kiểm tra kết nối Zalo.");
     } finally {
@@ -438,25 +502,7 @@ export default function InvoicesPage() {
         </div>
       )}
 
-      {zaloSummary && (
-        <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <div className="text-sm font-black text-slate-900">Kết quả gửi Zalo</div>
-              <div className="mt-1 text-sm font-semibold text-slate-600">{zaloSummaryText}</div>
-            </div>
-            <button type="button" onClick={() => setZaloSummary(null)} className="self-start rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
-              <X size={16} />
-            </button>
-          </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <ZaloBatchGroup title="Thiếu SĐT" tone="amber" items={zaloSummary.missingPhone} empty="Không có hóa đơn thiếu SĐT." />
-            <ZaloBatchGroup title="Không tìm thấy Zalo" tone="red" items={zaloSummary.zaloNotFound} empty="Không có lỗi tìm Zalo." />
-            <ZaloBatchGroup title="Lỗi gửi khác" tone="slate" items={zaloSummary.failed} empty="Không có lỗi gửi khác." />
-          </div>
-        </div>
-      )}
+      {zaloSummary && <ZaloSendResultDialog summary={zaloSummary} onClose={() => setZaloSummary(null)} />}
 
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
