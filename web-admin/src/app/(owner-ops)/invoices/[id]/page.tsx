@@ -3,10 +3,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Check, Copy, Share2, Wallet, Trash2, History } from "lucide-react";
-import { Invoice, Transaction, BankConfig, buildInvoiceQrUrl, formatMoney, getInvoiceRemainingAmount, loadBankConfig, loadInvoice, normalizeInvoiceStatus, loadTransactions, loadSettingsMap } from "@/lib/rentalOps";
+import { ArrowLeft, Check, Copy, Wallet, Trash2, History } from "lucide-react";
+import { Invoice, Transaction, BankConfig, buildInvoiceQrUrl, formatMoney, loadBankConfig, loadInvoice, normalizeInvoiceStatus, loadTransactions, loadSettingsMap } from "@/lib/rentalOps";
 import { apiDelete } from "@/utils/apiClient";
 import { useToast } from "@/components/ui/Toast";
+import ZaloNotificationSection from "@/components/ZaloNotificationSection";
 
 const BANK_LABELS: Record<string, string> = {
   "970416": "ACB", "ACB": "ACB", "970436": "Vietcombank", "970418": "BIDV",
@@ -293,24 +294,6 @@ export default function InvoiceDetailPage() {
 
       {/* Actions */}
       <div className="mt-4 flex flex-col gap-3">
-        {(invoice as any).tenant_phone ? (
-          <a
-            href={`https://zalo.me/${(invoice as any).tenant_phone.replace(/\D/g, "")}`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white hover:bg-blue-700 active:scale-95 transition-all shadow-md shadow-blue-600/10"
-          >
-            <Share2 size={17} /> Gửi hóa đơn qua Zalo (SĐT: {(invoice as any).tenant_phone}) ↗
-          </a>
-        ) : (
-          <button
-            onClick={() => showToast("Khách thuê chưa có SĐT. Vui lòng cập nhật SĐT trong Zalo section bên trên.", "info")}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-3 text-sm font-bold text-slate-400 cursor-not-allowed"
-          >
-            <Share2 size={17} /> Khách chưa có SĐT Zalo
-          </button>
-        )}
-
         <button
           onClick={handleShare}
           disabled={sharing}
@@ -337,6 +320,8 @@ export default function InvoiceDetailPage() {
           </button>
         )}
       </div>
+
+      <ZaloNotificationSection invoice={invoice} onStatusChange={loadInvoiceOnly} />
     </div>
   );
 }

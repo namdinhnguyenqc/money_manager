@@ -68,6 +68,7 @@ import Card from "@/components/ui/Card";
 import Input, { Label, Select as UISelect } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+import ZcaQrLoginPanel from "@/components/ZcaQrLoginPanel";
 
 const EMOJI_PALETTE = [
   "💰", "🏠", "💡", "💧", "🚗", "🍔", "🎁", "🔧",
@@ -747,8 +748,8 @@ export default function OwnerSettingsPage() {
                       <Sparkles size={20} className="text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-black text-slate-900 tracking-tight">Cấu hình Zalo Automation (zca-js)</h3>
-                      <p className="text-xs text-slate-500 font-medium">Tự động gửi thông báo hóa đơn tiền phòng trực tiếp theo Số Điện Thoại khách thuê.</p>
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight">Kết nối Zalo gửi hóa đơn</h3>
+                      <p className="text-xs text-slate-500 font-medium">Quét QR một lần, sau đó gửi ảnh hóa đơn PNG cho khách theo số điện thoại.</p>
                     </div>
                   </div>
                   <a
@@ -761,63 +762,31 @@ export default function OwnerSettingsPage() {
                   </a>
                 </div>
 
-                {/* Main Zalo Config Form */}
+                <ZcaQrLoginPanel />
+
                 <div className="space-y-5">
                   <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <span className="text-sm font-bold text-slate-900 block">Kích hoạt gửi Zalo tự động</span>
-                        <span className="text-xs text-slate-500 font-medium">Cho phép hiển thị nút &quot;Gửi Zalo qua SĐT&quot; sau khi lập hóa đơn thành công.</span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={getValue("zalo_enabled", true)}
-                        onChange={(e) => handleChange("zalo_enabled", e.target.checked, "boolean", "zalo")}
-                        className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2 pt-3 border-t border-slate-100">
+                    <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <Label>Phương thức kết nối Zalo</Label>
                         <UISelect
-                          value={getValue("zalo_connection_mode", "zca-js")}
+                          value="zca-js"
                           onChange={(e) => handleChange("zalo_connection_mode", e.target.value, "string", "zalo")}
                         >
                           <option value="zca-js">zca-js (Zalo Chat Automation Node.js SDK)</option>
-                          <option value="zalo_me">zalo.me Direct Chat (Mở nhanh chat theo SĐT)</option>
-                          <option value="zns_oa">Zalo Official Account (ZNS Template)</option>
                         </UISelect>
                         <p className="mt-1 text-[11px] text-slate-400 font-medium">
-                          {"zca-js: Gửi tin nhắn thoại/văn bản trực tiếp từ tài khoản Zalo cá nhân qua SĐT khách thuê."}
+                          zca-js gửi ảnh hóa đơn PNG qua phiên Zalo cá nhân đã quét QR.
                         </p>
                       </div>
 
                       <div>
-                        <Label>Số điện thoại Zalo tài khoản gửi</Label>
-                        <Input
-                          placeholder="0901234567"
-                          value={getValue("zalo_phone_sender", "")}
-                          onChange={(e) => handleChange("zalo_phone_sender", e.target.value, "string", "zalo")}
-                        />
-                        <p className="mt-1 text-[11px] text-slate-400 font-medium">
-                          Số điện thoại dùng để tạo Zalo Session / Login Cookie trong library `zca-js`.
-                        </p>
+                        <Label>Định dạng gửi hóa đơn</Label>
+                        <div className="flex h-10 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
+                          PNG image attachment
+                        </div>
+                        <p className="mt-1 text-[11px] text-slate-400 font-medium">Không gửi PDF. Ảnh được render ở backend khi bấm gửi.</p>
                       </div>
-                    </div>
-
-                    <div>
-                      <Label>Dữ liệu Zalo Cookie / zca-js Session Secret</Label>
-                      <textarea
-                        rows={3}
-                        placeholder='{"cookie": "...", "imei": "...", "userAgent": "..."}'
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-xs font-mono text-slate-800 focus:bg-white focus:border-blue-500 focus:outline-none"
-                        value={getValue("zalo_cookie_secret", "")}
-                        onChange={(e) => handleChange("zalo_cookie_secret", e.target.value, "string", "zalo")}
-                      />
-                      <p className="mt-1 text-[11px] text-slate-400 font-medium">
-                        Nhập chuỗi JSON Session Cookie thu được sau khi authenticate bằng `zca-js` CLI / script (`zalo.login()`).
-                      </p>
                     </div>
                   </div>
 

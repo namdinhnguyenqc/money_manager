@@ -16,6 +16,13 @@ import { encryptToken } from "../utils/crypto.js";
 import { verifyAccessToken } from "../lib/auth.js";
 import type { AppEnv } from "../types.js";
 import { env } from "../config/env.js";
+import {
+  disconnectZca,
+  getZcaLoginSession,
+  getZcaStatus,
+  sendInvoiceImageViaZca,
+  startZcaQrLogin,
+} from "../services/zcaInvoiceService.js";
 
 const zaloRoutes = new Hono<AppEnv>();
 
@@ -30,6 +37,55 @@ const sendZaloSchema = z.object({
 const bulkSendZaloSchema = z.object({
   invoiceIds: z.array(z.string().uuid()),
   phonesMap: z.record(z.string(), z.string()).optional(), // invoiceId -> phoneNumber if missing
+});
+
+// -------------------------------------------------------------
+// 0. ZCA-JS PERSONAL ZALO SESSION (QR LOGIN + SEND IMAGE)
+// -------------------------------------------------------------
+
+zaloRoutes.get("/zca/status", requireAuth, async (c) => {
+  const user = c.get("user");
+  const status = await getZcaStatus(user.id);
+  return c.json({ success: true, data: status });
+});
+
+zaloRoutes.post("/zca/qr/start", requireAuth, async (c) => {
+  const user = c.get("user");
+  const data = startZcaQrLogin(user.id);
+  return c.json({ success: true, data });
+});
+
+zaloRoutes.get("/zca/qr/:sessionId", requireAuth, async (c) => {
+  const user = c.get("user");
+  const session = getZcaLoginSession(user.id, c.req.param("sessionId"));
+  if (!session) {
+    return c.json({
+      success: true,
+      data: {
+        status: "not_found",
+        error: "Phiên QR đã hết hạn hoặc backend vừa khởi động lại. Tạo QR mới để kết nối Zalo.",
+      },
+    });
+  }
+  return c.json({
+    success: true,
+    data: {
+      status: session.status,
+      qrImage: session.qrImage,
+      scannedName: session.scannedName,
+      scannedAvatar: session.scannedAvatar,
+      accountName: session.accountName,
+      accountAvatar: session.accountAvatar,
+      error: session.error,
+      expiresAt: session.expiresAt,
+    },
+  });
+});
+
+zaloRoutes.post("/zca/disconnect", requireAuth, async (c) => {
+  const user = c.get("user");
+  await disconnectZca(user.id);
+  return c.json({ success: true, message: "Đã ngắt phiên Zalo cá nhân." });
 });
 
 // Helper: Convert Hono environment parameters
@@ -405,82 +461,16 @@ zaloRoutes.post("/invoices/:invoiceId/send-zalo", requireAuth, async (c) => {
   const parsed = await c.req.json().catch(() => ({}));
   const body = sendZaloSchema.safeParse(parsed);
   if (!body.success) return c.json({ error: "Dữ liệu điện thoại không hợp lệ." }, 400);
-
-  const db = c.get("supabase");
-
   try {
-    const { invoice, tenant, payload } = await constructInvoicePayload(db, invoiceId, user);
-
-    // Determine target phone number
-    let targetPhone = body.data.phoneNumber || tenant.phone;
-    if (!targetPhone) {
-      return c.json({ code: "MISSING_PHONE_NUMBER", message: "Khách thuê chưa cấu hình số điện thoại." }, 400);
-    }
-
-    // Save phone number to tenant profile if dynamic phone was supplied and tenant phone was missing
-    if (body.data.phoneNumber && !tenant.phone) {
-      await db.from("tenants").update({ phone: body.data.phoneNumber }).eq("id", tenant.id);
-    }
-
-    const oaConn = await getZaloConnection(user.id, "OA");
-    if (!oaConn || !oaConn.oa_id) {
-      return c.json({ error: "Zalo Official Account chưa kết nối. Vui lòng kết nối trong Cài đặt." }, 400);
-    }
-
-    // Insert pending sending log into DB
-    const logData: ZaloNotificationLog = {
-      invoice_id: invoiceId,
-      tenant_id: tenant.id,
-      phone_number: targetPhone,
-      template_id: "zbs_invoice_v1",
-      message_payload: payload,
-      send_status: "PENDING",
-      retry_count: 0,
-    };
-
-    const { data: insertedLog, error: logErr } = await db
-      .from("invoice_zalo_notifications")
-      .insert(logData)
-      .select("id")
-      .single();
-    if (logErr) throw new Error(`Lỗi tạo lịch sử gửi tin: ${logErr.message}`);
-    const logId = insertedLog.id;
-
-    // Send the notification message
-    const sendResult = await sendZBSNotification(logData, user.id);
-
-    if (sendResult.success) {
-      // Update database status
-      await db
-        .from("invoice_zalo_notifications")
-        .update({
-          send_status: "SENT",
-          zalo_message_id: sendResult.msgId,
-          sent_at: new Date().toISOString(),
-        })
-        .eq("id", logId);
-
-      return c.json({ success: true, message: "Đã gửi thông báo hóa đơn qua Zalo thành công!" });
-    } else {
-      // Update error status
-      await db
-        .from("invoice_zalo_notifications")
-        .update({
-          send_status: "FAILED",
-          error_code: sendResult.errCode,
-          error_message: sendResult.errMsg,
-        })
-        .eq("id", logId);
-
-      return c.json({
-        success: false,
-        error: `Gửi Zalo thất bại (${sendResult.errCode}): ${sendResult.errMsg}`,
-      }, 400);
-    }
-
+    const result = await sendInvoiceImageViaZca(user.id, invoiceId, body.data.phoneNumber);
+    return c.json({
+      success: true,
+      message: "Đã gửi ảnh hóa đơn PNG qua Zalo.",
+      data: result,
+    });
   } catch (err: any) {
-    console.error("Single Zalo invoice sending error:", err);
-    return c.json({ error: err.message || "Gửi hóa đơn thất bại." }, 500);
+    console.error("ZCA invoice image sending error:", err);
+    return c.json({ success: false, error: err.message || "Gửi ảnh hóa đơn qua Zalo thất bại." }, 400);
   }
 });
 
