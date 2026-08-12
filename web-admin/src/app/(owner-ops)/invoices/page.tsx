@@ -16,7 +16,7 @@ import {
   loadPendingBilling,
   normalizeInvoiceStatus 
 } from "@/lib/rentalOps";
-import { apiDelete, apiPost } from "@/utils/apiClient";
+import { apiDelete, apiGet, apiPost } from "@/utils/apiClient";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
 import DataTable from "@/components/ui/DataTable";
@@ -46,6 +46,17 @@ type ZaloBatchSummary = {
   missingPhone: ZaloBatchItem[];
   zaloNotFound: ZaloBatchItem[];
   failed: ZaloBatchItem[];
+};
+
+type ZaloBulkJob = {
+  id: string;
+  status: "queued" | "running" | "completed" | "failed";
+  total: number;
+  processed: number;
+  currentInvoiceId?: string | null;
+  currentLabel?: string | null;
+  error?: string | null;
+  summary: ZaloBatchSummary;
 };
 
 const isInvoiceBeforePeriod = (invoice: Invoice, period: { month: number; year: number }) => {
@@ -197,6 +208,49 @@ function ZaloSendResultDialog({
   );
 }
 
+function ZaloSendProgressDialog({ job }: { job: ZaloBulkJob }) {
+  const percent = job.total > 0 ? Math.min(100, Math.round((job.processed / job.total) * 100)) : 0;
+  const failedCount = job.summary.zaloNotFound.length + job.summary.failed.length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="zalo-progress-title">
+      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="px-5 py-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+              <RefreshCw size={20} className="animate-spin" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 id="zalo-progress-title" className="text-lg font-black text-slate-950">Đang gửi Zalo</h2>
+              <p className="mt-1 text-sm font-medium text-slate-600">
+                Đang xử lý {job.processed}/{job.total} hóa đơn. Hệ thống gửi lần lượt để tránh Zalo giới hạn và không làm rớt cả batch.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-500">
+              <span className="min-w-0 truncate">
+                {job.currentLabel || (job.status === "queued" ? "Đang xếp hàng..." : "Đang chuẩn bị ảnh hóa đơn...")}
+              </span>
+              <span>{percent}%</span>
+            </div>
+            <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+              <div className="h-full rounded-full bg-blue-600 transition-all duration-300" style={{ width: `${percent}%` }} />
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="rounded-xl bg-emerald-50 px-3 py-2 font-bold text-emerald-700">Gửi {job.summary.sent.length}</div>
+            <div className="rounded-xl bg-amber-50 px-3 py-2 font-bold text-amber-700">Thiếu SĐT {job.summary.missingPhone.length}</div>
+            <div className="rounded-xl bg-red-50 px-3 py-2 font-bold text-red-700">Lỗi {failedCount}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function InvoicesPage() {
   const queryClient = useQueryClient();
   const [houses, setHouses] = useState<BoardingHouse[]>([]);
@@ -211,6 +265,7 @@ export default function InvoicesPage() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [sendingZalo, setSendingZalo] = useState(false);
   const [zaloSummary, setZaloSummary] = useState<ZaloBatchSummary | null>(null);
+  const [zaloJob, setZaloJob] = useState<ZaloBulkJob | null>(null);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
 
@@ -354,14 +409,43 @@ export default function InvoicesPage() {
     setSendingZalo(true);
     setError("");
     setZaloSummary(null);
+    setZaloJob(null);
     try {
       const res = await apiPost<any>("/api/invoices/send-zalo-bulk", { invoiceIds: selectedIds });
-      const nextSummary = res?.data as ZaloBatchSummary | undefined;
-      if (!res?.success || !nextSummary) throw new Error(res?.error || "Không gửi được hóa đơn qua Zalo.");
-      setZaloSummary(nextSummary);
+      const startedJob = res?.data as ZaloBulkJob | undefined;
+      if (!res?.success || !startedJob?.id) throw new Error(res?.error || "Không gửi được hóa đơn qua Zalo.");
+
+      setZaloJob(startedJob);
       setSelected({});
+
+      let finished = false;
+      for (let attempt = 0; attempt < 240; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 1200));
+        const jobRes = await apiGet<any>(`/api/invoices/send-zalo-bulk/${startedJob.id}`);
+        const currentJob = jobRes?.data as ZaloBulkJob | undefined;
+
+        if (!jobRes?.success || !currentJob) {
+          throw new Error(jobRes?.error || "Không đọc được tiến trình gửi Zalo.");
+        }
+
+        setZaloJob(currentJob);
+
+        if (currentJob.status === "completed") {
+          setZaloSummary(currentJob.summary);
+          setZaloJob(null);
+          finished = true;
+          break;
+        }
+
+        if (currentJob.status === "failed") {
+          throw new Error(currentJob.error || "Gửi Zalo thất bại.");
+        }
+      }
+
+      if (!finished) throw new Error("Gửi Zalo lâu hơn dự kiến. Vui lòng kiểm tra lại sau.");
     } catch (err: any) {
       setError(err?.message || "Không gửi được hóa đơn qua Zalo. Vui lòng kiểm tra kết nối Zalo.");
+      setZaloJob(null);
     } finally {
       setSendingZalo(false);
     }
@@ -502,6 +586,7 @@ export default function InvoicesPage() {
         </div>
       )}
 
+      {zaloJob && <ZaloSendProgressDialog job={zaloJob} />}
       {zaloSummary && <ZaloSendResultDialog summary={zaloSummary} onClose={() => setZaloSummary(null)} />}
 
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
