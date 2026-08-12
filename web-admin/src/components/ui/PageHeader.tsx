@@ -34,17 +34,17 @@ export default function PageHeader({
       <div className="min-w-0 flex-1">
         {breadcrumb && <div className="mb-1">{breadcrumb}</div>}
         {subtitle && (
-          <div className="mb-0.5 flex items-center gap-2">
+          <div className="mb-1 flex items-center gap-2">
             {icon && (
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-600">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-600">
                 {icon}
               </span>
             )}
-            <p className={typography.pageSubtitle}>{subtitle}</p>
+            <span className="text-xs font-bold text-blue-600">{subtitle}</span>
           </div>
         )}
-        {/* Hidden redundant main title in favor of header title */}
-        {description && <p className={typography.pageDescription}>{description}</p>}
+        {title && <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">{title}</h1>}
+        {description && <p className="mt-1 text-xs sm:text-sm font-medium text-slate-500">{description}</p>}
       </div>
       {actions && (
         <div className="flex flex-wrap items-center gap-3 shrink-0">{actions}</div>

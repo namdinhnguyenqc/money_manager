@@ -34,14 +34,14 @@ export default function DataTable({
           <thead className="border-b border-slate-100 bg-slate-50/80">
             <tr>
               {checkbox && (
-                <th className="w-10 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="w-10 px-4 py-3 text-xs font-semibold text-slate-600">
                   {checkbox}
                 </th>
               )}
               {headers.map((header) => (
                 <th
                   key={header}
-                  className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  className="px-4 py-3 text-xs font-semibold text-slate-600"
                 >
                   {header}
                 </th>

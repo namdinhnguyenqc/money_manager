@@ -65,7 +65,7 @@ export const selectBase =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400";
 
 export const labelBase =
-  "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  "mb-1.5 block text-xs font-semibold text-slate-600";
 
 /* ── Card classes ───────────────────────────────────────────────── */
 export const cardBase =
@@ -77,10 +77,10 @@ export const cardHover =
 /* ── Typography scale ───────────────────────────────────────────── */
 export const typography = {
   pageTitle: "text-xl sm:text-2xl font-black tracking-tight text-slate-900",
-  pageSubtitle: "text-xs font-bold uppercase tracking-widest text-blue-600",
+  pageSubtitle: "text-xs font-bold text-blue-600",
   pageDescription: "mt-1 text-sm font-medium text-slate-500",
-  sectionTitle: "text-lg font-bold text-slate-900",
-  label: "text-xs font-bold uppercase tracking-widest text-slate-500",
+  sectionTitle: "text-base sm:text-lg font-bold text-slate-900",
+  label: "text-xs font-semibold text-slate-600",
   body: "text-sm font-medium text-slate-600",
   caption: "text-xs font-medium text-slate-400",
   money: "font-bold text-slate-900 whitespace-nowrap",
