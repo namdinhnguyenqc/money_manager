@@ -22,6 +22,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input, { Label, Select } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
+import MetricCard from "@/components/ui/MetricCard";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
@@ -103,26 +104,25 @@ export default function DepositsPage() {
 
       {/* Summary Cards */}
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <SummaryCard
+        <MetricCard
           label="Cọc đang giữ"
           value={formatMoney(totalHolding)}
           icon={<WalletIcon size={18} />}
-          color="indigo"
+          tone="primary"
           description="Các khoản cọc giữ chỗ chưa chuyển đổi"
-          gradient
         />
-        <SummaryCard
+        <MetricCard
           label="Tổng tiền cọc"
           value={formatMoney(totalAll)}
           icon={<ShieldCheck size={18} />}
-          color="emerald"
+          tone="success"
           description="Bao gồm cả cọc hợp đồng hiện tại"
         />
-        <SummaryCard
+        <MetricCard
           label="Phòng đang giữ cọc"
           value={String(deposits.filter((d) => d.status === "holding").length)}
           icon={<Home size={18} />}
-          color="orange"
+          tone="warning"
           description="Các phòng ở trạng thái 'Đã cọc'"
         />
       </div>
@@ -233,42 +233,6 @@ export default function DepositsPage() {
         />
       )}
     </div>
-  );
-}
-
-function SummaryCard({ label, value, icon, color, description, gradient = false }: any) {
-  const colorMap: Record<string, string> = {
-    indigo: "bg-indigo-50 text-indigo-600",
-    emerald: "bg-emerald-50 text-emerald-600",
-    orange: "bg-orange-50 text-orange-600",
-  };
-
-  if (gradient) {
-    return (
-      <div className="group rounded-2xl p-5 text-white shadow-sm transition-all hover:shadow-md" style={{ background: "linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)" }}>
-        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white transition-transform group-hover:scale-105">
-          {icon}
-        </div>
-        <div>
-          <div className="text-xs font-bold uppercase tracking-widest text-white/80">{label}</div>
-          <div className="mt-1 text-xl font-black whitespace-nowrap">{value}</div>
-          <div className="mt-1.5 text-xs text-white/70">{description}</div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <Card hover className="group p-5">
-      <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${colorMap[color] || colorMap.indigo} transition-transform group-hover:scale-105`}>
-        {icon}
-      </div>
-      <div>
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</div>
-        <div className="mt-1 text-xl font-bold text-slate-900 whitespace-nowrap">{value}</div>
-        <div className="mt-1.5 text-xs text-slate-500">{description}</div>
-      </div>
-    </Card>
   );
 }
 

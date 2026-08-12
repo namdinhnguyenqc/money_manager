@@ -29,6 +29,7 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Input from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
+import MetricCard from "@/components/ui/MetricCard";
 import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
@@ -129,31 +130,10 @@ export default function OwnerTransactionsPage() {
       />
 
       {/* Summary Stats */}
-      <div className="mb-10 grid gap-6 sm:grid-cols-3">
-        <Card className="p-7">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shadow-sm">
-            <TrendingUp size={24} />
-          </div>
-          <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng thu nhập</div>
-          <div className="mt-1 text-2xl font-black text-emerald-600">{formatMoney(summary.income)}</div>
-          <div className="mt-2 text-xs font-bold text-slate-400">Trong kỳ báo cáo hiện tại</div>
-        </Card>
-        <Card className="p-7">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 shadow-sm">
-            <TrendingDown size={24} />
-          </div>
-          <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng chi phí</div>
-          <div className="mt-1 text-2xl font-black text-rose-600">{formatMoney(summary.expense)}</div>
-          <div className="mt-2 text-xs font-bold text-slate-400">Tiền điện, nước, vận hành...</div>
-        </Card>
-        <div className="rounded-[24px] p-7 shadow-xl shadow-slate-200 transition-all hover:scale-[1.02]" style={{ background: "linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)" }}>
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 text-white shadow-sm">
-            <WalletIcon size={24} />
-          </div>
-          <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Số dư hiện tại</div>
-          <div className="mt-1 text-2xl font-black text-white">{formatMoney(summary.income - summary.expense)}</div>
-          <div className="mt-2 text-xs font-bold text-white/40">Thặng dư khả dụng</div>
-        </div>
+      <div className="mb-8 grid gap-4 sm:grid-cols-3">
+        <MetricCard label="Tổng thu nhập" value={formatMoney(summary.income)} description="Trong kỳ báo cáo hiện tại" icon={<TrendingUp size={20} />} tone="success" />
+        <MetricCard label="Tổng chi phí" value={formatMoney(summary.expense)} description="Tiền điện, nước, vận hành" icon={<TrendingDown size={20} />} tone="danger" />
+        <MetricCard label="Số dư hiện tại" value={formatMoney(summary.income - summary.expense)} description="Thặng dư khả dụng" icon={<WalletIcon size={20} />} tone="primary" />
       </div>
 
       {/* Filter & Search */}
