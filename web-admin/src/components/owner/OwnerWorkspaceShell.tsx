@@ -430,8 +430,8 @@ const getPageTitle = (path: string) => {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex flex-col border-r border-slate-200 bg-white transition-all duration-300 ease-out lg:pointer-events-auto lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:translate-x-0 ${
-          sidebarOpen ? "pointer-events-auto translate-x-0" : "pointer-events-none -translate-x-full lg:pointer-events-auto"
+        className={`fixed inset-y-0 left-0 z-30 flex flex-col border-r border-slate-200 bg-white transition-all duration-300 ease-out ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         } ${isCollapsed ? "w-72 lg:w-20" : "w-72"}`}
       >
         <div className="flex flex-col border-b border-slate-200 shrink-0">
@@ -599,7 +599,7 @@ const getPageTitle = (path: string) => {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className={`flex min-w-0 flex-1 flex-col transition-all duration-300 ${isCollapsed ? "lg:pl-20" : "lg:pl-72"}`}>
         <header className="pwa-safe-top sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/80 px-4 py-3 backdrop-blur-xl lg:hidden">
           <div className="flex items-center gap-3">
             <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition active:scale-95 hover:bg-slate-200" onClick={() => setSidebarOpen(true)} aria-label="Mở menu">

@@ -51,9 +51,14 @@ export default function OwnerOnboardingGuide({
   const [modalOpen, setModalOpen] = useState(false);
   const [activeStepTab, setActiveStepTab] = useState(0);
 
-  // Global event listener to trigger modal from header button
+  // Global event listener to trigger modal from header button or notification items
   useEffect(() => {
-    const handleOpenModal = () => setModalOpen(true);
+    const handleOpenModal = (e: any) => {
+      setModalOpen(true);
+      if (e?.detail?.stepTab !== undefined && typeof e.detail.stepTab === "number") {
+        setActiveStepTab(e.detail.stepTab);
+      }
+    };
     if (typeof window !== "undefined") {
       window.addEventListener("open_onboarding_guide_modal", handleOpenModal);
     }
@@ -167,90 +172,94 @@ export default function OwnerOnboardingGuide({
 
   const completedCount = steps.filter((s) => s.isCompleted).length;
   const percent = Math.round((completedCount / steps.length) * 100);
+  const allCompleted = completedCount === steps.length;
 
   return (
     <>
-      {/* ── Banner Checklist Card (Light System Palette) ── */}
-      <section className="mb-6 overflow-hidden rounded-2xl border border-blue-200/80 bg-gradient-to-r from-blue-50/90 via-indigo-50/40 to-slate-50 p-5 font-sans shadow-xs">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs">
-              <Sparkles size={22} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-extrabold tracking-tight text-slate-900">
-                  Hướng Dẫn Khởi Tạo Hệ Thống TrọCare (5 Bước)
-                </h2>
-                <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-black uppercase text-blue-700 border border-blue-200">
-                  {completedCount}/{steps.length} Hoàn thành
-                </span>
+      {/* ── Banner Checklist Card (Hidden when 5/5 steps completed) ── */}
+      {!allCompleted && (
+        <section className="mb-6 overflow-hidden rounded-2xl border border-blue-200/80 bg-gradient-to-r from-blue-50/90 via-indigo-50/40 to-slate-50 p-5 font-sans shadow-xs">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs">
+                <Sparkles size={22} />
               </div>
-              <p className="mt-0.5 text-xs text-slate-600 font-medium">
-                Thực hiện lần lượt các bước dưới đây để bắt đầu vận hành nhà trọ hiệu quả & tự động.
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-extrabold tracking-tight text-slate-900">
+                    Hướng Dẫn Khởi Tạo Hệ Thống TrọCare (5 Bước)
+                  </h2>
+                  <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-black uppercase text-blue-700 border border-blue-200">
+                    {completedCount}/{steps.length} Hoàn thành
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-slate-600 font-medium">
+                  Thực hiện lần lượt các bước dưới đây để bắt đầu vận hành nhà trọ hiệu quả & tự động.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-white px-3.5 py-2 text-xs font-bold text-blue-700 shadow-xs hover:bg-blue-50 transition active:scale-95"
+              >
+                <BookOpen size={15} />
+                Xem Hướng Dẫn Chi Tiết
+              </button>
+              <button
+                type="button"
+                onClick={() => setCollapsed(!collapsed)}
+                className="rounded-xl p-2 text-slate-500 hover:bg-slate-200/60 transition"
+                title={collapsed ? "Mở rộng hướng dẫn" : "Thu gọn hướng dẫn"}
+              >
+                {collapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-white px-3.5 py-2 text-xs font-bold text-blue-700 shadow-xs hover:bg-blue-50 transition active:scale-95"
-            >
-              <BookOpen size={15} />
-              Xem Hướng Dẫn Chi Tiết
-            </button>
-            <button
-              type="button"
-              onClick={() => setCollapsed(!collapsed)}
-              className="rounded-xl p-2 text-slate-500 hover:bg-slate-200/60 transition"
-              title={collapsed ? "Mở rộng hướng dẫn" : "Thu gọn hướng dẫn"}
-            >
-              {collapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
-            </button>
+          {/* Progress Bar */}
+          <div className="mt-4">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200/80 p-0.5">
+              <div
+                className="h-full rounded-full bg-blue-600 transition-all duration-500"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
           </div>
-        </div>
 
-        {/* Progress Bar */}
-        <div className="mt-4">
-          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200/80 p-0.5">
-            <div
-              className="h-full rounded-full bg-blue-600 transition-all duration-500"
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Steps List */}
-        {!collapsed && (
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {steps.map((step) => {
-              const StepIcon = step.icon;
-              return (
-                <div
-                  key={step.id}
-                  className={`flex flex-col justify-between rounded-xl border p-3.5 transition-all ${
-                    step.isCompleted
-                      ? "border-emerald-200 bg-emerald-50/70 text-emerald-950 shadow-2xs"
-                      : "border-slate-200 bg-white text-slate-800 hover:border-blue-300 hover:shadow-sm"
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold ${
-                        step.isCompleted ? "bg-emerald-200/70 text-emerald-800" : "bg-blue-50 text-blue-600"
-                      }`}>
-                        <StepIcon size={15} />
-                      </span>
-                      {step.isCompleted ? (
-                        <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700">
-                          <CheckCircle2 size={15} /> Xong
+          {/* Steps List */}
+          {!collapsed && (
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {steps.map((step) => {
+                const StepIcon = step.icon;
+                return (
+                  <div
+                    key={step.id}
+                    className={`flex flex-col justify-between rounded-xl border p-3.5 transition-all ${
+                      step.isCompleted
+                        ? "border-emerald-200 bg-emerald-50/70 text-emerald-950 shadow-2xs"
+                        : "border-slate-200 bg-white text-slate-800 hover:border-blue-300 hover:shadow-sm"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold ${
+                          step.isCompleted ? "bg-emerald-200/70 text-emerald-800" : "bg-blue-50 text-blue-600"
+                        }`}>
+                          <StepIcon size={15} />
                         </span>
-                      ) : (
-                        <Circle size={15} className="text-slate-300" />
-                      )}
-                    </div>
+                        {step.isCompleted ? (
+                          <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700">
+                            <CheckCircle2 size={15} /> 🎉 Đã xong!
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                            ⚠️ Cần làm
+                          </span>
+                        )}
+                      </div>
                     <h3 className="text-xs font-bold text-slate-900 line-clamp-1">{step.title}</h3>
                     <p className="mt-1 text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
                       {step.description}
@@ -272,6 +281,7 @@ export default function OwnerOnboardingGuide({
           </div>
         )}
       </section>
+      )}
 
       {/* ── Interactive HDSD Modal (Light System Palette) ── */}
       {modalOpen && (
