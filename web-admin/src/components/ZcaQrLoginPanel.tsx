@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { AlertCircle, CheckCircle2, LogOut, QrCode, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, LogOut, QrCode, RefreshCw } from "lucide-react";
 import { apiGet, apiPost } from "@/utils/apiClient";
 import Button from "@/components/ui/Button";
 
@@ -143,9 +143,7 @@ export default function ZcaQrLoginPanel() {
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-900">Đăng nhập Zalo bằng QR</h3>
-            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
-              Dùng app Zalo quét QR để lưu phiên Zalo Web. Khi gửi hóa đơn, hệ thống tìm khách theo SĐT và gửi ảnh PNG.
-            </p>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">Dùng app Zalo quét QR để kết nối tài khoản gửi hóa đơn.</p>
           </div>
         </div>
 
@@ -168,76 +166,84 @@ export default function ZcaQrLoginPanel() {
         </div>
       )}
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-[280px_1fr]">
-        <div className="flex min-h-[280px] items-center justify-center rounded-[8px] border border-slate-200 bg-slate-50 p-4">
-          {login?.qrImage && isWaiting ? (
-            <Image
-              src={login.qrImage}
-              alt="QR đăng nhập Zalo"
-              width={240}
-              height={240}
-              unoptimized
-              className="h-60 w-60 rounded-[8px] bg-white object-contain p-2"
-            />
-          ) : status?.connected ? (
-            <div className="text-center">
-              <CheckCircle2 className="mx-auto text-emerald-600" size={44} />
-              <div className="mt-3 text-sm font-bold text-slate-900">Zalo đã kết nối</div>
-            </div>
-          ) : (
-            <div className="text-center text-sm text-slate-500">
-              <QrCode className="mx-auto mb-3 text-slate-300" size={46} />
-              Bấm tạo QR để kết nối Zalo
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-3">
-          <div className="rounded-[8px] border border-slate-200 p-4">
-            <div className="flex items-center justify-between gap-3">
+      {status?.connected ? (
+        <div className="mt-5 rounded-[8px] border border-emerald-200 bg-emerald-50 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-white text-emerald-600">
+                <CheckCircle2 size={22} />
+              </div>
               <div>
-                <div className="text-xs font-semibold text-slate-500">Trạng thái phiên</div>
-                <div className="mt-1 text-sm font-bold text-slate-900">
-                  {status?.connected ? `Đã kết nối${status.account?.name ? `: ${status.account.name}` : ""}` : isWaiting ? "Đang chờ quét QR" : "Chưa kết nối"}
+                <div className="text-sm font-bold text-slate-900">
+                  Đã kết nối Zalo{status.account?.name ? `: ${status.account.name}` : ""}
                 </div>
+                <p className="mt-0.5 text-xs font-medium text-emerald-700">Bạn có thể gửi hóa đơn qua Zalo trong màn chi tiết hóa đơn.</p>
               </div>
-              <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${status?.connected ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
-                {status?.connected ? "ACTIVE" : "OFFLINE"}
-              </span>
             </div>
-            {login?.status === "scanned" && (
-              <div className="mt-3 rounded-[8px] border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700">
-                Đã quét bởi {login.scannedName || "tài khoản Zalo"}. Xác nhận trên điện thoại để hoàn tất.
-              </div>
-            )}
-            {["expired", "declined", "failed"].includes(login?.status || "") && (
-              <div className="mt-3 rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-                QR không còn hiệu lực hoặc bị từ chối. Tạo QR mới để thử lại.
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-[8px] border border-slate-200 p-4">
-            <div className="flex gap-2 text-xs leading-5 text-slate-500">
-              <ShieldCheck size={16} className="mt-0.5 shrink-0 text-slate-400" />
-              <span>
-                Phiên được mã hóa ở backend. Chỉ dùng để gửi ảnh hóa đơn cho khách có số điện thoại trong hợp đồng. Không gửi PDF.
-              </span>
+            <div className="flex gap-2">
+              <Button variant="outline" icon={<RefreshCw size={14} />} onClick={loadStatus} disabled={loading} className="rounded-[8px] bg-white">
+                Làm mới
+              </Button>
+              <Button variant="outline" icon={<LogOut size={14} />} onClick={disconnect} disabled={disconnecting} className="rounded-[8px] border-red-200 bg-white text-red-600 hover:bg-red-50">
+                Ngắt
+              </Button>
             </div>
           </div>
-
-          <Button
-            variant="primary"
-            icon={<QrCode size={14} />}
-            onClick={startQr}
-            disabled={starting || Boolean(isWaiting)}
-            loading={starting}
-            className="h-10 rounded-[8px] bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            {isWaiting ? "Đang chờ quét QR..." : "Tạo QR đăng nhập Zalo"}
-          </Button>
         </div>
-      </div>
+      ) : (
+        <div className="mt-5 grid gap-4 lg:grid-cols-[280px_1fr]">
+          <div className="flex min-h-[280px] items-center justify-center rounded-[8px] border border-slate-200 bg-slate-50 p-4">
+            {login?.qrImage && isWaiting ? (
+              <Image
+                src={login.qrImage}
+                alt="QR đăng nhập Zalo"
+                width={240}
+                height={240}
+                unoptimized
+                className="h-60 w-60 rounded-[8px] bg-white object-contain p-2"
+              />
+            ) : (
+              <div className="text-center text-sm text-slate-500">
+                <QrCode className="mx-auto mb-3 text-slate-300" size={46} />
+                Bấm tạo QR để kết nối Zalo
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="rounded-[8px] border border-slate-200 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-semibold text-slate-500">Trạng thái phiên</div>
+                  <div className="mt-1 text-sm font-bold text-slate-900">{isWaiting ? "Đang chờ quét QR" : "Chưa kết nối"}</div>
+                </div>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-600">OFFLINE</span>
+              </div>
+              {login?.status === "scanned" && (
+                <div className="mt-3 rounded-[8px] border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700">
+                  Đã quét bởi {login.scannedName || "tài khoản Zalo"}. Xác nhận trên điện thoại để hoàn tất.
+                </div>
+              )}
+              {["expired", "declined", "failed"].includes(login?.status || "") && (
+                <div className="mt-3 rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                  QR không còn hiệu lực hoặc bị từ chối. Tạo QR mới để thử lại.
+                </div>
+              )}
+            </div>
+
+            <Button
+              variant="primary"
+              icon={<QrCode size={14} />}
+              onClick={startQr}
+              disabled={starting || Boolean(isWaiting)}
+              loading={starting}
+              className="h-10 rounded-[8px] bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              {isWaiting ? "Đang chờ quét QR..." : "Tạo QR đăng nhập Zalo"}
+            </Button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

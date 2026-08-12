@@ -742,7 +742,7 @@ export default function OwnerSettingsPage() {
 
             {activeTab === "zalo" && (
               <div className="space-y-6 animate-in fade-in duration-300 font-sans">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center border-b border-slate-100 pb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center border border-blue-100">
                       <Sparkles size={20} className="text-blue-600" />
@@ -752,44 +752,11 @@ export default function OwnerSettingsPage() {
                       <p className="text-xs text-slate-500 font-medium">Quét QR một lần, sau đó gửi ảnh hóa đơn PNG cho khách theo số điện thoại.</p>
                     </div>
                   </div>
-                  <a
-                    href="https://github.com/RFS-ADRENO/zca-js"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100 transition-all"
-                  >
-                    Github zca-js ↗
-                  </a>
                 </div>
 
                 <ZcaQrLoginPanel />
 
                 <div className="space-y-5">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <Label>Phương thức kết nối Zalo</Label>
-                        <UISelect
-                          value="zca-js"
-                          onChange={(e) => handleChange("zalo_connection_mode", e.target.value, "string", "zalo")}
-                        >
-                          <option value="zca-js">zca-js (Zalo Chat Automation Node.js SDK)</option>
-                        </UISelect>
-                        <p className="mt-1 text-[11px] text-slate-400 font-medium">
-                          zca-js gửi ảnh hóa đơn PNG qua phiên Zalo cá nhân đã quét QR.
-                        </p>
-                      </div>
-
-                      <div>
-                        <Label>Định dạng gửi hóa đơn</Label>
-                        <div className="flex h-10 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
-                          PNG image attachment
-                        </div>
-                        <p className="mt-1 text-[11px] text-slate-400 font-medium">Không gửi PDF. Ảnh được render ở backend khi bấm gửi.</p>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Message Template Editor */}
                   <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
                     <div className="flex items-center justify-between">
