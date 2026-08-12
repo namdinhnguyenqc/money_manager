@@ -51,6 +51,19 @@ export default function OwnerOnboardingGuide({
   const [modalOpen, setModalOpen] = useState(false);
   const [activeStepTab, setActiveStepTab] = useState(0);
 
+  // Global event listener to trigger modal from header button
+  useEffect(() => {
+    const handleOpenModal = () => setModalOpen(true);
+    if (typeof window !== "undefined") {
+      window.addEventListener("open_onboarding_guide_modal", handleOpenModal);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("open_onboarding_guide_modal", handleOpenModal);
+      }
+    };
+  }, []);
+
   // Auto-detect completed steps by inspecting owner data count
   useEffect(() => {
     const detectProgress = async () => {
@@ -157,24 +170,24 @@ export default function OwnerOnboardingGuide({
 
   return (
     <>
-      {/* ── Banner Checklist Card ── */}
-      <section className="mb-6 overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 p-5 font-sans text-white shadow-md">
+      {/* ── Banner Checklist Card (Light System Palette) ── */}
+      <section className="mb-6 overflow-hidden rounded-2xl border border-blue-200/80 bg-gradient-to-r from-blue-50/90 via-indigo-50/40 to-slate-50 p-5 font-sans shadow-xs">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-400/30">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs">
               <Sparkles size={22} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-black tracking-tight text-white">
+                <h2 className="text-base font-extrabold tracking-tight text-slate-900">
                   Hướng Dẫn Khởi Tạo Hệ Thống TrọCare (5 Bước)
                 </h2>
-                <span className="rounded-full bg-indigo-500/30 px-2.5 py-0.5 text-[10px] font-black uppercase text-indigo-200 ring-1 ring-indigo-400/40">
+                <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-black uppercase text-blue-700 border border-blue-200">
                   {completedCount}/{steps.length} Hoàn thành
                 </span>
               </div>
-              <p className="mt-0.5 text-xs text-indigo-200/80">
-                Thực hiện lần lượt các bước dưới đây để bắt đầu quản lý nhà trọ chuyên nghiệp.
+              <p className="mt-0.5 text-xs text-slate-600 font-medium">
+                Thực hiện lần lượt các bước dưới đây để bắt đầu vận hành nhà trọ hiệu quả & tự động.
               </p>
             </div>
           </div>
@@ -183,7 +196,7 @@ export default function OwnerOnboardingGuide({
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-white/10 px-3.5 py-2 text-xs font-bold text-white backdrop-blur-md hover:bg-white/20 transition active:scale-95 border border-white/15"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-white px-3.5 py-2 text-xs font-bold text-blue-700 shadow-xs hover:bg-blue-50 transition active:scale-95"
             >
               <BookOpen size={15} />
               Xem Hướng Dẫn Chi Tiết
@@ -191,7 +204,7 @@ export default function OwnerOnboardingGuide({
             <button
               type="button"
               onClick={() => setCollapsed(!collapsed)}
-              className="rounded-xl p-2 text-indigo-300 hover:bg-white/10 transition"
+              className="rounded-xl p-2 text-slate-500 hover:bg-slate-200/60 transition"
               title={collapsed ? "Mở rộng hướng dẫn" : "Thu gọn hướng dẫn"}
             >
               {collapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
@@ -201,9 +214,9 @@ export default function OwnerOnboardingGuide({
 
         {/* Progress Bar */}
         <div className="mt-4">
-          <div className="h-2 w-full overflow-hidden rounded-full bg-white/10 p-0.5">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200/80 p-0.5">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-emerald-400 transition-all duration-500"
+              className="h-full rounded-full bg-blue-600 transition-all duration-500"
               style={{ width: `${percent}%` }}
             />
           </div>
@@ -219,33 +232,35 @@ export default function OwnerOnboardingGuide({
                   key={step.id}
                   className={`flex flex-col justify-between rounded-xl border p-3.5 transition-all ${
                     step.isCompleted
-                      ? "border-emerald-500/30 bg-emerald-950/20 text-emerald-100"
-                      : "border-white/10 bg-white/5 text-slate-200 hover:border-indigo-400/40 hover:bg-white/10"
+                      ? "border-emerald-200 bg-emerald-50/70 text-emerald-950 shadow-2xs"
+                      : "border-slate-200 bg-white text-slate-800 hover:border-blue-300 hover:shadow-sm"
                   }`}
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-indigo-300 text-xs font-bold">
+                      <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold ${
+                        step.isCompleted ? "bg-emerald-200/70 text-emerald-800" : "bg-blue-50 text-blue-600"
+                      }`}>
                         <StepIcon size={15} />
                       </span>
                       {step.isCompleted ? (
-                        <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-400">
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700">
                           <CheckCircle2 size={15} /> Xong
                         </span>
                       ) : (
-                        <Circle size={15} className="text-slate-400" />
+                        <Circle size={15} className="text-slate-300" />
                       )}
                     </div>
-                    <h3 className="text-xs font-bold text-white line-clamp-1">{step.title}</h3>
-                    <p className="mt-1 text-[11px] text-slate-300 line-clamp-2 leading-relaxed">
+                    <h3 className="text-xs font-bold text-slate-900 line-clamp-1">{step.title}</h3>
+                    <p className="mt-1 text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
                       {step.description}
                     </p>
                   </div>
 
-                  <div className="mt-3 pt-2 border-t border-white/10">
+                  <div className="mt-3 pt-2 border-t border-slate-100">
                     <Link
                       href={step.actionHref}
-                      className="inline-flex items-center gap-1 text-[11px] font-extrabold text-indigo-300 hover:text-white transition group"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 transition group"
                     >
                       {step.actionLabel}
                       <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
@@ -258,21 +273,21 @@ export default function OwnerOnboardingGuide({
         )}
       </section>
 
-      {/* ── Interactive HDSD Modal ── */}
+      {/* ── Interactive HDSD Modal (Light System Palette) ── */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-slate-900 to-indigo-950 p-5 text-white">
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 p-5 text-slate-900">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-300">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs">
                   <BookOpen size={20} />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-extrabold text-slate-900">
                     Sổ Tay Hướng Dẫn Sử Dụng TrọCare Cho Owner
                   </h3>
-                  <p className="text-xs text-indigo-200">
+                  <p className="text-xs text-slate-500 font-medium">
                     Quy trình 5 bước cơ bản để vận hành nhà trọ hiệu quả & tự động.
                   </p>
                 </div>
@@ -280,14 +295,14 @@ export default function OwnerOnboardingGuide({
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="rounded-xl p-2 text-slate-400 hover:bg-white/10 hover:text-white transition"
+                className="rounded-xl p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
               >
                 <X size={20} />
               </button>
             </div>
 
             {/* Step Tabs Navigation */}
-            <div className="flex overflow-x-auto border-b border-slate-200 bg-slate-50 px-3 py-2 scrollbar-none">
+            <div className="flex overflow-x-auto border-b border-slate-200 bg-slate-100/70 px-3 py-2 scrollbar-none">
               {steps.map((step, idx) => (
                 <button
                   key={step.id}
@@ -295,12 +310,12 @@ export default function OwnerOnboardingGuide({
                   onClick={() => setActiveStepTab(idx)}
                   className={`flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
                     activeStepTab === idx
-                      ? "bg-indigo-600 text-white shadow-sm"
-                      : "text-slate-600 hover:bg-slate-200/70"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "text-slate-600 hover:bg-slate-200/80"
                   }`}
                 >
                   <span>{step.stepNumber}. {step.id === "house" ? "Khu trọ" : step.id === "room" ? "Phòng" : step.id === "service" ? "Dịch vụ" : step.id === "contract" ? "Hợp đồng" : "Hóa đơn"}</span>
-                  {step.isCompleted && <CheckCircle2 size={14} className={activeStepTab === idx ? "text-emerald-300" : "text-emerald-600"} />}
+                  {step.isCompleted && <CheckCircle2 size={14} className={activeStepTab === idx ? "text-emerald-200" : "text-emerald-600"} />}
                 </button>
               ))}
             </div>
@@ -313,29 +328,29 @@ export default function OwnerOnboardingGuide({
                 return (
                   <div className="space-y-4">
                     <div className="flex items-start gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
                         <IconComp size={24} />
                       </div>
                       <div>
-                        <h4 className="text-base font-black text-slate-900">{current.title}</h4>
-                        <p className="mt-1 text-xs text-slate-500">{current.description}</p>
+                        <h4 className="text-base font-extrabold text-slate-900">{current.title}</h4>
+                        <p className="mt-1 text-xs text-slate-500 font-medium">{current.description}</p>
                       </div>
                     </div>
 
-                    <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-4 space-y-2">
-                      <span className="text-xs font-black uppercase text-indigo-900 tracking-wider">
+                    <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-2">
+                      <span className="text-xs font-black uppercase text-blue-900 tracking-wider">
                         📖 Hướng dẫn chi tiết:
                       </span>
-                      <p className="text-xs text-slate-700 leading-relaxed">
+                      <p className="text-xs text-slate-700 leading-relaxed font-medium">
                         {current.detailedGuide}
                       </p>
                     </div>
 
                     {current.tip && (
-                      <div className="flex items-start gap-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100 p-3.5 text-xs text-indigo-950">
-                        <Sparkles size={16} className="text-indigo-600 shrink-0 mt-0.5" />
+                      <div className="flex items-start gap-2.5 rounded-xl bg-blue-50 border border-blue-100 p-3.5 text-xs text-blue-950">
+                        <Sparkles size={16} className="text-blue-600 shrink-0 mt-0.5" />
                         <div>
-                          <strong className="font-bold">Mẹo hay:</strong> {current.tip}
+                          <strong className="font-bold text-blue-900">Mẹo hay:</strong> {current.tip}
                         </div>
                       </div>
                     )}
@@ -355,7 +370,7 @@ export default function OwnerOnboardingGuide({
                           <button
                             type="button"
                             onClick={() => setActiveStepTab(activeStepTab + 1)}
-                            className="px-3 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                            className="px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-lg transition"
                           >
                             Bước tiếp theo →
                           </button>
@@ -365,7 +380,7 @@ export default function OwnerOnboardingGuide({
                       <Link
                         href={current.actionHref}
                         onClick={() => setModalOpen(false)}
-                        className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-indigo-700 transition active:scale-95"
+                        className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 transition active:scale-95"
                       >
                         {current.actionLabel}
                         <ExternalLink size={14} />
