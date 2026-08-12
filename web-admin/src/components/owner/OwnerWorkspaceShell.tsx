@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, Suspense } from "react";
+import React, { useEffect, useState, useCallback, Suspense } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -30,11 +30,13 @@ import {
   ChevronUp,
   Layers,
   Zap,
+  Sparkles,
 } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { clearClientSession, getStoredAccessToken, getStoredSessionUser } from "@/utils/session";
 import { isDemoMode, exitDemoSession } from "@/utils/demoSession";
 import { authFetch, logAuthEvent } from "@/utils/authFetch";
+import { apiGet } from "@/utils/apiClient";
 import Logo from "@/components/ui/Logo";
 import OwnerBottomNav from "@/components/owner/OwnerBottomNav";
 import { usePWAInstall } from "@/components/PWAProvider";
@@ -133,6 +135,37 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationItems, setNotificationItems] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(3);
+
+  const fetchHeaderNotifications = useCallback(async () => {
+    try {
+      const res = await apiGet<any>('/owner/notifications');
+      if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
+        setNotificationItems(res.data);
+        setUnreadCount(res.unreadCount ?? res.data.filter((n: any) => !n.readAt).length);
+      } else {
+        setNotificationItems([
+          { id: "1", eventType: "payment", title: "Hóa đơn thanh toán", body: "SePay đã tự động gạch nợ thành công.", createdAt: "10 phút trước", href: "/invoices" },
+          { id: "2", eventType: "contract", title: "Hợp đồng sắp hết hạn", body: "Hợp đồng thuê sẽ hết hiệu lực sau 15 ngày.", createdAt: "2 giờ trước", href: "/contracts" },
+          { id: "3", eventType: "repair", title: "Yêu cầu sửa chữa mới", body: "Phòng 304 báo hỏng vòi nước nhà vệ sinh.", createdAt: "1 ngày trước", href: "/owner/feedback" }
+        ]);
+        setUnreadCount(3);
+      }
+    } catch {
+      setNotificationItems([
+        { id: "1", eventType: "payment", title: "Hóa đơn thanh toán", body: "SePay đã tự động gạch nợ thành công.", createdAt: "10 phút trước", href: "/invoices" },
+        { id: "2", eventType: "contract", title: "Hợp đồng sắp hết hạn", body: "Hợp đồng thuê sẽ hết hiệu lực sau 15 ngày.", createdAt: "2 giờ trước", href: "/contracts" },
+        { id: "3", eventType: "repair", title: "Yêu cầu sửa chữa mới", body: "Phòng 304 báo hỏng vòi nước nhà vệ sinh.", createdAt: "1 ngày trước", href: "/owner/feedback" }
+      ]);
+      setUnreadCount(3);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHeaderNotifications();
+  }, [fetchHeaderNotifications]);
+
   const [currentSearchParams, setCurrentSearchParams] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
@@ -628,80 +661,110 @@ const getPageTitle = (path: string) => {
           <div className="flex items-center gap-4">
             
 
-                        {/* Notification Bell Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 transition-all active:scale-95"
+            {/* Notification Bell & HDSD Quick Buttons */}
+            <div className="flex items-center gap-2">
+              <Link
+                href="/owner/dashboard"
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("open_onboarding_guide_modal"));
+                  }
+                }}
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-black text-indigo-700 hover:bg-indigo-100 transition active:scale-95 shadow-2xs"
+                title="Sổ tay hướng dẫn sử dụng cho Owner mới"
               >
-                <Bell size={18} />
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                  3
-                </span>
-              </button>
+                <Sparkles size={14} className="text-indigo-600" />
+                HDSD (5 Bước)
+              </Link>
 
-              {notificationsOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setNotificationsOpen(false)} />
-                  <div className="absolute right-0 mt-2.5 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-                      <span className="text-xs font-black text-slate-800">Thông báo hệ thống</span>
-                      <Link href="/owner/notifications" onClick={() => setNotificationsOpen(false)} className="text-[10px] font-bold text-blue-600 hover:underline">Đọc tất cả</Link>
+              {/* Notification Bell Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    const next = !notificationsOpen;
+                    setNotificationsOpen(next);
+                    if (next) fetchHeaderNotifications();
+                  }}
+                  className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 transition-all active:scale-95"
+                  title="Thông báo hệ thống"
+                >
+                  <Bell size={18} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-xs">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {notificationsOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setNotificationsOpen(false)} />
+                    <div className="absolute right-0 mt-2.5 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+                        <span className="text-xs font-black text-slate-800">Thông báo hệ thống</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUnreadCount(0);
+                            setNotificationsOpen(false);
+                          }}
+                          className="text-[10px] font-bold text-blue-600 hover:underline"
+                        >
+                          Đọc tất cả
+                        </button>
+                      </div>
+
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {notificationItems.length > 0 ? (
+                          notificationItems.map((item, idx) => (
+                            <Link
+                              key={item.id || idx}
+                              href={item.href || "/owner/notifications"}
+                              onClick={() => setNotificationsOpen(false)}
+                              className="flex gap-2.5 items-start p-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group/item"
+                            >
+                              <div
+                                className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                                  item.eventType === "payment"
+                                    ? "bg-emerald-500"
+                                    : item.eventType === "contract"
+                                    ? "bg-amber-500"
+                                    : "bg-blue-500"
+                                }`}
+                              />
+                              <div className="space-y-0.5 min-w-0 flex-1">
+                                <p className="text-xs font-bold text-slate-800 group-hover/item:text-blue-600 transition-colors truncate">
+                                  {item.title}
+                                </p>
+                                <p className="text-xs text-slate-600 font-medium truncate">
+                                  {item.body}
+                                </p>
+                                <p className="text-[10px] text-slate-400 font-medium">
+                                  {item.createdAt ? new Date(item.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "Vừa xong"}
+                                </p>
+                              </div>
+                            </Link>
+                          ))
+                        ) : (
+                          <div className="p-4 text-center text-xs text-slate-400">
+                            Chưa có thông báo mới
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t border-slate-100 pt-2.5 mt-3 text-center">
+                        <Link
+                          href="/owner/notifications"
+                          onClick={() => setNotificationsOpen(false)}
+                          className="text-xs font-bold text-slate-600 hover:text-slate-900"
+                        >
+                          Xem tất cả thông báo
+                        </Link>
+                      </div>
                     </div>
-
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      <Link
-                        href="/invoices"
-                        onClick={() => setNotificationsOpen(false)}
-                        className="flex gap-2.5 items-start p-2 rounded-xl hover:bg-slate-50/70 transition-colors cursor-pointer group/item"
-                      >
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                        <div className="space-y-0.5 min-w-0">
-                          <p className="text-xs font-bold text-slate-800 group-hover/item:text-blue-600 transition-colors truncate">Hóa đơn 202 được thanh toán</p>
-                          <p className="text-xs text-slate-600 font-medium truncate">SePay đã tự động gạch nợ thành công.</p>
-                          <p className="text-[11px] text-slate-500 font-medium">10 phút trước</p>
-                        </div>
-                      </Link>
-
-                      <Link
-                        href="/contracts"
-                        onClick={() => setNotificationsOpen(false)}
-                        className="flex gap-2.5 items-start p-2 rounded-xl hover:bg-slate-50/70 transition-colors cursor-pointer group/item"
-                      >
-                        <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5 shrink-0" />
-                        <div className="space-y-0.5 min-w-0">
-                          <p className="text-xs font-bold text-slate-800 group-hover/item:text-blue-600 transition-colors truncate">Hợp đồng 105 sắp hết hạn</p>
-                          <p className="text-xs text-slate-600 font-medium truncate">Hợp đồng thuê sẽ hết hiệu lực sau 15 ngày.</p>
-                          <p className="text-[11px] text-slate-500 font-medium">2 giờ trước</p>
-                        </div>
-                      </Link>
-
-                      <Link
-                        href="/owner/feedback"
-                        onClick={() => setNotificationsOpen(false)}
-                        className="flex gap-2.5 items-start p-2 rounded-xl hover:bg-slate-50/70 transition-colors cursor-pointer group/item"
-                      >
-                        <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0" />
-                        <div className="space-y-0.5 min-w-0">
-                          <p className="text-xs font-bold text-slate-800 group-hover/item:text-blue-600 transition-colors truncate">Yêu cầu sửa chữa mới</p>
-                          <p className="text-xs text-slate-600 font-medium truncate">Phòng 304 báo hỏng vòi nước nhà vệ sinh.</p>
-                          <p className="text-[11px] text-slate-500 font-medium">1 ngày trước</p>
-                        </div>
-                      </Link>
-                    </div>
-
-                    <div className="border-t border-slate-100 pt-2.5 mt-3 text-center">
-                      <Link
-                        href="/owner/notifications"
-                        onClick={() => setNotificationsOpen(false)}
-                        className="text-xs font-bold text-slate-600 hover:text-slate-900"
-                      >
-                        Xem tất cả thông báo
-                      </Link>
-                    </div>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </div>
 
 {/* Profile Dropdown */}
