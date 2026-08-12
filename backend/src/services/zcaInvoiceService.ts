@@ -460,7 +460,7 @@ async function renderInvoicePng(bundle: InvoiceBundle, outputPath: string) {
   const currentPayable = Math.max(0, total - previousDebt);
   const qrDataUri = await fetchImageAsDataUri(buildInvoiceQrUrl(bundle));
   const status = paid >= total && total > 0 ? "Đã thanh toán" : paid > 0 ? "Còn thiếu" : "Chưa thanh toán";
-  const statusColor = paid >= total && total > 0 ? "#059669" : "#B45309";
+  const statusColor = paid >= total && total > 0 ? "#047857" : paid > 0 ? "#B45309" : "#DC2626";
   const bankId = String(bundle.paymentChannel?.bank_id || "").trim();
   const bankLabel = BANK_LABELS[bankId] || bankId || "-";
   const accountNo = String(bundle.paymentChannel?.account_no || "").trim();
@@ -470,28 +470,33 @@ async function renderInvoicePng(bundle: InvoiceBundle, outputPath: string) {
     ...items.map((item) => ({ name: item.name || "Khoản phí", detail: item.detail || "", amount: Number(item.amount || 0) })),
   ].slice(0, 8);
 
-  const svgWidth = 1000;
+  const svgWidth = 1200;
   const tableX = 40;
-  const tableY = 328;
-  const tableW = 920;
-  const headerH = 78;
-  const rowH = 76;
-  const totalH = 76;
+  const tableY = 340;
+  const tableW = 1120;
+  const sttW = 64;
+  const itemW = 145;
+  const amountW = 170;
+  const detailW = tableW - sttW - itemW - amountW;
+  const headerH = 54;
+  const rowH = 52;
+  const totalH = 54;
   const tableH = headerH + rows.length * rowH + totalH;
-  const paymentY = tableY + tableH + 56;
+  const paymentY = tableY + tableH + 40;
   const footerY = paymentY + 520;
-  const svgHeight = Math.max(1280, footerY + 48);
+  const svgHeight = Math.max(1220, footerY + 48);
+  const accountNameLines = textLines(accountName || "-", 28);
 
   const itemRows = rows
     .map((item, index) => {
       const y = tableY + headerH + index * rowH;
-      const cy = y + 47;
-      const detail = oneLine(item.detail || "", 30);
+      const cy = y + 34;
+      const detail = oneLine(item.detail || "", 48);
       return `
         <line x1="${tableX}" y1="${y}" x2="${tableX + tableW}" y2="${y}" class="table-line"/>
-        <text x="${tableX + 48}" y="${cy}" text-anchor="middle" class="td">${index + 1}</text>
-        <text x="${tableX + 172}" y="${cy}" text-anchor="middle" class="td">${escapeXml(oneLine(item.name, 14))}</text>
-        <text x="${tableX + 506}" y="${cy}" text-anchor="middle" class="td">${escapeXml(detail)}</text>
+        <text x="${tableX + sttW / 2}" y="${cy}" text-anchor="middle" class="td">${index + 1}</text>
+        <text x="${tableX + sttW + 12}" y="${cy}" class="td">${escapeXml(oneLine(item.name, 14))}</text>
+        <text x="${tableX + sttW + itemW + 14}" y="${cy}" class="td muted-detail">${escapeXml(detail)}</text>
         <text x="${tableX + tableW - 18}" y="${cy}" text-anchor="end" class="td strong">${money(item.amount)}</text>
       `;
     })
@@ -500,74 +505,86 @@ async function renderInvoicePng(bundle: InvoiceBundle, outputPath: string) {
   const svg = `
     <svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="${svgWidth}" height="${svgHeight}" fill="#FFFEFB"/>
-      <rect x="1" y="1" width="${svgWidth - 2}" height="${svgHeight - 2}" rx="16" stroke="#111827" stroke-opacity=".12" stroke-width="2"/>
+      <rect x="6" y="6" width="${svgWidth - 12}" height="${svgHeight - 12}" rx="28" stroke="#CBD5E1" stroke-width="2"/>
+      <line x1="6" y1="132" x2="${svgWidth - 6}" y2="132" stroke="#E2E8F0" stroke-width="1"/>
       <style>
         ${fontCss}
-        .title{font:800 44px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827;letter-spacing:-.7px}
-        .label{font:700 32px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827}
-        .value{font:800 34px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827}
-        .muted{font:400 34px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#374151}
-        .chip{font:800 32px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#166534}
-        .status{font:800 34px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:${statusColor}}
-        .th{font:800 27px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827}
-        .td{font:400 28px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827}
+        .brand{font:800 22px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#94A3B8;letter-spacing:7px}
+        .title{font:800 31px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827;letter-spacing:.2px}
+        .label{font:700 20px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#334155}
+        .value{font:800 25px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827}
+        .muted{font:500 24px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#334155}
+        .muted-detail{fill:#64748B}
+        .chip{font:800 22px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#047857}
+        .status{font:800 25px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:${statusColor}}
+        .th{font:800 19px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827}
+        .td{font:500 19px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827}
         .strong{font-weight:800}
-        .payment-title{font:800 35px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827;text-decoration:underline}
-        .payment-label{font:400 28px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827}
-        .payment-value{font:400 28px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827}
-        .payable{font:800 30px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827}
-        .bank{font:400 28px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827}
-        .bank-strong{font:800 28px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827}
-        .table-line{stroke:#111827;stroke-width:2.2}
+        .payment-title{font:800 20px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827;text-decoration:underline}
+        .payment-label{font:500 19px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#334155}
+        .payment-value{font:700 19px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827}
+        .payable{font:800 21px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827}
+        .bank{font:600 18px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#64748B}
+        .bank-strong{font:800 18px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#111827}
+        .qr-caption{font:500 17px InterEmbed,"DejaVu Sans","Noto Sans",Arial,sans-serif;fill:#94A3B8}
+        .table-line{stroke:#111827;stroke-width:1.25}
       </style>
 
-      <text x="500" y="86" text-anchor="middle" class="title">THÔNG BÁO TIỀN PHÒNG TRỌ T${escapeXml(invoice.month || "")}</text>
+      <text x="600" y="52" text-anchor="middle" class="brand">TROCARE</text>
+      <text x="600" y="96" text-anchor="middle" class="title">THÔNG BÁO TIỀN PHÒNG TRỌ T${escapeXml(invoice.month || "")}/${escapeXml(invoice.year || "")}</text>
 
-      <text x="40" y="164" class="label">Kính gửi:</text>
-      <text x="40" y="218" class="value">${escapeXml(oneLine(tenant.name || invoice.tenant_name || "Khách thuê", 22))}</text>
-      <text x="510" y="164" class="label">Số điện thoại:</text>
-      <text x="510" y="218" class="muted">${escapeXml(tenant.phone || invoice.tenant_phone || "-")}</text>
+      <text x="40" y="180" class="label">Kính gửi:</text>
+      <text x="40" y="217" class="value">${escapeXml(oneLine(tenant.name || invoice.tenant_name || "Khách thuê", 26))}</text>
+      <text x="620" y="180" class="label">Số điện thoại:</text>
+      <text x="620" y="217" class="muted">${escapeXml(tenant.phone || invoice.tenant_phone || "-")}</text>
 
-      <text x="40" y="286" class="label">Ở phòng số:</text>
-      <rect x="40" y="304" width="158" height="64" rx="6" fill="#BBF7D0"/>
-      <text x="119" y="347" text-anchor="middle" class="chip">${escapeXml(oneLine(room?.name || invoice.room_name || "Phòng", 9))}</text>
-      <text x="510" y="286" class="label">Trạng thái:</text>
-      <text x="510" y="345" class="status">${status}</text>
+      <text x="40" y="268" class="label">Ở phòng số:</text>
+      <rect x="40" y="286" width="76" height="34" rx="4" fill="#D1FAE5"/>
+      <text x="78" y="310" text-anchor="middle" class="chip">${escapeXml(oneLine(room?.name || invoice.room_name || "Phòng", 8))}</text>
+      <text x="620" y="268" class="label">Trạng thái:</text>
+      <text x="620" y="306" class="status">${status}</text>
 
       <rect x="${tableX}" y="${tableY}" width="${tableW}" height="${tableH}" fill="#FFFEFB" stroke="#111827" stroke-width="1.4"/>
       <rect x="${tableX}" y="${tableY}" width="${tableW}" height="${headerH}" fill="#F8FAFC"/>
       <line x1="${tableX}" y1="${tableY + headerH}" x2="${tableX + tableW}" y2="${tableY + headerH}" class="table-line"/>
-      <line x1="${tableX + 96}" y1="${tableY}" x2="${tableX + 96}" y2="${tableY + tableH}" class="table-line"/>
-      <line x1="${tableX + 276}" y1="${tableY}" x2="${tableX + 276}" y2="${tableY + tableH}" class="table-line"/>
-      <line x1="${tableX + 690}" y1="${tableY}" x2="${tableX + 690}" y2="${tableY + tableH}" class="table-line"/>
-      <text x="${tableX + 48}" y="${tableY + 50}" text-anchor="middle" class="th">STT</text>
-      <text x="${tableX + 186}" y="${tableY + 50}" text-anchor="middle" class="th">Khoản</text>
-      <text x="${tableX + 483}" y="${tableY + 50}" text-anchor="middle" class="th">Chi tiết</text>
-      <text x="${tableX + 805}" y="${tableY + 50}" text-anchor="middle" class="th">Thành Tiền</text>
+      <line x1="${tableX + sttW}" y1="${tableY}" x2="${tableX + sttW}" y2="${tableY + tableH}" class="table-line"/>
+      <line x1="${tableX + sttW + itemW}" y1="${tableY}" x2="${tableX + sttW + itemW}" y2="${tableY + tableH}" class="table-line"/>
+      <line x1="${tableX + sttW + itemW + detailW}" y1="${tableY}" x2="${tableX + sttW + itemW + detailW}" y2="${tableY + tableH}" class="table-line"/>
+      <text x="${tableX + sttW / 2}" y="${tableY + 35}" text-anchor="middle" class="th">STT</text>
+      <text x="${tableX + sttW + 12}" y="${tableY + 35}" class="th">KHOẢN</text>
+      <text x="${tableX + sttW + itemW + 12}" y="${tableY + 35}" class="th">CHI TIẾT</text>
+      <text x="${tableX + tableW - 22}" y="${tableY + 35}" text-anchor="end" class="th">THÀNH TIỀN</text>
       ${itemRows}
       <line x1="${tableX}" y1="${tableY + headerH + rows.length * rowH}" x2="${tableX + tableW}" y2="${tableY + headerH + rows.length * rowH}" class="table-line"/>
-      <text x="${tableX + 48}" y="${tableY + headerH + rows.length * rowH + 48}" text-anchor="middle" class="td">${rows.length + 1}</text>
-      <text x="${tableX + 666}" y="${tableY + headerH + rows.length * rowH + 48}" text-anchor="end" class="td strong">Cộng:</text>
-      <text x="${tableX + tableW - 18}" y="${tableY + headerH + rows.length * rowH + 48}" text-anchor="end" class="td strong">${money(total)}</text>
+      <text x="${tableX + sttW / 2}" y="${tableY + headerH + rows.length * rowH + 35}" text-anchor="middle" class="td">${rows.length + 1}</text>
+      <text x="${tableX + sttW + itemW + 12}" y="${tableY + headerH + rows.length * rowH + 35}" class="td strong">Cộng:</text>
+      <text x="${tableX + tableW - 18}" y="${tableY + headerH + rows.length * rowH + 35}" text-anchor="end" class="td strong">${money(total)}</text>
 
-      <text x="40" y="${paymentY}" class="payment-title">Phần Thanh toán:</text>
-      <text x="40" y="${paymentY + 58}" class="payment-label">- Số tiền còn nợ</text>
-      <text x="40" y="${paymentY + 92}" class="payment-label">  tháng trước:</text>
-      <text x="560" y="${paymentY + 92}" text-anchor="end" class="payment-value">${money(previousDebt)}</text>
-      <text x="40" y="${paymentY + 136}" class="payment-label">- Phải trả tháng này:</text>
-      <text x="560" y="${paymentY + 136}" text-anchor="end" class="payment-value">${money(currentPayable)}</text>
-      <text x="40" y="${paymentY + 180}" class="payment-label">- Trả cọc:</text>
-      <text x="560" y="${paymentY + 180}" text-anchor="end" class="payment-value">0 đ</text>
-      <text x="40" y="${paymentY + 234}" class="payable">Thành tiền phải trả:</text>
-      <text x="560" y="${paymentY + 234}" text-anchor="end" class="payable">${money(outstanding)}</text>
+      <text x="40" y="${paymentY + 18}" class="payment-title">Phần Thanh toán:</text>
+      <text x="40" y="${paymentY + 58}" class="payment-label">- Số tiền còn nợ tháng trước:</text>
+      <text x="640" y="${paymentY + 58}" text-anchor="end" class="payment-value">${money(previousDebt)}</text>
+      <text x="40" y="${paymentY + 96}" class="payment-label">- Phải trả tháng này:</text>
+      <text x="640" y="${paymentY + 96}" text-anchor="end" class="payment-value">${money(currentPayable)}</text>
+      <text x="40" y="${paymentY + 134}" class="payment-label">- Trả cọc:</text>
+      <text x="640" y="${paymentY + 134}" text-anchor="end" class="payment-value">0 đ</text>
+      <line x1="40" y1="${paymentY + 158}" x2="640" y2="${paymentY + 158}" stroke="#CBD5E1" stroke-width="1"/>
+      <text x="40" y="${paymentY + 196}" class="payable">Thành tiền phải trả:</text>
+      <text x="640" y="${paymentY + 196}" text-anchor="end" class="payable">${money(outstanding)}</text>
 
-      <text x="40" y="${paymentY + 318}" class="bank">Mã QR Code: <tspan class="bank-strong">${escapeXml(invoice.payment_code || "-")}</tspan></text>
-      <text x="40" y="${paymentY + 366}" class="bank">Ngân hàng: <tspan class="bank-strong">${escapeXml(bankLabel)}</tspan></text>
-      <text x="40" y="${paymentY + 414}" class="bank">Số tài khoản: <tspan class="bank-strong">${escapeXml(accountNo || "-")}</tspan></text>
-      <text x="40" y="${paymentY + 462}" class="bank">Người thụ hưởng: <tspan class="bank-strong">${escapeXml(oneLine(accountName || "-", 25))}</tspan></text>
+      <rect x="40" y="${paymentY + 226}" width="610" height="220" rx="14" fill="#FFFFFF" stroke="#CBD5E1"/>
+      <text x="62" y="${paymentY + 276}" class="bank">Mã QR Code: <tspan class="bank-strong">${escapeXml(invoice.payment_code || "-")}</tspan></text>
+      <rect x="586" y="${paymentY + 252}" width="38" height="38" rx="7" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <path d="M598 ${paymentY + 263}h14v14h-14z M603 ${paymentY + 258}h14v14" fill="none" stroke="#94A3B8" stroke-width="1.8"/>
+      <text x="62" y="${paymentY + 324}" class="bank">Ngân hàng: <tspan class="bank-strong">${escapeXml(bankLabel)}</tspan></text>
+      <text x="62" y="${paymentY + 372}" class="bank">Số tài khoản: <tspan class="bank-strong">${escapeXml(accountNo || "-")}</tspan></text>
+      <rect x="586" y="${paymentY + 348}" width="38" height="38" rx="7" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <path d="M598 ${paymentY + 359}h14v14h-14z M603 ${paymentY + 354}h14v14" fill="none" stroke="#94A3B8" stroke-width="1.8"/>
+      <text x="62" y="${paymentY + 420}" class="bank">Người thụ hưởng: <tspan class="bank-strong">${escapeXml(accountNameLines[0] || "-")}</tspan></text>
+      ${accountNameLines.slice(1).map((line, index) => `<text x="229" y="${paymentY + 420 + (index + 1) * 28}" class="bank-strong">${escapeXml(line)}</text>`).join("")}
 
-      <rect x="680" y="${paymentY + 18}" width="260" height="260" fill="#FFFFFF" stroke="#E5E7EB"/>
-      ${qrDataUri ? `<image href="${qrDataUri}" x="695" y="${paymentY + 33}" width="230" height="230" />` : `<text x="810" y="${paymentY + 158}" text-anchor="middle" class="muted">Chưa có QR</text>`}
+      <rect x="680" y="${paymentY}" width="480" height="480" rx="14" fill="#FFFFFF" stroke="#CBD5E1"/>
+      ${qrDataUri ? `<image href="${qrDataUri}" x="720" y="${paymentY + 25}" width="400" height="400" />` : `<text x="920" y="${paymentY + 245}" text-anchor="middle" class="muted">Chưa có QR</text>`}
+      <text x="920" y="${paymentY + 508}" text-anchor="middle" class="qr-caption">Quét để thanh toán</text>
     </svg>
   `;
 
@@ -583,6 +600,18 @@ function buildMessage(bundle: InvoiceBundle) {
     `Tổng cần thanh toán: ${money(outstanding || invoice.total_amount)}`,
     invoice.payment_code ? `Mã thanh toán: ${invoice.payment_code}` : "",
   ].filter(Boolean).join("\n");
+}
+
+export async function renderInvoiceImageBuffer(ownerId: string, invoiceId: string) {
+  const bundle = await loadInvoiceBundle(ownerId, invoiceId);
+  const folder = await mkdtemp(path.join(tmpdir(), "trocare-invoice-image-"));
+  const imagePath = path.join(folder, `hoa-don-${invoiceId}.png`);
+  try {
+    await renderInvoicePng(bundle, imagePath);
+    return await readFile(imagePath);
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
 }
 
 export async function sendInvoiceImageViaZca(ownerId: string, invoiceId: string, phoneOverride?: string) {

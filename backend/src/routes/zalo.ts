@@ -20,6 +20,7 @@ import {
   disconnectZca,
   getZcaLoginSession,
   getZcaStatus,
+  renderInvoiceImageBuffer,
   sendInvoicesBulkViaZca,
   sendInvoiceImageViaZca,
   startZcaQrLogin,
@@ -456,6 +457,23 @@ async function constructInvoicePayload(db: any, invoiceId: string, user: any) {
 }
 
 // POST /zalo/invoices/:invoiceId/send-zalo - Gửi tin nhắn hóa đơn đơn lẻ
+zaloRoutes.get("/invoices/:invoiceId/image", requireAuth, async (c) => {
+  const user = c.get("user");
+  const invoiceId = c.req.param("invoiceId");
+  try {
+    const image = await renderInvoiceImageBuffer(user.id, invoiceId);
+    return new Response(image, {
+      headers: {
+        "content-type": "image/png",
+        "content-disposition": `inline; filename="hoa-don-${invoiceId}.png"`,
+        "cache-control": "no-store",
+      },
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || "Không tạo được ảnh hóa đơn." }, 400);
+  }
+});
+
 zaloRoutes.post("/invoices/:invoiceId/send-zalo", requireAuth, async (c) => {
   const user = c.get("user");
   const invoiceId = c.req.param("invoiceId");
