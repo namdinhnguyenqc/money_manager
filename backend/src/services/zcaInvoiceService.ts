@@ -198,7 +198,13 @@ const getVectorFont = (weight: number) => {
   const cached = vectorFontCache.get(normalized);
   if (cached) return cached;
   const file = EMBEDDED_FONT_FILES.find((font) => font.weight === normalized)?.file || "Inter_400Regular.ttf";
-  const font = TextToSVG.loadSync(resolveInvoiceFontPath(file));
+  let font: any;
+  try {
+    font = TextToSVG.loadSync(resolveInvoiceFontPath(file));
+  } catch (error) {
+    console.warn(`[zca-invoice-image] Font ${file} is unavailable; falling back to bundled default font.`, error);
+    font = TextToSVG.loadSync();
+  }
   vectorFontCache.set(normalized, font);
   return font;
 };
