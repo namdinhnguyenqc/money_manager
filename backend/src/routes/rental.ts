@@ -102,9 +102,15 @@ const addContractSchema = z.object({
 
 const updateContractSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   deposit: z.number().nonnegative(),
   occupantCount: z.number().int().positive().optional(),
+  note: z.string().optional(),
   serviceIds: z.array(z.string()).optional(),
+  tenantName: z.string().trim().min(1).optional(),
+  tenantPhone: z.string().trim().optional(),
+  tenantEmail: z.string().trim().email().optional().or(z.literal("")),
+  tenantIdCard: z.string().trim().optional(),
 });
 
 const terminateContractSchema = z.object({
@@ -119,6 +125,8 @@ const terminateContractSchema = z.object({
 });
 
 const roomSort = (a: { name: string }, b: { name: string }) => String(a.name).localeCompare(String(b.name));
+
+const normalizeTenantPhone = (phone?: string | null) => String(phone || "").replace(/\D/g, "");
 
 // ═══════════════════════════════════════════════
 // ROOMS
@@ -1303,13 +1311,28 @@ rentalRoutes.patch("/contracts/:id", async (c) => {
   if (fetchErr || !contract) return c.json({ error: "Contract not found" }, 404);
   const room = contract.rooms;
 
-  // 2. Prepare update payload
+  // 2. Prepare update payload. Only write fields that were actually supplied
+  // so a partial contract update never clears existing data by accident.
   const updatePayload: any = {
-    start_date: parsed.data.startDate,
-    deposit: parsed.data.deposit,
-    occupant_count: parsed.data.occupantCount,
     updated_at: new Date().toISOString(),
   };
+  if (parsed.data.startDate !== undefined) updatePayload.start_date = parsed.data.startDate;
+  if (parsed.data.endDate !== undefined) updatePayload.end_date = parsed.data.endDate || null;
+  if (parsed.data.deposit !== undefined) updatePayload.deposit = parsed.data.deposit;
+  if (parsed.data.occupantCount !== undefined) updatePayload.occupant_count = parsed.data.occupantCount;
+  if (parsed.data.note !== undefined) updatePayload.note = parsed.data.note;
+
+  const tenantPayload: any = {};
+  if (parsed.data.tenantName !== undefined) tenantPayload.name = parsed.data.tenantName.trim();
+  if (parsed.data.tenantPhone !== undefined) {
+    const phone = normalizeTenantPhone(parsed.data.tenantPhone);
+    if (phone && !/^0\d{9}$/.test(phone)) {
+      return c.json({ error: "Số điện thoại khách thuê phải là số Việt Nam 10 chữ số." }, 400);
+    }
+    tenantPayload.phone = phone;
+  }
+  if (parsed.data.tenantEmail !== undefined) tenantPayload.email = parsed.data.tenantEmail.trim() || null;
+  if (parsed.data.tenantIdCard !== undefined) tenantPayload.id_card = parsed.data.tenantIdCard.trim();
 
   // 3. Recalculate snapshot if services or occupantCount changed
   const serviceIds = parsed.data.serviceIds ?? [];
@@ -1338,6 +1361,16 @@ rentalRoutes.patch("/contracts/:id", async (c) => {
         });
       }
     }
+  }
+
+  if (Object.keys(tenantPayload).length > 0) {
+    tenantPayload.updated_at = new Date().toISOString();
+    const tenantRes = await db
+      .from("tenants")
+      .update(tenantPayload)
+      .eq("id", contract.tenant_id)
+      .eq("user_id", user.id);
+    if (tenantRes.error) return c.json({ error: tenantRes.error.message }, 400);
   }
 
   const updateRes = await db.from("contracts").update(updatePayload).eq("id", id).eq("user_id", user.id).select("*").single();

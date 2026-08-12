@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, FileText, XCircle, Settings, X, Printer, Check } from "lucide-react";
 import ConfirmDialog from "@/components/ops/ConfirmDialog";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
@@ -22,15 +22,15 @@ import {
   loadDepositRefund,
   loadWallets,
   loadTransactionsByContract,
-  Wallet,
-  Transaction
+  Wallet
 } from "@/lib/rentalOps";
 import { calculateProratedRent } from "@/utils/rentCalc";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
+const onlyDigits = (value: string) => value.replace(/\D/g, "").slice(0, 10);
+
 export default function ContractDetailPage() {
   const { id } = useParams();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -64,7 +64,17 @@ export default function ContractDetailPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-950">Thông tin khách thuê</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-slate-950">Thông tin khách thuê</h2>
+            <button
+              type="button"
+              disabled={contract.status !== "active"}
+              onClick={() => setEditOpen(true)}
+              className="rounded-[8px] border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Sửa
+            </button>
+          </div>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <Info label="Họ tên" value={contract.tenant_name} />
             <Info label="SĐT" value={contract.tenant_phone || "-"} />
@@ -269,6 +279,10 @@ function EditContractPanel({ contract, onClose, onSaved }: { contract: any; onCl
   );
   
   const [form, setForm] = useState({
+    tenantName: contract.tenant_name || "",
+    tenantPhone: contract.tenant_phone || "",
+    tenantEmail: contract.tenant_email || "",
+    tenantIdCard: contract.tenant_id_card || "",
     startDate: contract.start_date || "",
     endDate: contract.end_date || "",
     deposit: String(contract.deposit_amount || 0),
@@ -287,8 +301,23 @@ function EditContractPanel({ contract, onClose, onSaved }: { contract: any; onCl
     e.preventDefault();
     setSaving(true);
     setError("");
+    const tenantPhone = onlyDigits(form.tenantPhone);
+    if (!form.tenantName.trim()) {
+      setError("Vui lòng nhập họ tên khách thuê.");
+      setSaving(false);
+      return;
+    }
+    if (tenantPhone && !/^0\d{9}$/.test(tenantPhone)) {
+      setError("Số điện thoại khách thuê phải là số Việt Nam 10 chữ số.");
+      setSaving(false);
+      return;
+    }
     try {
       await updateContract(contract.id, {
+        tenantName: form.tenantName.trim(),
+        tenantPhone,
+        tenantEmail: form.tenantEmail.trim(),
+        tenantIdCard: form.tenantIdCard.trim(),
         startDate: form.startDate,
         endDate: form.endDate || null,
         deposit: Number(form.deposit),
@@ -308,6 +337,47 @@ function EditContractPanel({ contract, onClose, onSaved }: { contract: any; onCl
     <SidePanel title="Sửa hợp đồng" onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
         {error && <div className="rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+
+        <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
+          <div className="mb-3">
+            <div className="text-sm font-semibold text-slate-950">Thông tin khách thuê</div>
+            <p className="mt-1 text-xs text-slate-500">Số điện thoại ở đây sẽ được dùng để gửi hóa đơn qua Zalo.</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Họ tên khách thuê">
+              <input
+                className="input"
+                value={form.tenantName}
+                onChange={(e) => setForm((p) => ({ ...p, tenantName: e.target.value }))}
+                required
+              />
+            </Field>
+            <Field label="SĐT">
+              <input
+                className="input"
+                inputMode="numeric"
+                placeholder="Ví dụ: 0912345678"
+                value={form.tenantPhone}
+                onChange={(e) => setForm((p) => ({ ...p, tenantPhone: onlyDigits(e.target.value) }))}
+              />
+            </Field>
+            <Field label="CCCD/CMND">
+              <input
+                className="input"
+                value={form.tenantIdCard}
+                onChange={(e) => setForm((p) => ({ ...p, tenantIdCard: e.target.value }))}
+              />
+            </Field>
+            <Field label="Email">
+              <input
+                className="input"
+                type="email"
+                value={form.tenantEmail}
+                onChange={(e) => setForm((p) => ({ ...p, tenantEmail: e.target.value }))}
+              />
+            </Field>
+          </div>
+        </div>
         
         <div className="grid gap-3 md:grid-cols-2">
           <Field label="Ngày bắt đầu"><input className="input" type="date" value={form.startDate} onChange={(e) => setForm(p => ({ ...p, startDate: e.target.value }))} required /></Field>
