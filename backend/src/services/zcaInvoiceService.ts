@@ -161,6 +161,13 @@ const DEFAULT_ZALO_INVOICE_MESSAGE =
   "Mã chuyển khoản: {payment_code}.\n" +
   "Vui lòng quét QR trong ảnh để thanh toán. Cảm ơn anh/chị.";
 
+const DEFAULT_ZALO_REMINDER_MESSAGE =
+  "Chào {tenant_name}, hóa đơn phòng {room_name} {reminder_status}.\n" +
+  "Số tiền còn lại: {amount_due}.\n" +
+  "Hạn thanh toán: {due_date}.\n" +
+  "Mã chuyển khoản: {payment_code}.\n" +
+  "Nếu đã thanh toán, vui lòng bỏ qua tin này. Cảm ơn anh/chị.";
+
 const formatDateVi = (value: unknown) => {
   const raw = String(value || "").trim();
   if (!raw) return "Chưa đặt hạn";
@@ -760,6 +767,39 @@ async function buildMessage(bundle: InvoiceBundle) {
   });
 }
 
+async function buildReminderMessage(bundle: InvoiceBundle) {
+  const { invoice, tenant, room } = bundle;
+  const outstanding = getInvoiceOutstanding(invoice);
+  const dueDate = String(invoice.due_date || "").slice(0, 10);
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const daysUntilDue = dueDate
+    ? Math.round((Date.parse(`${dueDate}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000)
+    : null;
+  const reminderStatus = daysUntilDue == null
+    ? "chưa được thanh toán"
+    : daysUntilDue > 0
+      ? `sắp đến hạn sau ${daysUntilDue} ngày`
+      : daysUntilDue === 0
+        ? "đến hạn thanh toán hôm nay"
+        : `đã quá hạn ${Math.abs(daysUntilDue)} ngày`;
+  const template = await getOwnerSettingValue(bundle.invoice.user_id || "", "zalo_reminder_template") || DEFAULT_ZALO_REMINDER_MESSAGE;
+
+  return fillTemplate(template, {
+    tenant_name: tenant.name || invoice.tenant_name || "anh/chị",
+    room_name: room?.name || invoice.room_name || "phòng thuê",
+    reminder_status: reminderStatus,
+    amount_due: money(outstanding),
+    total_amount: money(outstanding),
+    due_date: formatDateVi(invoice.due_date),
+    payment_code: invoice.payment_code || "Chưa có",
+  });
+}
+
 export async function renderInvoiceImageBuffer(ownerId: string, invoiceId: string) {
   const bundle = await loadInvoiceBundle(ownerId, invoiceId);
   const folder = await mkdtemp(path.join(tmpdir(), "trocare-invoice-image-"));
@@ -893,6 +933,64 @@ export async function sendInvoiceImageViaZca(ownerId: string, invoiceId: string,
     throw error;
   } finally {
     await rm(folder, { recursive: true, force: true });
+  }
+}
+
+/** Sends only a payment reminder text. Invoice delivery remains a separate PNG flow. */
+export async function sendPaymentReminderViaZca(ownerId: string, invoiceId: string, phoneOverride?: string) {
+  const bundle = await loadInvoiceBundle(ownerId, invoiceId);
+  const outstanding = getInvoiceOutstanding(bundle.invoice);
+  if (outstanding <= 0) throw new Error("Hóa đơn đã thanh toán, không cần nhắc nợ.");
+
+  const phone = cleanPhone(phoneOverride || bundle.tenant.phone || "");
+  if (!/^0\d{9}$/.test(phone)) {
+    throw new Error("Số điện thoại khách thuê phải là số Việt Nam 10 chữ số.");
+  }
+
+  const api = await getApi(ownerId);
+  const user = await api.findUser(phone);
+  if (!user?.uid) throw new Error("Không tìm thấy tài khoản Zalo tương ứng với số điện thoại khách thuê.");
+
+  const logBase = {
+    invoice_id: invoiceId,
+    tenant_id: ownerId,
+    recipient_tenant_id: bundle.tenant.id,
+    phone_number: phone,
+    template_id: "zca_payment_reminder_v1",
+    message_payload: { uid: user.uid, displayName: user.display_name || user.zalo_name || null, amountDue: outstanding },
+    send_status: "PENDING",
+    retry_count: 0,
+    message_type: "payment_reminder_manual",
+  };
+  const { data: log, error: logError } = await supabaseAdmin
+    .from("invoice_zalo_notifications")
+    .insert(logBase)
+    .select("id")
+    .maybeSingle();
+  if (logError && !isMissingSchemaError(logError)) throw new Error(logError.message);
+
+  try {
+    const result = await api.sendMessage({ msg: await buildReminderMessage(bundle) }, user.uid, 0);
+    if (log?.id) {
+      const { error } = await supabaseAdmin.from("invoice_zalo_notifications").update({
+        send_status: "SENT",
+        zalo_message_id: String(result.message?.msgId || ""),
+        sent_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq("id", log.id);
+      if (error && !isMissingSchemaError(error)) console.warn("[zca] Could not update Zalo reminder log:", error.message);
+    }
+    return { success: true, recipient: { uid: user.uid, name: user.display_name || user.zalo_name || "", phone } };
+  } catch (error: any) {
+    if (log?.id) {
+      const { error: updateError } = await supabaseAdmin.from("invoice_zalo_notifications").update({
+        send_status: "FAILED",
+        error_message: error?.message || "Không gửi được nhắc nợ qua Zalo.",
+        updated_at: new Date().toISOString(),
+      }).eq("id", log.id);
+      if (updateError && !isMissingSchemaError(updateError)) console.warn("[zca] Could not update failed Zalo reminder log:", updateError.message);
+    }
+    throw error;
   }
 }
 

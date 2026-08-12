@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { AlertCircle, CheckCircle2, Clock3, Image as ImageIcon, Phone, RefreshCw, Send } from "lucide-react";
+import { AlertCircle, BellRing, CheckCircle2, Clock3, Image as ImageIcon, Phone, RefreshCw, Send } from "lucide-react";
 import { Invoice } from "@/lib/rentalOps";
 import { apiGet, apiPost } from "@/utils/apiClient";
 import Button from "@/components/ui/Button";
@@ -21,6 +21,7 @@ export default function ZaloNotificationSection({ invoice, onStatusChange }: Zal
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [reminding, setReminding] = useState(false);
   const [phoneInput, setPhoneInput] = useState(normalizePhone(invoice.tenant_phone || ""));
   const [message, setMessage] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
 
@@ -63,6 +64,28 @@ export default function ZaloNotificationSection({ invoice, onStatusChange }: Zal
       setMessage({ type: "error", text: err?.message || "Không gửi được ảnh hóa đơn qua Zalo." });
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleReminder = async () => {
+    const phone = normalizePhone(phoneInput);
+    if (!/^0\d{9}$/.test(phone)) {
+      setMessage({ type: "error", text: "Số Zalo khách thuê phải là số Việt Nam 10 chữ số." });
+      return;
+    }
+    if (!window.confirm("Gửi tin nhắn nhắc nợ cho khách thuê? Tin này không kèm ảnh hóa đơn.")) return;
+
+    setReminding(true);
+    setMessage(null);
+    try {
+      const res = await apiPost<any>(`/api/invoices/${invoice.id}/send-reminder-zalo`, { phoneNumber: phone });
+      if (!res?.success) throw new Error(res?.error || "Gửi nhắc nợ thất bại.");
+      setMessage({ type: "success", text: `Đã gửi tin nhắn nhắc nợ tới Zalo ${res?.data?.recipient?.name || phone}.` });
+      await fetchHistory();
+    } catch (err: any) {
+      setMessage({ type: "error", text: err?.message || "Không gửi được nhắc nợ qua Zalo." });
+    } finally {
+      setReminding(false);
     }
   };
 
@@ -121,7 +144,7 @@ export default function ZaloNotificationSection({ invoice, onStatusChange }: Zal
             onChange={(event) => setPhoneInput(normalizePhone(event.target.value))}
           />
         </label>
-        <div className="flex items-end">
+        <div className="flex flex-wrap items-end gap-2">
           <Button
             variant="primary"
             icon={<Send size={14} />}
@@ -132,6 +155,18 @@ export default function ZaloNotificationSection({ invoice, onStatusChange }: Zal
           >
             {sending ? "Đang gửi..." : "Gửi qua Zalo"}
           </Button>
+          {!((Number(invoice.paid_amount || 0) >= Number(invoice.total_amount || 0)) && Number(invoice.total_amount || 0) > 0) && (
+            <Button
+              variant="outline"
+              icon={<BellRing size={14} />}
+              onClick={handleReminder}
+              disabled={sending || reminding}
+              loading={reminding}
+              className="h-10 w-full rounded-[8px] px-4 text-sm font-semibold sm:w-auto"
+            >
+              {reminding ? "Đang nhắc..." : "Nhắc nợ"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -151,6 +186,7 @@ export default function ZaloNotificationSection({ invoice, onStatusChange }: Zal
               <div key={log.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-xs">
                 <div className="min-w-0">
                   <div className="font-semibold text-slate-800">{log.phone_number || log.phone || phoneInput}</div>
+                  {log.message_type === "payment_reminder_manual" && <div className="mt-0.5 text-slate-500">Nhắc nợ</div>}
                   <div className="mt-0.5 flex items-center gap-1 text-slate-500">
                     <Clock3 size={12} />
                     {new Date(log.sent_at || log.created_at || log.sentAt).toLocaleString("vi-VN")}
