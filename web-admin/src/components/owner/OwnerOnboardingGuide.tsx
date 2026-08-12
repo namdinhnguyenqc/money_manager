@@ -47,7 +47,13 @@ export default function OwnerOnboardingGuide({
     contract: false,
     invoice: false,
   });
-  const [loading, setLoading] = useState(true);
+  const [cachedCompleted, setCachedCompleted] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("trocare_onboarding_completed") === "true";
+    }
+    return false;
+  });
+  const [loading, setLoading] = useState(!cachedCompleted);
   const [modalOpen, setModalOpen] = useState(false);
   const [activeStepTab, setActiveStepTab] = useState(0);
 
@@ -87,12 +93,24 @@ export default function OwnerOnboardingGuide({
         const contracts = contractsRes.status === "fulfilled" && Array.isArray(contractsRes.value?.data) ? contractsRes.value.data : [];
         const invoices = invoicesRes.status === "fulfilled" && Array.isArray(invoicesRes.value?.data) ? invoicesRes.value.data : [];
 
+        const houseDone = houses.length > 0;
+        const roomDone = rooms.length > 0;
+        const serviceDone = services.length > 0;
+        const contractDone = contracts.length > 0;
+        const invoiceDone = invoices.length > 0;
+
+        const isAllDone = houseDone && roomDone && serviceDone && contractDone && invoiceDone;
+        if (typeof window !== "undefined") {
+          localStorage.setItem("trocare_onboarding_completed", isAllDone ? "true" : "false");
+        }
+        setCachedCompleted(isAllDone);
+
         setCompletedSteps({
-          house: houses.length > 0,
-          room: rooms.length > 0,
-          service: services.length > 0,
-          contract: contracts.length > 0,
-          invoice: invoices.length > 0,
+          house: houseDone,
+          room: roomDone,
+          service: serviceDone,
+          contract: contractDone,
+          invoice: invoiceDone,
         });
       } catch (err) {
         console.warn("Could not detect onboarding progress:", err);
@@ -108,41 +126,41 @@ export default function OwnerOnboardingGuide({
     {
       id: "house",
       stepNumber: 1,
-      title: "1. Tạo Khu trọ / Nhà trọ đầu tiên",
-      description: "Thêm tên khu trọ, số tầng và địa chỉ để quản lý tập trung các phòng.",
+      title: "1. Tạo Cơ Sở / Nhà Trọ",
+      description: "Khai báo tên nhà trọ, địa chỉ và thông tin ngân hàng nhận tiền.",
       detailedGuide:
-        "Vào mục 'Nhà trọ' -> Bấm 'Thêm nhà trọ'. Nhập tên khu trọ (VD: Nhà trọ Xanh, Chung cư mini Q7), chọn địa chỉ tỉnh/thành và nhập số lượng tầng.",
+        "Vào mục 'Cơ sở' -> Bấm 'Thêm cơ sở mới'. Nhập tên nhà trọ, số tầng, địa chỉ và thông tin số tài khoản ngân hàng để tạo mã VietQR tự động.",
       icon: Building2,
       actionHref: "/owner/boarding-houses",
-      actionLabel: "Thêm Khu Trọ Ngay",
+      actionLabel: "Thêm Cơ Sở",
       isCompleted: completedSteps.house,
-      tip: "Tạo khu trọ giúp bạn phân loại phòng trọ theo địa điểm một cách khoa học.",
+      tip: "Mã VietQR sẽ tự động đính kèm tài khoản ngân hàng của cơ sở khi xuất hóa đơn gửi khách thuê.",
     },
     {
       id: "room",
       stepNumber: 2,
-      title: "2. Tạo Phòng trọ & Giá thuê",
-      description: "Tạo danh sách các phòng trọ, diện tích và mức giá thuê hàng tháng.",
+      title: "2. Khởi Tạo Phòng Trọ",
+      description: "Thêm danh sách phòng, giá thuê niêm yết và số điện/nước ban đầu.",
       detailedGuide:
-        "Vào mục 'Quản lý phòng' -> Chọn 'Thêm phòng mới'. Điền tên phòng (VD: Phòng 101, 102), chọn khu trọ tương ứng, diện tích (m2) và giá thuê (VD: 3.500.000đ/tháng).",
+        "Vào mục 'Phòng' -> Bấm 'Thêm phòng mới'. Điền tên phòng (ví dụ: P101, P102), chọn cơ sở, nhập giá thuê và diện tích.",
       icon: Home,
       actionHref: "/rooms/new",
-      actionLabel: "Tạo Phòng Mới",
+      actionLabel: "Thêm Phòng Mới",
       isCompleted: completedSteps.room,
-      tip: "Bạn có thể thiết lập trạng thái phòng Đang trống hoặc Đã cho thuê ngay khi tạo.",
+      tip: "Bạn có thể dùng tính năng 'Tạo phòng hàng loạt' để tạo nhanh 20-30 phòng chỉ trong 1 phút!",
     },
     {
       id: "service",
       stepNumber: 3,
-      title: "3. Cấu hình Dịch vụ (Điện, Nước, Wifi)",
-      description: "Thiết lập bảng giá Điện (kWh), Nước (m3/người), Wifi, Rác sinh hoạt.",
+      title: "3. Bảng Giá Điện Nước & Dịch Vụ",
+      description: "Cấu hình đơn giá điện (đ/kWh), nước (đ/m3), rác, wifi, vệ sinh.",
       detailedGuide:
-        "Vào mục 'Cài đặt' -> 'Dịch vụ'. Đặt giá điện (VD: 3.800đ/kWh), nước (VD: 100.000đ/người hoặc 18.000đ/m3). Hệ thống sẽ tự tính tiền khi tạo hóa đơn.",
+        "Vào mục 'Cài đặt' -> Thẻ 'Bảng giá dịch vụ'. Thiết lập đơn giá điện, nước, phí quản lý để tự động tính tiền hóa đơn hàng tháng.",
       icon: Zap,
-      actionHref: "/owner/services",
-      actionLabel: "Cài Đặt Dịch Vụ",
+      actionHref: "/owner/settings?tab=pricing",
+      actionLabel: "Cấu Hình Bảng Giá",
       isCompleted: completedSteps.service,
-      tip: "TrọCare tự động lưu lại lịch sử thay đổi đơn giá điện nước theo từng kỳ hóa đơn.",
+      tip: "Giá dịch vụ có thể áp dụng chung cho toàn nhà trọ hoặc tùy chỉnh riêng cho từng phòng đặc biệt.",
     },
     {
       id: "contract",
@@ -175,11 +193,12 @@ export default function OwnerOnboardingGuide({
   const completedCount = steps.filter((s) => s.isCompleted).length;
   const percent = Math.round((completedCount / steps.length) * 100);
   const allCompleted = completedCount === steps.length;
+  const showBannerCard = !loading && !cachedCompleted && !allCompleted;
 
   return (
     <>
-      {/* ── Banner Checklist Card (Hidden when 5/5 steps completed) ── */}
-      {!allCompleted && (
+      {/* ── Banner Checklist Card (Hidden when loading or 5/5 steps completed) ── */}
+      {showBannerCard && (
         <section className="mb-6 overflow-hidden rounded-2xl border border-blue-200/80 bg-gradient-to-r from-blue-50/90 via-indigo-50/40 to-slate-50 p-5 font-sans shadow-xs">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
