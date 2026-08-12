@@ -486,10 +486,13 @@ const getPageTitle = (path: string) => {
                     <div key={item.href} className="flex flex-col gap-0.5">
                       <Link
                         href={isParent ? "#" : item.href}
+                        prefetch={!isParent}
                         onClick={(e: React.MouseEvent) => {
                           if (isParent) {
                             e.preventDefault();
                             setIsSettingsOpen(!isSettingsOpen);
+                          } else {
+                            setSidebarOpen(false);
                           }
                         }}
                         title={isCollapsed ? item.label : undefined}
@@ -538,6 +541,8 @@ const getPageTitle = (path: string) => {
                               <Link
                                 key={child.href}
                                 href={child.href}
+                                prefetch={true}
+                                onClick={() => setSidebarOpen(false)}
                                 className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all relative ${
                                   childActive 
                                     ? "text-blue-700 bg-blue-50/40" 
