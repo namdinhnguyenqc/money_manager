@@ -12,6 +12,7 @@ import {
 import { formatMoney, normalizeRoomStatus } from '@/lib/rentalOps';
 import RBACGuard from '@/components/RBACGuard';
 import { useOwnerDashboardInit, OwnerDashboardInit } from '@/hooks/useOwnerData';
+import OwnerOnboardingGuide from '@/components/owner/OwnerOnboardingGuide';
 
 const MONTH_NAMES = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
 
@@ -394,6 +395,9 @@ export default function OwnerDashboard() {
             <div className="text-xs font-bold text-slate-600 mt-0.5">{now.toLocaleDateString('vi-VN', { weekday: 'long' })}</div>
           </div>
         </div>
+
+        {/* ── ONBOARDING STEP-BY-STEP USER GUIDE ── */}
+        <OwnerOnboardingGuide />
 
         {/* ── OVERDUE ALERT ── */}
         {overdueInvoices.length > 0 && (
