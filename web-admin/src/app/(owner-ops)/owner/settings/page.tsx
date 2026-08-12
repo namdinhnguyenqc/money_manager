@@ -83,6 +83,23 @@ const COLOR_PALETTE = [
 
 type SettingItem = { key: string; value: any; type: string; category: string };
 
+const DEFAULT_ZALO_INVOICE_TEMPLATE =
+  "Chào {tenant_name}, TrọCare gửi hóa đơn phòng {room_name} T{month}/{year}.\n" +
+  "Số tiền cần thanh toán: {total_amount}.\n" +
+  "Hạn thanh toán: {due_date}.\n" +
+  "Mã chuyển khoản: {payment_code}.\n" +
+  "Vui lòng quét QR trong ảnh để thanh toán. Cảm ơn anh/chị.";
+
+const DEFAULT_ZALO_REMINDER_TEMPLATE =
+  "Chào {tenant_name}, hóa đơn phòng {room_name} {reminder_status}.\n" +
+  "Số tiền còn lại: {amount_due}.\n" +
+  "Hạn thanh toán: {due_date}.\n" +
+  "Mã chuyển khoản: {payment_code}.\n" +
+  "Nếu đã thanh toán, vui lòng bỏ qua tin này. Cảm ơn anh/chị.";
+
+const DEFAULT_ZALO_REMINDER_DAYS_BEFORE = "3,0";
+const DEFAULT_ZALO_REMINDER_DAYS_AFTER = "2,7,14";
+
 export default function OwnerSettingsPage() {
   const queryClient = useQueryClient();
   const { permission, subscribed, loading: pushLoading, isSupported: pushSupported, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications();
@@ -758,46 +775,116 @@ export default function OwnerSettingsPage() {
 
                 <div className="space-y-5">
                   {/* Message Template Editor */}
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-slate-900">Nội dung mẫu tin nhắn hóa đơn Zalo</span>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <span className="text-sm font-bold text-slate-900">Nội dung mẫu tin nhắn hóa đơn Zalo</span>
+                        <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
+                          Tin nhắn đi kèm ảnh hóa đơn PNG. Nội dung nên ngắn để khách đọc nhanh, QR nằm trong ảnh hóa đơn.
+                        </p>
+                      </div>
                       <button
                         type="button"
                         onClick={() =>
                           handleChange(
                             "zalo_invoice_template",
-                            "Kính gửi anh/chị {tenant_name}, TrọCare xin gửi thông báo hóa đơn tiền phòng {room_name} kỳ T{month}/{year}:\n- Tiền phòng: {room_amount}đ\n- Điện nước & Dịch vụ: {service_amount}đ\n- Tổng cộng cần thanh toán: {total_amount}đ\n- Mã thanh toán: {payment_code}\n- Hạn đóng: {due_date}\n\nXem chi tiết hóa đơn & mã QR tại đây: {invoice_url}\nCảm ơn anh/chị!",
+                            DEFAULT_ZALO_INVOICE_TEMPLATE,
                             "string",
                             "zalo"
                           )
                         }
-                        className="text-xs font-bold text-blue-600 hover:underline"
+                        className="shrink-0 text-xs font-bold text-blue-600 hover:underline"
                       >
                         Khôi phục mẫu mặc định
                       </button>
                     </div>
 
                     <textarea
-                      rows={5}
-                      className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs font-medium text-slate-800 focus:border-blue-500 focus:outline-none"
+                      rows={6}
+                      className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium leading-6 text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                       value={getValue(
                         "zalo_invoice_template",
-                        "Kính gửi anh/chị {tenant_name}, TrọCare xin gửi thông báo hóa đơn tiền phòng {room_name} kỳ T{month}/{year}:\n- Tiền phòng: {room_amount}đ\n- Điện nước & Dịch vụ: {service_amount}đ\n- Tổng cộng cần thanh toán: {total_amount}đ\n- Mã thanh toán: {payment_code}\n- Hạn đóng: {due_date}\n\nXem chi tiết hóa đơn & mã QR tại đây: {invoice_url}\nCảm ơn anh/chị!"
+                        DEFAULT_ZALO_INVOICE_TEMPLATE
                       )}
                       onChange={(e) => handleChange("zalo_invoice_template", e.target.value, "string", "zalo")}
                     />
 
-                    <div className="rounded-xl bg-slate-50 p-3 border border-slate-100 text-[11px] text-slate-600 space-y-1 font-medium">
-                      <span className="font-bold text-slate-800">Các biến hỗ trợ chèn tự động:</span>
-                      <div className="grid grid-cols-2 gap-2 font-mono text-[10px] text-slate-700">
-                        <div>`{"{tenant_name}"}`: Tên khách thuê</div>
-                        <div>`{"{room_name}"}`: Tên phòng trọ</div>
-                        <div>`{"{month}"}` / `{"{year}"}`: Kỳ hóa đơn</div>
-                        <div>`{"{total_amount}"}`: Tổng tiền cần thu</div>
-                        <div>`{"{payment_code}"}`: Mã thanh toán TCINV...</div>
-                        <div>`{"{invoice_url}"}`: Link hóa đơn & QR</div>
-                        <div>`{"{due_date}"}`: Hạn thanh toán</div>
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs font-medium text-slate-600">
+                      <span className="font-bold text-slate-800">Biến tự động:</span>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {["{tenant_name}", "{room_name}", "{month}/{year}", "{total_amount}", "{payment_code}", "{due_date}"].map((token) => (
+                          <code key={token} className="rounded-lg bg-white px-2 py-1 font-mono text-[11px] text-slate-700 ring-1 ring-slate-200">
+                            {token}
+                          </code>
+                        ))}
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <span className="text-sm font-bold text-slate-900">Nhắc nợ tự động qua Zalo</span>
+                        <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
+                          Job nhắc nợ chạy hằng ngày, chỉ gửi cho hóa đơn chưa thanh toán và không gửi trùng cùng một mốc.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleChange("zalo_reminder_days_before", DEFAULT_ZALO_REMINDER_DAYS_BEFORE, "string", "zalo");
+                          handleChange("zalo_reminder_days_after", DEFAULT_ZALO_REMINDER_DAYS_AFTER, "string", "zalo");
+                          handleChange("zalo_reminder_template", DEFAULT_ZALO_REMINDER_TEMPLATE, "string", "zalo");
+                        }}
+                        className="shrink-0 text-xs font-bold text-blue-600 hover:underline"
+                      >
+                        Khôi phục cấu hình mặc định
+                      </button>
+                    </div>
+
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      <label className="space-y-1.5">
+                        <span className="text-xs font-bold text-slate-700">Nhắc trước hạn</span>
+                        <input
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          value={getValue("zalo_reminder_days_before", DEFAULT_ZALO_REMINDER_DAYS_BEFORE)}
+                          onChange={(e) => handleChange("zalo_reminder_days_before", e.target.value, "string", "zalo")}
+                          placeholder="VD: 3,0"
+                        />
+                        <p className="text-[11px] font-medium text-slate-500">Nhập số ngày trước hạn, cách nhau bằng dấu phẩy. `0` là đúng ngày đến hạn.</p>
+                      </label>
+
+                      <label className="space-y-1.5">
+                        <span className="text-xs font-bold text-slate-700">Nhắc sau hạn</span>
+                        <input
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          value={getValue("zalo_reminder_days_after", DEFAULT_ZALO_REMINDER_DAYS_AFTER)}
+                          onChange={(e) => handleChange("zalo_reminder_days_after", e.target.value, "string", "zalo")}
+                          placeholder="VD: 2,7,14"
+                        />
+                        <p className="text-[11px] font-medium text-slate-500">Mặc định có thêm mốc 14 ngày: cảnh báo nợ quá hạn lâu.</p>
+                      </label>
+                    </div>
+
+                    <div className="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 font-semibold text-blue-800">Trước hạn 3 ngày</div>
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-700">Đúng ngày đến hạn</div>
+                      <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 font-semibold text-amber-800">Quá hạn 2 / 7 ngày</div>
+                      <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 font-semibold text-red-700">Mới: Quá hạn 14 ngày</div>
+                    </div>
+
+                    <label className="block space-y-2">
+                      <span className="text-xs font-bold text-slate-700">Nội dung mẫu tin nhắn nhắc nợ</span>
+                      <textarea
+                        rows={6}
+                        className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium leading-6 text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                        value={getValue("zalo_reminder_template", DEFAULT_ZALO_REMINDER_TEMPLATE)}
+                        onChange={(e) => handleChange("zalo_reminder_template", e.target.value, "string", "zalo")}
+                      />
+                    </label>
+
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs font-medium text-slate-600">
+                      <span className="font-bold text-slate-800">Tin nhắc nợ gồm:</span> tên khách, phòng, trạng thái hạn, số tiền còn lại, hạn thanh toán và mã chuyển khoản. Nếu khách đã thanh toán thì họ có hướng dẫn bỏ qua tin.
                     </div>
                   </div>
 
