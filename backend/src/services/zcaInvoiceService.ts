@@ -154,6 +154,40 @@ const money = (value: unknown) =>
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const DEFAULT_ZALO_INVOICE_MESSAGE =
+  "Chào {tenant_name}, TrọCare gửi hóa đơn phòng {room_name} T{month}/{year}.\n" +
+  "Số tiền cần thanh toán: {total_amount}.\n" +
+  "Hạn thanh toán: {due_date}.\n" +
+  "Mã chuyển khoản: {payment_code}.\n" +
+  "Vui lòng quét QR trong ảnh để thanh toán. Cảm ơn anh/chị.";
+
+const formatDateVi = (value: unknown) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "Chưa đặt hạn";
+  const date = new Date(`${raw.slice(0, 10)}T00:00:00+07:00`);
+  if (Number.isNaN(date.getTime())) return raw;
+  return new Intl.DateTimeFormat("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+};
+
+const fillTemplate = (template: string, values: Record<string, unknown>) =>
+  template.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key) => String(values[key] ?? match));
+
+async function getOwnerSettingValue(ownerId: string, key: string) {
+  const { data, error } = await supabaseAdmin
+    .from("system_settings")
+    .select("value")
+    .eq("user_id", ownerId)
+    .eq("key", key)
+    .maybeSingle();
+  if (error && !isMissingSchemaError(error)) console.warn(`[settings] Unable to load ${key}:`, error.message);
+  return typeof data?.value === "string" && data.value.trim() ? data.value : null;
+}
+
 const textLines = (value: unknown, max = 36) => {
   const words = String(value || "").split(/\s+/).filter(Boolean);
   const rows: string[] = [];
@@ -707,15 +741,23 @@ async function renderInvoicePng(bundle: InvoiceBundle, outputPath: string) {
   await sharp(Buffer.from(svg)).png().toFile(outputPath);
 }
 
-function buildMessage(bundle: InvoiceBundle) {
+async function buildMessage(bundle: InvoiceBundle) {
   const { invoice, tenant, room } = bundle;
   const outstanding = Math.max(0, Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0));
-  return [
-    `TrọCare gửi hóa đơn phòng ${room?.name || invoice.room_name || ""} kỳ T${invoice.month}/${invoice.year}.`,
-    `Khách thuê: ${tenant.name || "Anh/chị"}`,
-    `Tổng cần thanh toán: ${money(outstanding || invoice.total_amount)}`,
-    invoice.payment_code ? `Mã thanh toán: ${invoice.payment_code}` : "",
-  ].filter(Boolean).join("\n");
+  const template = await getOwnerSettingValue(bundle.invoice.user_id || "", "zalo_invoice_template") || DEFAULT_ZALO_INVOICE_MESSAGE;
+  return fillTemplate(template, {
+    tenant_name: tenant.name || invoice.tenant_name || "anh/chị",
+    room_name: room?.name || invoice.room_name || "phòng thuê",
+    month: invoice.month || "",
+    year: invoice.year || "",
+    room_amount: money(invoice.room_fee || 0),
+    service_amount: money(Math.max(0, Number(invoice.total_amount || 0) - Number(invoice.room_fee || 0))),
+    total_amount: money(outstanding || invoice.total_amount),
+    amount_due: money(outstanding || invoice.total_amount),
+    payment_code: invoice.payment_code || "Chưa có",
+    due_date: formatDateVi(invoice.due_date),
+    invoice_url: invoice.public_url || "",
+  });
 }
 
 export async function renderInvoiceImageBuffer(ownerId: string, invoiceId: string) {
@@ -808,7 +850,7 @@ export async function sendInvoiceImageViaZca(ownerId: string, invoiceId: string,
     await renderInvoicePng(bundle, imagePath);
     const result = await api.sendMessage(
       {
-        msg: buildMessage(bundle),
+        msg: await buildMessage(bundle),
         attachments: [imagePath],
       },
       user.uid,

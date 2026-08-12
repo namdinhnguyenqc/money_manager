@@ -12,6 +12,27 @@ const retryAt = (retryCount: number) => {
   return new Date(Date.now() + delays[Math.min(retryCount, delays.length - 1)] * 60_000).toISOString();
 };
 
+const DEFAULT_ZALO_REMINDER_MESSAGE =
+  "Chào {tenant_name}, hóa đơn phòng {room_name} {reminder_status}.\n" +
+  "Số tiền còn lại: {amount_due}.\n" +
+  "Hạn thanh toán: {due_date}.\n" +
+  "Mã chuyển khoản: {payment_code}.\n" +
+  "Nếu đã thanh toán, vui lòng bỏ qua tin này. Cảm ơn anh/chị.";
+
+const fillTemplate = (template: string, values: Record<string, unknown>) =>
+  template.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key) => String(values[key] ?? match));
+
+async function getOwnerSettingValue(ownerId: string, key: string) {
+  const { data, error } = await supabaseAdmin
+    .from("system_settings")
+    .select("value")
+    .eq("user_id", ownerId)
+    .eq("key", key)
+    .maybeSingle();
+  if (error) console.warn(`[settings] Unable to load ${key}:`, error.message);
+  return typeof data?.value === "string" && data.value.trim() ? data.value : null;
+}
+
 async function getRecipient(invoiceId: string) {
   const { data: invoice } = await supabaseAdmin
     .from("invoices")
@@ -36,12 +57,14 @@ async function getRecipient(invoiceId: string) {
 }
 
 export async function sendPaymentReminderZalo(input: {
+  ownerId: string;
   invoiceId: string;
   reminderKey: string;
   roomName: string;
   amountDue: number;
   dueDate: string;
   paymentCode: string;
+  reminderStatus?: string;
 }): Promise<ZaloReminderResult> {
   if (!env.ZALO_REMINDERS_ENABLED) return { status: "skipped", reason: "disabled" };
   if (!env.ZALO_SHARED_OWNER_ID || !env.ZALO_PAYMENT_REMINDER_TEMPLATE_ID) {
@@ -51,12 +74,24 @@ export async function sendPaymentReminderZalo(input: {
   const recipient = await getRecipient(input.invoiceId);
   if (!recipient) return { status: "skipped", reason: "missing_recipient" };
   const externalKey = `payment-reminder:${input.invoiceId}:${input.reminderKey}`;
+  const amountText = `${new Intl.NumberFormat("vi-VN").format(Math.round(input.amountDue))} đ`;
+  const template = await getOwnerSettingValue(input.ownerId, "zalo_reminder_template") || DEFAULT_ZALO_REMINDER_MESSAGE;
+  const message = fillTemplate(template, {
+    tenant_name: recipient.name,
+    room_name: input.roomName,
+    reminder_status: input.reminderStatus || "cần thanh toán",
+    amount_due: amountText,
+    due_date: input.dueDate,
+    payment_code: input.paymentCode || "Chưa có",
+  });
   const payload = {
     customer_name: recipient.name,
     room_name: input.roomName,
     amount_due: String(Math.round(input.amountDue)),
     due_date: input.dueDate,
     payment_code: input.paymentCode,
+    reminder_status: input.reminderStatus || "",
+    message,
   };
 
   const logData: ZaloNotificationLog = {

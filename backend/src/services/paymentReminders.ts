@@ -9,6 +9,9 @@ type ReminderRunSummary = {
   failed: number;
 };
 
+const DEFAULT_REMINDER_DAYS_BEFORE = [3, 0];
+const DEFAULT_REMINDER_DAYS_AFTER = [2, 7, 14];
+
 const vietnamDate = () => new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Ho_Chi_Minh",
   year: "numeric",
@@ -33,38 +36,76 @@ export const reminderMilestones = (
       .filter((day) => Number.isInteger(day) && day >= 0 && day <= 90);
     return result.length > 0 ? [...new Set(result)] : fallback;
   };
-  const before = normalize(daysBefore, [3, 0]);
-  const after = normalize(daysAfter, [2, 7]);
+  const before = normalize(daysBefore, DEFAULT_REMINDER_DAYS_BEFORE);
+  const after = normalize(daysAfter, DEFAULT_REMINDER_DAYS_AFTER);
   return new Set([...before, ...after.map((day) => -day)]);
 };
+
+const parseSettingDays = (value: unknown, fallback: number[]) => {
+  if (Array.isArray(value)) return value;
+  const raw = String(value ?? "").trim();
+  if (!raw) return fallback;
+  return raw.split(/[,\s]+/).map(Number);
+};
+
+async function getOwnerReminderSettings(ownerId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("system_settings")
+    .select("key,value")
+    .eq("user_id", ownerId)
+    .in("key", ["zalo_reminder_days_before", "zalo_reminder_days_after"]);
+  if (error) {
+    console.warn("Unable to load owner Zalo reminder settings; using defaults:", error.message);
+    return {
+      daysBefore: DEFAULT_REMINDER_DAYS_BEFORE,
+      daysAfter: DEFAULT_REMINDER_DAYS_AFTER,
+    };
+  }
+  const map = new Map((data || []).map((item: any) => [item.key, item.value]));
+  return {
+    daysBefore: parseSettingDays(map.get("zalo_reminder_days_before"), DEFAULT_REMINDER_DAYS_BEFORE),
+    daysAfter: parseSettingDays(map.get("zalo_reminder_days_after"), DEFAULT_REMINDER_DAYS_AFTER),
+  };
+}
 
 export const reminderCopy = (daysUntilDue: number, roomName: string, amountDue: number) => {
   const amount = formatCurrency(amountDue);
   if (daysUntilDue > 0) {
     return {
       key: `before_${daysUntilDue}`,
-      title: "Hóa đơn sắp đến hạn",
-      body: `${roomName} còn ${amount} cần thanh toán trong ${daysUntilDue} ngày.`,
+      title: "Sắp đến hạn thanh toán",
+      body: `${roomName}: còn ${amount}, hạn sau ${daysUntilDue} ngày.`,
+      status: `sắp đến hạn sau ${daysUntilDue} ngày`,
     };
   }
   if (daysUntilDue === 0) {
     return {
       key: "due_today",
-      title: "Hóa đơn đến hạn hôm nay",
-      body: `${roomName} còn ${amount} cần thanh toán.`,
+      title: "Đến hạn thanh toán hôm nay",
+      body: `${roomName}: còn ${amount}, đến hạn hôm nay.`,
+      status: "đến hạn hôm nay",
+    };
+  }
+  if (Math.abs(daysUntilDue) >= 14) {
+    return {
+      key: `overdue_${Math.abs(daysUntilDue)}`,
+      title: "Cảnh báo nợ quá hạn lâu",
+      body: `${roomName}: còn ${amount}, quá hạn ${Math.abs(daysUntilDue)} ngày. Vui lòng xử lý sớm.`,
+      status: `quá hạn ${Math.abs(daysUntilDue)} ngày`,
     };
   }
   return {
     key: `overdue_${Math.abs(daysUntilDue)}`,
     title: "Hóa đơn đã quá hạn",
-    body: `${roomName} còn ${amount}, đã quá hạn ${Math.abs(daysUntilDue)} ngày.`,
+    body: `${roomName}: còn ${amount}, quá hạn ${Math.abs(daysUntilDue)} ngày.`,
+    status: `quá hạn ${Math.abs(daysUntilDue)} ngày`,
   };
 };
 
 export async function runPaymentReminders(today = vietnamDate()): Promise<ReminderRunSummary> {
   const summary: ReminderRunSummary = { checked: 0, delivered: 0, skipped: 0, failed: 0 };
   const earliest = new Date(`${today}T00:00:00Z`);
-  earliest.setUTCDate(earliest.getUTCDate() - 7);
+  earliest.setUTCDate(earliest.getUTCDate() - 14);
   const latest = new Date(`${today}T00:00:00Z`);
   latest.setUTCDate(latest.getUTCDate() + 3);
 
@@ -98,9 +139,10 @@ export async function runPaymentReminders(today = vietnamDate()): Promise<Remind
       continue;
     }
 
+    const settings = await getOwnerReminderSettings(String(invoice.user_id));
     const milestones = reminderMilestones(
-      prefs?.reminder_days_before,
-      prefs?.reminder_days_after,
+      settings.daysBefore,
+      settings.daysAfter,
     );
     if (!milestones.has(daysUntilDue)) {
       summary.skipped += 1;
@@ -149,12 +191,14 @@ export async function runPaymentReminders(today = vietnamDate()): Promise<Remind
       continue;
     }
     const zalo = await sendPaymentReminderZalo({
+      ownerId: String(invoice.user_id),
       invoiceId: String(invoice.id),
       reminderKey: copy.key,
       roomName: room?.name || "Phòng thuê",
       amountDue,
       dueDate: String(invoice.due_date),
       paymentCode: String(invoice.payment_code || ""),
+      reminderStatus: copy.status,
     });
     await supabaseAdmin.from("payment_reminder_deliveries").update({
       metadata: {
