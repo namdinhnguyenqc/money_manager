@@ -301,7 +301,7 @@ export default function NewContractPage() {
                 </div>
               </div>
               {!hasRooms && (
-                <Link href={hasFacilities ? "/rooms" : "#"} onClick={(e) => { if (!hasFacilities) { e.preventDefault(); alert("Vui lòng thêm cơ sở trước!"); } }} className={`text-xs font-black rounded-lg px-3 py-2 shadow-sm transition-all ${hasFacilities ? 'text-blue-600 hover:text-blue-800 bg-white border border-slate-200 hover:bg-slate-50' : 'text-slate-400 bg-slate-100 border border-slate-100 cursor-not-allowed'}`}>
+                <Link href={hasFacilities ? "/rooms" : "#"} onClick={(e: React.MouseEvent) => { if (!hasFacilities) { e.preventDefault(); alert("Vui lòng thêm cơ sở trước!"); } }} className={`text-xs font-black rounded-lg px-3 py-2 shadow-sm transition-all ${hasFacilities ? 'text-blue-600 hover:text-blue-800 bg-white border border-slate-200 hover:bg-slate-50' : 'text-slate-400 bg-slate-100 border border-slate-100 cursor-not-allowed'}`}>
                   Thêm ngay →
                 </Link>
               )}
