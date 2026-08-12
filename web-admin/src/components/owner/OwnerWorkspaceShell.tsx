@@ -430,11 +430,11 @@ const getPageTitle = (path: string) => {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex flex-col border-r border-slate-200 bg-white transition-all duration-300 ease-out lg:pointer-events-auto lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 flex flex-col border-r border-slate-200 bg-white transition-all duration-300 ease-out lg:pointer-events-auto lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto ${
           sidebarOpen ? "pointer-events-auto translate-x-0" : "pointer-events-none -translate-x-full"
         } ${isCollapsed ? "w-72 lg:w-20" : "w-72"}`}
       >
-        <div className="flex flex-col border-b border-slate-200">
+        <div className="flex flex-col border-b border-slate-200 shrink-0">
           <div className="flex items-center justify-between px-5 py-4">
             <Logo collapsed={isCollapsed} />
             <button
@@ -478,7 +478,7 @@ const getPageTitle = (path: string) => {
 
             return (
               <div key={section.title} className="flex flex-col gap-0.5">
-                <div className={`px-3 mb-1.5 text-xs font-bold uppercase tracking-widest text-slate-600 transition-all duration-300 ${
+                <div className={`px-3 mb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider transition-all duration-300 ${
                   isCollapsed ? "lg:hidden" : ""
                 }`}>
                   {section.title}

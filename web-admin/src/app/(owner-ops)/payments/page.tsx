@@ -187,14 +187,14 @@ function PaymentSummaryCard({ label, value, gradient = false }: { label: string;
   if (gradient) {
     return (
       <div className="rounded-2xl p-4 text-white shadow-sm" style={{ background: "linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)" }}>
-        <div className="text-xs font-bold uppercase tracking-widest text-white/80">{label}</div>
+        <div className="text-xs font-semibold text-white/90">{label}</div>
         <div className="mt-1 text-xl font-black whitespace-nowrap">{formatMoney(value)}</div>
       </div>
     );
   }
   return (
     <Card className="p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="text-xs font-semibold text-slate-500">{label}</div>
       <div className="mt-1 text-lg font-bold text-slate-900 whitespace-nowrap">{formatMoney(value)}</div>
     </Card>
   );
