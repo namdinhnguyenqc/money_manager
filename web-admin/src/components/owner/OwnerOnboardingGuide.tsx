@@ -73,22 +73,24 @@ export default function OwnerOnboardingGuide({
   useEffect(() => {
     const detectProgress = async () => {
       try {
-        const [housesRes, roomsRes, contractsRes, invoicesRes] = await Promise.allSettled([
+        const [housesRes, roomsRes, servicesRes, contractsRes, invoicesRes] = await Promise.allSettled([
           apiGet<{ data?: any[] }>("/owner/boarding-houses"),
           apiGet<{ data?: any[] }>("/rental/rooms"),
+          apiGet<{ data?: any[] }>("/rental/services"),
           apiGet<{ data?: any[] }>("/rental/contracts"),
           apiGet<{ data?: any[] }>("/invoices"),
         ]);
 
         const houses = housesRes.status === "fulfilled" && Array.isArray(housesRes.value?.data) ? housesRes.value.data : [];
         const rooms = roomsRes.status === "fulfilled" && Array.isArray(roomsRes.value?.data) ? roomsRes.value.data : [];
+        const services = servicesRes.status === "fulfilled" && Array.isArray(servicesRes.value?.data) ? servicesRes.value.data : [];
         const contracts = contractsRes.status === "fulfilled" && Array.isArray(contractsRes.value?.data) ? contractsRes.value.data : [];
         const invoices = invoicesRes.status === "fulfilled" && Array.isArray(invoicesRes.value?.data) ? invoicesRes.value.data : [];
 
         setCompletedSteps({
           house: houses.length > 0,
           room: rooms.length > 0,
-          service: true, // Services has default rates
+          service: services.length > 0,
           contract: contracts.length > 0,
           invoice: invoices.length > 0,
         });
