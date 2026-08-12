@@ -112,14 +112,6 @@ export default function AllRoomsPage() {
         subtitle="Quản lý vận hành"
         title={currentFacility ? `${currentFacility.name} — Phòng` : `Tất cả phòng`}
         description={`${filteredRooms.length} phòng`}
-        breadcrumb={
-          <div className="flex items-center gap-2 text-sm text-slate-500">
-            <Link href="/owner/boarding-houses" className="hover:text-blue-700 font-medium">Cơ sở</Link>
-            {facilityIdFilter && currentFacility && (
-              <><span className="px-1 text-slate-300">/</span><span className="font-semibold text-slate-900">{currentFacility.name}</span></>
-            )}
-          </div>
-        }
         actions={
           <>
             {facilityIdFilter && (
