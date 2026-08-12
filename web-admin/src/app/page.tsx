@@ -1,60 +1,56 @@
 import type { Metadata } from "next";
 import LandingPageClient from "./LandingPageClient";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://trocare-production.vercel.app";
+const SHARE_TITLE = "Phần Mềm Quản Lý Trọ Miễn Phí, Quản Lý Phòng Trọ - TroCare";
+const SHARE_DESCRIPTION =
+  "TroCare - Phần mềm quản lý nhà trọ miễn phí, giúp quản lý phòng, khách thuê, hợp đồng, hóa đơn, điện nước và doanh thu dễ dàng.";
+const OG_IMAGE_URL = `${SITE_URL}/og-trocare.jpg`;
+
 export const metadata: Metadata = {
-  title: "Phần Mềm Quản Lý Trọ Miễn Phí, Quản Lý Phòng Trọ - TrọCare",
-  description:
-    "TrọCare là phần mềm quản lý trọ miễn phí uy tín, bảo mật tốt nhất. Hỗ trợ quản lý phòng trọ, khách thuê, hợp đồng, hóa đơn tự động và thanh toán QR tiện lợi.",
+  title: SHARE_TITLE,
+  description: SHARE_DESCRIPTION,
   keywords: [
+    "TroCare",
     "TrọCare",
     "quản lý trọ miễn phí",
     "quan ly tro mien phi",
     "phần mềm quản lý phòng trọ miễn phí",
     "phan mem quan ly phong tro mien phi",
-    "quản lý trọ uy tín",
-    "quản lý trọ bảo mật",
-    "phần mềm quản lý trọ uy tín",
-    "phần mềm quản lý trọ bảo mật",
-    "quản lý phòng trọ bảo mật",
     "quản lý nhà trọ miễn phí",
     "phần mềm quản lý nhà trọ",
     "app quản lý phòng trọ miễn phí",
     "phần mềm quản lý nhà trọ miễn phí",
-    "phần mềm quản lý nhà cho thuê",
     "quản lý hợp đồng thuê trọ",
     "lập hóa đơn phòng trọ",
     "thu chi nhà trọ",
     "QR thanh toán phòng trọ",
     "SePay nhà trọ",
-    "app quản lý chủ trọ",
   ],
   alternates: {
-    canonical: "/",
+    canonical: SITE_URL,
   },
   openGraph: {
-    title: "Phần Mềm Quản Lý Trọ Miễn Phí, Quản Lý Phòng Trọ - TrọCare",
-    description:
-      "TrọCare giúp chủ trọ quản lý phòng, khách thuê, hợp đồng, hóa đơn, thu chi, thanh toán QR tự động.",
+    title: SHARE_TITLE,
+    description: SHARE_DESCRIPTION,
     type: "website",
+    url: SITE_URL,
+    siteName: "TroCare",
     locale: "vi_VN",
     images: [
       {
-        // The old /brand/trocare-og-banner.png never existed in public/ — every
-        // shared link (Zalo, Messenger, Facebook) showed no preview image
-        // because the OG fetch 404'd. /opengraph-image is generated at build
-        // time by src/app/opengraph-image.tsx and always resolves.
-        url: "/opengraph-image",
+        url: OG_IMAGE_URL,
         width: 1200,
         height: 630,
-        alt: "TrọCare - Phần mềm quản lý trọ miễn phí, vận hành an tâm",
+        alt: SHARE_TITLE,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Phần Mềm Quản Lý Trọ Miễn Phí, Quản Lý Phòng Trọ - TrọCare",
-    description: "Phần mềm quản lý phòng trọ, hợp đồng, hóa đơn, thu chi và thanh toán QR tự động cho chủ trọ.",
-    images: ["/opengraph-image"],
+    title: SHARE_TITLE,
+    description: SHARE_DESCRIPTION,
+    images: [OG_IMAGE_URL],
   },
 };
 
