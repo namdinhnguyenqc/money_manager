@@ -7,6 +7,7 @@ import { Building2, Edit2, MapPin, Plus, RefreshCw, Trash2, Lock } from "lucide-
 import { apiPost } from "@/utils/apiClient";
 import { BoardingHouse, loadBoardingHouses, loadOwnerRooms, loadRentalRooms, deleteBoardingHouse, updateBoardingHouse, normalizeRoomStatus } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+import PageHeader from "@/components/ui/PageHeader";
 
 type Summary = { total: number; available: number; occupied: number; maintenance: number };
 
@@ -137,28 +138,28 @@ export default function OwnerBoardingHousesPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl">
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="mt-1 max-w-2xl text-sm text-slate-500">
-            Chọn một cơ sở để quản lý phòng, hợp đồng, hóa đơn và thu tiền trong cùng context.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={load} className="inline-flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-300">
-            <RefreshCw size={16} />
-            Làm mới
-          </button>
-          <button
-            onClick={() => { setPlanLimit(null); setFormOpen((v) => !v); }}
-            disabled={planLimit !== null}
-            className="inline-flex items-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {planLimit ? <Lock size={16} /> : <Plus size={16} />}
-            {planLimit ? `Đã đạt giới hạn (${planLimit.current}/${planLimit.limit})` : "Thêm cơ sở"}
-          </button>
-        </div>
-      </div>
+    <div className="mx-auto max-w-7xl animate-in fade-in duration-300">
+      <PageHeader
+        subtitle="Quản lý vận hành"
+        title="Cơ sở"
+        description="Chọn một cơ sở để quản lý phòng, hợp đồng, hóa đơn và thu tiền trong cùng context."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={load} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-xs">
+              <RefreshCw size={14} />
+              Làm mới
+            </button>
+            <button
+              onClick={() => { setPlanLimit(null); setFormOpen((v) => !v); }}
+              disabled={planLimit !== null}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50 transition-all shadow-xs"
+            >
+              {planLimit ? <Lock size={14} /> : <Plus size={14} />}
+              {planLimit ? `Đã đạt giới hạn (${planLimit.current}/${planLimit.limit})` : "Thêm cơ sở mới"}
+            </button>
+          </div>
+        }
+      />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-4">
         {[
