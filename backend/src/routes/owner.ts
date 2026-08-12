@@ -764,6 +764,17 @@ ownerRoutes.post("/notifications/:id/read", async (c) => {
   return c.json({ data });
 });
 
+ownerRoutes.post("/notifications/read-all", async (c) => {
+  const currentUser = c.get("user");
+  await supabaseAdmin
+    .from("rental_notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("user_id", currentUser.id)
+    .is("read_at", null);
+
+  return c.json({ success: true });
+});
+
 
 ownerRoutes.get("/audit-logs", async (c) => {
   const currentUser = c.get("user");
