@@ -1,6 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import type { AppEnv } from "../types.js";
 import { supabaseAdmin } from "../lib/supabase.js";
+import { isOwnerRequireProfileFormEnabled } from "../lib/profileStore.js";
 
 export const requireCompletedProfile = createMiddleware<AppEnv>(async (c, next) => {
   let user = c.get("user");
@@ -9,6 +10,13 @@ export const requireCompletedProfile = createMiddleware<AppEnv>(async (c, next) 
   }
 
   if (user.role === "ADMIN" || user.role === "SUPER_ADMIN") {
+    await next();
+    return;
+  }
+
+  const requireForm = await isOwnerRequireProfileFormEnabled();
+  if (!requireForm) {
+    // When platform admin disables profile form requirement, bypass profile gate check
     await next();
     return;
   }
