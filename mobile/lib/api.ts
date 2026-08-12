@@ -9,6 +9,7 @@
  */
 
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import Config from '@/constants/Config';
 import { logPerfEvent } from '@/lib/telemetry/appPerformance';
@@ -253,6 +254,8 @@ export type RequestOptions = {
   cacheTtlMs?: number;
   forceRefresh?: boolean;
   cacheKey?: string;
+  /** Persist selected GET responses so a cold app launch can render instantly. */
+  persistCache?: boolean;
 };
 
 type CacheEntry = {
@@ -263,6 +266,48 @@ type CacheEntry = {
 
 const responseCache = new Map<string, CacheEntry>();
 const inFlightRequests = new Map<string, Promise<any>>();
+const PERSISTENT_CACHE_PREFIX = 'trocare_api_cache_v1:';
+
+type PersistentCacheEntry<T> = {
+  value: T;
+  storedAt: number;
+};
+
+function persistentStorageKey(cacheKey: string) {
+  return `${PERSISTENT_CACHE_PREFIX}${cacheKey}`;
+}
+
+export async function getPersistentApiCache<T>(
+  path: string,
+  maxAgeMs: number,
+  cacheKey = `GET:${path}`,
+): Promise<T | null> {
+  try {
+    const raw = await AsyncStorage.getItem(persistentStorageKey(cacheKey));
+    if (!raw) return null;
+    const entry = JSON.parse(raw) as PersistentCacheEntry<T>;
+    const ageMs = Date.now() - Number(entry.storedAt || 0);
+    if (!entry.value || ageMs < 0 || ageMs > maxAgeMs) {
+      await AsyncStorage.removeItem(persistentStorageKey(cacheKey));
+      return null;
+    }
+    logPerfEvent('PERSISTENT_CACHE_HIT', { path, cacheKey, ageMs });
+    return entry.value;
+  } catch (error: any) {
+    logPerfEvent('PERSISTENT_CACHE_FAILED', { path, cacheKey, message: String(error?.message || error) });
+    return null;
+  }
+}
+
+async function clearPersistentApiCache() {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const apiKeys = keys.filter((key) => key.startsWith(PERSISTENT_CACHE_PREFIX));
+    if (apiKeys.length) await AsyncStorage.multiRemove(apiKeys);
+  } catch {
+    // A storage cleanup failure must not block logout or a successful mutation.
+  }
+}
 
 function getDefaultCacheTtlMs(path: string, method: HttpMethod): number {
   if (method !== 'GET') return 0;
@@ -293,7 +338,20 @@ function getCacheKey(path: string, method: HttpMethod, options: RequestOptions) 
 export function clearApiCache() {
   responseCache.clear();
   inFlightRequests.clear();
+  void clearPersistentApiCache();
   logPerfEvent("CACHE_CLEAR", { scope: "api" });
+}
+
+/**
+ * Drop only process-local GET data. This is used when the app returns to the
+ * foreground: the next screen request must check the server again, while the
+ * persisted cold-start fallback remains available if the device is offline.
+ */
+export function clearApiMemoryCache(reason = 'manual') {
+  const entriesCleared = responseCache.size;
+  responseCache.clear();
+  inFlightRequests.clear();
+  logPerfEvent('CACHE_CLEAR', { scope: 'memory', reason, entriesCleared });
 }
 
 function invalidateApiCacheAfterMutation(path: string, method: HttpMethod) {
@@ -417,6 +475,12 @@ async function request<T>(path: string, method: HttpMethod, body?: any, options:
     if (res.status === 401 && retry) {
       const result = await tryRefreshToken();
       if (result === 'ok') {
+        // The original GET is still registered under this cache key until its
+        // promise settles. Retrying before removing it would return that same
+        // promise and create a self-referential await that never resolves.
+        // Drop only this stale in-flight entry; the refreshed request will
+        // register a new promise and can still deduplicate later callers.
+        inFlightRequests.delete(cacheKey);
         return request<T>(path, method, body, { ...options, retry: false });
       }
       if (result === 'auth_failed') {
@@ -452,11 +516,24 @@ async function request<T>(path: string, method: HttpMethod, body?: any, options:
     }
 
     if (method === 'GET' && cacheTtlMs > 0) {
+      const storedAt = Date.now();
       responseCache.set(cacheKey, {
         value: data,
-        expiresAt: Date.now() + cacheTtlMs,
-        storedAt: Date.now(),
+        expiresAt: storedAt + cacheTtlMs,
+        storedAt,
       });
+      if (options.persistCache) {
+        void AsyncStorage.setItem(
+          persistentStorageKey(cacheKey),
+          JSON.stringify({ value: data, storedAt } satisfies PersistentCacheEntry<T>),
+        ).catch((error) => {
+          logPerfEvent('PERSISTENT_CACHE_FAILED', {
+            path,
+            cacheKey,
+            message: String(error?.message || error),
+          });
+        });
+      }
     } else {
       invalidateApiCacheAfterMutation(path, method);
     }

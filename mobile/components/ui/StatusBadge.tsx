@@ -51,7 +51,8 @@ const LABELS: Record<string, Record<string, string>> = {
 function getStatusColor(status: string): { bg: string; text: string; border: string } {
   const s = Colors.status as any;
   const normalized = status.toLowerCase().replace(/\s+/g, '_');
-  return s[normalized] || s.draft || { bg: '#f1f5f9', text: '#64748b', border: '#e2e8f0' };
+  const tokenKey = normalized === 'expiring_soon' ? 'expiringSoon' : normalized;
+  return s[tokenKey] || s.draft || { bg: '#f1f5f9', text: '#64748b', border: '#e2e8f0' };
 }
 
 export default function StatusBadge({ status, type = 'room', style }: StatusBadgeProps) {

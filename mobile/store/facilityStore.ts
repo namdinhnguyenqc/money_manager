@@ -192,6 +192,14 @@ export const useFacilityStore = create<FacilityState>()(
     {
       name: 'trocare_facility_cache_v2',
       storage: createJSONStorage(() => secureStorage),
+      // SecureStore is reserved for small sensitive values. Do not persist room
+      // payloads here; they can exceed its safe value size and are refetched.
+      partialize: (state) => ({
+        facilities: state.facilities,
+        facilityDetails: {},
+        rooms: {},
+        lastUpdated: state.lastUpdated,
+      }),
     }
   )
 );

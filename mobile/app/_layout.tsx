@@ -7,11 +7,11 @@
  * - Auth event listener for 401/403 redirects
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { AppState, View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackHeaderProps } from '@react-navigation/native-stack';
 import {
@@ -25,11 +25,15 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/store/authStore';
-import { setAuthEventListener } from '@/lib/api';
+import { clearApiMemoryCache, setAuthEventListener } from '@/lib/api';
 import { logPerfEvent, markAppStart } from '@/lib/telemetry/appPerformance';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
-import { getNotificationRoute, registerPushIfAlreadyAllowed } from '@/lib/pushNotifications';
+import {
+  consumeNotificationResponseOnce,
+  getNotificationRoute,
+  registerPushIfAlreadyAllowed,
+} from '@/lib/pushNotifications';
 
 // Keep splash screen visible while loading
 SplashScreen.preventAutoHideAsync();
@@ -72,21 +76,46 @@ function AppStackHeader({ navigation, options, back }: NativeStackHeaderProps) {
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
-  const { isAuthenticated, isProfileCompleted, approvalStatus, onboardingStep, isLoading, isHydrated, hydrate, logout } = useAuthStore();
+  const { isAuthenticated, isProfileCompleted, approvalStatus, onboardingStep, isHydrated, hydrate, logout } = useAuthStore();
+  const [fontWaitExpired, setFontWaitExpired] = useState(false);
   const canEnterApp = isProfileCompleted && approvalStatus === 'ACTIVE' && onboardingStep === 'DONE';
 
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
     Inter_800ExtraBold,
   });
+  const fontsReady = fontsLoaded || Boolean(fontError) || fontWaitExpired;
+
+  // Font loading is cosmetic and must never block authentication/navigation.
+  // If the native font loader stalls on a specific Android build, continue
+  // with the platform fallback and let the font finish loading later.
+  useEffect(() => {
+    if (fontsLoaded || fontError) return;
+    const fallback = setTimeout(() => {
+      setFontWaitExpired(true);
+      logPerfEvent('FONT_LOAD_FALLBACK', { timeoutMs: 1500 });
+    }, 1500);
+    return () => clearTimeout(fallback);
+  }, [fontError, fontsLoaded]);
 
   // Hydrate auth state on mount
   useEffect(() => {
     hydrate();
   }, [hydrate]);
+
+  useEffect(() => {
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (previousState !== 'active' && nextState === 'active') {
+        clearApiMemoryCache('app_foreground');
+      }
+      previousState = nextState;
+    });
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated || !canEnterApp) return;
@@ -96,16 +125,24 @@ export default function RootLayout() {
   }, [isAuthenticated, canEnterApp]);
 
   useEffect(() => {
-    const openNotification = (response: Notifications.NotificationResponse) => {
+    let active = true;
+    const openNotification = async (response: Notifications.NotificationResponse) => {
+      const shouldOpen = await consumeNotificationResponseOnce(response).catch(() => false);
+      if (!active || !shouldOpen) return;
       const data = response.notification.request.content.data as Record<string, unknown>;
       const route = getNotificationRoute(data);
       if (route) router.push(route as any);
     };
-    const subscription = Notifications.addNotificationResponseReceivedListener(openNotification);
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      void openNotification(response);
+    });
     Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response) openNotification(response);
+      if (response) void openNotification(response);
     }).catch(() => {});
-    return () => subscription.remove();
+    return () => {
+      active = false;
+      subscription.remove();
+    };
   }, [router]);
 
   // Set up auth event listener for 401/403
@@ -122,17 +159,23 @@ export default function RootLayout() {
     });
   }, [router, logout]);
 
-  // Hide splash screen when ready
+  // Hand off to a usable route on the first React commit. Auth and fonts hydrate
+  // in the background; neither may hold a blocking app-level loading screen.
   useEffect(() => {
-    if (fontsLoaded && isHydrated) {
-      SplashScreen.hideAsync();
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+
+  // Hide immediately when local boot state is ready.
+  useEffect(() => {
+    if (fontsReady && isHydrated) {
+      SplashScreen.hideAsync().catch(() => {});
       logPerfEvent("NAVIGATION_READY", { authenticated: isAuthenticated });
     }
-  }, [fontsLoaded, isHydrated, isAuthenticated]);
+  }, [fontsReady, isHydrated, isAuthenticated]);
 
   // Auth-based routing guard
   useEffect(() => {
-    if (!fontsLoaded || !isHydrated) return;
+    if (!fontsReady || !isHydrated) return;
 
     const segs = segments as string[];
     const inAuthGroup = segs[0] === '(auth)';
@@ -146,16 +189,7 @@ export default function RootLayout() {
     } else if (isAuthenticated && canEnterApp && inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [isAuthenticated, isProfileCompleted, canEnterApp, segments, fontsLoaded, isHydrated, router]);
-
-  // Show loading while fonts/auth hydrating
-  if (!fontsLoaded || !isHydrated) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
-  }
+  }, [isAuthenticated, isProfileCompleted, canEnterApp, segments, fontsReady, isHydrated, router]);
 
   return (
     <SafeAreaProvider>
@@ -169,12 +203,6 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-  },
   headerSafeArea: {
     backgroundColor: Colors.background,
   },

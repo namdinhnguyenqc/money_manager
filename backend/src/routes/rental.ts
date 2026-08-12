@@ -1381,6 +1381,35 @@ rentalRoutes.post("/contracts/:id/terminate", async (c) => {
 
   if (cErr || !contract) return c.json({ error: "Contract not found" }, 404);
 
+  // Prefer the database transaction when the additive migration is deployed.
+  // During a rolling deploy, older databases may not have the RPC yet; only in
+  // that specific case do we retain the legacy sequence below.
+  const atomicRes = await db.rpc("terminate_contract_atomic", {
+    p_contract_id: id,
+    p_user_id: user.id,
+    p_refund_amount: Number(parsed.data.refundAmount || 0),
+    p_refund_date: refundDate,
+    p_refund_method: parsed.data.refundMethod || "Tiền mặt",
+    p_note: parsed.data.note || "",
+    p_refund_wallet_id: parsed.data.walletId || null,
+    p_settlement_wallet_id: parsed.data.settlementWalletId || parsed.data.walletId || null,
+    p_settlement_amount: Number(parsed.data.settlementAmount || 0),
+  });
+  if (!atomicRes.error) {
+    const result = atomicRes.data as any;
+    if (result?.error) return c.json({ error: String(result.error) }, 400);
+    return c.json({ ok: true, message: "Trả phòng thành công", data: result });
+  }
+
+  const rpcMissing = atomicRes.error.code === "PGRST202"
+    || atomicRes.error.code === "42883"
+    || String(atomicRes.error.message || "").includes("terminate_contract_atomic");
+  if (!rpcMissing) {
+    console.error("Atomic contract termination failed:", atomicRes.error.message);
+    return c.json({ error: "Không thể hoàn tất trả phòng an toàn. Dữ liệu chưa bị thay đổi." }, 400);
+  }
+  console.warn("terminate_contract_atomic is not deployed; using legacy termination flow.");
+
   // 2. End the contract
   const updateContractRes = await db.from("contracts").update({
     status: "ended", 

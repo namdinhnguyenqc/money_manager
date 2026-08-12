@@ -8,6 +8,7 @@ import { createWorker } from "tesseract.js";
 // trusted final value for billing.
 
 let workerPromise: ReturnType<typeof createWorker> | null = null;
+let recognitionQueue: Promise<unknown> = Promise.resolve();
 
 // Tesseract worker init (~1-2s, downloads/caches language data) is expensive —
 // reuse a single worker across requests instead of spinning one up per image.
@@ -24,19 +25,22 @@ async function getWorker() {
   return workerPromise;
 }
 
-// Crude but effective preprocessing for 7-segment digital displays: upscale
-// (tesseract struggles with small text), grayscale, and push contrast so the
-// lit segments separate cleanly from the background.
-async function preprocess(buffer: Buffer): Promise<Buffer> {
-  return sharp(buffer)
+// One fixed threshold can erase otherwise clear digits depending on lighting,
+// display colour and glare. Generate complementary variants and keep the best
+// OCR candidate instead of assuming every meter photo has the same contrast.
+async function preprocessVariants(buffer: Buffer): Promise<Buffer[]> {
+  const base = sharp(buffer)
     .rotate() // respect EXIF orientation from phone cameras
     .resize({ width: 1200, withoutEnlargement: false })
     .grayscale()
     .normalize()
-    .sharpen()
-    .threshold(140)
-    .png()
-    .toBuffer();
+    .sharpen();
+  return Promise.all([
+    base.clone().png().toBuffer(),
+    base.clone().threshold(105).png().toBuffer(),
+    base.clone().threshold(140).png().toBuffer(),
+    base.clone().threshold(175).png().toBuffer(),
+  ]);
 }
 
 // Meter readings are pure digit runs (occasionally with a decimal point on
@@ -52,13 +56,31 @@ function extractNumber(rawText: string): string | null {
 export async function readMeterNumber(
   imageBuffer: Buffer
 ): Promise<{ rawText: string; number: string | null; confidence: number }> {
-  const worker = await getWorker();
-  const processed = await preprocess(imageBuffer);
-  const { data } = await worker.recognize(processed);
-  const rawText = (data.text || "").trim();
-  return {
-    rawText,
-    number: extractNumber(rawText),
-    confidence: Math.round(data.confidence || 0),
+  const run = async () => {
+    const worker = await getWorker();
+    const variants = await preprocessVariants(imageBuffer);
+    const candidates: Array<{ rawText: string; number: string | null; confidence: number }> = [];
+    for (const processed of variants) {
+      const { data } = await worker.recognize(processed);
+      const rawText = (data.text || "").trim();
+      candidates.push({
+        rawText,
+        number: extractNumber(rawText),
+        confidence: Math.round(data.confidence || 0),
+      });
+    }
+    return candidates.sort((a, b) => {
+      if (Boolean(a.number) !== Boolean(b.number)) return a.number ? -1 : 1;
+      const aDigits = (a.number || "").replace(/\D/g, "").length;
+      const bDigits = (b.number || "").replace(/\D/g, "").length;
+      const aScore = a.confidence + Math.min(aDigits, 8) * 3;
+      const bScore = b.confidence + Math.min(bDigits, 8) * 3;
+      return bScore - aScore;
+    })[0] || { rawText: "", number: null, confidence: 0 };
   };
+  // A Tesseract worker is stateful. Serialize recognitions so simultaneous
+  // rooms cannot corrupt each other's results; keep the queue alive on errors.
+  const result = recognitionQueue.then(run, run);
+  recognitionQueue = result.then(() => undefined, () => undefined);
+  return result;
 }

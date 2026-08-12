@@ -32,11 +32,10 @@ export default function Toast({ message, type = 'success', visible, onDismiss, d
 
   useEffect(() => {
     if (visible) {
-      Animated.spring(translateY, {
+      Animated.timing(translateY, {
         toValue: 0,
+        duration: 180,
         useNativeDriver: true,
-        tension: 80,
-        friction: 12,
       }).start();
 
       const timer = setTimeout(onDismiss, duration);
@@ -53,7 +52,11 @@ export default function Toast({ message, type = 'success', visible, onDismiss, d
   if (!visible) return null;
 
   return (
-    <Animated.View style={[styles.container, { transform: [{ translateY }] }]}>
+    <Animated.View
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+      style={[styles.container, { transform: [{ translateY }] }]}
+    >
       <TouchableOpacity activeOpacity={0.9} onPress={onDismiss} style={[styles.toast, { backgroundColor: config.bg }]}>
         <Ionicons name={config.icon} size={20} color={config.text} />
         <Text style={[styles.text, { color: config.text }]} numberOfLines={2}>
@@ -70,7 +73,7 @@ const styles = StyleSheet.create({
     top: 60,
     left: 16,
     right: 16,
-    zIndex: 9999,
+    zIndex: 40,
   },
   toast: {
     flexDirection: 'row',
@@ -82,7 +85,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowRadius: 8,
     elevation: 5,
   },
   text: {

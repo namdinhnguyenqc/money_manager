@@ -26,6 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
+import DataErrorState from '@/components/ui/DataErrorState';
 import { apiGet } from '@/lib/api';
 import { logPerfEvent } from '@/lib/telemetry/appPerformance';
 
@@ -81,6 +82,27 @@ const getUtilityCostType = (tx: any): 'electricity' | 'water' | 'wifi' | null =>
   return null;
 };
 
+const loadReportTransactions = async (forceRefresh: boolean) => {
+  const now = new Date();
+  const dateFrom = `${now.getFullYear() - 2}-01-01`;
+  const dateTo = now.toISOString().slice(0, 10);
+  const pageSize = 500;
+  const first = await apiGet<any>(`/transactions?limit=${pageSize}&offset=0&dateFrom=${dateFrom}&dateTo=${dateTo}`, { forceRefresh });
+  const total = Number(first?.count || 0);
+  const maxRows = 2000;
+  const pageCount = Math.min(Math.ceil(total / pageSize), maxRows / pageSize);
+  const remaining = await Promise.all(
+    Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) =>
+      apiGet<any>(`/transactions?limit=${pageSize}&offset=${(index + 1) * pageSize}&dateFrom=${dateFrom}&dateTo=${dateTo}`, { forceRefresh })
+    )
+  );
+  return {
+    data: [first, ...remaining].flatMap((response) => response?.data || []),
+    truncated: total > maxRows,
+    total,
+  };
+};
+
 function normalizeRoomStatus(room: any): string {
   const stat = String(room.status || '').toLowerCase();
   if (stat === 'occupied' || stat === 'occupied_soon') return 'occupied';
@@ -100,6 +122,10 @@ export default function RedesignedReportsTab() {
   // Database Data States
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [coverageNotice, setCoverageNotice] = useState('');
+  const [showAllDebtRooms, setShowAllDebtRooms] = useState(false);
+  const [showAllPaidRooms, setShowAllPaidRooms] = useState(false);
   const [facilities, setFacilities] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -111,11 +137,12 @@ export default function RedesignedReportsTab() {
     const tab = "reports";
     logPerfEvent("SECONDARY_DATA_START", { tab, forceRefresh });
     try {
+      setLoadError('');
       const [facRes, roomRes, invRes, txRes, conRes] = await Promise.all([
         apiGet<any>('/owner/boarding-houses', { forceRefresh }),
         apiGet<any>('/rental/rooms', { forceRefresh }),
-        apiGet<any>('/invoices?includeItems=true', { forceRefresh }),
-        apiGet<any>('/transactions?limit=1000', { forceRefresh }),
+        apiGet<any>(`/invoices?includeItems=true&yearFrom=${new Date().getFullYear() - 2}`, { forceRefresh }),
+        loadReportTransactions(forceRefresh),
         apiGet<any>('/rental/contracts', { forceRefresh }).catch(() => ({ data: [] })),
       ]);
 
@@ -123,6 +150,7 @@ export default function RedesignedReportsTab() {
       setRooms(roomRes?.data ?? []);
       setInvoices(invRes?.data ?? []);
       setTransactions(txRes?.data ?? []);
+      setCoverageNotice(txRes?.truncated ? `Báo cáo đang hiển thị 2.000/${txRes.total} giao dịch gần nhất trong 3 năm.` : '');
       setContracts(conRes?.data ?? []);
       logPerfEvent("TAB_DATA_READY_REPORTS", {
         success: true,
@@ -134,6 +162,7 @@ export default function RedesignedReportsTab() {
       logPerfEvent("SECONDARY_DATA_READY", { tab, success: true });
     } catch (e: any) {
       console.error('Failed to load analytical reports data:', e);
+      setLoadError(e?.message || 'Không thể tải báo cáo. Dữ liệu cũ không bị thay đổi.');
       logPerfEvent("TAB_DATA_READY_REPORTS", { success: false, message: String(e?.message || e) });
       logPerfEvent("SECONDARY_DATA_READY", { tab, success: false });
     } finally {
@@ -204,12 +233,12 @@ export default function RedesignedReportsTab() {
     return filteredTxs.filter((t: any) => {
       if (!t.date) return false;
       const td = new Date(t.date);
-      const diffTime = Math.abs(now.getTime() - td.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (Number.isNaN(td.getTime()) || td.getTime() > now.getTime()) return false;
+      const diffDays = Math.floor((now.getTime() - td.getTime()) / (1000 * 60 * 60 * 24));
 
       if (period === 'month') return diffDays <= 30;
       if (period === 'quarter') return diffDays <= 90;
-      if (period === 'year') return diffDays <= 365;
+      if (period === 'year') return td.getFullYear() === now.getFullYear();
       return true; // shows all
     });
   }, [filteredTxs, period]);
@@ -429,8 +458,13 @@ export default function RedesignedReportsTab() {
 
   // Compute Debts & Paid rooms list based on all active/historical invoices
   const roomDebtList = useMemo(() => {
+    const now = new Date();
     return filteredRooms.map((room: any) => {
-      const roomInvoices = filteredInvoices.filter((i: any) => String(i.room_id) === String(room.id));
+      const roomInvoices = filteredInvoices.filter((i: any) =>
+        String(i.room_id) === String(room.id)
+        && Number(i.month) === now.getMonth() + 1
+        && Number(i.year) === now.getFullYear()
+      );
       const totalAmount = roomInvoices.reduce((sum, i) => sum + Number(i.total_amount || 0), 0);
       const paidAmount = roomInvoices.reduce((sum, i) => sum + Number(i.paid_amount || 0), 0);
       const debt = Math.max(0, totalAmount - paidAmount);
@@ -439,6 +473,7 @@ export default function RedesignedReportsTab() {
         totalAmount,
         paidAmount,
         debt,
+        hasInvoice: roomInvoices.some((invoice: any) => Number(invoice.total_amount || 0) > 0),
       };
     });
   }, [filteredRooms, filteredInvoices]);
@@ -448,7 +483,7 @@ export default function RedesignedReportsTab() {
   }, [roomDebtList]);
 
   const paidRooms = useMemo(() => {
-    return roomDebtList.filter((r: any) => r.debt === 0 && r.tenant_name);
+    return roomDebtList.filter((r: any) => r.hasInvoice && r.totalAmount > 0 && r.paidAmount >= r.totalAmount && r.tenant_name);
   }, [roomDebtList]);
 
   const totalOutstandingDebt = useMemo(() => {
@@ -488,7 +523,12 @@ export default function RedesignedReportsTab() {
 
   // Year-over-Year comparison data
   const yearlyAnalytics = useMemo(() => {
-    const years = [2024, 2025, 2026];
+    const currentYear = new Date().getFullYear();
+    const years = Array.from(new Set([
+      currentYear,
+      ...filteredTxs.map((t) => t.date ? new Date(t.date).getFullYear() : NaN),
+      ...filteredInvoices.map((i) => Number(i.year)),
+    ].filter(Number.isFinite))).sort((a, b) => a - b).slice(-3);
     return years.map(y => {
       const yearTxs = filteredTxs.filter(t => t.date && new Date(t.date).getFullYear() === y);
       const inc = yearTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0);
@@ -587,6 +627,12 @@ export default function RedesignedReportsTab() {
           <ActivityIndicator size="large" color="#2563EB" />
           <Text style={styles.loadingText}>Đang tải dữ liệu phân tích...</Text>
         </View>
+      ) : loadError ? (
+        <DataErrorState
+          title="Chưa tải được báo cáo"
+          message={loadError}
+          onRetry={() => fetchReportData(true)}
+        />
       ) : (
         <ScrollView
           style={styles.scrollContainer}
@@ -594,6 +640,12 @@ export default function RedesignedReportsTab() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563EB" />}
           showsVerticalScrollIndicator={false}
         >
+          {coverageNotice ? (
+            <View style={styles.coverageNotice} accessibilityRole="alert">
+              <Ionicons name="information-circle-outline" size={18} color={Colors.warning} />
+              <Text style={styles.coverageNoticeText}>{coverageNotice}</Text>
+            </View>
+          ) : null}
           {activeTab === 'finance' ? (
             /* FINANCE & UTILITIES TAB */
             <View style={styles.tabView}>
@@ -687,7 +739,7 @@ export default function RedesignedReportsTab() {
                       <View style={styles.heroRow}>
                         <View>
                           <Text style={styles.bentoLabel}>Lợi nhuận ròng dự kiến</Text>
-                          <Text style={[styles.bentoValueHero, { color: netCashFlow >= 0 ? '#10B981' : '#D97706' }]}>
+                          <Text style={[styles.bentoValueHero, { color: netCashFlow >= 0 ? '#10B981' : '#D97706' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                             {formatMoney(netCashFlow)}
                           </Text>
                         </View>
@@ -708,7 +760,7 @@ export default function RedesignedReportsTab() {
                           <Ionicons name="arrow-up" size={16} color="#10B981" />
                         </View>
                         <Text style={styles.bentoLabelSmall}>Tổng doanh thu</Text>
-                        <Text style={[styles.bentoValue, { color: '#10B981' }]}>{formatMoney(totalIncome)}</Text>
+                        <Text style={[styles.bentoValue, { color: '#10B981' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.68}>{formatMoney(totalIncome)}</Text>
                       </Card>
 
                       <Card style={[styles.porcelainCard, styles.bentoItem]}>
@@ -716,7 +768,7 @@ export default function RedesignedReportsTab() {
                           <Ionicons name="arrow-down" size={16} color="#D97706" />
                         </View>
                         <Text style={styles.bentoLabelSmall}>Tổng chi phí</Text>
-                        <Text style={[styles.bentoValue, { color: '#D97706' }]}>{formatMoney(totalExpense)}</Text>
+                        <Text style={[styles.bentoValue, { color: '#D97706' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.68}>{formatMoney(totalExpense)}</Text>
                       </Card>
                     </View>
                   </View>
@@ -1095,7 +1147,7 @@ export default function RedesignedReportsTab() {
                   </Card>
                 ) : (
                   <View style={styles.ledgerList}>
-                    {debtRooms.map((room) => (
+                    {(showAllDebtRooms ? debtRooms : debtRooms.slice(0, 10)).map((room) => (
                       <Card key={room.id} style={styles.ledgerCard}>
                         <View style={styles.ledgerCardHeader}>
                           <View>
@@ -1144,6 +1196,11 @@ export default function RedesignedReportsTab() {
                         )}
                       </Card>
                     ))}
+                    {debtRooms.length > 10 ? (
+                      <TouchableOpacity style={styles.showMoreButton} onPress={() => setShowAllDebtRooms((value) => !value)}>
+                        <Text style={styles.showMoreText}>{showAllDebtRooms ? 'Thu gọn' : `Xem thêm ${debtRooms.length - 10} phòng`}</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 )}
               </View>
@@ -1163,7 +1220,7 @@ export default function RedesignedReportsTab() {
                   </Card>
                 ) : (
                   <View style={styles.ledgerList}>
-                    {paidRooms.map((room) => (
+                    {(showAllPaidRooms ? paidRooms : paidRooms.slice(0, 10)).map((room) => (
                       <Card key={room.id} style={styles.ledgerCard}>
                         <View style={styles.ledgerCardHeader}>
                           <View>
@@ -1182,10 +1239,15 @@ export default function RedesignedReportsTab() {
 
                         <View style={styles.paidMetadata}>
                           <Text style={styles.paidLabel}>Tổng đã thu tháng này:</Text>
-                          <Text style={styles.paidValue}>{formatMoney(room.paidAmount || room.price)}</Text>
+                          <Text style={styles.paidValue}>{formatMoney(room.paidAmount)}</Text>
                         </View>
                       </Card>
                     ))}
+                    {paidRooms.length > 10 ? (
+                      <TouchableOpacity style={styles.showMoreButton} onPress={() => setShowAllPaidRooms((value) => !value)}>
+                        <Text style={styles.showMoreText}>{showAllPaidRooms ? 'Thu gọn' : `Xem thêm ${paidRooms.length - 10} phòng`}</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 )}
               </View>
@@ -1200,17 +1262,21 @@ export default function RedesignedReportsTab() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#F4F4F6', // Matte Alabaster backing
+    backgroundColor: '#F8FAFC',
   },
+  coverageNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginHorizontal: 20, marginBottom: 12, padding: 12, borderRadius: 12, backgroundColor: Colors.warningLight },
+  coverageNoticeText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  showMoreButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  showMoreText: { fontSize: 13, fontFamily: Typography.fontFamily.semibold, color: Colors.primary },
   /* Boarding House Filter selector horizontal */
   bhSelectorWrapper: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#EAEAEF',
   },
   bhSelectorScroll: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     gap: 8,
   },
   bhChip: {
@@ -1218,7 +1284,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 20,
+    borderRadius: 10,
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1241,7 +1307,8 @@ const styles = StyleSheet.create({
   /* Tab Segment switcher styles */
   tabContainer: {
     flexDirection: 'row',
-    padding: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#EAEAEF',
@@ -1287,8 +1354,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 140,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 104,
   },
   tabView: {
     gap: 16,
@@ -1300,7 +1368,7 @@ const styles = StyleSheet.create({
   /* Period Selector */
   periodContainer: {
     flexDirection: 'row',
-    backgroundColor: '#E4E4E7',
+    backgroundColor: '#E2E8F0',
     padding: 4,
     borderRadius: 12,
   },
@@ -1313,11 +1381,6 @@ const styles = StyleSheet.create({
   },
   periodBtnActive: {
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
   },
   periodText: {
     fontSize: 12,
@@ -1378,13 +1441,22 @@ const styles = StyleSheet.create({
   },
   bentoRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 0,
+    overflow: 'hidden',
+    borderRadius: 16,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   bentoItem: {
     flex: 1,
-    padding: 14,
+    padding: 16,
     minHeight: 100,
     justifyContent: 'space-between',
+    borderWidth: 0,
+    borderRadius: 0,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: '#E2E8F0',
   },
   bentoValue: {
     fontSize: 16,
@@ -1396,15 +1468,10 @@ const styles = StyleSheet.create({
   /* 3D Alabaster Porcelain Cards */
   porcelainCard: {
     backgroundColor: '#FFFFFF', // Crisp White Porcelain
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#EAEAEF',
     padding: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',

@@ -13,6 +13,7 @@ type Preferences = {
   inAppEnabled: boolean;
   paymentReceivedEnabled: boolean;
   paymentSentEnabled: boolean;
+  paymentReminderEnabled: boolean;
 };
 
 const defaults: Preferences = {
@@ -21,6 +22,7 @@ const defaults: Preferences = {
   inAppEnabled: true,
   paymentReceivedEnabled: true,
   paymentSentEnabled: true,
+  paymentReminderEnabled: true,
 };
 
 export default function NotificationSettingsScreen() {
@@ -165,6 +167,14 @@ export default function NotificationSettingsScreen() {
             value={prefs.paymentSentEnabled}
             disabled={disabled || Boolean(savingKey)}
             onChange={(value) => update('paymentSentEnabled', value)}
+          />
+          <View style={styles.divider} />
+          <SettingRow
+            title="Nhắc hóa đơn đến hạn"
+            description="Nhắc khách trước hạn 3 ngày, đúng hạn và khi quá hạn; tự dừng khi đã thu đủ."
+            value={prefs.paymentReminderEnabled}
+            disabled={disabled || Boolean(savingKey)}
+            onChange={(value) => update('paymentReminderEnabled', value)}
           />
         </View>
       </ScrollView>

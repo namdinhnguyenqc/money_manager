@@ -47,6 +47,38 @@ export function onlyDigits(value: string, maxLength?: number) {
   return typeof maxLength === 'number' ? digits.slice(0, maxLength) : digits;
 }
 
+/** Tính tiền phòng tháng đầu từ ngày nhận phòng đến hết tháng, bao gồm ngày nhận phòng. */
+export function calculateProratedRoomFee(
+  monthlyRent: number,
+  contractStartDate: string | null | undefined,
+  billingMonth: number,
+  billingYear: number,
+) {
+  const rent = Math.max(0, Number(monthlyRent || 0));
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(contractStartDate || '');
+  if (!match) return Math.round(rent);
+  const startYear = Number(match[1]);
+  const startMonth = Number(match[2]);
+  const startDay = Number(match[3]);
+  if (startYear !== billingYear || startMonth !== billingMonth || startDay <= 1) return Math.round(rent);
+  const daysInMonth = new Date(billingYear, billingMonth, 0).getDate();
+  if (startDay > daysInMonth) return Math.round(rent);
+  return Math.round((rent * (daysInMonth - startDay + 1)) / daysInMonth);
+}
+
+export function getRoomFeeProration(
+  contractStartDate: string | null | undefined,
+  billingMonth: number,
+  billingYear: number,
+) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(contractStartDate || '');
+  if (!match || Number(match[1]) !== billingYear || Number(match[2]) !== billingMonth) return null;
+  const startDay = Number(match[3]);
+  const daysInMonth = new Date(billingYear, billingMonth, 0).getDate();
+  if (startDay <= 1 || startDay > daysInMonth) return null;
+  return { billableDays: daysInMonth - startDay + 1, daysInMonth };
+}
+
 export function validateTenantInput(input: TenantInput): TenantValidationResult {
   const parsed = tenantInputSchema.safeParse({
     ...input,
@@ -521,8 +553,8 @@ export async function loadContracts(options?: RequestOptions) {
   return (res?.data ?? []).map(toContractViewFromApi) as ContractView[];
 }
 
-export async function loadContract(id: string) {
-  const res = await apiGet<any>(`/rental/contracts/${id}`);
+export async function loadContract(id: string, options?: RequestOptions) {
+  const res = await apiGet<any>(`/rental/contracts/${id}`, options);
   if (!res?.data) return null;
   return toContractViewFromApi(res.data) as ContractView;
 }
@@ -558,8 +590,8 @@ export async function loadInvoices(buildingId?: string, options?: RequestOptions
   return (res?.data ?? []) as Invoice[];
 }
 
-export async function loadServiceConfigs(activeOnly = true) {
-  const res = await apiGet<any>(`/rental/services${activeOnly ? '' : '?activeOnly=0'}`);
+export async function loadServiceConfigs(activeOnly = true, options?: RequestOptions) {
+  const res = await apiGet<any>(`/rental/services${activeOnly ? '' : '?activeOnly=0'}`, options);
   return (res?.data ?? []) as ServiceConfig[];
 }
 
@@ -627,6 +659,8 @@ export async function createInvoice(input: {
   elecNew?: number | null;
   waterOld?: number | null;
   waterNew?: number | null;
+  dueDate?: string;
+  invoiceNote?: string;
 }) {
   const res = await apiPost<any>('/invoices', input);
   return res?.data as Invoice;
@@ -647,6 +681,8 @@ export async function createInvoiceForContract(contract: ContractView, input: {
   waterOld: number;
   waterNew: number;
   items: Array<{ name: string; amount: number }>;
+  dueDate?: string;
+  note?: string;
 }) {
   const appliedServices = normalizeAppliedServicesSnapshot(contract.applied_services_snapshot) ?? [];
   const serviceItems = appliedServices.map((service) => {
@@ -706,6 +742,8 @@ export async function createInvoiceForContract(contract: ContractView, input: {
     elecNew: input.electricNew,
     waterOld: input.waterOld,
     waterNew: input.waterNew,
+    dueDate: input.dueDate,
+    invoiceNote: input.note,
     items: [
       ...serviceItems,
       ...input.items,
@@ -806,15 +844,36 @@ export async function bulkCollectPayments(invoiceIds: (string)[], walletId: stri
   return res?.data ?? [];
 }
 
-export async function loadLatestMeterReadings(roomId: string) {
-  const res = await apiGet<any>(`/invoices/latest-meter-readings?roomId=${roomId}`);
+export async function loadLatestMeterReadings(roomId: string, options?: RequestOptions) {
+  const res = await apiGet<any>(`/invoices/latest-meter-readings?roomId=${roomId}`, options);
   return res?.data ?? { elec_old: 0, water_old: 0 };
 }
 
-export async function loadPendingBilling(month: number, year: number, facilityId?: string) {
+export type MeterOcrResult = {
+  id: string;
+  number: string | null;
+  rawText: string;
+  confidence: number;
+  error?: string;
+};
+
+/** OCR only suggests a value. Callers must keep the field editable and require confirmation. */
+export async function readMeterImages(
+  images: Array<{ id: string; dataUrl: string }>,
+): Promise<MeterOcrResult[]> {
+  const res = await apiPost<any>('/invoices/ocr-meter-readings', { images });
+  return Array.isArray(res?.data) ? res.data : [];
+}
+
+export async function loadPendingBilling(
+  month: number,
+  year: number,
+  facilityId?: string,
+  options?: RequestOptions,
+) {
   const [rooms, invoices] = await Promise.all([
-    loadRentalRooms(facilityId),
-    loadInvoices(facilityId)
+    loadRentalRooms(facilityId, options),
+    loadInvoices(facilityId, options)
   ]);
   
   const existingRoomIds = new Set(

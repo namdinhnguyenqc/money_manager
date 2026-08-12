@@ -109,6 +109,24 @@ function formatGroupDate(dateKey: string) {
   return `${day}/${month}/${year}`;
 }
 
+function formatDetailDate(value?: string | null) {
+  const date = parseTxDate(value);
+  if (!date) return 'Không có dữ liệu';
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    ...(value?.includes('T') ? { hour: '2-digit', minute: '2-digit' } : {}),
+  }).format(date);
+}
+
+function transactionSourceLabel(source?: string | null) {
+  if (source === 'sepay') return 'SePay tự động';
+  if (source === 'bank_transfer') return 'Chuyển khoản';
+  if (source === 'cash') return 'Tiền mặt';
+  return 'Ghi nhận thủ công';
+}
+
 export default function TransactionsScreen() {
   const router = useRouter();
   const { walletId, walletName } = useLocalSearchParams<{ walletId?: string; walletName?: string }>();
@@ -145,28 +163,38 @@ export default function TransactionsScreen() {
       if (isRef) setRefreshing(true);
       else setLoading(true);
 
-      const [txList, walletList, bhList, roomsRes, invRes, conRes] = await Promise.all([
-        loadTransactions(activeWalletId || undefined, { forceRefresh: isRef }),
-        loadWallets({ forceRefresh: isRef }),
+      // Start filter-only requests in parallel, but never block the ledger UI on them.
+      const supplementalDataPromise = Promise.all([
         loadBoardingHouses({ forceRefresh: isRef }).catch(() => null),
         apiGet<any>('/rental/rooms', { forceRefresh: isRef }).catch(() => null),
         apiGet<any>('/invoices', { forceRefresh: isRef }).catch(() => null),
         apiGet<any>('/rental/contracts', { forceRefresh: isRef }).catch(() => null),
       ]);
 
+      // Transactions and wallets are the only data required for the first useful paint.
+      const [txList, walletList] = await Promise.all([
+        loadTransactions(activeWalletId || undefined, { forceRefresh: isRef }),
+        loadWallets({ forceRefresh: isRef }),
+      ]);
+
       setTransactions(txList);
       setWallets(walletList);
-      setBoardingHouses(bhList ?? []);
-      setRooms(roomsRes?.data ?? []);
-      setInvoices(invRes?.data ?? []);
-      setContracts(conRes?.data ?? []);
+      setLoading(false);
+      setRefreshing(false);
       logPerfEvent("TAB_DATA_READY_TRANSACTIONS", {
         success: true,
         itemCount: txList.length,
         wallets: walletList.length,
-        facilities: (bhList ?? []).length,
       });
       logPerfEvent("SECONDARY_DATA_READY", { tab, success: true });
+
+      // Enrich the filter sheet after the main content is already interactive.
+      const [bhList, roomsRes, invRes, conRes] = await supplementalDataPromise;
+      setBoardingHouses(bhList ?? []);
+      setRooms(roomsRes?.data ?? []);
+      setInvoices(invRes?.data ?? []);
+      setContracts(conRes?.data ?? []);
+      logPerfEvent("TRANSACTIONS_FILTER_DATA_READY", { facilities: (bhList ?? []).length });
     } catch (e: any) {
       setToast({ message: e?.message || 'Không tải được sổ quỹ.', type: 'error' });
       logPerfEvent("TAB_DATA_READY_TRANSACTIONS", { success: false, message: String(e?.message || e) });
@@ -333,40 +361,48 @@ export default function TransactionsScreen() {
     <SafeAreaView style={styles.safe}>
       <Tabs.Screen options={{ title: 'Thu/Chi', headerTitle: 'Sổ quỹ thu chi' }} />
 
-      {/* Summary card dock */}
+      {/* Financial summary aligned with Home */}
       <View style={styles.summaryBand}>
         <View style={styles.balanceRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.eyebrow}>Số dư khả dụng</Text>
-            <Text style={styles.balanceValue}>{formatMoney(totalBalance)}</Text>
+            <Text style={styles.balanceValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.66}>
+              {formatMoney(totalBalance)}
+            </Text>
             <Text style={styles.balanceMeta} numberOfLines={1}>
               {activeWalletLabel}
             </Text>
           </View>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TouchableOpacity style={styles.filterButton} onPress={() => setShowFilterModal(true)}>
-              <Ionicons name="funnel-outline" size={18} color={Colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.addButton} onPress={() => router.push('/transactions/new')}>
-              <Ionicons name="add" size={20} color={Colors.textWhite} />
-            </TouchableOpacity>
-          </View>
         </View>
 
-        <View style={styles.metricRow}>
-          <MetricCell label="Tổng thu" value={`+${formatMoney(metrics.income)}`} color={Colors.success} />
-          <MetricCell label="Tổng chi" value={`-${formatMoney(metrics.expense)}`} color={Colors.danger} />
-          <MetricCell
-            label="Chênh lệch"
-            value={`${netFlow >= 0 ? '+' : ''}${formatMoney(netFlow)}`}
-            color={netFlow >= 0 ? Colors.success : Colors.danger}
-          />
+        <View style={styles.metricSection}>
+          <View style={styles.metricRow}>
+            <MetricCell label="Tổng thu" value={`+${formatMoney(metrics.income)}`} color={Colors.success} />
+            <View style={styles.metricDivider} />
+            <MetricCell label="Tổng chi" value={`-${formatMoney(metrics.expense)}`} color={Colors.danger} />
+          </View>
+          <View style={styles.netMetricRow}>
+            <Text style={styles.netMetricLabel}>Chênh lệch kỳ này</Text>
+            <Text
+              style={[styles.netMetricValue, { color: netFlow >= 0 ? Colors.success : Colors.danger }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.82}
+            >
+              {`${netFlow >= 0 ? '+' : ''}${formatMoney(netFlow)}`}
+            </Text>
+          </View>
         </View>
       </View>
 
       {/* Scrollable active filters display bar */}
       <View style={styles.activeFiltersRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeFiltersScroll}>
+        <ScrollView
+          horizontal
+          style={styles.activeFiltersViewport}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.activeFiltersScroll}
+        >
           {typeFilter !== 'all' && (
             <View style={styles.activeChip}>
               <Text style={styles.activeChipText}>
@@ -421,6 +457,16 @@ export default function TransactionsScreen() {
             </View>
           )}
         </ScrollView>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setShowFilterModal(true)}
+          activeOpacity={0.72}
+          accessibilityRole="button"
+          accessibilityLabel="Mở bộ lọc giao dịch"
+        >
+          <Ionicons name="options-outline" size={17} color={Colors.primary} />
+          <Text style={styles.filterButtonText}>Bộ lọc</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -522,6 +568,17 @@ export default function TransactionsScreen() {
         />
       )}
 
+      <TouchableOpacity
+        style={styles.floatingAddButton}
+        onPress={() => router.push('/transactions/new')}
+        activeOpacity={0.82}
+        accessibilityRole="button"
+        accessibilityLabel="Tạo phiếu thu chi"
+      >
+        <Ionicons name="create-outline" size={19} color={Colors.textWhite} />
+        <Text style={styles.floatingAddLabel}>Ghi thu chi</Text>
+      </TouchableOpacity>
+
       {/* FILTER & SORT MODAL */}
       <Modal
         visible={showFilterModal}
@@ -596,6 +653,9 @@ export default function TransactionsScreen() {
                       onChangeText={(txt) => setCustomDate({ ...customDate, end: txt })}
                     />
                   </View>
+                  {(customDate.start && !parseIsoDate(customDate.start)) || (customDate.end && !parseIsoDate(customDate.end)) ? (
+                    <Text style={styles.dateError}>Ngày cần có định dạng YYYY-MM-DD, ví dụ 2026-07-18.</Text>
+                  ) : null}
                 </View>
               )}
 
@@ -708,7 +768,7 @@ export default function TransactionsScreen() {
                 style={styles.modalApplyBtn}
                 onPress={() => setShowFilterModal(false)}
               >
-                <Text style={styles.modalApplyBtnText}>Áp dụng</Text>
+                <Text style={styles.modalApplyBtnText}>Xong</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -778,7 +838,7 @@ export default function TransactionsScreen() {
                 <View style={styles.detailRowItem}>
                   <Text style={styles.detailItemLabel}>Thời gian</Text>
                   <Text style={[styles.detailItemValue, { flex: 1, textAlign: 'right', marginLeft: 16 }]}>
-                    {selectedTx?.date ? formatGroupDate(localDateKey(selectedTx.date)) : 'Hôm nay'}
+                    {formatDetailDate(selectedTx?.date)}
                   </Text>
                 </View>
 
@@ -794,6 +854,34 @@ export default function TransactionsScreen() {
                     <Text style={styles.detailItemLabel}>Danh mục</Text>
                     <Text style={[styles.detailItemValue, { flex: 1, textAlign: 'right', marginLeft: 16 }]} numberOfLines={2}>
                       {selectedTx.category_name}
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.detailRowItem}>
+                  <Text style={styles.detailItemLabel}>Nguồn ghi nhận</Text>
+                  <Text style={[styles.detailItemValue, { flex: 1, textAlign: 'right', marginLeft: 16 }]}>
+                    {transactionSourceLabel(selectedTx?.source)}
+                  </Text>
+                </View>
+
+                <View style={styles.detailRowItem}>
+                  <Text style={styles.detailItemLabel}>Mã giao dịch</Text>
+                  <Text
+                    style={[styles.detailItemValue, styles.detailCode]}
+                    numberOfLines={1}
+                    ellipsizeMode="middle"
+                    selectable
+                  >
+                    {selectedTx?.external_ref || selectedTx?.id || 'Không có dữ liệu'}
+                  </Text>
+                </View>
+
+                {selectedTx?.created_at ? (
+                  <View style={styles.detailRowItem}>
+                    <Text style={styles.detailItemLabel}>Thời điểm tạo</Text>
+                    <Text style={[styles.detailItemValue, { flex: 1, textAlign: 'right', marginLeft: 16 }]}>
+                      {formatDetailDate(selectedTx.created_at)}
                     </Text>
                   </View>
                 ) : null}
@@ -835,7 +923,7 @@ function MetricCell({ label, value, color }: { label: string; value: string; col
   return (
     <View style={styles.metricCell}>
       <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={[styles.metricValue, { color }]} numberOfLines={1}>
+      <Text style={[styles.metricValue, { color }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.82}>
         {value}
       </Text>
     </View>
@@ -845,10 +933,13 @@ function MetricCell({ label, value, color }: { label: string; value: string; col
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   summaryBand: {
+    marginHorizontal: 20,
+    marginTop: 16,
     backgroundColor: Colors.surface,
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    padding: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   balanceRow: {
     flexDirection: 'row',
@@ -857,15 +948,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   eyebrow: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontFamily: Typography.fontFamily.bold,
-    color: Colors.textMuted,
+    color: Colors.primary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   balanceValue: {
-    fontSize: 22,
-    fontFamily: Typography.fontFamily.bold,
+    fontSize: 28,
+    lineHeight: 36,
+    fontFamily: Typography.fontFamily.extrabold,
     color: Colors.textPrimary,
     marginTop: 2,
   },
@@ -876,56 +968,117 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   filterButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    height: 34,
+    paddingHorizontal: 11,
+    borderRadius: 9,
     backgroundColor: Colors.primaryLight,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 5,
     borderWidth: 1,
     borderColor: 'rgba(0, 113, 227, 0.12)',
   },
-  addButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+  filterButtonText: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.primary,
+  },
+  metricSection: {
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E2E8F0',
   },
   metricRow: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'stretch',
   },
   metricCell: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    minWidth: 0,
+    paddingHorizontal: 2,
+  },
+  metricDivider: {
+    width: StyleSheet.hairlineWidth,
+    marginHorizontal: 14,
+    backgroundColor: '#E2E8F0',
   },
   metricLabel: {
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: Typography.fontFamily.bold,
     color: Colors.textMuted,
     textTransform: 'uppercase',
+    letterSpacing: 0.25,
   },
   metricValue: {
-    fontSize: 12,
-    fontFamily: Typography.fontFamily.bold,
+    fontSize: 15,
+    lineHeight: 21,
+    fontFamily: Typography.fontFamily.extrabold,
     color: Colors.textPrimary,
-    marginTop: 2,
+    marginTop: 4,
+  },
+  netMetricRow: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E2E8F0',
+  },
+  netMetricLabel: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.semibold,
+    color: Colors.textSecondary,
+  },
+  netMetricValue: {
+    width: '100%',
+    textAlign: 'center',
+    fontSize: 17,
+    lineHeight: 23,
+    fontFamily: Typography.fontFamily.extrabold,
   },
   activeFiltersRow: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     backgroundColor: Colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomWidth: 0,
+  },
+  activeFiltersViewport: {
+    flex: 1,
   },
   activeFiltersScroll: {
     gap: 8,
+    alignItems: 'center',
+  },
+  floatingAddButton: {
+    position: 'absolute',
+    right: 20,
+    bottom: 18,
+    minWidth: 128,
+    height: 48,
+    paddingHorizontal: 17,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.14,
+    shadowRadius: 4,
+  },
+  floatingAddLabel: {
+    fontSize: 13,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textWhite,
+    letterSpacing: -0.15,
   },
   activeChip: {
     flexDirection: 'row',
@@ -943,10 +1096,10 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.bold,
     color: Colors.primary,
   },
-  list: { padding: 16, paddingBottom: 110, gap: 14 },
+  list: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 104, gap: 16 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
   loadingText: { fontSize: 13, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
-  emptyState: { alignItems: 'center', padding: 40, gap: 8 },
+  emptyState: { alignItems: 'center', paddingHorizontal: 30, paddingVertical: 56, gap: 8 },
   emptyTitle: { fontSize: 15, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
   emptyDesc: { fontSize: 13, fontFamily: Typography.fontFamily.regular, color: Colors.textMuted, textAlign: 'center', lineHeight: 18 },
   group: { gap: 10 },
@@ -993,13 +1146,14 @@ const styles = StyleSheet.create({
   txRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   txAmount: { fontSize: 14, fontFamily: Typography.fontFamily.bold },
   trashBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 6,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.dangerLight,
   },
+  dateError: { width: '100%', fontSize: 12, lineHeight: 17, fontFamily: Typography.fontFamily.medium, color: Colors.danger },
   separator: { height: 1, backgroundColor: Colors.borderLight, marginLeft: 56 },
   
   // MODAL STYLING
@@ -1136,7 +1290,8 @@ const styles = StyleSheet.create({
 
   // DETAIL MODAL STYLING
   detailModalContent: {
-    maxHeight: '85%',
+    height: '78%',
+    minHeight: 520,
     backgroundColor: Colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -1147,7 +1302,7 @@ const styles = StyleSheet.create({
     elevation: 20,
   },
   detailBody: {
-    flex: 1,
+    flexGrow: 1,
     padding: 20,
     alignItems: 'center',
   },
@@ -1198,6 +1353,12 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontFamily: Typography.fontFamily.bold,
     color: Colors.textPrimary,
+  },
+  detailCode: {
+    flex: 1,
+    marginLeft: 16,
+    textAlign: 'right',
+    color: Colors.textSecondary,
   },
   detailFooter: {
     flexDirection: 'row',

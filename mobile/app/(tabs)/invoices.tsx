@@ -6,7 +6,7 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ScrollView, Alert, Modal, Pressable,
+  View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, Alert, Modal, Pressable,
 } from 'react-native';
 import { useFocusEffect, useRouter, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,7 @@ import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import StatusBadge from '@/components/ui/StatusBadge';
 import EmptyState from '@/components/ui/EmptyState';
+import DataErrorState from '@/components/ui/DataErrorState';
 import { ListItemSkeleton } from '@/components/ui/Skeleton';
 import { apiGet, getAccessToken } from '@/lib/api';
 import { loadPendingBilling } from '@/lib/rentalOps';
@@ -25,8 +26,14 @@ import Config from '@/constants/Config';
 const formatMoney = (value?: number | null) =>
   `${new Intl.NumberFormat('vi-VN').format(Math.round(Number(value || 0)))} ₫`;
 
-type FilterTab = 'Tất cả' | 'Đã gửi' | 'Đã thanh toán' | 'Quá hạn' | 'Chưa gửi';
-const TABS: FilterTab[] = ['Tất cả', 'Đã gửi', 'Đã thanh toán', 'Quá hạn', 'Chưa gửi'];
+type FilterTab = 'all' | 'unpaid' | 'paid' | 'overdue' | 'draft';
+const TABS: Array<{ key: FilterTab; label: string }> = [
+  { key: 'all', label: 'Tất cả' },
+  { key: 'unpaid', label: 'Chưa thu' },
+  { key: 'paid', label: 'Đã thu' },
+  { key: 'overdue', label: 'Quá hạn' },
+  { key: 'draft', label: 'Bản nháp' },
+];
 
 function normalizeInvoiceStatus(invoice: any): string {
   const total = Math.round(Number(invoice.total_amount || 0));
@@ -62,12 +69,12 @@ function getDisplayInvoiceStatus(invoice: any, period: { month: number; year: nu
 }
 
 function matchesStatus(invoice: any, filter: FilterTab, period: { month: number; year: number }): boolean {
-  if (filter === 'Tất cả') return true;
+  if (filter === 'all') return true;
   const status = getDisplayInvoiceStatus(invoice, period);
-  if (filter === 'Đã thanh toán') return status === 'paid' || status === 'partial';
-  if (filter === 'Đã gửi') return status === 'sent' || status === 'partial';
-  if (filter === 'Quá hạn') return status === 'overdue';
-  if (filter === 'Chưa gửi') return status === 'draft';
+  if (filter === 'paid') return status === 'paid';
+  if (filter === 'unpaid') return status === 'sent' || status === 'partial';
+  if (filter === 'overdue') return status === 'overdue';
+  if (filter === 'draft') return status === 'draft';
   return false;
 }
 
@@ -76,8 +83,10 @@ export default function InvoicesScreen() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [showExportOptions, setShowExportOptions] = useState(false);
-  const [activeTab, setActiveTab] = useState<FilterTab>('Tất cả');
+  const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [pendingCount, setPendingCount] = useState(0);
   const [selectedPeriod, setSelectedPeriod] = useState(() => {
     const today = new Date();
@@ -86,7 +95,7 @@ export default function InvoicesScreen() {
 
   const exportInvoicesToExcelMobile = async (months: string, selectedPeriodLabel: string) => {
     try {
-      setLoading(true);
+      setExporting(true);
       const token = await getAccessToken();
       const headers: Record<string, string> = {};
       if (token) {
@@ -120,7 +129,7 @@ export default function InvoicesScreen() {
     } catch (err: any) {
       Alert.alert('Lỗi', `Xuất file Excel thất bại: ${err?.message || err}`);
     } finally {
-      setLoading(false);
+      setExporting(false);
     }
   };
 
@@ -144,6 +153,7 @@ export default function InvoicesScreen() {
     const tab = "invoices";
     logPerfEvent("SECONDARY_DATA_START", { tab, forceRefresh, month: selectedPeriod.month, year: selectedPeriod.year });
     try {
+      setLoadError('');
       const [res, pending] = await Promise.all([
         apiGet<any>(`/invoices?month=${selectedPeriod.month}&year=${selectedPeriod.year}&includeOverdueCarryover=true`, { forceRefresh }),
         loadPendingBilling(selectedPeriod.month, selectedPeriod.year),
@@ -155,6 +165,7 @@ export default function InvoicesScreen() {
       logPerfEvent("SECONDARY_DATA_READY", { tab, success: true });
     } catch (e: any) {
       console.error('Failed to load invoices or pending count:', e);
+      setLoadError(e?.message || 'Không thể tải danh sách hóa đơn.');
       logPerfEvent("TAB_DATA_READY_INVOICES", { success: false, message: String(e?.message || e) });
       logPerfEvent("SECONDARY_DATA_READY", { tab, success: false });
     } finally {
@@ -190,11 +201,19 @@ export default function InvoicesScreen() {
     });
   };
 
-  const filtered = useMemo(() => invoices.filter((i) => {
+  const periodInvoices = useMemo(() => invoices.filter((i) => {
     const matchPeriod = Number(i.month) === selectedPeriod.month && Number(i.year) === selectedPeriod.year;
     const carriedOverOverdue = isInvoiceBeforePeriod(i, selectedPeriod) && isInvoiceUnpaid(i);
-    return (matchPeriod || carriedOverOverdue) && matchesStatus(i, activeTab, selectedPeriod);
-  }), [invoices, selectedPeriod, activeTab]);
+    return matchPeriod || carriedOverOverdue;
+  }), [invoices, selectedPeriod]);
+  const filterCounts = useMemo(() => TABS.reduce((counts, tab) => ({
+    ...counts,
+    [tab.key]: periodInvoices.filter((invoice) => matchesStatus(invoice, tab.key, selectedPeriod)).length,
+  }), {} as Record<FilterTab, number>), [periodInvoices, selectedPeriod]);
+  const filtered = useMemo(
+    () => periodInvoices.filter((invoice) => matchesStatus(invoice, activeTab, selectedPeriod)),
+    [periodInvoices, activeTab, selectedPeriod],
+  );
   const overdueCarryCount = useMemo(
     () => invoices.filter((i) => isInvoiceBeforePeriod(i, selectedPeriod) && isInvoiceUnpaid(i)).length,
     [invoices, selectedPeriod],
@@ -204,6 +223,15 @@ export default function InvoicesScreen() {
     return (
       <View style={styles.container}>
         {[1,2,3,4,5].map(i => <ListItemSkeleton key={i} />)}
+      </View>
+    );
+  }
+
+  if (loadError && invoices.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Tabs.Screen options={{ headerShown: true, title: 'Quản lý hóa đơn' }} />
+        <DataErrorState message={loadError} onRetry={() => fetchData(true)} />
       </View>
     );
   }
@@ -236,27 +264,42 @@ export default function InvoicesScreen() {
         </View>
 
         <TouchableOpacity
-          style={styles.exportBtn}
+          style={[styles.exportBtn, exporting && styles.controlDisabled]}
           onPress={handleExcelExportOptions}
+          disabled={exporting}
           activeOpacity={0.7}
         >
-          <Ionicons name="share-outline" size={14} color={Colors.primary} />
-          <Text style={styles.exportBtnText}>Xuất Excel</Text>
+          <Ionicons name={exporting ? 'hourglass-outline' : 'share-outline'} size={14} color={Colors.primary} />
+          <Text style={styles.exportBtnText}>{exporting ? 'Đang xuất' : 'Xuất Excel'}</Text>
         </TouchableOpacity>
       </View>
 
       {/* Filter Tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabContent}>
-        {TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.tabActive]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
-          </TouchableOpacity>
+      <View style={styles.tabContent}>
+        {[TABS.slice(0, 3), TABS.slice(3)].map((row, rowIndex) => (
+          <View key={rowIndex} style={styles.tabRow}>
+            {row.map((tab) => (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+                onPress={() => setActiveTab(tab.key)}
+                accessibilityRole="tab"
+                accessibilityLabel={`${tab.label}, ${filterCounts[tab.key]} hóa đơn`}
+                accessibilityState={{ selected: activeTab === tab.key }}
+              >
+                <Text numberOfLines={1} style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+                  {tab.label}
+                </Text>
+                <View style={[styles.tabCountPill, activeTab === tab.key && styles.tabCountPillActive]}>
+                  <Text style={[styles.tabCount, activeTab === tab.key && styles.tabCountActive]}>
+                    {filterCounts[tab.key]}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
         ))}
-      </ScrollView>
+      </View>
 
       {/* Bulk Invoice Entry */}
       <TouchableOpacity
@@ -295,7 +338,7 @@ export default function InvoicesScreen() {
       {overdueCarryCount > 0 && (
         <TouchableOpacity
           style={styles.overdueBanner}
-          onPress={() => setActiveTab('Quá hạn')}
+          onPress={() => setActiveTab('overdue')}
           activeOpacity={0.8}
         >
           <View style={styles.overdueBannerIcon}>
@@ -332,7 +375,9 @@ export default function InvoicesScreen() {
           const status = getDisplayInvoiceStatus(item, selectedPeriod);
           const total = Number(item.total_amount || 0);
           const paid = Number(item.paid_amount || 0);
-          const showCollect = status === 'sent' || status === 'overdue' || status === 'partial';
+          const remainingAmount = Math.max(0, total - paid);
+          const showCollect = remainingAmount > 0
+            && (status === 'sent' || status === 'overdue' || status === 'partial');
           const carriedOverOverdue = isInvoiceBeforePeriod(item, selectedPeriod) && isInvoiceUnpaid(item);
           const periodOverdue = !carriedOverOverdue && isInvoiceBeforeCurrentMonth(item) && isInvoiceUnpaid(item);
 
@@ -343,8 +388,8 @@ export default function InvoicesScreen() {
               activeOpacity={0.7}
             >
               <View style={{ flex: 1 }}>
-                <Text style={styles.roomName}>{item.room_name || 'Phòng'}</Text>
-                <Text style={styles.meta}>
+                <Text numberOfLines={1} style={styles.roomName}>{item.room_name || 'Phòng'}</Text>
+                <Text numberOfLines={1} style={styles.meta}>
                   T{item.month}/{item.year} · {item.tenant_name || 'Khách thuê'}
                 </Text>
                 {carriedOverOverdue ? (
@@ -358,7 +403,9 @@ export default function InvoicesScreen() {
                 ) : null}
               </View>
               <View style={styles.rightCol}>
-                <Text style={styles.amount}>{formatMoney(total)}</Text>
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={styles.amount}>
+                  {formatMoney(total)}
+                </Text>
                 <View style={styles.actionsRow}>
                   <StatusBadge status={status} type="invoice" />
                   {showCollect && (
@@ -447,6 +494,7 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.bold,
     color: Colors.primary,
   },
+  controlDisabled: { opacity: 0.55 },
   periodArrow: {
     width: 34,
     height: 34,
@@ -464,14 +512,28 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.bold,
     color: Colors.textPrimary,
   },
-  tabScroll: { maxHeight: 50, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  tabContent: { paddingHorizontal: 16, gap: 6, alignItems: 'center', paddingVertical: 8 },
+  tabContent: {
+    gap: 7,
+    paddingHorizontal: 16, paddingVertical: 9,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1, borderBottomColor: Colors.borderLight,
+  },
+  tabRow: { flexDirection: 'row', gap: 7 },
   tab: {
-    paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20,
+    flex: 1, minWidth: 0, minHeight: 38,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    paddingHorizontal: 8, paddingVertical: 8, borderRadius: 10,
     backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: 'transparent',
   },
   tabActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
-  tabText: { fontSize: 13, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  tabText: { flexShrink: 1, fontSize: 12, fontFamily: Typography.fontFamily.semibold, color: Colors.textSecondary },
+  tabCountPill: {
+    minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: '#E2E8F0',
+  },
+  tabCountPillActive: { backgroundColor: Colors.primary },
+  tabCount: { fontSize: 10, fontFamily: Typography.fontFamily.bold, color: Colors.textSecondary },
+  tabCountActive: { color: Colors.textWhite },
   tabTextActive: { color: Colors.primary },
   list: { padding: 16, gap: 8, paddingBottom: 32 },
   invoiceRow: {
@@ -491,9 +553,9 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.semibold,
     color: Colors.danger,
   },
-  rightCol: { alignItems: 'flex-end', gap: 6 },
+  rightCol: { alignItems: 'flex-end', gap: 6, maxWidth: '48%', flexShrink: 1 },
   amount: { fontSize: 14, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary, letterSpacing: -0.3 },
-  actionsRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center', justifyContent: 'flex-end' },
   collectBtn: {
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
     backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: Colors.primaryAlpha20,

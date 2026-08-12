@@ -117,29 +117,25 @@ export default function TabLayout() {
         tabBarActiveTintColor: Colors.primary, // Brand royal blue
         tabBarInactiveTintColor: Colors.textMuted,
         tabBarLabelStyle: {
-          fontFamily: Typography.fontFamily.bold,
-          fontSize: 9.5,
-          letterSpacing: -0.1,
-          marginTop: 0,
+          fontFamily: Typography.fontFamily.semibold,
+          fontSize: 10,
+          lineHeight: 14,
+          letterSpacing: 0,
+          marginTop: 2,
         },
         tabBarItemStyle: styles.tabBarItem,
         tabBarStyle: {
-          position: 'absolute',
-          bottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 10) : 10,
-          left: 10,
-          right: 10,
-          backgroundColor: Colors.surface, // Pure white porcelain dock
-          borderRadius: 20,
-          borderWidth: 1,
-          borderColor: Colors.borderLight,
-          height: 62,
-          paddingBottom: 6,
-          paddingTop: 6,
-          shadowColor: Colors.primary, // Ethereal blue shadow glow!
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.1,
-          shadowRadius: 14,
-          elevation: 8,
+          backgroundColor: Colors.surface,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: '#DDE3EA',
+          height: 64 + Math.max(insets.bottom, Platform.OS === 'ios' ? 6 : 10),
+          paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 6 : 10),
+          paddingTop: 7,
+          shadowColor: '#0F172A',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.04,
+          shadowRadius: 6,
+          elevation: 6,
         },
       }}
     >
@@ -158,11 +154,13 @@ export default function TabLayout() {
         name="facilities"
         options={{
           title: 'Phòng',
-          headerTitle: 'Danh sách dãy trọ & phòng',
+          headerTitle: 'Phòng',
           headerRight: () => (
             <TouchableOpacity
               onPress={() => router.push('/facility/new')}
-              style={{ width: 36, height: 36, marginRight: 16, alignItems: 'center', justifyContent: 'center' }}
+              accessibilityRole="button"
+              accessibilityLabel="Thêm dãy trọ"
+              style={{ width: 44, height: 44, marginRight: 12, alignItems: 'center', justifyContent: 'center' }}
               activeOpacity={0.72}
             >
               <Ionicons name="add-circle" size={24} color={Colors.primary} />
@@ -183,7 +181,7 @@ export default function TabLayout() {
         name="transactions"
         options={{
           title: 'Thu/Chi',
-          headerTitle: 'Sổ quỹ thu chi',
+          headerTitle: 'Thu/Chi',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="receipt-outline" color={color} focused={focused} />
           ),
@@ -199,7 +197,7 @@ export default function TabLayout() {
         name="reports"
         options={{
           title: 'Báo cáo',
-          headerTitle: 'Báo cáo quản lý',
+          headerTitle: 'Báo cáo',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="stats-chart-outline" color={color} focused={focused} />
           ),
@@ -209,7 +207,7 @@ export default function TabLayout() {
         name="settings"
         options={{
           title: 'Tài khoản',
-          headerTitle: 'Cài đặt tài khoản',
+          headerTitle: 'Tài khoản',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="settings-outline" color={color} focused={focused} />
           ),
@@ -224,14 +222,14 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   tabIconShell: {
-    width: 38,
-    height: 28,
-    borderRadius: 14,
+    width: 44,
+    height: 30,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tabIconShellActive: {
-    backgroundColor: Colors.primaryAlpha20,
+    backgroundColor: '#EAF3FF',
   },
   headerNotificationButton: {
     width: 40,

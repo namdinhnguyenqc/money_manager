@@ -14,8 +14,11 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 let GoogleSignin: any = null;
+let GoogleStatusCodes: Record<string, string> = {};
 try {
-  GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
+  const googleSigninModule = require('@react-native-google-signin/google-signin');
+  GoogleSignin = googleSigninModule.GoogleSignin;
+  GoogleStatusCodes = googleSigninModule.statusCodes || {};
 } catch (e) {
   console.warn('Google Sign-In native module not available.');
 }
@@ -27,6 +30,32 @@ import { useAuthStore } from '@/store/authStore';
 import { getProfileCompleted, isDashboardReady, isPendingApproval, loginWithGoogle } from '@/lib/auth';
 import { apiGet } from '@/lib/api';
 import { finishLoginTimeline, markLoginTimeline, resetLoginTimeline } from '@/lib/telemetry/loginTimeline';
+
+function getGoogleLoginErrorMessage(error: any): string {
+  const code = String(error?.code || '').toUpperCase();
+  const rawMessage = String(error?.message || '');
+
+  if (code === String(GoogleStatusCodes.PLAY_SERVICES_NOT_AVAILABLE || '').toUpperCase()) {
+    return 'Google Play Services chưa sẵn sàng. Vui lòng cập nhật Google Play Services rồi thử lại.';
+  }
+  if (code === String(GoogleStatusCodes.IN_PROGRESS || '').toUpperCase()) {
+    return 'Một phiên đăng nhập Google đang chạy. Vui lòng chờ vài giây rồi thử lại.';
+  }
+  if (code === '10' || code.includes('DEVELOPER_ERROR') || rawMessage.includes('DEVELOPER_ERROR')) {
+    return 'Bản ứng dụng chưa được Google xác thực đúng. Vui lòng cập nhật TrọCare lên bản mới nhất.';
+  }
+  if (code === '8' || code.includes('INTERNAL_ERROR') || rawMessage.includes('INTERNAL_ERROR')) {
+    return 'Google trên thiết bị đang gặp sự cố. Hãy kiểm tra tài khoản Google, cập nhật Google Play Services rồi thử lại.';
+  }
+  if (code === 'NETWORK_ERROR' || rawMessage.toLowerCase().includes('network')) {
+    return 'Không thể kết nối Google. Vui lòng kiểm tra mạng rồi thử lại.';
+  }
+  if (error?.code === 'NETWORK_TIMEOUT' || rawMessage.includes('timed out')) {
+    return 'Máy chủ đang khởi động hoặc mạng chậm. Vui lòng bấm đăng nhập lại sau vài giây.';
+  }
+
+  return 'Không thể đăng nhập bằng Google lúc này. Vui lòng thử lại.';
+}
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -100,10 +129,8 @@ export default function LoginScreen() {
       finishLoginTimeline({ success: true, provider: "google" });
     } catch (error: any) {
       finishLoginTimeline({ success: false, provider: "google", message: String(error?.message || error) });
-      const message = error?.code === 'NETWORK_TIMEOUT' || String(error?.message || '').includes('timed out')
-        ? 'Máy chủ đang khởi động hoặc mạng chậm. Vui lòng bấm đăng nhập lại sau vài giây.'
-        : error?.message || 'Không thể đăng nhập bằng Google. Vui lòng thử lại.';
-      Alert.alert('Đăng nhập thất bại', message);
+      Alert.alert('Chưa thể đăng nhập', getGoogleLoginErrorMessage(error));
+    } finally {
       setLoading(false);
     }
   };
