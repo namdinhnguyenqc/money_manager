@@ -315,7 +315,7 @@ export default function OwnerDashboard() {
               Xem chi tiết <ChevronRight size={14} />
             </span>
           </Link>
-        ) : summary ? <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm font-bold text-emerald-800"><CheckCircle2 size={18} /> Không có cảnh báo công nợ quan trọng trong tháng này</div> : null}
+        ) : null}
 
         {/* ── SECTION A: KPI OVERVIEW (4 CARDS) ── */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 sm:gap-4">
