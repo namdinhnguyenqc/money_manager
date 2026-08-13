@@ -5,6 +5,7 @@ import { requireAuth } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { parseJson, toId } from "../utils/validation.js";
 import { updateWalletBalance } from "../utils/wallet.js";
+import { invalidateCache } from "../middleware/cache.js";
 
 const transactionsRoutes = new Hono<AppEnv>();
 
@@ -135,6 +136,8 @@ transactionsRoutes.post("/", async (c) => {
 
   // Cập nhật số dư ví
   await updateWalletBalance(db, parsed.data.walletId, parsed.data.amount, parsed.data.type);
+  invalidateCache("/owner/dashboard-init", user.id);
+  invalidateCache("/owner/cashflow-summary", user.id);
 
   const formatted = data ? { ...data, walletId: data.wallet_id, categoryId: data.category_id, invoiceId: data.invoice_id, imageUri: data.image_uri } : data;
   return c.json({ data: formatted }, 201);
@@ -172,6 +175,8 @@ transactionsRoutes.patch("/:id", async (c) => {
     .single();
 
   if (error) return c.json({ error: error.message }, 400);
+  invalidateCache("/owner/dashboard-init", user.id);
+  invalidateCache("/owner/cashflow-summary", user.id);
   const formatted = data ? { ...data, walletId: data.wallet_id, categoryId: data.category_id, invoiceId: data.invoice_id, imageUri: data.image_uri } : data;
   return c.json({ data: formatted });
 });
@@ -213,6 +218,8 @@ transactionsRoutes.delete("/:id", async (c) => {
   // Nếu là thu (income) thì phải trừ (expense), nếu là chi (expense) thì phải cộng (income)
   const reverseType = tx.type === "income" ? "expense" : "income";
   await updateWalletBalance(db, tx.wallet_id, tx.amount, reverseType);
+  invalidateCache("/owner/dashboard-init", user.id);
+  invalidateCache("/owner/cashflow-summary", user.id);
 
   return c.json({ ok: true });
 });

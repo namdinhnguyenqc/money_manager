@@ -116,8 +116,9 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
 // Mirrors the client-side heuristic in dashboard/page.tsx's isDepositTransaction —
 // deposit-tagged transactions are excluded from income/expense so they don't
 // double-count against invoice-driven revenue figures.
-const isDepositTransactionRow = (t: { categories?: { name?: string | null }[] | null; description?: string | null }) => {
-  const category = String(t.categories?.[0]?.name || "").toLowerCase();
+const isDepositTransactionRow = (t: { categories?: { name?: string | null }[] | { name?: string | null } | null; description?: string | null }) => {
+  const categoryRow = Array.isArray(t.categories) ? t.categories[0] : t.categories;
+  const category = String(categoryRow?.name || "").toLowerCase();
   const desc = String(t.description || "").toLowerCase();
   return (
     category.includes("cọc") ||
@@ -126,6 +127,61 @@ const isDepositTransactionRow = (t: { categories?: { name?: string | null }[] | 
     desc.includes("cọc phòng") ||
     desc.includes("deposit")
   );
+};
+
+type RevenueComposition = { rent: number; electricity: number; water: number; other: number };
+const emptyRevenueComposition = (): RevenueComposition => ({ rent: 0, electricity: 0, water: 0, other: 0 });
+
+const parseLocalDate = (value: string) => {
+  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
+  return new Date(year, Math.max(0, month - 1), day || 1);
+};
+
+const addInvoicePaymentComposition = (
+  target: RevenueComposition,
+  transaction: any,
+  invoice: any | undefined,
+  items: any[],
+) => {
+  const received = Number(transaction.amount || 0);
+  if (received <= 0) return;
+
+  if (!invoice) {
+    const categoryRow = Array.isArray(transaction.categories) ? transaction.categories[0] : transaction.categories;
+    const label = `${transaction.description || ""} ${categoryRow?.name || ""}`.toLowerCase();
+    if (label.includes("tiền phòng") || label.includes("thu tiền phòng")) target.rent += received;
+    else if (label.includes("điện")) target.electricity += received;
+    else if (label.includes("nước")) target.water += received;
+    else target.other += received;
+    return;
+  }
+
+  // Invoice payments are allocated proportionally to the invoice lines. This
+  // keeps this card on the same cash basis as the cash-flow chart, including
+  // partial payments, rather than reporting unpaid invoices as revenue.
+  const total = Number(invoice.total_amount || 0);
+  if (total <= 0) { target.other += received; return; }
+  const allocated = Math.min(received, Number(transaction.metadata?.allocated_amount ?? received));
+  const ratio = Math.min(1, allocated / total);
+  const roomFee = Math.max(0, Number(invoice.room_fee || 0));
+  target.rent += roomFee * ratio;
+
+  let itemTotal = 0;
+  for (const item of items) {
+    const amount = Math.max(0, Number(item.amount || 0));
+    itemTotal += amount;
+    const name = String(item.name || "").toLowerCase();
+    if (name.includes("điện") || name.includes("electric")) target.electricity += amount * ratio;
+    else if (name.includes("nước") || name.includes("water")) target.water += amount * ratio;
+    else target.other += amount * ratio;
+  }
+
+  // Previous debt or legacy lines without an item are still money received,
+  // but do not belong to rent/electricity/water.
+  const uncovered = Math.max(0, total - roomFee - itemTotal);
+  target.other += uncovered * ratio;
+  // Preserve overpayments in cashflow and revenue composition as other income.
+  if (received > allocated) target.other += received - allocated;
 };
 
 // Aggregated monthly income/expense for the dashboard cash-flow chart.
@@ -145,32 +201,155 @@ ownerRoutes.get("/cashflow-summary", cacheMiddleware(60), async (c) => {
 
   const { data, error } = await supabase
     .from("transactions")
-    .select("type, amount, date, description, categories(name)")
+    .select("type, amount, date, description, invoice_id, metadata, categories(name)")
     .eq("user_id", currentUser.id)
     .gte("date", rangeStart.toISOString().slice(0, 10))
     .limit(5000);
 
   if (error) return c.json({ error: error.message }, 500);
 
-  const buckets = new Map<string, { month: number; year: number; income: number; expense: number }>();
+  const buckets = new Map<string, { month: number; year: number; income: number; expense: number; composition: RevenueComposition }>();
   for (let i = 0; i < months; i++) {
     const d = new Date(rangeStart.getFullYear(), rangeStart.getMonth() + i, 1);
-    buckets.set(`${d.getFullYear()}-${d.getMonth()}`, { month: d.getMonth() + 1, year: d.getFullYear(), income: 0, expense: 0 });
+    buckets.set(`${d.getFullYear()}-${d.getMonth()}`, { month: d.getMonth() + 1, year: d.getFullYear(), income: 0, expense: 0, composition: emptyRevenueComposition() });
+  }
+
+  const invoiceIds = [...new Set((data || []).map((row: any) => row.invoice_id).filter(Boolean))];
+  const [invoicesRes, itemsRes] = invoiceIds.length
+    ? await Promise.all([
+      supabase.from("invoices").select("id, room_fee, total_amount").eq("user_id", currentUser.id).in("id", invoiceIds),
+      supabase.from("invoice_items").select("invoice_id, name, amount").eq("user_id", currentUser.id).in("invoice_id", invoiceIds),
+    ])
+    : [{ data: [], error: null }, { data: [], error: null }];
+  if (invoicesRes.error || itemsRes.error) return c.json({ error: invoicesRes.error?.message || itemsRes.error?.message }, 500);
+
+  const invoicesById = new Map((invoicesRes.data || []).map((invoice: any) => [String(invoice.id), invoice]));
+  const itemsByInvoiceId = new Map<string, any[]>();
+  for (const item of itemsRes.data || []) {
+    const key = String((item as any).invoice_id);
+    itemsByInvoiceId.set(key, [...(itemsByInvoiceId.get(key) || []), item]);
   }
 
   for (const row of data || []) {
     if (isDepositTransactionRow(row)) continue;
-    const d = new Date(row.date);
+    const d = parseLocalDate(row.date);
     const key = `${d.getFullYear()}-${d.getMonth()}`;
     const bucket = buckets.get(key);
     if (!bucket) continue;
     const amount = Number(row.amount || 0);
-    if (row.type === "income") bucket.income += amount;
+    if (row.type === "income") {
+      bucket.income += amount;
+      addInvoicePaymentComposition(bucket.composition, row, invoicesById.get(String((row as any).invoice_id)), itemsByInvoiceId.get(String((row as any).invoice_id)) || []);
+    }
     else if (row.type === "expense") bucket.expense += amount;
   }
 
   const result = Array.from(buckets.values()).map((b) => ({ ...b, profit: b.income - b.expense }));
   return c.json({ months: result });
+});
+
+// One source of truth for the owner dashboard. Monetary labels deliberately
+// remain distinct: billed revenue is invoice value, collected cash is posted
+// income, and profit is billed revenue minus recorded expense.
+ownerRoutes.get("/dashboard-summary", cacheMiddleware(30), async (c) => {
+  const user = c.get("user");
+  const db = c.get("supabase");
+  const now = new Date();
+  const month = Math.min(12, Math.max(1, Number(c.req.query("month") || now.getMonth() + 1)));
+  const year = Math.min(2100, Math.max(2000, Number(c.req.query("year") || now.getFullYear())));
+  const facilityId = c.req.query("facilityId") || null;
+  const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+  const monthEnd = new Date(year, month, 0).toISOString().slice(0, 10);
+
+  const [housesRes, roomsRes, invoicesRes, txRes, contractsRes] = await Promise.all([
+    db.from("boarding_houses").select("id, name").eq("owner_id", user.id).order("name"),
+    db.from("rooms").select("id, name, status, price, boarding_house_id").eq("user_id", user.id),
+    db.from("invoices").select("id, room_id, total_amount, paid_amount, due_date, status").eq("user_id", user.id).eq("month", month).eq("year", year),
+    db.from("transactions").select("id, type, amount, date, description, invoice_id, contract_id, categories(name)").eq("user_id", user.id).gte("date", monthStart).lte("date", monthEnd).limit(5000),
+    db.from("contracts").select("id, room_id, end_date, status").eq("user_id", user.id),
+  ]);
+  const firstError = housesRes.error || roomsRes.error || invoicesRes.error || txRes.error || contractsRes.error;
+  if (firstError) return c.json({ error: firstError.message }, 500);
+
+  const houses = housesRes.data || [];
+  const rooms = (roomsRes.data || []).filter((room: any) => !facilityId || String(room.boarding_house_id) === facilityId);
+  const roomIds = new Set(rooms.map((room: any) => String(room.id)));
+  const invoices = (invoicesRes.data || []).filter((invoice: any) => roomIds.has(String(invoice.room_id)));
+  // Payments can arrive in this month for an invoice issued in a prior month.
+  // Fetch only the invoice ids referenced by the month's transactions so cash
+  // collection remains date-correct without loading the full invoice history.
+  const paymentInvoiceIds = [...new Set((txRes.data || []).map((tx: any) => tx.invoice_id).filter(Boolean))];
+  const paymentInvoicesRes = paymentInvoiceIds.length
+    ? await db.from("invoices").select("id, room_id").eq("user_id", user.id).in("id", paymentInvoiceIds)
+    : { data: [], error: null };
+  if (paymentInvoicesRes.error) return c.json({ error: paymentInvoicesRes.error.message }, 500);
+  const invoiceById = new Map([...(invoices as any[]), ...(paymentInvoicesRes.data || [])].map((invoice: any) => [String(invoice.id), invoice]));
+  const contractRoomById = new Map((contractsRes.data || []).map((contract: any) => [String(contract.id), String(contract.room_id)]));
+  const inScopeTransaction = (tx: any) => {
+    const invoice = tx.invoice_id ? invoiceById.get(String(tx.invoice_id)) : null;
+    if (invoice) return roomIds.has(String(invoice.room_id));
+    // Contract-linked expenses/income can be scoped to a facility. General
+    // ledger entries have no facility field and therefore stay global only.
+    if (tx.contract_id) return roomIds.has(String(contractRoomById.get(String(tx.contract_id))));
+    return !facilityId;
+  };
+  const txs = (txRes.data || []).filter((tx: any) => !isDepositTransactionRow(tx) && inScopeTransaction(tx));
+
+  const today = new Date().toISOString().slice(0, 10);
+  const blank = () => ({ billed: 0, collected: 0, receivable: 0, overdue: 0, notDue: 0, expense: 0, overdueCount: 0, overdueDaysTotal: 0 });
+  const totals = blank();
+  for (const invoice of invoices) {
+    const billed = Number((invoice as any).total_amount || 0);
+    const paid = Math.min(billed, Number((invoice as any).paid_amount || 0));
+    const remaining = Math.max(0, billed - paid);
+    totals.billed += billed;
+    totals.receivable += remaining;
+    if (remaining > 0) {
+      const dueDate = String((invoice as any).due_date || monthEnd);
+      if (today > dueDate) {
+        totals.overdue += remaining;
+        totals.overdueCount += 1;
+        totals.overdueDaysTotal += Math.max(0, Math.floor((Date.parse(today) - Date.parse(dueDate)) / 86_400_000));
+      } else totals.notDue += remaining;
+    }
+  }
+  const expenseByCategory = new Map<string, number>();
+  for (const tx of txs) {
+    const amount = Number((tx as any).amount || 0);
+    if ((tx as any).type === "income") totals.collected += amount;
+    if ((tx as any).type === "expense") {
+      totals.expense += amount;
+      const categoryRow = Array.isArray((tx as any).categories) ? (tx as any).categories[0] : (tx as any).categories;
+      const label = String(categoryRow?.name || "Khác");
+      expenseByCategory.set(label, (expenseByCategory.get(label) || 0) + amount);
+    }
+  }
+  const profit = totals.billed - totals.expense;
+  const occupancy = {
+    total: rooms.length,
+    occupied: rooms.filter((room: any) => String(room.status).toLowerCase() === "occupied").length,
+    vacant: rooms.filter((room: any) => ["vacant", "available"].includes(String(room.status).toLowerCase())).length,
+    maintenance: rooms.filter((room: any) => String(room.status).toLowerCase() === "maintenance").length,
+    expiringContracts: (contractsRes.data || []).filter((contract: any) => contract.status === "active" && roomIds.has(String(contract.room_id)) && contract.end_date && contract.end_date >= today && contract.end_date <= new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10)).length,
+  };
+  const byFacility = houses.map((house: any) => {
+    const houseRooms = (roomsRes.data || []).filter((room: any) => String(room.boarding_house_id) === String(house.id));
+    const houseRoomIds = new Set(houseRooms.map((room: any) => String(room.id)));
+    const houseInvoices = (invoicesRes.data || []).filter((invoice: any) => houseRoomIds.has(String(invoice.room_id)));
+    const billed = houseInvoices.reduce((sum: number, invoice: any) => sum + Number(invoice.total_amount || 0), 0);
+    const receivable = houseInvoices.reduce((sum: number, invoice: any) => sum + Math.max(0, Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0)), 0);
+    const overdue = houseInvoices.reduce((sum: number, invoice: any) => sum + (Math.max(0, Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0)) > 0 && today > String(invoice.due_date || monthEnd) ? Math.max(0, Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0)) : 0), 0);
+    const collected = (txRes.data || []).filter((tx: any) => tx.type === "income" && !isDepositTransactionRow(tx) && houseRoomIds.has(String(invoiceById.get(String(tx.invoice_id))?.room_id))).reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
+    const occupied = houseRooms.filter((room: any) => String(room.status).toLowerCase() === "occupied").length;
+    return { id: house.id, name: house.name, occupancyRate: houseRooms.length ? Math.round((occupied / houseRooms.length) * 100) : 0, collectedRate: billed ? Math.round((collected / billed) * 100) : 0, overdue, receivable, billed, collected, roomCount: houseRooms.length, occupied };
+  });
+
+  return c.json({
+    period: { month, year }, facilities: houses, scope: { facilityId },
+    totals: { ...totals, profit, margin: totals.billed > 0 ? profit / totals.billed : 0, netCashflow: totals.collected - totals.expense, collectionRate: totals.billed > 0 ? totals.collected / totals.billed : 0, averageOverdueDays: totals.overdueCount ? Math.round(totals.overdueDaysTotal / totals.overdueCount) : 0 },
+    occupancy, facilitiesPerformance: byFacility.sort((a, b) => b.overdue - a.overdue || a.collectedRate - b.collectedRate),
+    expenseComposition: [...expenseByCategory.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, amount]) => ({ name, amount })),
+  });
 });
 
 const boardingHouseSchema = z.object({
