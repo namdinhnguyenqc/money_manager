@@ -10,9 +10,10 @@ import {
 } from 'lucide-react';
 import { formatMoney, normalizeRoomStatus } from '@/lib/rentalOps';
 import RBACGuard from '@/components/RBACGuard';
-import { useOwnerDashboardInit, useOwnerCashflowSummary, OwnerDashboardInit } from '@/hooks/useOwnerData';
+import { useOwnerDashboardInit, useOwnerCashflowSummary, useOwnerDashboardSummary, OwnerDashboardInit } from '@/hooks/useOwnerData';
 import OwnerOnboardingGuide from '@/components/owner/OwnerOnboardingGuide';
 import PageHeader from '@/components/ui/PageHeader';
+import { getStoredSessionUser } from '@/utils/session';
 
 const MONTH_NAMES = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
 
@@ -20,12 +21,20 @@ export default function OwnerDashboard() {
   const dashboardQuery = useOwnerDashboardInit();
   const [slowLoad, setSlowLoad] = useState(false);
   const [chartMonths, setChartMonths] = useState(12);
+  const [facilityId, setFacilityId] = useState<string | null>(null);
 
-  // Client-side cache (SWR) to load dashboard instantly (0ms) on fresh login or refresh
+  // Keep the fast first paint, but never let one owner's cached figures appear
+  // in another owner's dashboard on a shared browser.
+  const dashboardCacheKey = useMemo(() => {
+    const user = getStoredSessionUser();
+    return `owner_dashboard_cache:${String(user.email || 'anonymous').trim().toLowerCase()}`;
+  }, []);
   const [cachedData, setCachedData] = useState<OwnerDashboardInit | null>(() => {
     if (typeof window !== "undefined") {
       try {
-        const saved = localStorage.getItem("owner_dashboard_cache");
+        const user = getStoredSessionUser();
+        const cacheKey = `owner_dashboard_cache:${String(user.email || 'anonymous').trim().toLowerCase()}`;
+        const saved = localStorage.getItem(cacheKey);
         return saved ? JSON.parse(saved) : null;
       } catch {
         return null;
@@ -38,13 +47,13 @@ export default function OwnerDashboard() {
   React.useEffect(() => {
     if (dashboardQuery.data) {
       try {
-        localStorage.setItem("owner_dashboard_cache", JSON.stringify(dashboardQuery.data));
+        localStorage.setItem(dashboardCacheKey, JSON.stringify(dashboardQuery.data));
         setCachedData(dashboardQuery.data);
       } catch (e) {
         console.error("Failed to save dashboard cache:", e);
       }
     }
-  }, [dashboardQuery.data]);
+  }, [dashboardCacheKey, dashboardQuery.data]);
 
   const activeData = dashboardQuery.data ?? cachedData;
 
@@ -57,6 +66,8 @@ export default function OwnerDashboard() {
 
   // State to support review of different months
   const [selectedPeriod, setSelectedPeriod] = useState({ month: curM + 1, year: curY });
+  const summaryQuery = useOwnerDashboardSummary(selectedPeriod.month, selectedPeriod.year, facilityId);
+  const summary = summaryQuery.data;
 
   React.useEffect(() => {
     if (!dashboardQuery.isLoading) { setSlowLoad(false); return; }
@@ -130,47 +141,23 @@ export default function OwnerDashboard() {
     return invoices.filter(inv => inv.month === selectedPeriod.month && inv.year === selectedPeriod.year);
   }, [invoices, selectedPeriod]);
 
-  // Utility breakdown from invoices
+  // Revenue composition and cash-flow use the same source of truth: actual
+  // transactions posted in the selected period. The API allocates an invoice
+  // payment proportionally across rent and services, including partial payments.
   const utilities = useMemo(() => {
-    let rent = 0, electricity = 0, water = 0, other = 0;
-    for (const inv of thisMonthInvoices) {
-      rent += inv.room_fee ?? 0;
-      const items = (inv as any).items ?? [];
-      for (const item of items) {
-        const name = String(item.name || '').toLowerCase();
-        if (name.includes('điện') || name.includes('electric')) electricity += item.amount;
-        else if (name.includes('nước') || name.includes('water')) water += item.amount;
-        else other += item.amount;
-      }
-    }
-    // Fallback to transactions if invoices items not available
-    if (electricity === 0 && water === 0) {
-      for (const tx of transactions) {
-        if (tx.type !== 'income') continue;
-        const d = new Date(tx.date);
-        if (d.getMonth() !== (selectedPeriod.month - 1) || d.getFullYear() !== selectedPeriod.year) continue;
-        const text = [tx.description, (tx as any).category_name].join(' ').toLowerCase();
-        const amt = Math.abs(Number(tx.amount || 0));
-        if (text.includes('điện') || text.includes('electric')) electricity += amt;
-        else if (text.includes('nước') || text.includes('water')) water += amt;
-        else if (text.includes('phòng') || text.includes('room')) rent += amt;
-        else other += amt;
-      }
-    }
+    const composition = findBucket(selectedPeriod.month, selectedPeriod.year)?.composition;
+    const rent = Number(composition?.rent || 0);
+    const electricity = Number(composition?.electricity || 0);
+    const water = Number(composition?.water || 0);
+    const other = Number(composition?.other || 0);
     const total = rent + electricity + water + other;
     return { rent, electricity, water, other, total };
-  }, [thisMonthInvoices, transactions, selectedPeriod]);
+  }, [findBucket, selectedPeriod]);
 
   // Rent potential
   const actualRent = useMemo(() => {
-    const invoiceRent = thisMonthInvoices.reduce((sum, inv) => sum + Number(inv.room_fee || 0), 0);
-    if (invoiceRent > 0) return invoiceRent;
-    const currentOccupiedRent = rooms
-      .filter(r => normalizeRoomStatus(r) === 'occupied')
-      .reduce((sum, r) => sum + Number(r.price || 0), 0);
-    if (currentOccupiedRent > 0) return currentOccupiedRent;
-    return utilities.rent || 0;
-  }, [thisMonthInvoices, rooms, utilities.rent]);
+    return utilities.rent;
+  }, [utilities.rent]);
 
   const revParValue = useMemo(() => {
     return rooms.length > 0 ? Math.round(actualRent / rooms.length) : 0;
@@ -178,6 +165,9 @@ export default function OwnerDashboard() {
 
   // Donut/Collection Data
   const collectionChartData = useMemo(() => {
+    if (summary) {
+      return { billed: summary.totals.billed, paid: summary.totals.collected, unpaid: summary.totals.receivable, rate: Math.round(summary.totals.collectionRate * 100) };
+    }
     let billed = 0, paid = 0;
     for (const inv of thisMonthInvoices) {
       billed += Math.round(Number(inv.total_amount || 0));
@@ -186,7 +176,7 @@ export default function OwnerDashboard() {
     const unpaid = Math.max(0, billed - paid);
     const rate = billed > 0 ? Math.round((paid / billed) * 100) : 0;
     return { billed, paid, unpaid, rate };
-  }, [thisMonthInvoices]);
+  }, [summary, thisMonthInvoices]);
 
   const overdueInvoices = useMemo(() => {
     const cm = curM + 1, cy = curY;
@@ -261,6 +251,16 @@ export default function OwnerDashboard() {
           description={`Thống kê hiệu suất nhà trọ kỳ T${selectedPeriod.month}/${selectedPeriod.year}`}
           actions={
             <div className="flex flex-wrap items-center gap-2">
+              <label className="sr-only" htmlFor="dashboard-facility">Phạm vi quản lý</label>
+              <select
+                id="dashboard-facility"
+                value={facilityId || ""}
+                onChange={(event) => setFacilityId(event.target.value || null)}
+                className="h-9 max-w-[190px] rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="">Toàn bộ nhà trọ</option>
+                {(summary?.facilities || []).map((facility) => <option key={facility.id} value={facility.id}>{facility.name}</option>)}
+              </select>
               <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-xs">
                 <button
                   type="button"
@@ -302,103 +302,82 @@ export default function OwnerDashboard() {
         <OwnerOnboardingGuide />
 
         {/* ── OVERDUE ALERT BANNER ── */}
-        {overdueInvoices.length > 0 && (
+        {summary?.totals.overdueCount ? (
           <Link href="/invoices?filter=Quá+hạn" className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 transition hover:bg-amber-100/80 active:scale-[0.99] shadow-xs">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-xs">
               <AlertCircle size={18} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs sm:text-sm font-extrabold text-amber-900">{overdueInvoices.length} hóa đơn đang chờ thanh toán / quá hạn</div>
-              <div className="text-xs text-amber-700 font-medium mt-0.5">Tổng nợ đọng cần thu: <span className="font-bold">{formatMoney(overdueAmount)}</span></div>
+              <div className="text-xs sm:text-sm font-extrabold text-amber-900">{summary.totals.overdueCount} hóa đơn đã quá hạn</div>
+              <div className="text-xs text-amber-700 font-medium mt-0.5">{formatMoney(summary.totals.overdue)} · trễ trung bình {summary.totals.averageOverdueDays} ngày</div>
             </div>
             <span className="hidden sm:inline-flex items-center gap-1 text-xs font-bold text-amber-800 bg-white/80 border border-amber-200 px-3 py-1.5 rounded-xl shrink-0">
               Xem chi tiết <ChevronRight size={14} />
             </span>
           </Link>
-        )}
+        ) : summary ? <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm font-bold text-emerald-800"><CheckCircle2 size={18} /> Không có cảnh báo công nợ quan trọng trong tháng này</div> : null}
 
         {/* ── SECTION A: KPI OVERVIEW (4 CARDS) ── */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 sm:gap-4">
           
-          {/* Card 1: Đã thu tháng này */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-slate-300">
             <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Đã thu tháng này</span>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Doanh thu phát sinh</span>
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shrink-0">
                 <TrendingUp size={16} />
               </div>
             </div>
             <div className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-none">
-              {formatMoney(collectionChartData.paid)}
+              {formatMoney(summary?.totals.billed ?? collectionChartData.billed)}
             </div>
             <div className="mt-2.5 flex items-center gap-1.5 text-xs font-medium text-slate-500">
-              {selectedPeriodFinancial.incomeChange != null ? (
-                <span className={`inline-flex items-center font-bold px-1.5 py-0.5 rounded text-[11px] ${selectedPeriodFinancial.incomeChange >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
-                  {selectedPeriodFinancial.incomeChange >= 0 ? "↑" : "↓"} {Math.abs(selectedPeriodFinancial.incomeChange)}%
-                </span>
-              ) : null}
-              <span className="truncate">{selectedPeriodFinancial.incomeChange != null ? "so với tháng trước" : `Phát sinh: ${formatMoney(selectedPeriodFinancial.income)}`}</span>
+              <span className="truncate">Tổng giá trị hóa đơn trong kỳ</span>
             </div>
           </div>
 
-          {/* Card 2: Lợi nhuận ròng */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-slate-300">
             <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Lợi nhuận ròng</span>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Đã thực thu</span>
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
                 <Wallet size={16} />
               </div>
             </div>
             <div className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-none">
-              {formatMoney(selectedPeriodFinancial.profit)}
+              {formatMoney(summary?.totals.collected ?? collectionChartData.paid)}
             </div>
             <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 font-medium">
-              <span>Biên lợi nhuận</span>
-              <span className="font-bold text-emerald-600">
-                {selectedPeriodFinancial.income > 0 ? Math.round((selectedPeriodFinancial.profit / selectedPeriodFinancial.income) * 100) : 0}%
-              </span>
+              <span>{Math.round((summary?.totals.collectionRate ?? (collectionChartData.rate / 100)) * 100)}% doanh thu đã thu</span>
             </div>
           </div>
 
-          {/* Card 3: Tỷ lệ lấp đầy */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-slate-300">
+          <Link href="/invoices?filter=Chưa+thu" className="rounded-2xl border border-amber-200/90 bg-amber-50/40 p-4 sm:p-5 shadow-xs transition-all hover:bg-amber-50/70">
             <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Tỷ lệ lấp đầy</span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 shrink-0">
-                <Users size={16} />
-              </div>
-            </div>
-            <div className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-none">
-              {stats.occupancyRate}%
-            </div>
-            <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 font-medium">
-              <span>{stats.occupied}/{stats.total} phòng thuê</span>
-              {stats.occupancyRate === 100 ? (
-                <span className="font-bold text-emerald-600 flex items-center gap-0.5">
-                  <CheckCircle2 size={12} /> Tối đa
-                </span>
-              ) : (
-                <span className="font-bold text-amber-600">{stats.vacant} phòng trống</span>
-              )}
-            </div>
-          </div>
-
-          {/* Card 4: Chưa thu (Accent Amber) */}
-          <div className="rounded-2xl border border-amber-200/90 bg-amber-50/40 p-4 sm:p-5 shadow-xs transition-all hover:bg-amber-50/70">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">Chưa thu</span>
+              <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">Còn phải thu</span>
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-700 shrink-0">
                 <AlertCircle size={16} />
               </div>
             </div>
-            <div className="text-xl sm:text-2xl font-black tracking-tight text-amber-950 leading-none">
-              {formatMoney(collectionChartData.unpaid)}
+            <div className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-none">
+              {formatMoney(summary?.totals.receivable ?? collectionChartData.unpaid)}
             </div>
-            <div className="mt-2.5 flex items-center justify-between text-xs font-medium">
-              <span className="text-amber-700">{collectionChartData.billed > 0 ? 100 - collectionChartData.rate : 0}% tổng hóa đơn</span>
-              <Link href="/invoices" className="font-bold text-blue-600 hover:underline flex items-center gap-0.5">
-                Chi tiết <ChevronRight size={12} />
-              </Link>
+            <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 font-medium">
+              <span className="text-amber-700">Quá hạn: {formatMoney(summary?.totals.overdue ?? overdueAmount)}</span>
+            </div>
+          </Link>
+
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-slate-300">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Lợi nhuận</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
+                <Wallet size={16} />
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-none">
+              {formatMoney(summary?.totals.profit ?? 0)}
+            </div>
+            <div className="mt-2.5 flex items-center justify-between text-xs font-medium text-slate-500">
+              <span>Biên lợi nhuận {Math.round((summary?.totals.margin || 0) * 100)}%</span>
+              <span>Dòng tiền ròng {formatMoney(summary?.totals.netCashflow || 0)}</span>
             </div>
           </div>
 
@@ -584,91 +563,79 @@ export default function OwnerDashboard() {
         {/* ── SECTION C: BOTTOM ANALYTICS MODULES (3 MODULES GRID) ── */}
         <div className="grid gap-5 sm:grid-cols-3">
 
-          {/* Module 1: Hiệu suất phòng */}
+          {/* Module 1: P&L */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Hiệu suất phòng</h4>
-              {stats.occupancyRate === 100 ? (
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
-                  <CheckCircle2 size={11} /> Công suất tối đa
-                </span>
-              ) : (
-                <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
-                  {stats.vacant} phòng trống
-                </span>
-              )}
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">P&L · T{selectedPeriod.month}/{selectedPeriod.year}</h4>
+              <Link href="/owner/transactions" className="text-[11px] font-bold text-blue-600">Chi tiết →</Link>
             </div>
-
-            <div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-lg font-black text-slate-900">{stats.occupied} / {stats.total} phòng</span>
-                <span className="text-xs font-bold text-slate-600">{stats.occupancyRate}%</span>
-              </div>
-              <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden mt-1.5">
-                <div className="h-full bg-blue-600 rounded-full transition-all" style={{ width: `${stats.occupancyRate}%` }} />
-              </div>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between text-slate-600"><span>Doanh thu phát sinh</span><strong className="text-slate-900">{formatMoney(summary?.totals.billed || 0)}</strong></div>
+              <div className="flex justify-between text-slate-600"><span>(-) Chi phí vận hành</span><strong className="text-slate-900">{formatMoney(summary?.totals.expense || 0)}</strong></div>
             </div>
-
-            <div className="pt-2 border-t border-slate-100 text-xs font-medium text-slate-500 flex justify-between">
-              <span>Doanh thu TB/phòng (RevPAR):</span>
-              <span className="font-bold text-slate-800">{formatMoney(revParValue)}</span>
-            </div>
+            <div className="pt-2 border-t border-slate-100 text-xs font-medium flex justify-between"><span className="font-bold text-slate-700">Lợi nhuận</span><span className="font-black text-emerald-600">{formatMoney(summary?.totals.profit || 0)}</span></div>
+            <div className="text-[11px] text-slate-500">Biên lợi nhuận {Math.round((summary?.totals.margin || 0) * 100)}%</div>
           </div>
 
           {/* Module 2: Chi phí vận hành */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Chi phí vận hành</h4>
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Cơ cấu chi phí</h4>
               <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
-                {expenseRatio}% doanh thu
+                {formatMoney(summary?.totals.expense || 0)}
               </span>
             </div>
 
             <div>
-              <div className="text-lg font-black text-slate-900">{formatMoney(selectedPeriodFinancial.expense)}</div>
+              <div className="space-y-1.5 text-xs">
+                {(summary?.expenseComposition || []).length ? (summary?.expenseComposition || []).map((item) => <div key={item.name} className="flex justify-between text-slate-600"><span className="truncate pr-2">{item.name}</span><strong className="text-slate-800">{formatMoney(item.amount)}</strong></div>) : <span className="text-slate-400">Chưa có chi phí trong kỳ</span>}
+              </div>
               <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden mt-1.5">
-                <div className="h-full bg-red-500 rounded-full transition-all" style={{ width: `${expenseRatio}%` }} />
+                <div className="h-full bg-red-500 rounded-full transition-all" style={{ width: `${Math.min(100, Math.round((summary?.totals.expense || 0) / Math.max(1, summary?.totals.billed || 0) * 100))}%` }} />
               </div>
             </div>
 
             <div className="pt-2 border-t border-slate-100 text-xs font-medium text-slate-500 flex justify-between">
-              <span>Lợi nhuận gộp sau chi phí:</span>
-              <span className="font-bold text-emerald-600">{formatMoney(selectedPeriodFinancial.profit)}</span>
+              <span>{Math.round((summary?.totals.margin || 0) * 100)}% doanh thu</span>
+              <Link href="/owner/transactions" className="font-bold text-blue-600">Xem sổ thu chi →</Link>
             </div>
           </div>
 
-          {/* Module 3: Cơ cấu doanh thu */}
+          {/* Module 3: Tình trạng phòng */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Cơ cấu doanh thu</h4>
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Tình trạng phòng</h4>
               <span className="text-[11px] font-bold text-blue-600">
-                {formatMoney(utilities.total || selectedPeriodFinancial.income)}
+                {summary?.occupancy.total ? Math.round((summary.occupancy.occupied / summary.occupancy.total) * 100) : 0}% lấp đầy
               </span>
             </div>
 
             <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-blue-500" /> Tiền phòng</span>
-                <span className="font-bold text-slate-800">{formatMoney(utilities.rent || actualRent)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-amber-500" /> Tiền điện</span>
-                <span className="font-bold text-slate-800">{formatMoney(utilities.electricity)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-cyan-500" /> Tiền nước</span>
-                <span className="font-bold text-slate-800">{formatMoney(utilities.water)}</span>
-              </div>
-              {utilities.other > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-purple-500" /> Dịch vụ khác</span>
-                  <span className="font-bold text-slate-800">{formatMoney(utilities.other)}</span>
-                </div>
-              )}
+              <div className="flex justify-between"><span className="text-slate-500">Đang thuê</span><strong>{summary?.occupancy.occupied || 0} / {summary?.occupancy.total || 0} phòng</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500">Phòng trống</span><strong className="text-amber-700">{summary?.occupancy.vacant || 0}</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500">Sắp hết hợp đồng (30 ngày)</span><strong>{summary?.occupancy.expiringContracts || 0}</strong></div>
             </div>
           </div>
 
         </div>
+
+        {!facilityId && (summary?.facilitiesPerformance || []).length > 0 && (
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div><h3 className="text-sm font-extrabold text-slate-900">Hiệu suất theo cơ sở</h3><p className="mt-0.5 text-xs text-slate-500">Ưu tiên cơ sở có công nợ hoặc tỷ lệ thu thấp.</p></div>
+              <Link href="/owner/boarding-houses" className="text-xs font-bold text-blue-600">Xem cơ sở →</Link>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[600px] text-left text-xs">
+                <thead className="border-b border-slate-100 text-slate-500"><tr><th className="pb-2 font-bold">Cơ sở</th><th className="pb-2 text-right font-bold">Lấp đầy</th><th className="pb-2 text-right font-bold">Đã thu</th><th className="pb-2 text-right font-bold">Quá hạn</th><th className="pb-2 text-right font-bold">Trạng thái</th></tr></thead>
+                <tbody>{(summary?.facilitiesPerformance || []).slice(0, 5).map((facility) => {
+                  const needsAttention = facility.overdue > 0 || facility.collectedRate < 80 || facility.occupancyRate < 80;
+                  return <tr key={facility.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50"><td className="py-3 font-bold text-slate-800">{facility.name}</td><td className="py-3 text-right">{facility.occupancyRate}%</td><td className="py-3 text-right">{facility.collectedRate}%</td><td className="py-3 text-right font-bold text-amber-700">{formatMoney(facility.overdue)}</td><td className="py-3 text-right"><button type="button" onClick={() => setFacilityId(facility.id)} className={needsAttention ? "font-bold text-amber-700" : "font-bold text-emerald-700"}>{needsAttention ? "Cần chú ý" : "Tốt"}</button></td></tr>;
+                })}</tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* ── FOOTER: QUICK ACTIONS & RECENT TRANSACTIONS ── */}
         <div className="grid gap-5 lg:grid-cols-12">

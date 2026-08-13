@@ -51,7 +51,38 @@ export function useOwnerDashboardInit() {
   });
 }
 
-export type CashflowMonth = { month: number; year: number; income: number; expense: number; profit: number };
+export type DashboardSummary = {
+  period: { month: number; year: number };
+  facilities: Array<{ id: string; name: string }>;
+  scope: { facilityId: string | null };
+  totals: {
+    billed: number; collected: number; receivable: number; overdue: number; notDue: number;
+    expense: number; overdueCount: number; averageOverdueDays: number; profit: number;
+    margin: number; netCashflow: number; collectionRate: number;
+  };
+  occupancy: { total: number; occupied: number; vacant: number; maintenance: number; expiringContracts: number };
+  facilitiesPerformance: Array<{ id: string; name: string; occupancyRate: number; collectedRate: number; overdue: number; receivable: number; billed: number; collected: number; roomCount: number; occupied: number }>;
+  expenseComposition: Array<{ name: string; amount: number }>;
+};
+
+export function useOwnerDashboardSummary(month: number, year: number, facilityId?: string | null) {
+  const params = new URLSearchParams({ month: String(month), year: String(year) });
+  if (facilityId) params.set("facilityId", facilityId);
+  return useQuery({
+    queryKey: ["owner", "dashboard-summary", month, year, facilityId || "all"],
+    queryFn: () => apiClient<DashboardSummary>(`/owner/dashboard-summary?${params.toString()}`),
+    staleTime: 30_000,
+  });
+}
+
+export type CashflowMonth = {
+  month: number;
+  year: number;
+  income: number;
+  expense: number;
+  profit: number;
+  composition: { rent: number; electricity: number; water: number; other: number };
+};
 
 export function useOwnerCashflowSummary(months: number) {
   return useQuery({

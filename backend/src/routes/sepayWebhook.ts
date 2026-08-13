@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { env } from "../config/env.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 import { applyInvoicePayment } from "../services/invoicePayments.js";
+import { invalidateCache } from "../middleware/cache.js";
 import { getTenantUserIdByContractId, notifyPaymentSuccess } from "../services/notificationService.js";
 import { notifyOwnerPaymentReceived } from "../services/ownerPaymentNotifications.js";
 import { extractPaymentCodeFromPayload } from "../utils/paymentCodes.js";
@@ -362,6 +363,11 @@ sepayWebhookRoutes.post("/", async (c) => {
     status,
     raw_payload: payload,
   });
+
+  // A bank webhook is a dashboard write: remove both cached KPI payloads so
+  // the owner sees the reconciled cash flow on their next screen refresh.
+  invalidateCache("/owner/dashboard-init", String(invoice.user_id));
+  invalidateCache("/owner/cashflow-summary", String(invoice.user_id));
 
   return jsonOk();
 });

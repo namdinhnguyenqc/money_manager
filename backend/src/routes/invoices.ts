@@ -12,6 +12,7 @@ import { getTenantUserIdByInvoiceId, notifyPaymentSuccess } from "../services/no
 import { getTenantUserIdByContractId, notifyInvoiceCreated } from "../services/notificationService.js";
 import { readMeterNumber } from "../services/meterOcr.js";
 import { resolveInvoiceRoomFee } from "../utils/billing.js";
+import { invalidateCache } from "../middleware/cache.js";
 
 
 const invoicesRoutes = new Hono<AppEnv>();
@@ -1242,6 +1243,8 @@ invoicesRoutes.post("/:id/collect-payment", async (c) => {
       await notifyPaymentSuccess(tenantUserId, invoice, collectAmount);
     }
   }
+  invalidateCache("/owner/dashboard-init", user.id);
+  invalidateCache("/owner/cashflow-summary", user.id);
   return c.json({ data: { invoice: paymentRes.data.invoice, transaction: paymentRes.data.transaction } });
 });
 
@@ -1321,6 +1324,8 @@ invoicesRoutes.post("/bulk-collect-payment", async (c) => {
     results.push({ invoiceId: invoice.id, status: "success", amount: dueAmount, transactionId: paymentRes.data.transaction.id });
   }
 
+  invalidateCache("/owner/dashboard-init", user.id);
+  invalidateCache("/owner/cashflow-summary", user.id);
   return c.json({ data: results, totalCollected });
 });
 
@@ -1547,7 +1552,6 @@ invoicesRoutes.post("/bulk-create", async (c) => {
         .from("invoices")
         .select("id")
         .eq("room_id", invData.roomId)
-        .eq("contract_id", invData.contractId)
         .eq("month", invData.month)
         .eq("year", invData.year)
         .eq("user_id", user.id)
