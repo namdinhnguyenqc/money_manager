@@ -116,8 +116,8 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
 // Mirrors the client-side heuristic in dashboard/page.tsx's isDepositTransaction —
 // deposit-tagged transactions are excluded from income/expense so they don't
 // double-count against invoice-driven revenue figures.
-const isDepositTransactionRow = (t: { category_name?: string | null; description?: string | null }) => {
-  const category = String(t.category_name || "").toLowerCase();
+const isDepositTransactionRow = (t: { categories?: { name?: string | null }[] | null; description?: string | null }) => {
+  const category = String(t.categories?.[0]?.name || "").toLowerCase();
   const desc = String(t.description || "").toLowerCase();
   return (
     category.includes("cọc") ||
@@ -145,7 +145,7 @@ ownerRoutes.get("/cashflow-summary", cacheMiddleware(60), async (c) => {
 
   const { data, error } = await supabase
     .from("transactions")
-    .select("type, amount, date, category_name, description")
+    .select("type, amount, date, description, categories(name)")
     .eq("user_id", currentUser.id)
     .gte("date", rangeStart.toISOString().slice(0, 10))
     .limit(5000);

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2, Edit2, MapPin, Plus, RefreshCw, Trash2, Lock } from "lucide-react";
+import ConfirmDialog from "@/components/ops/ConfirmDialog";
 import { apiPost } from "@/utils/apiClient";
 import { BoardingHouse, loadBoardingHouses, loadOwnerRooms, loadRentalRooms, deleteBoardingHouse, updateBoardingHouse, normalizeRoomStatus } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
@@ -19,6 +20,7 @@ export default function OwnerBoardingHousesPage() {
   const [summaries, setSummaries] = useState<Record<string, Summary>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [confirmDeleteHouseId, setConfirmDeleteHouseId] = useState<string | null>(null);
   const [planLimit, setPlanLimit] = useState<{ limit: number; current: number } | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -110,10 +112,16 @@ export default function OwnerBoardingHousesPage() {
     }
   };
 
-  const removeHouse = async (event: React.MouseEvent, id: string) => {
+  const removeHouse = (event: React.MouseEvent, id: string) => {
     event.preventDefault();
     event.stopPropagation();
-    if (!window.confirm("Bạn có chắc chắn muốn xóa cơ sở này? Thao tác này sẽ xóa toàn bộ phòng thuộc cơ sở.")) return;
+    setConfirmDeleteHouseId(id);
+  };
+
+  const confirmRemoveHouse = async () => {
+    const id = confirmDeleteHouseId;
+    if (!id) return;
+    setConfirmDeleteHouseId(null);
     try {
       await deleteBoardingHouse(id);
       await invalidateOwnerOpsQueries(queryClient, { facilityId: id });
@@ -252,6 +260,14 @@ export default function OwnerBoardingHousesPage() {
             );
           })}
         </div>
+      )}
+      {confirmDeleteHouseId && (
+        <ConfirmDialog
+          title="Xoá cơ sở?"
+          description="Bạn có chắc chắn muốn xóa cơ sở này? Thao tác này sẽ xóa toàn bộ phòng thuộc cơ sở."
+          onConfirm={confirmRemoveHouse}
+          onCancel={() => setConfirmDeleteHouseId(null)}
+        />
       )}
     </div>
   );

@@ -34,6 +34,7 @@ import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import { useToast } from "@/components/ui/Toast";
+import ConfirmDialog from "@/components/ops/ConfirmDialog";
 
 const pageSize = 10;
 const currentMonthRange = () => {
@@ -56,6 +57,7 @@ export default function OwnerTransactionsPage() {
   const [to, setTo] = useState(initialRange.to);
   const [page, setPage] = useState(1);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
 
   const walletsQuery = useQuery({ queryKey: ["wallets"], queryFn: loadWallets, staleTime: 60_000 });
@@ -94,8 +96,12 @@ export default function OwnerTransactionsPage() {
     }, { income: 0, expense: 0 });
   }, [filteredTxs]);
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Xóa giao dịch này? Số dư ví sẽ được điều chỉnh lại.")) return;
+  const handleDelete = (id: string) => setConfirmDeleteId(id);
+
+  const confirmDelete = async () => {
+    const id = confirmDeleteId;
+    if (!id) return;
+    setConfirmDeleteId(null);
     setDeletingId(id);
     try {
       await deleteTransaction(id);
@@ -253,6 +259,15 @@ export default function OwnerTransactionsPage() {
           }}
         />
       ) : null}
+      {confirmDeleteId && (
+        <ConfirmDialog
+          title="Xoá giao dịch?"
+          description="Xóa giao dịch này? Số dư ví sẽ được điều chỉnh lại."
+          isLoading={deletingId === confirmDeleteId}
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmDeleteId(null)}
+        />
+      )}
     </div>
   );
 }

@@ -21,6 +21,8 @@ import PageHeader from "@/components/ui/PageHeader";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input, { Label, Select as UISelect } from "@/components/ui/Input";
+import { useToast } from "@/components/ui/Toast";
+import ConfirmDialog from "@/components/ops/ConfirmDialog";
 
 type Attachment = {
   id: string;
@@ -85,10 +87,12 @@ const priorityConfig = {
 };
 
 export default function OwnerFeedbackPage() {
+  const { showToast } = useToast();
   const [reports, setReports] = useState<FeedbackReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [confirmCloseReport, setConfirmCloseReport] = useState(false);
 
   // Modal create ticket
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -132,17 +136,17 @@ export default function OwnerFeedbackPage() {
     if (!files) return;
 
     if (attachments.length + files.length > 5) {
-      alert("Chỉ cho phép đính kèm tối đa 5 hình ảnh.");
+      showToast("Chỉ cho phép đính kèm tối đa 5 hình ảnh.", "error");
       return;
     }
 
     Array.from(files).forEach((file) => {
       if (!file.type.startsWith("image/")) {
-        alert("Chỉ chấp nhận file hình ảnh.");
+        showToast("Chỉ chấp nhận file hình ảnh.", "error");
         return;
       }
       if (file.size > 2 * 1024 * 1024) {
-        alert("Mỗi hình ảnh có dung lượng tối đa 2MB.");
+        showToast("Mỗi hình ảnh có dung lượng tối đa 2MB.", "error");
         return;
       }
 
@@ -161,7 +165,7 @@ export default function OwnerFeedbackPage() {
   const handleCreateReport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) {
-      alert("Vui lòng nhập đủ tiêu đề và nội dung mô tả.");
+      showToast("Vui lòng nhập đủ tiêu đề và nội dung mô tả.", "error");
       return;
     }
 
@@ -214,7 +218,7 @@ export default function OwnerFeedbackPage() {
       }
       setComments(res?.comments || []);
     } catch (err: any) {
-      alert(err?.message || "Không thể tải chi tiết phản hồi.");
+      showToast(err?.message || "Không thể tải chi tiết phản hồi.", "error");
     } finally {
       setLoadingDetails(false);
     }
@@ -233,16 +237,20 @@ export default function OwnerFeedbackPage() {
       // Reload comments
       handleOpenDetail(selectedReport);
     } catch (err: any) {
-      alert(err?.message || "Không thể gửi phản hồi.");
+      showToast(err?.message || "Không thể gửi phản hồi.", "error");
     } finally {
       setSendingComment(false);
     }
   };
 
-  const handleCloseReport = async () => {
+  const handleCloseReport = () => {
     if (!selectedReport) return;
-    if (!window.confirm("Bạn xác nhận lỗi này đã được xử lý xong ổn thỏa và muốn đóng báo cáo?")) return;
+    setConfirmCloseReport(true);
+  };
 
+  const confirmHandleCloseReport = async () => {
+    if (!selectedReport) return;
+    setConfirmCloseReport(false);
     try {
       await apiPost(`/owner/feedback/${selectedReport.id}/close`, {});
       setSuccess("Đã đóng báo cáo lỗi.");
@@ -250,7 +258,7 @@ export default function OwnerFeedbackPage() {
       fetchReports();
       setTimeout(() => setSuccess(""), 3000);
     } catch (err: any) {
-      alert(err?.message || "Không thể đóng báo cáo.");
+      showToast(err?.message || "Không thể đóng báo cáo.", "error");
     }
   };
 
@@ -267,7 +275,7 @@ export default function OwnerFeedbackPage() {
       fetchReports();
       setTimeout(() => setSuccess(""), 3000);
     } catch (err: any) {
-      alert(err?.message || "Không thể mở lại báo cáo lỗi.");
+      showToast(err?.message || "Không thể mở lại báo cáo lỗi.", "error");
     }
   };
 
@@ -716,6 +724,14 @@ export default function OwnerFeedbackPage() {
           </div>
         )}
       </AnimatePresence>
+      {confirmCloseReport && (
+        <ConfirmDialog
+          title="Đóng báo cáo?"
+          description="Bạn xác nhận lỗi này đã được xử lý xong ổn thỏa và muốn đóng báo cáo?"
+          onConfirm={confirmHandleCloseReport}
+          onCancel={() => setConfirmCloseReport(false)}
+        />
+      )}
     </div>
   );
 }
