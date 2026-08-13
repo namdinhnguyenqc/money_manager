@@ -227,8 +227,11 @@ export default function OwnerDashboard() {
     </div>
   );
 
-  // Skeleton loading: Only trigger if we have zero cached data to render optimistically
-  if (dashboardQuery.isLoading && !activeData) return (
+  // Skeleton loading: only trigger if we have zero cached data to render optimistically.
+  // Also gate on cashflowQuery so the KPI cards / chart don't first paint at 0đ and then
+  // pop to their real value once the (separate, DB-aggregated) cash-flow request resolves —
+  // that flash was worse than a slightly longer skeleton on a true cold load.
+  if ((dashboardQuery.isLoading || (cashflowQuery.isLoading && !cashflowQuery.data)) && !activeData) return (
     <div className="space-y-4 p-1">
       {slowLoad && (
         <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
