@@ -113,6 +113,66 @@ ownerRoutes.get("/dashboard-init", cacheMiddleware(30), async (c) => {
   });
 });
 
+// Mirrors the client-side heuristic in dashboard/page.tsx's isDepositTransaction —
+// deposit-tagged transactions are excluded from income/expense so they don't
+// double-count against invoice-driven revenue figures.
+const isDepositTransactionRow = (t: { category_name?: string | null; description?: string | null }) => {
+  const category = String(t.category_name || "").toLowerCase();
+  const desc = String(t.description || "").toLowerCase();
+  return (
+    category.includes("cọc") ||
+    category.includes("deposit") ||
+    desc.includes("tiền cọc") ||
+    desc.includes("cọc phòng") ||
+    desc.includes("deposit")
+  );
+};
+
+// Aggregated monthly income/expense for the dashboard cash-flow chart.
+// Deliberately separate from /dashboard-init (which only ships current-month
+// raw transactions to keep app-startup payload small) — this returns
+// pre-aggregated per-month totals only, so a wide time window (up to 18
+// months) stays cheap regardless of transaction volume.
+ownerRoutes.get("/cashflow-summary", cacheMiddleware(60), async (c) => {
+  const currentUser = c.get("user");
+  const supabase = c.get("supabase");
+
+  const requestedMonths = Number(c.req.query("months") || 12);
+  const months = Math.min(18, Math.max(1, Number.isFinite(requestedMonths) ? requestedMonths : 12));
+
+  const now = new Date();
+  const rangeStart = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("type, amount, date, category_name, description")
+    .eq("user_id", currentUser.id)
+    .gte("date", rangeStart.toISOString().slice(0, 10))
+    .limit(5000);
+
+  if (error) return c.json({ error: error.message }, 500);
+
+  const buckets = new Map<string, { month: number; year: number; income: number; expense: number }>();
+  for (let i = 0; i < months; i++) {
+    const d = new Date(rangeStart.getFullYear(), rangeStart.getMonth() + i, 1);
+    buckets.set(`${d.getFullYear()}-${d.getMonth()}`, { month: d.getMonth() + 1, year: d.getFullYear(), income: 0, expense: 0 });
+  }
+
+  for (const row of data || []) {
+    if (isDepositTransactionRow(row)) continue;
+    const d = new Date(row.date);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const bucket = buckets.get(key);
+    if (!bucket) continue;
+    const amount = Number(row.amount || 0);
+    if (row.type === "income") bucket.income += amount;
+    else if (row.type === "expense") bucket.expense += amount;
+  }
+
+  const result = Array.from(buckets.values()).map((b) => ({ ...b, profit: b.income - b.expense }));
+  return c.json({ months: result });
+});
+
 const boardingHouseSchema = z.object({
   name: z.string().min(1),
   address: z.string().optional(),
@@ -994,6 +1054,7 @@ ownerRoutes.get("/settings", async (c) => {
     .get("supabase")
     .from("system_settings")
     .select("*")
+    .eq("user_id", user.id)
     .neq("key", "app_secret");
   if (error) return c.json({ error: error.message }, 500);
   return c.json({ data: data ?? [] });
