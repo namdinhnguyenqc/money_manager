@@ -89,6 +89,25 @@ const bulkCollectPaymentSchema = z.object({
   walletId: z.string().min(1),
 });
 
+const resolveInvoiceDueDate = async (
+  db: any,
+  userId: string,
+  month: number,
+  year: number,
+  explicitDueDate?: string,
+) => {
+  if (explicitDueDate) return explicitDueDate;
+  const { data } = await db
+    .from("system_settings")
+    .select("value")
+    .eq("user_id", userId)
+    .eq("key", "invoice_due_day")
+    .maybeSingle();
+  const configuredDay = Number((data as any)?.value ?? 5);
+  const day = Math.min(28, Math.max(1, Number.isInteger(configuredDay) ? configuredDay : 5));
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+};
+
 const generatePaymentCode = () =>
   `${env.SEPAY_PAYMENT_PREFIX || "TCINV"}${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
 
@@ -134,7 +153,14 @@ const enrichPaymentFields = (invoice: any, channel?: any | null) => {
   const invoiceYear = Number(invoice.year || 0);
   const invoiceMonth = Number(invoice.month || 0);
   const isPastPeriod = invoiceYear < now.getFullYear() || (invoiceYear === now.getFullYear() && invoiceMonth < now.getMonth() + 1);
-  const displayStatus = isPastPeriod && total > 0 && paid < total ? "overdue" : invoice.status;
+  // New invoices always have a due_date. Older records retain the historical
+  // month-based behavior until they are edited, so a configuration change does
+  // not retroactively alter their financial state.
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(now);
+  const isOverdue = invoice.due_date
+    ? today > String(invoice.due_date)
+    : isPastPeriod;
+  const displayStatus = isOverdue && total > 0 && paid < total ? "overdue" : invoice.status;
   return {
     ...invoice,
     status: displayStatus,
@@ -850,6 +876,7 @@ invoicesRoutes.post("/", async (c) => {
   const paymentChannel = parsed.data.paymentChannelId
     ? (await db.from("payment_channels").select("*").eq("id", parsed.data.paymentChannelId).eq("user_id", user.id).maybeSingle()).data
     : await loadDefaultPaymentChannel(db, user.id);
+  const dueDate = await resolveInvoiceDueDate(db, user.id, parsed.data.month, parsed.data.year, parsed.data.dueDate);
 
   const invRes = await db
     .from("invoices")
@@ -867,7 +894,7 @@ invoicesRoutes.post("/", async (c) => {
       water_old: waterOld,
       water_new: parsed.data.waterNew ?? null,
       note: parsed.data.invoiceNote ?? null,
-      due_date: parsed.data.dueDate ?? null,
+      due_date: dueDate,
       payment_code: generatePaymentCode(),
       payment_channel_id: paymentChannel?.id || null,
     })
@@ -1413,6 +1440,7 @@ invoicesRoutes.post("/auto-generate", async (c) => {
   if (contractsRes.error) return c.json({ error: contractsRes.error.message }, 500);
   const contracts = contractsRes.data || [];
   const roomToContract = new Map(contracts.map(c => [c.room_id, c]));
+  const defaultDueDate = await resolveInvoiceDueDate(db, user.id, month, year);
 
   let createdCount = 0;
 
@@ -1483,6 +1511,7 @@ invoicesRoutes.post("/auto-generate", async (c) => {
           water_old: waterOld,
           water_new: null,
           status: "unpaid",
+          due_date: defaultDueDate,
           note: "Tự động tạo nháp",
         })
         .select("id")
@@ -1604,6 +1633,7 @@ invoicesRoutes.post("/bulk-create", async (c) => {
         water_new: invData.waterNew,
         note: invData.note || "Lập hàng loạt",
         status: "unpaid",
+        due_date: await resolveInvoiceDueDate(db, user.id, Number(invData.month), Number(invData.year), invData.dueDate),
         payment_code: generatePaymentCode(),
         payment_channel_id: invData.paymentChannelId || defaultPaymentChannel?.id || null,
       };

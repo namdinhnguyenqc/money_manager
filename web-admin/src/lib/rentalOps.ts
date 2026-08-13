@@ -104,6 +104,12 @@ export type RentalRoom = {
   outstanding_amount?: number;
   is_expired?: boolean;
   boarding_house_id?: string;
+  reservation_deposit_id?: string | null;
+  reservation_tenant_name?: string | null;
+  reservation_tenant_phone?: string | null;
+  reservation_amount?: number | null;
+  reservation_date?: string | null;
+  reservation_note?: string | null;
 };
 
 export type ContractView = {
@@ -189,6 +195,8 @@ export type Invoice = {
   water_new?: number | null;
   items?: Array<{ id?: string; name: string; detail?: string; amount: number }>;
   transaction_id?: string | null;
+  due_date?: string | null;
+  dueDate?: string | null;
   payment_code?: string | null;
   paymentCode?: string | null;
   payment_channel_id?: string | null;
@@ -623,7 +631,7 @@ export async function loadTransactions() {
   return (res?.data ?? []) as Transaction[];
 }
 
-export async function createTransaction(input: { type: "income" | "expense"; amount: number; description: string; walletId: string; date: string }) {
+export async function createTransaction(input: { type: "income" | "expense"; amount: number; description: string; categoryId?: string; walletId: string; date: string }) {
   const res = await apiPost<any>("/transactions", input);
   return res?.data ?? res;
 }
@@ -676,6 +684,7 @@ export async function createInvoice(input: {
   elecNew?: number | null;
   waterOld?: number | null;
   waterNew?: number | null;
+  dueDate?: string;
 }) {
   const res = await apiPost<any>("/invoices", input);
   return res?.data as Invoice;
@@ -689,6 +698,7 @@ export async function createInvoiceForContract(contract: ContractView, input: {
   electricNew: number;
   waterOld: number;
   waterNew: number;
+  dueDate?: string;
   items: Array<{ name: string; amount: number }>;
 }) {
   const appliedServices = normalizeAppliedServicesSnapshot(contract.applied_services_snapshot) ?? [];
@@ -750,6 +760,7 @@ export async function createInvoiceForContract(contract: ContractView, input: {
     elecNew: input.electricNew,
     waterOld: input.waterOld,
     waterNew: input.waterNew,
+    dueDate: input.dueDate,
     items: [
       ...serviceItems,
       ...input.items,
@@ -919,6 +930,12 @@ export async function updateDepositStatus(id: string, status: DepositStatus, not
 
 export async function cancelDeposit(id: string, note?: string) {
   return updateDepositStatus(id, "cancelled", note);
+}
+
+/** End a reservation: the room becomes vacant; the already-recorded deposit stays as income. */
+export async function forfeitReservationDeposit(id: string) {
+  const res = await apiPost<any>(`/rental/deposits/${id}/forfeit`, {});
+  return res?.data;
 }
 
 // ═══════════════════════════════════════════
