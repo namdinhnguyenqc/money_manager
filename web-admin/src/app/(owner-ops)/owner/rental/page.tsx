@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, RefreshCw, Trash2 } from "lucide-react";
+import ConfirmDialog from "@/components/ops/ConfirmDialog";
 import {
   RentalRoom,
   createContract,
@@ -26,6 +27,7 @@ export default function OwnerContractsPage() {
   const [error, setError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const [confirmDeleteContractId, setConfirmDeleteContractId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -58,8 +60,12 @@ export default function OwnerContractsPage() {
     window.setTimeout(() => setToast(""), 2500);
   };
 
-  const removeContract = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa hợp đồng này? Thao tác này sẽ giải phóng phòng.")) return;
+  const removeContract = (id: string) => setConfirmDeleteContractId(id);
+
+  const confirmRemoveContract = async () => {
+    const id = confirmDeleteContractId;
+    if (!id) return;
+    setConfirmDeleteContractId(null);
     try {
       await deleteContract(id);
       setToast("Đã xóa hợp đồng.");
@@ -129,6 +135,14 @@ export default function OwnerContractsPage() {
       </div>
 
       {formOpen && <ContractDrawer rooms={rooms} onClose={() => setFormOpen(false)} onSaved={onSaved} />}
+      {confirmDeleteContractId && (
+        <ConfirmDialog
+          title="Xoá hợp đồng?"
+          description="Bạn có chắc chắn muốn xóa hợp đồng này? Thao tác này sẽ giải phóng phòng."
+          onConfirm={confirmRemoveContract}
+          onCancel={() => setConfirmDeleteContractId(null)}
+        />
+      )}
     </div>
   );
 }

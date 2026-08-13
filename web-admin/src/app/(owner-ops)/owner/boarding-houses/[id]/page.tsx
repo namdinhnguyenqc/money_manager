@@ -44,6 +44,7 @@ import {
   getServiceUnitLabel,
 } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+import ConfirmDialog from "@/components/ops/ConfirmDialog";
 
 
 const tabs = [
@@ -84,6 +85,7 @@ export default function BoardingHouseOverviewPage() {
   const [meterForm, setMeterForm] = useState<Record<string, { elec: string; water: string; oldElec: number; oldWater: number }>>({});
   const [systemSettings, setSystemSettings] = useState<Record<string, any>>({});
   const [toast, setToast] = useState("");
+  const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; onConfirm: () => void } | null>(null);
  
   const load = async () => {
     setLoading(true);
@@ -192,14 +194,21 @@ export default function BoardingHouseOverviewPage() {
     window.setTimeout(() => setToast(""), 2500);
   };
 
-  const handleBulkPay = async () => {
+  const handleBulkPay = () => {
     if (selectedInvoices.length === 0) return;
     const walletId = wallets[0]?.id;
     if (!walletId) {
-       alert("Vui lòng tạo ví trước");
-       return;
+      setError("Vui lòng tạo ví trước");
+      return;
     }
-    if (!window.confirm(`Xác nhận thanh toán ${selectedInvoices.length} hóa đơn bằng ví ${wallets[0].name}?`)) return;
+    setConfirmAction({
+      title: "Xác nhận thanh toán hàng loạt?",
+      description: `Xác nhận thanh toán ${selectedInvoices.length} hóa đơn bằng ví ${wallets[0].name}?`,
+      onConfirm: () => { setConfirmAction(null); confirmBulkPay(walletId); },
+    });
+  };
+
+  const confirmBulkPay = async (walletId: string) => {
     try {
       await bulkCollectPayments(selectedInvoices, walletId);
       setSelectedInvoices([]);
@@ -238,7 +247,7 @@ export default function BoardingHouseOverviewPage() {
     }).filter((it): it is NonNullable<typeof it> => it !== null);
 
     if (items.length === 0) {
-      alert("Vui lòng nhập đầy đủ chỉ số và thông tin cho ít nhất 1 phòng có hợp đồng");
+      setError("Vui lòng nhập đầy đủ chỉ số và thông tin cho ít nhất 1 phòng có hợp đồng");
       return;
     }
 
@@ -247,7 +256,7 @@ export default function BoardingHouseOverviewPage() {
       const filteredItems = items.filter(it => !paidRoomIds.has(it.roomId));
       
       if (filteredItems.length === 0) {
-        alert("Tất cả các phòng được chọn đã hoàn tất thanh toán cho kỳ này.");
+        setError("Tất cả các phòng được chọn đã hoàn tất thanh toán cho kỳ này.");
         return;
       }
 
@@ -279,25 +288,37 @@ export default function BoardingHouseOverviewPage() {
   }, [transactions, rooms, invoices]);
 
 
-  const removeRoom = async (roomId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa phòng này?")) return;
-    try {
-      await deleteRoom(roomId);
-      setSelectedRoom(null);
-      await refreshWithToast("Đã xóa phòng.");
-    } catch (err: any) {
-      setError(err?.message || "Không xóa được phòng.");
-    }
+  const removeRoom = (roomId: string) => {
+    setConfirmAction({
+      title: "Xoá phòng?",
+      description: "Bạn có chắc chắn muốn xóa phòng này?",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        try {
+          await deleteRoom(roomId);
+          setSelectedRoom(null);
+          await refreshWithToast("Đã xóa phòng.");
+        } catch (err: any) {
+          setError(err?.message || "Không xóa được phòng.");
+        }
+      },
+    });
   };
 
-  const removeInvoice = async (invoiceId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa hóa đơn này?")) return;
-    try {
-      await deleteInvoice(invoiceId);
-      await refreshWithToast("Đã xóa hóa đơn.");
-    } catch (err: any) {
-      setError(err?.message || "Không xóa được hóa đơn.");
-    }
+  const removeInvoice = (invoiceId: string) => {
+    setConfirmAction({
+      title: "Xoá hoá đơn?",
+      description: "Bạn có chắc chắn muốn xóa hóa đơn này?",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        try {
+          await deleteInvoice(invoiceId);
+          await refreshWithToast("Đã xóa hóa đơn.");
+        } catch (err: any) {
+          setError(err?.message || "Không xóa được hóa đơn.");
+        }
+      },
+    });
   };
 
   const updateRoomData = async (roomId: string, data: Partial<RentalRoom>) => {
@@ -558,6 +579,14 @@ export default function BoardingHouseOverviewPage() {
       {invoiceOpen && <InvoicePanel rooms={rooms} invoices={invoices} onClose={() => setInvoiceOpen(false)} onSaved={() => { setInvoiceOpen(false); refreshWithToast("Đã tạo hóa đơn."); }} />}
       {roomPanelOpen && <RoomPanel buildingId={buildingId} systemSettings={systemSettings} onClose={() => setRoomPanelOpen(false)} onSaved={() => { setRoomPanelOpen(false); refreshWithToast("Đã thêm phòng mới."); }} />}
       {roomEditOpen && selectedRoom && <RoomEditPanel room={selectedRoom} onClose={() => setRoomEditOpen(false)} onSaved={(data) => updateRoomData(selectedRoom.id, data)} />}
+      {confirmAction && (
+        <ConfirmDialog
+          title={confirmAction.title}
+          description={confirmAction.description}
+          onConfirm={confirmAction.onConfirm}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
     </div>
   );
 }
@@ -672,20 +701,22 @@ function RoomPanel({ buildingId, systemSettings, onClose, onSaved }: { buildingI
     status: "AVAILABLE" 
   });
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setFormError("");
     try {
-      await createOwnerRoom(buildingId, { 
-        name: form.name, 
-        price: Number(form.price), 
+      await createOwnerRoom(buildingId, {
+        name: form.name,
+        price: Number(form.price),
         area: Number(form.area),
         maxPeople: Number(form.maxPeople),
-        status: form.status as any 
+        status: form.status as any
       });
       onSaved();
     } catch (err) {
-      alert("Lỗi khi thêm phòng");
+      setFormError("Lỗi khi thêm phòng");
     } finally {
       setSaving(false);
     }
@@ -705,6 +736,7 @@ function RoomPanel({ buildingId, systemSettings, onClose, onSaved }: { buildingI
             <option value="MAINTENANCE">Bảo trì</option>
           </select>
         </Field>
+        {formError && <p className="text-sm font-semibold text-red-600">{formError}</p>}
         <button disabled={saving} className="w-full rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Đang lưu..." : "Thêm phòng"}</button>
       </form>
     </SidePanel>
