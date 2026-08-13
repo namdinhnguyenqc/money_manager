@@ -50,3 +50,13 @@ export function useOwnerDashboardInit() {
     staleTime: 60_000, // 1 phút
   });
 }
+
+export type CashflowMonth = { month: number; year: number; income: number; expense: number; profit: number };
+
+export function useOwnerCashflowSummary(months: number) {
+  return useQuery({
+    queryKey: ["owner", "cashflow-summary", months],
+    queryFn: () => apiClient<{ months: CashflowMonth[] }>(`/owner/cashflow-summary?months=${months}`),
+    staleTime: 60_000,
+  });
+}
