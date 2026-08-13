@@ -34,11 +34,20 @@ const isSupabaseAuthTokenCandidate = (token: string) => {
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
+const cleanupRateLimitMap = (now: number) => {
+  if (rateLimitMap.size < 1000) return;
+  for (const [key, record] of rateLimitMap.entries()) {
+    if (now > record.resetAt) rateLimitMap.delete(key);
+  }
+};
+
 function checkRateLimit(ip: string, endpoint: string): boolean {
   const key = `${ip}:${endpoint}`;
   const now = Date.now();
   const windowMs = 60 * 1000; // 1 minute
   const maxRequests = endpoint.includes("google") ? 10 : 100;
+
+  cleanupRateLimitMap(now);
 
   const record = rateLimitMap.get(key);
   if (!record || now > record.resetAt) {

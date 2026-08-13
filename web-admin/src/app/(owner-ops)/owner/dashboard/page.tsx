@@ -5,12 +5,12 @@ import Link from 'next/link';
 import {
   Users, Home, Wallet, AlertCircle, Building2,
   FileText, ArrowRight, Plus, Zap, Droplet, ChevronRight,
-  TrendingUp, TrendingDown, RefreshCw, CalendarDays, ChevronLeft,
+  TrendingUp, TrendingDown, CalendarDays, ChevronLeft,
   CheckCircle2, ArrowUpRight, ShieldCheck, Phone, Send, Sparkles
 } from 'lucide-react';
 import { formatMoney, normalizeRoomStatus } from '@/lib/rentalOps';
 import RBACGuard from '@/components/RBACGuard';
-import { useOwnerDashboardInit, OwnerDashboardInit } from '@/hooks/useOwnerData';
+import { useOwnerDashboardInit, useOwnerCashflowSummary, OwnerDashboardInit } from '@/hooks/useOwnerData';
 import OwnerOnboardingGuide from '@/components/owner/OwnerOnboardingGuide';
 import PageHeader from '@/components/ui/PageHeader';
 
@@ -75,73 +75,55 @@ export default function OwnerDashboard() {
     return { total, occupied, vacant, reserved, maintenance, occupancyRate };
   }, [rooms]);
 
-  // Helper to identify deposit transactions that shouldn't be counted in general income/expenses
-  const isDepositTransaction = React.useCallback((t: any) => {
-    const category = String(t.category_name || t.category || "").toLowerCase();
-    const desc = String(t.description || "").toLowerCase();
-    return (
-      category.includes("cọc") || 
-      category.includes("deposit") || 
-      desc.includes("tiền cọc") || 
-      desc.includes("cọc phòng") ||
-      desc.includes("deposit")
-    );
-  }, []);
+  // Historical monthly income/expense comes from a dedicated, DB-aggregated
+  // endpoint (not the `transactions` array above, which /dashboard-init
+  // deliberately scopes to the current month only to keep app-startup
+  // payload small — see backend/src/routes/owner.ts:/cashflow-summary).
+  // Request enough months to also cover whatever period the user has
+  // navigated to via "Tháng trước/sau", capped at the 18 the backend allows.
+  const monthsNeeded = useMemo(() => {
+    const diff = (curY - selectedPeriod.year) * 12 + (curM - (selectedPeriod.month - 1));
+    return Math.min(18, Math.max(chartMonths, diff + 1));
+  }, [chartMonths, selectedPeriod, curY, curM]);
+  const cashflowQuery = useOwnerCashflowSummary(monthsNeeded);
+  const cashflowMonths = useMemo(() => cashflowQuery.data?.months ?? [], [cashflowQuery.data]);
+
+  const findBucket = React.useCallback((month: number, year: number) =>
+    cashflowMonths.find(b => b.month === month && b.year === year),
+    [cashflowMonths]);
 
   // Financial details calculated dynamically based on selectedPeriod
   const selectedPeriodFinancial = useMemo(() => {
-    const thisMonth = transactions.filter(t => {
-      const d = new Date(t.date);
-      return d.getMonth() === (selectedPeriod.month - 1) && d.getFullYear() === selectedPeriod.year;
-    });
-    const income = thisMonth.filter(t => t.type === 'income' && !isDepositTransaction(t)).reduce((s, t) => s + t.amount, 0);
-    const expense = thisMonth.filter(t => t.type === 'expense' && !isDepositTransaction(t)).reduce((s, t) => s + t.amount, 0);
+    const current = findBucket(selectedPeriod.month, selectedPeriod.year);
+    const income = current?.income ?? 0;
+    const expense = current?.expense ?? 0;
 
-    // Last month comparison for selectedPeriod
-    const prevM = selectedPeriod.month === 1 ? 11 : selectedPeriod.month - 2;
+    const prevM = selectedPeriod.month === 1 ? 12 : selectedPeriod.month - 1;
     const prevY = selectedPeriod.month === 1 ? selectedPeriod.year - 1 : selectedPeriod.year;
-    const prevIncome = transactions
-      .filter(t => { const d = new Date(t.date); return d.getMonth() === prevM && d.getFullYear() === prevY && t.type === 'income' && !isDepositTransaction(t); })
-      .reduce((s, t) => s + t.amount, 0);
+    const prevIncome = findBucket(prevM, prevY)?.income ?? 0;
     const incomeChange = prevIncome > 0 ? Math.round(((income - prevIncome) / prevIncome) * 100) : null;
 
     return { income, expense, profit: income - expense, incomeChange };
-  }, [transactions, selectedPeriod, isDepositTransaction]);
+  }, [findBucket, selectedPeriod]);
 
   const financial = useMemo(() => {
-    const curM = selectedPeriod.month - 1;
-    const curY = selectedPeriod.year;
+    const current = findBucket(selectedPeriod.month, selectedPeriod.year);
+    const income = current?.income ?? 0;
+    const expense = current?.expense ?? 0;
 
-    const income = transactions
-      .filter(t => {
-        const d = new Date(t.date);
-        return d.getMonth() === curM && d.getFullYear() === curY && t.type === 'income' && !isDepositTransaction(t);
-      })
-      .reduce((s, t) => s + t.amount, 0);
-
-    const expense = transactions
-      .filter(t => {
-        const d = new Date(t.date);
-        return d.getMonth() === curM && d.getFullYear() === curY && t.type === 'expense' && !isDepositTransaction(t);
-      })
-      .reduce((s, t) => s + t.amount, 0);
-
-    // Build monthly breakdown for chart
+    // Build monthly breakdown for chart from the aggregated buckets
     const months = Array.from({ length: chartMonths }, (_, i) => {
-      const d = new Date(curY, curM - (chartMonths - 1 - i), 1);
+      const d = new Date(selectedPeriod.year, (selectedPeriod.month - 1) - (chartMonths - 1 - i), 1);
       const mm = d.getMonth(), yy = d.getFullYear();
-      const rev = transactions
-        .filter(t => { const td = new Date(t.date); return td.getMonth() === mm && td.getFullYear() === yy && t.type === 'income' && !isDepositTransaction(t); })
-        .reduce((s, t) => s + t.amount, 0);
-      const exp = transactions
-        .filter(t => { const td = new Date(t.date); return td.getMonth() === mm && td.getFullYear() === yy && t.type === 'expense' && !isDepositTransaction(t); })
-        .reduce((s, t) => s + t.amount, 0);
+      const bucket = findBucket(mm + 1, yy);
+      const rev = bucket?.income ?? 0;
+      const exp = bucket?.expense ?? 0;
       return { label: MONTH_NAMES[mm], month: mm + 1, year: yy, rev, exp, profit: rev - exp };
     });
     const maxVal = Math.max(...months.map(m => Math.max(m.rev, m.exp)), 1);
 
     return { income, expense, profit: income - expense, months, maxVal };
-  }, [transactions, chartMonths, selectedPeriod, isDepositTransaction]);
+  }, [findBucket, chartMonths, selectedPeriod]);
 
   // Invoices for selected period
   const thisMonthInvoices = useMemo(() => {
@@ -309,14 +291,6 @@ export default function OwnerDashboard() {
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => dashboardQuery.refetch()}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-xs"
-              >
-                <RefreshCw size={14} className={dashboardQuery.isFetching ? "animate-spin text-blue-600" : ""} />
-                Làm mới
-              </button>
             </div>
           }
         />
