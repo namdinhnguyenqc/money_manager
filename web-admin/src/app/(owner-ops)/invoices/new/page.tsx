@@ -35,12 +35,6 @@ export default function NewInvoicePage() {
   const contractQuery = useQuery({ queryKey: ["contracts", contractId], queryFn: () => loadContract(String(contractId)), enabled: Boolean(contractId), staleTime: 60_000 });
   const contract = contractQuery.data;
 
-  useEffect(() => {
-    if (!contract) return;
-    const day = String(Math.min(28, Math.max(1, Number(contract.billing_day || 5)))).padStart(2, "0");
-    setForm((prev) => ({ ...prev, dueDate: prev.dueDate || `${period.year}-${String(period.month).padStart(2, "0")}-${day}` }));
-  }, [contract]);
-
   const appliedServices = contract?.applied_services_snapshot || [];
   const defaultElecPrice = (contract?.has_ac) ? 4000 : 3500;
   const defaultWaterPrice = 15000;
@@ -135,6 +129,7 @@ export default function NewInvoicePage() {
         electricNew: electricityIsMetered ? Number(form.electricNew || 0) : 0,
         waterOld: waterIsMetered ? Number(form.waterOld || 0) : 0,
         waterNew: waterIsMetered ? Number(form.waterNew || 0) : 0,
+        dueDate: form.dueDate || undefined,
         items: fees.filter((item) => item.label.trim()).map((item) => ({ name: item.label.trim(), amount: Number(item.amount || 0) })),
       });
     },

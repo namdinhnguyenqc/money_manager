@@ -47,6 +47,7 @@ import {
   X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import ConfirmDialog from "@/components/ops/ConfirmDialog";
 import { apiGet, apiPost, apiPatch, apiDelete, apiPut, toURL } from "@/utils/apiClient";
 import { getStoredAccessToken } from "@/utils/session";
 import { PRODUCTION_API_URL } from "@/lib/apiUrl";
@@ -96,9 +97,6 @@ const DEFAULT_ZALO_REMINDER_TEMPLATE =
   "Mã chuyển khoản: {payment_code}.\n" +
   "Nếu đã thanh toán, vui lòng bỏ qua tin này. Cảm ơn anh/chị.";
 
-const DEFAULT_ZALO_REMINDER_DAYS_BEFORE = "3,0";
-const DEFAULT_ZALO_REMINDER_DAYS_AFTER = "2,7,14";
-
 export default function OwnerSettingsPage() {
   const queryClient = useQueryClient();
   const { permission, subscribed, loading: pushLoading, isSupported: pushSupported, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications();
@@ -121,6 +119,7 @@ export default function OwnerSettingsPage() {
   const [editingService, setEditingService] = useState<any>({});
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; onConfirm: () => void } | null>(null);
 
   
 
@@ -186,7 +185,7 @@ export default function OwnerSettingsPage() {
       await apiPost(`/owner/sepay/events/${eventId}/reprocess`, {});
       await fetchSepayEvents();
     } catch (err: any) {
-      alert(err?.message || "Thử lại đối soát thất bại.");
+      setError(err?.message || "Thử lại đối soát thất bại.");
     } finally {
       setReprocessingId(null);
     }
@@ -368,17 +367,23 @@ export default function OwnerSettingsPage() {
     }
   };
 
-  const handleDeleteService = async (serviceId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xoá dịch vụ này?")) return;
-    try {
-      await apiDelete(`/rental/services/${serviceId}`);
-      setSuccess("Đã xoá dịch vụ.");
-      setTimeout(() => setSuccess(""), 3000);
-      await invalidateOwnerOpsQueries(queryClient);
-      load();
-    } catch (err: any) {
-      setError(err?.message || "Không thể xoá dịch vụ.");
-    }
+  const handleDeleteService = (serviceId: string) => {
+    setConfirmAction({
+      title: "Xoá dịch vụ?",
+      description: "Bạn có chắc chắn muốn xoá dịch vụ này?",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        try {
+          await apiDelete(`/rental/services/${serviceId}`);
+          setSuccess("Đã xoá dịch vụ.");
+          setTimeout(() => setSuccess(""), 3000);
+          await invalidateOwnerOpsQueries(queryClient);
+          load();
+        } catch (err: any) {
+          setError(err?.message || "Không thể xoá dịch vụ.");
+        }
+      },
+    });
   };
 
   const handleCreateService = async () => {
@@ -447,19 +452,25 @@ export default function OwnerSettingsPage() {
     }
   };
 
-  const handleDeleteWallet = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xoá ví này?")) return;
-    try {
-      setSavingExtension(true);
-      await apiDelete(`/wallets/${id}`);
-      setSuccess("Đã xoá ví.");
-      await invalidateOwnerOpsQueries(queryClient);
-      load();
-    } catch (err: any) {
-      setError(err.message || "Không xoá được ví.");
-    } finally {
-      setSavingExtension(false);
-    }
+  const handleDeleteWallet = (id: string) => {
+    setConfirmAction({
+      title: "Xoá ví?",
+      description: "Bạn có chắc chắn muốn xoá ví này?",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        try {
+          setSavingExtension(true);
+          await apiDelete(`/wallets/${id}`);
+          setSuccess("Đã xoá ví.");
+          await invalidateOwnerOpsQueries(queryClient);
+          load();
+        } catch (err: any) {
+          setError(err.message || "Không xoá được ví.");
+        } finally {
+          setSavingExtension(false);
+        }
+      },
+    });
   };
 
   const bootstrapWallets = async () => {
@@ -565,19 +576,25 @@ export default function OwnerSettingsPage() {
     }
   };
 
-  const handleDeletePaymentChannel = async (channel: PaymentChannel) => {
-    if (!window.confirm("Xóa vĩnh viễn kênh SePay này? Hành động không thể hoàn tác.")) return;
-    try {
-      setSavingExtension(true);
-      await disablePaymentChannel(channel.id);
-      setSuccess("Đã xóa kênh SePay.");
-      await invalidateOwnerOpsQueries(queryClient);
-      load();
-    } catch (err: any) {
-      setError(err.message || "Không xóa được kênh SePay.");
-    } finally {
-      setSavingExtension(false);
-    }
+  const handleDeletePaymentChannel = (channel: PaymentChannel) => {
+    setConfirmAction({
+      title: "Xoá kênh SePay?",
+      description: "Xóa vĩnh viễn kênh SePay này? Hành động không thể hoàn tác.",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        try {
+          setSavingExtension(true);
+          await disablePaymentChannel(channel.id);
+          setSuccess("Đã xóa kênh SePay.");
+          await invalidateOwnerOpsQueries(queryClient);
+          load();
+        } catch (err: any) {
+          setError(err.message || "Không xóa được kênh SePay.");
+        } finally {
+          setSavingExtension(false);
+        }
+      },
+    });
   };
 
   const BANK_OPTIONS = [
@@ -651,6 +668,45 @@ export default function OwnerSettingsPage() {
             
 
             
+
+            {activeTab === "overdue" && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center border border-amber-100">
+                    <Clock size={20} className="text-amber-700" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Hạn thanh toán & quá hạn</h3>
+                    <p className="text-xs text-slate-500 font-medium">Thiết lập hạn mặc định cho hóa đơn mới. Qua hạn này, hóa đơn chưa đủ tiền sẽ được đánh dấu quá hạn.</p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
+                  <label className="block max-w-sm space-y-2">
+                    <span className="text-sm font-bold text-slate-800">Ngày đến hạn thanh toán mỗi tháng</span>
+                    <select
+                      value={String(getValue("invoice_due_day", 5))}
+                      onChange={(event) => handleChange("invoice_due_day", Number(event.target.value), "number", "overdue")}
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    >
+                      {Array.from({ length: 28 }, (_, index) => index + 1).map((day) => <option key={day} value={day}>Ngày {day} hằng tháng</option>)}
+                    </select>
+                    <p className="text-xs leading-5 text-slate-500">Ví dụ chọn ngày 10: hóa đơn mới của tháng 8 có hạn ngày 10/08; từ 11/08 nếu chưa thanh toán đủ sẽ là quá hạn.</p>
+                  </label>
+
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-700 space-y-2">
+                    <div className="font-bold text-slate-900">Cách hệ thống xử lý</div>
+                    <p>• <strong>Chưa đến hạn:</strong> hóa đơn chưa thanh toán nhưng hôm nay chưa qua ngày đến hạn.</p>
+                    <p>• <strong>Quá hạn:</strong> hóa đơn còn nợ và hôm nay sau ngày đến hạn. Dashboard, danh sách hóa đơn và nhắc nợ sẽ hiển thị đúng trạng thái này.</p>
+                    <p>• Hạn thanh toán đã tạo trên từng hóa đơn được giữ nguyên; thay đổi này chỉ là mặc định cho hóa đơn tạo sau.</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button variant="primary" icon={<Save size={14} />} onClick={handleSave} disabled={saving} loading={saving} className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl px-6">Lưu cấu hình hạn thanh toán</Button>
+                </div>
+              </div>
+            )}
 
             {activeTab === "notifications" && (
               <div className="space-y-6 animate-in fade-in duration-300">
@@ -765,53 +821,20 @@ export default function OwnerSettingsPage() {
                   <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <span className="text-sm font-bold text-slate-900">Nhắc nợ tự động qua Zalo</span>
+                        <span className="text-sm font-bold text-slate-900">Nhắc nợ thủ công qua Zalo</span>
                         <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
-                          Job nhắc nợ chạy hằng ngày, chỉ gửi cho hóa đơn chưa thanh toán và không gửi trùng cùng một mốc.
+                          Khi cần, mở hóa đơn chưa thanh toán và bấm <strong>Nhắc nợ</strong>. Hệ thống dùng SĐT hiện tại của khách để tìm Zalo và gửi tin nhắn, không kèm ảnh hóa đơn.
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => {
-                          handleChange("zalo_reminder_days_before", DEFAULT_ZALO_REMINDER_DAYS_BEFORE, "string", "zalo");
-                          handleChange("zalo_reminder_days_after", DEFAULT_ZALO_REMINDER_DAYS_AFTER, "string", "zalo");
                           handleChange("zalo_reminder_template", DEFAULT_ZALO_REMINDER_TEMPLATE, "string", "zalo");
                         }}
                         className="shrink-0 text-xs font-bold text-blue-600 hover:underline"
                       >
                         Khôi phục cấu hình mặc định
                       </button>
-                    </div>
-
-                    <div className="grid gap-3 lg:grid-cols-2">
-                      <label className="space-y-1.5">
-                        <span className="text-xs font-bold text-slate-700">Nhắc trước hạn</span>
-                        <input
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                          value={getValue("zalo_reminder_days_before", DEFAULT_ZALO_REMINDER_DAYS_BEFORE)}
-                          onChange={(e) => handleChange("zalo_reminder_days_before", e.target.value, "string", "zalo")}
-                          placeholder="VD: 3,0"
-                        />
-                        <p className="text-[11px] font-medium text-slate-500">Nhập số ngày trước hạn, cách nhau bằng dấu phẩy. `0` là đúng ngày đến hạn.</p>
-                      </label>
-
-                      <label className="space-y-1.5">
-                        <span className="text-xs font-bold text-slate-700">Nhắc sau hạn</span>
-                        <input
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                          value={getValue("zalo_reminder_days_after", DEFAULT_ZALO_REMINDER_DAYS_AFTER)}
-                          onChange={(e) => handleChange("zalo_reminder_days_after", e.target.value, "string", "zalo")}
-                          placeholder="VD: 2,7,14"
-                        />
-                        <p className="text-[11px] font-medium text-slate-500">Mặc định có thêm mốc 14 ngày: cảnh báo nợ quá hạn lâu.</p>
-                      </label>
-                    </div>
-
-                    <div className="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
-                      <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 font-semibold text-blue-800">Trước hạn 3 ngày</div>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-700">Đúng ngày đến hạn</div>
-                      <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 font-semibold text-amber-800">Quá hạn 2 / 7 ngày</div>
-                      <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 font-semibold text-red-700">Mới: Quá hạn 14 ngày</div>
                     </div>
 
                     <label className="block space-y-2">
@@ -858,15 +881,6 @@ export default function OwnerSettingsPage() {
                       <p className="mt-1 max-w-2xl text-xs font-medium leading-5 text-slate-500">Quản lý tài khoản nhận tiền, webhook SePay, token xác thực và nhật ký tự động gạch nợ hóa đơn.</p>
                     </div>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    icon={<RefreshCw size={12} className={loadingSepayEvents ? "animate-spin text-blue-500" : ""} />} 
-                    onClick={fetchSepayEvents}
-                    disabled={loadingSepayEvents}
-                    className="border-slate-200 text-slate-700 text-xs font-semibold rounded-xl"
-                  >
-                    Làm mới Nhật ký
-                  </Button>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-4">
@@ -1970,6 +1984,14 @@ export default function OwnerSettingsPage() {
         </AnimatePresence>
       </Card>
     </div>
+  )}
+  {confirmAction && (
+    <ConfirmDialog
+      title={confirmAction.title}
+      description={confirmAction.description}
+      onConfirm={confirmAction.onConfirm}
+      onCancel={() => setConfirmAction(null)}
+    />
   )}
 </div>
   );

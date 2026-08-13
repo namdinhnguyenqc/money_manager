@@ -30,6 +30,7 @@ import {
   ChevronUp,
   Layers,
   Zap,
+  Clock,
   Sparkles,
 } from "lucide-react";
 import { API_URL } from "@/lib/api";
@@ -94,6 +95,7 @@ const navSections: NavSection[] = [
           { href: "/owner/settings?tab=sepay-logs", label: "Kết nối SePay", icon: Layers },
           { href: "/owner/settings?tab=zalo", label: "Kết nối Zalo", icon: MessageSquare },
           { href: "/owner/settings?tab=notifications", label: "Nhận thông báo", icon: Bell },
+          { href: "/owner/settings?tab=overdue", label: "Hạn thanh toán & quá hạn", icon: Clock },
           { href: "/owner/settings?tab=pricing", label: "Bảng giá dịch vụ", icon: Zap },
           { href: "/owner/settings?tab=categories", label: "Danh mục thu chi", icon: Tag },
           { href: "/owner/settings?tab=extension", label: "Ví & Dòng tiền", icon: Wallet },
@@ -222,6 +224,7 @@ const getPageTitle = (path: string) => {
       if (tab === "sepay-logs") return "Kết nối SePay";
       if (tab === "zalo") return "Kết nối Zalo";
       if (tab === "notifications") return "Nhận thông báo";
+      if (tab === "overdue") return "Hạn thanh toán & quá hạn";
       if (tab === "pricing") return "Bảng giá dịch vụ";
       if (tab === "categories") return "Danh mục thu chi";
       if (tab === "extension") return "Ví & Dòng tiền";
