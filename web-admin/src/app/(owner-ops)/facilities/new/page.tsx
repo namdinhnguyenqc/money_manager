@@ -4,19 +4,21 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Building2 } from "lucide-react";
-import { createBoardingHouse } from "@/lib/rentalOps";
+import { ArrowLeft, Building2, Plus, Trash2 } from "lucide-react";
+import { createBoardingHouse, createFacilityBlock } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 export default function NewFacilityPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", address: "", description: "" });
+  const [blockNames, setBlockNames] = useState<string[]>([]);
   const [error, setError] = useState("");
 
   const mutation = useMutation({
     mutationFn: createBoardingHouse,
     onSuccess: async (facility) => {
+      await Promise.all(blockNames.map((name) => name.trim() ? createFacilityBlock(facility.id, name.trim()) : Promise.resolve()));
       await invalidateOwnerOpsQueries(queryClient, { facilityId: facility.id });
       router.push(`/facilities/${facility.id}`);
     },
@@ -59,6 +61,16 @@ export default function NewFacilityPage() {
             <span className="mb-1 block text-sm font-medium text-slate-700">Tên cơ sở *</span>
             <input className="input" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Ví dụ: Nhà trọ Lương Thế Vinh" />
           </label>
+          <div className="border-t border-slate-100 pt-5">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Dãy trọ <span className="font-medium text-slate-400">— tùy chọn</span></h2>
+                <p className="mt-1 text-sm text-slate-500">Bỏ qua nếu cơ sở không cần phân dãy. Bạn luôn có thể thêm hoặc chuyển phòng vào dãy sau này.</p>
+              </div>
+              <button type="button" onClick={() => setBlockNames((items) => [...items, ""])} className="inline-flex shrink-0 items-center gap-1.5 rounded-[8px] border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"><Plus size={16} />Thêm dãy</button>
+            </div>
+            {blockNames.length > 0 ? <div className="space-y-2">{blockNames.map((name, index) => <div key={index} className="flex gap-2"><input className="input flex-1" value={name} onChange={(event) => setBlockNames((items) => items.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} placeholder={`Ví dụ: Dãy ${String.fromCharCode(65 + index)}`} /><button type="button" aria-label="Xóa dãy" onClick={() => setBlockNames((items) => items.filter((_, itemIndex) => itemIndex !== index))} className="rounded-[8px] p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={17} /></button></div>)}</div> : null}
+          </div>
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700">Địa chỉ</span>
             <input className="input" value={form.address} onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))} placeholder="Số nhà, đường, phường/xã, quận/huyện" />

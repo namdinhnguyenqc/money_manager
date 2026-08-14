@@ -74,6 +74,13 @@ export type BoardingHouse = {
   status?: "ACTIVE" | "INACTIVE";
 };
 
+export type FacilityBlock = {
+  id: string;
+  name: string;
+  boarding_house_id: string;
+  created_at?: string;
+};
+
 export type RentalRoom = {
   id: string;
   owner_room_id?: string | null;
@@ -104,6 +111,9 @@ export type RentalRoom = {
   outstanding_amount?: number;
   is_expired?: boolean;
   boarding_house_id?: string;
+  block_id?: string | null;
+  blockId?: string | null;
+  block_name?: string | null;
   reservation_deposit_id?: string | null;
   reservation_tenant_name?: string | null;
   reservation_tenant_phone?: string | null;
@@ -488,6 +498,25 @@ export async function createBoardingHouse(input: { name: string; address?: strin
   return (res?.data ?? res) as BoardingHouse;
 }
 
+export async function loadFacilityBlocks(facilityId: string) {
+  const res = await apiGet<any>(`/owner/boarding-houses/${facilityId}/blocks`);
+  return (res?.data ?? []) as FacilityBlock[];
+}
+
+export async function createFacilityBlock(facilityId: string, name: string) {
+  const res = await apiPost<any>(`/owner/boarding-houses/${facilityId}/blocks`, { name });
+  return (res?.data ?? res) as FacilityBlock;
+}
+
+export async function updateFacilityBlock(facilityId: string, blockId: string, name: string) {
+  const res = await apiPatch<any>(`/owner/boarding-houses/${facilityId}/blocks/${blockId}`, { name });
+  return (res?.data ?? res) as FacilityBlock;
+}
+
+export async function deleteFacilityBlock(facilityId: string, blockId: string) {
+  return apiDelete<any>(`/owner/boarding-houses/${facilityId}/blocks/${blockId}`);
+}
+
 export async function loadBoardingHouse(id: string) {
   const res = await apiGet<any>(`/owner/boarding-houses/${id}`);
   return (res?.data ?? res) as BoardingHouse;
@@ -498,12 +527,13 @@ export async function loadOwnerRooms(buildingId: string) {
   return (res?.data ?? []) as OwnerRoom[];
 }
 
-export async function createOwnerRoom(buildingId: string, input: { name: string; price: number; area?: number; maxPeople?: number; status?: "AVAILABLE" | "OCCUPIED" | "MAINTENANCE" }) {
+export async function createOwnerRoom(buildingId: string, input: { name: string; price: number; area?: number; maxPeople?: number; blockId?: string | null; status?: "AVAILABLE" | "OCCUPIED" | "MAINTENANCE" }) {
   const res = await apiPost<any>(`/owner/boarding-houses/${buildingId}/rooms`, {
     name: input.name,
     price: Number(input.price || 0),
     area: Number(input.area || 0),
     maxPeople: Number(input.maxPeople || 1),
+    blockId: input.blockId ?? null,
     status: input.status || "AVAILABLE",
   });
   return (res?.data ?? res) as OwnerRoom;

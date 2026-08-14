@@ -34,6 +34,10 @@ const updateRoomSchema = z
     roomType: z.string().trim().optional().nullable(),
     room_type: z.string().trim().optional().nullable(),
     status: z.string().optional(),
+    area: z.number().nonnegative().optional(),
+    max_people: z.number().int().positive().optional(),
+    maxPeople: z.number().int().positive().optional(),
+    blockId: z.string().uuid().nullable().optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, "No fields to update");
 
@@ -226,22 +230,30 @@ rentalRoutes.get("/rooms", async (c) => {
     roomsQuery = roomsQuery.eq("boarding_house_id", buildingId);
   }
 
-  const [roomsRes, contractsRes, tenantsRes] = await Promise.all([
+  const [roomsRes, contractsRes, tenantsRes, reservationsRes] = await Promise.all([
     roomsQuery,
     db.from("contracts").select("*").eq("user_id", user.id).eq("status", "active"),
     db.from("tenants").select("*").eq("user_id", user.id),
+    db.from("deposits")
+      .select("id,room_id,tenant_name,tenant_phone,amount,recorded_at,note")
+      .eq("user_id", user.id)
+      .eq("type", "reservation")
+      .eq("status", "active"),
   ]);
 
   if (roomsRes.error) return c.json({ error: roomsRes.error.message }, 500);
   if (contractsRes.error) return c.json({ error: contractsRes.error.message }, 500);
   if (tenantsRes.error) return c.json({ error: tenantsRes.error.message }, 500);
+  if (reservationsRes.error) return c.json({ error: reservationsRes.error.message }, 500);
 
   const contracts = contractsRes.data ?? [];
   const tenants = tenantsRes.data ?? [];
+  const reservations = reservationsRes.data ?? [];
 
   const data = (roomsRes.data ?? [])
     .map((room) => {
       const contract = contracts.find((x) => String(x.room_id) === String(room.id));
+      const reservation = reservations.find((x) => String(x.room_id) === String(room.id));
       const baseRoom = { 
         ...room, 
         hasAc: room.has_ac, 
@@ -250,6 +262,12 @@ rentalRoutes.get("/rooms", async (c) => {
         room_type: room.room_type ?? null,
         building_id: room.boarding_house_id,
         facility_id: room.boarding_house_id,
+        reservation_deposit_id: reservation?.id ?? null,
+        reservation_tenant_name: reservation?.tenant_name ?? null,
+        reservation_tenant_phone: reservation?.tenant_phone ?? null,
+        reservation_amount: reservation ? Number(reservation.amount || 0) : null,
+        reservation_date: reservation?.recorded_at ?? null,
+        reservation_note: reservation?.note ?? null,
       };
 
       if (!contract) return baseRoom;
@@ -496,6 +514,16 @@ rentalRoutes.patch("/deposits/:id", async (c) => {
   // If cancelled or refunded, and there's no active contract, set room back to vacant
   if (["cancelled", "refunded"].includes(status)) {
     const roomId = data.room_id;
+    const { data: activeContract } = await db
+      .from("contracts")
+      .select("id")
+      .eq("room_id", roomId)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .maybeSingle();
+    // A deposit record can be changed after it has been linked to a lease.
+    // Never make an occupied, contracted room vacant as a side effect.
+    if (activeContract) return c.json({ data });
     // Check if any other active deposit exists for this room
     const { data: others } = await db
       .from("deposits")
@@ -510,6 +538,86 @@ rentalRoutes.patch("/deposits/:id", async (c) => {
   }
 
   return c.json({ data });
+});
+
+// End a reservation when the prospective tenant does not proceed.
+// The deposit was already recorded as income on receipt, so this action does
+// not create a second transaction or alter the wallet balance. It only closes
+// the reservation and makes the room available again.
+rentalRoutes.post("/deposits/:id/forfeit", async (c) => {
+  const user = c.get("user");
+  const id = toId(c.req.param("id"));
+  if (!id) return c.json({ error: "Invalid deposit id" }, 400);
+
+  const db = c.get("supabase");
+  const { data: deposit, error: depositError } = await db
+    .from("deposits")
+    .select("id,room_id,tenant_name,amount,type,status,note")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (depositError) return c.json({ error: depositError.message }, 500);
+  if (!deposit) return c.json({ error: "Không tìm thấy khoản cọc." }, 404);
+  if (deposit.type !== "reservation" || deposit.status !== "active") {
+    return c.json({ error: "Chỉ có thể bỏ cọc giữ chỗ đang hiệu lực." }, 400);
+  }
+
+  const { data: activeContract, error: contractError } = await db
+    .from("contracts")
+    .select("id")
+    .eq("room_id", deposit.room_id)
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .maybeSingle();
+  if (contractError) return c.json({ error: contractError.message }, 500);
+  if (activeContract) {
+    return c.json({ error: "Phòng đã có hợp đồng hiệu lực; không thể bỏ cọc giữ chỗ." }, 400);
+  }
+
+  const forfeitureNote = "Bỏ cọc giữ chỗ — khách không nhận phòng, tiền cọc được giữ lại.";
+  const { data: updatedDeposit, error: updateDepositError } = await db
+    .from("deposits")
+    .update({
+      status: "cancelled",
+      note: deposit.note ? `${deposit.note}\n${forfeitureNote}` : forfeitureNote,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .eq("type", "reservation")
+    .eq("status", "active")
+    .select("*")
+    .maybeSingle();
+  if (updateDepositError) return c.json({ error: updateDepositError.message }, 400);
+  if (!updatedDeposit) return c.json({ error: "Khoản cọc đã được xử lý ở một thao tác khác." }, 409);
+
+  const { data: reopenedRoom, error: roomError } = await db
+    .from("rooms")
+    .update({ status: "vacant", updated_at: new Date().toISOString() })
+    .eq("id", deposit.room_id)
+    .eq("user_id", user.id)
+    .eq("status", "reserved")
+    .select("id")
+    .maybeSingle();
+  if (roomError || !reopenedRoom) {
+    // Keep the reservation effective if freeing the room failed. The original
+    // receipt transaction remains untouched in either case.
+    await db.from("deposits").update({
+      status: "active",
+      note: deposit.note ?? null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", id).eq("user_id", user.id);
+    return c.json({ error: roomError ? `Chưa thể mở lại phòng: ${roomError.message}` : "Trạng thái phòng đã thay đổi; không thể bỏ cọc tự động." }, 409);
+  }
+
+  await logAuditAction(db, user.id, "reservation_deposit_forfeited", "deposit", id, {
+    roomId: deposit.room_id,
+    tenantName: deposit.tenant_name,
+    amount: Number(deposit.amount || 0),
+  });
+
+  return c.json({ data: updatedDeposit, message: "Đã bỏ cọc và chuyển phòng về trạng thái trống." });
 });
 
 rentalRoutes.post("/rooms", async (c) => {
@@ -569,6 +677,19 @@ rentalRoutes.patch("/rooms/:id", async (c) => {
   const roomType = parsed.data.roomType ?? parsed.data.room_type;
   if (roomType !== undefined) payload.room_type = roomType || null;
   if (parsed.data.status !== undefined) payload.status = parsed.data.status;
+  if (parsed.data.area !== undefined) payload.area = parsed.data.area;
+  if (parsed.data.max_people !== undefined) payload.max_people = parsed.data.max_people;
+  if (parsed.data.maxPeople !== undefined) payload.max_people = parsed.data.maxPeople;
+  if (parsed.data.blockId !== undefined) {
+    if (parsed.data.blockId) {
+      const [{ data: block }, { data: room }] = await Promise.all([
+        c.get("supabase").from("facility_blocks").select("id, boarding_house_id").eq("id", parsed.data.blockId).eq("owner_id", user.id).maybeSingle(),
+        c.get("supabase").from("rooms").select("boarding_house_id").eq("id", id).eq("user_id", user.id).maybeSingle(),
+      ]);
+      if (!block || !room || String(block.boarding_house_id) !== String(room.boarding_house_id)) return c.json({ error: "Dãy không thuộc cơ sở của phòng." }, 400);
+    }
+    payload.block_id = parsed.data.blockId;
+  }
   payload.updated_at = new Date().toISOString();
 
   const db = c.get("supabase");

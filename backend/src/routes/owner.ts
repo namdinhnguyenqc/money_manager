@@ -368,6 +368,7 @@ const roomSchema = z.object({
   price: z.number().min(0),
   area: z.number().nonnegative().optional(),
   maxPeople: z.number().int().positive().optional(),
+  blockId: z.string().uuid().nullable().optional(),
   status: z.enum(["AVAILABLE", "OCCUPIED", "MAINTENANCE"]).default("AVAILABLE"),
 });
 
@@ -479,6 +480,52 @@ ownerRoutes.get("/boarding-houses/:id", async (c) => {
     ownerId: data.owner_id,
     createdAt: data.created_at,
   });
+});
+
+ownerRoutes.get("/boarding-houses/:id/blocks", async (c) => {
+  const currentUser = c.get("user");
+  const boardingHouseId = c.req.param("id");
+  const db = c.get("supabase");
+  const { data, error } = await db
+    .from("facility_blocks")
+    .select("id, name, boarding_house_id, created_at")
+    .eq("owner_id", currentUser.id)
+    .eq("boarding_house_id", boardingHouseId)
+    .order("name", { ascending: true });
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ data: data ?? [] });
+});
+
+ownerRoutes.post("/boarding-houses/:id/blocks", async (c) => {
+  const currentUser = c.get("user");
+  const boardingHouseId = c.req.param("id");
+  const parsed = z.object({ name: z.string().trim().min(1).max(120) }).safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: "Tên dãy là bắt buộc." }, 400);
+  const db = c.get("supabase");
+  const { data: house } = await db.from("boarding_houses").select("id").eq("id", boardingHouseId).eq("owner_id", currentUser.id).maybeSingle();
+  if (!house) return c.json({ error: "Không tìm thấy cơ sở." }, 404);
+  const { data, error } = await db.from("facility_blocks").insert({ owner_id: currentUser.id, boarding_house_id: boardingHouseId, name: parsed.data.name }).select("id, name, boarding_house_id, created_at").single();
+  if (error) return c.json({ error: error.message.includes("unique") ? "Tên dãy đã tồn tại trong cơ sở này." : error.message }, 400);
+  return c.json({ data }, 201);
+});
+
+ownerRoutes.patch("/boarding-houses/:id/blocks/:blockId", async (c) => {
+  const currentUser = c.get("user");
+  const parsed = z.object({ name: z.string().trim().min(1).max(120) }).safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: "Tên dãy là bắt buộc." }, 400);
+  const { data, error } = await c.get("supabase").from("facility_blocks").update({ name: parsed.data.name, updated_at: new Date().toISOString() }).eq("id", c.req.param("blockId")).eq("boarding_house_id", c.req.param("id")).eq("owner_id", currentUser.id).select("id, name, boarding_house_id, created_at").single();
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ data });
+});
+
+ownerRoutes.delete("/boarding-houses/:id/blocks/:blockId", async (c) => {
+  const currentUser = c.get("user");
+  const db = c.get("supabase");
+  const blockId = c.req.param("blockId");
+  // Keeping rooms is intentional: they become "Không phân dãy" via ON DELETE SET NULL.
+  const { error } = await db.from("facility_blocks").delete().eq("id", blockId).eq("boarding_house_id", c.req.param("id")).eq("owner_id", currentUser.id);
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ ok: true });
 });
 
 ownerRoutes.post("/boarding-houses", async (c) => {
@@ -746,7 +793,12 @@ ownerRoutes.post("/boarding-houses/:id/rooms", async (c) => {
   }
   // ──────────────────────────────────────────────────────────
 
-  const { name, price, status } = validation.data;
+  const { name, price, status, area, maxPeople, blockId } = validation.data;
+
+  if (blockId) {
+    const { data: block } = await c.get("supabase").from("facility_blocks").select("id").eq("id", blockId).eq("boarding_house_id", bhId).eq("owner_id", currentUser.id).maybeSingle();
+    if (!block) return c.json({ error: "Dãy không thuộc cơ sở đã chọn." }, 400);
+  }
 
   const { data: room, error } = await c
     .get("supabase")
@@ -756,8 +808,9 @@ ownerRoutes.post("/boarding-houses/:id/rooms", async (c) => {
       name,
       boarding_house_id: bhId,
       price,
-      area: 0,
-      max_people: 1,
+      area: area ?? 0,
+      max_people: maxPeople ?? 1,
+      block_id: blockId ?? null,
       status,
     })
     .select()
@@ -780,6 +833,7 @@ ownerRoutes.post("/boarding-houses/:id/rooms", async (c) => {
       area: room.area,
       maxPeople: room.max_people,
       status: room.status,
+      block_id: room.block_id,
       createdAt: room.created_at,
     },
     201,
@@ -822,6 +876,8 @@ ownerRoutes.patch("/rooms/:id", async (c) => {
   }
 
   const updateData: Record<string, unknown> = { ...validation.data };
+  if (validation.data.blockId !== undefined) updateData.block_id = validation.data.blockId;
+  delete updateData.blockId;
   updateData.updated_at = new Date().toISOString();
 
   const { data, error } = await c
