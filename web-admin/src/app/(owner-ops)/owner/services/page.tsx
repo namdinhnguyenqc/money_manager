@@ -2,13 +2,14 @@
 
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Zap, Pencil, Trash2, ToggleLeft, ToggleRight, X, ChevronDown } from "lucide-react";
+import { Plus, Zap, Pencil, Trash2, ToggleLeft, ToggleRight, X, ChevronDown, Sparkles } from "lucide-react";
 import {
   loadServiceConfigs,
   createService,
   updateService,
   deleteService,
   toggleServiceStatus,
+  seedDefaultServices,
   describeServiceType,
   formatMoney,
   ServiceConfig,
@@ -63,6 +64,7 @@ export default function ServicesPage() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
 
   const servicesQuery = useQuery({
     queryKey: ["services"],
@@ -71,6 +73,28 @@ export default function ServicesPage() {
   });
 
   const services = servicesQuery.data ?? [];
+
+  const handleSeedDefaults = async () => {
+    setSeeding(true);
+    try {
+      const { created, skipped } = await seedDefaultServices();
+      await queryClient.invalidateQueries({ queryKey: ["services"] });
+      if (created === 0) {
+        showToast("Bạn đã có đủ các dịch vụ mẫu này rồi.", "info");
+      } else {
+        showToast(
+          skipped > 0
+            ? `Đã thêm ${created} dịch vụ mẫu (bỏ qua ${skipped} dịch vụ đã có).`
+            : `Đã tạo ${created} dịch vụ mẫu. Bấm sửa để chỉnh giá theo nhà bạn.`,
+          "success",
+        );
+      }
+    } catch (err: any) {
+      showToast(err?.message || "Không tạo được bộ dịch vụ mẫu.", "error");
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const openAdd = () => {
     setEditingService(null);
@@ -265,10 +289,18 @@ export default function ServicesPage() {
             <Zap size={32} />
           </div>
           <h3 className="text-base font-bold text-slate-900">Chưa có dịch vụ nào</h3>
-          <p className="mt-2 text-sm text-slate-500">Thêm dịch vụ để áp dụng vào hóa đơn hàng tháng.</p>
-          <div className="mt-6">
-            <Button variant="primary" icon={<Plus size={16} />} onClick={openAdd}>Thêm dịch vụ đầu tiên</Button>
+          <p className="mt-2 text-sm text-slate-500">
+            Hóa đơn cần dịch vụ để tính tiền điện, nước, wifi... Tạo nhanh bộ mẫu rồi chỉnh giá theo nhà bạn.
+          </p>
+          <div className="mt-6 flex flex-col items-center justify-center gap-2 sm:flex-row">
+            <Button variant="primary" icon={<Sparkles size={16} />} onClick={handleSeedDefaults} disabled={seeding}>
+              {seeding ? "Đang tạo..." : "Tạo bộ dịch vụ mẫu"}
+            </Button>
+            <Button variant="outline" icon={<Plus size={16} />} onClick={openAdd}>Tự thêm dịch vụ</Button>
           </div>
+          <p className="mt-4 text-xs text-slate-400">
+            Bộ mẫu: điện, nước, wifi, rác, gửi xe — giá tham khảo, sửa được sau khi tạo.
+          </p>
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">

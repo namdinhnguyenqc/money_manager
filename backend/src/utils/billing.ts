@@ -43,3 +43,57 @@ export function resolveInvoiceRoomFee(input: {
   }
   return calculateProratedRoomFee(monthlyRent, input.contractStartDate, input.month, input.year);
 }
+
+export type InvoiceDebtRow = {
+  room_id?: string | null;
+  total_amount?: number | string | null;
+  paid_amount?: number | string | null;
+  status?: string | null;
+  month?: number | string | null;
+  year?: number | string | null;
+};
+
+export type RoomInvoiceSummary = {
+  outstanding: number;
+  latestStatus: string | null;
+};
+
+/**
+ * Aggregates a user's invoices into per-room debt for the rooms listing.
+ *
+ * Outstanding is derived rather than stored on the room: invoices are the source
+ * of truth, and a denormalized column would drift every time a payment lands via
+ * the SePay webhook. A partially paid invoice contributes only its remaining
+ * balance, and an overpayment never becomes negative debt.
+ */
+export function summarizeRoomInvoices(rows: InvoiceDebtRow[]): Map<string, RoomInvoiceSummary> {
+  const byRoom = new Map<string, RoomInvoiceSummary & { latestRank: number }>();
+
+  for (const row of rows ?? []) {
+    const roomId = String(row?.room_id ?? "");
+    if (!roomId) continue;
+
+    const entry = byRoom.get(roomId) ?? { outstanding: 0, latestStatus: null, latestRank: -1 };
+
+    if (row.status !== "paid") {
+      const total = Number(row.total_amount || 0);
+      const paid = Number(row.paid_amount || 0);
+      entry.outstanding += Math.max(0, total - paid);
+    }
+
+    const rank = Number(row.year || 0) * 12 + Number(row.month || 0);
+    if (rank > entry.latestRank) {
+      entry.latestRank = rank;
+      entry.latestStatus = row.status ?? null;
+    }
+
+    byRoom.set(roomId, entry);
+  }
+
+  return new Map(
+    Array.from(byRoom.entries()).map(([roomId, v]) => [
+      roomId,
+      { outstanding: v.outstanding, latestStatus: v.latestStatus },
+    ]),
+  );
+}

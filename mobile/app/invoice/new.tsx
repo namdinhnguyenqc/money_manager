@@ -184,24 +184,31 @@ export default function NewInvoiceScreen() {
 
   // Select services config
   const appliedServices = contract?.applied_services_snapshot || [];
-  const defaultElecPrice = contract?.has_ac ? 4000 : 3500;
-  const defaultWaterPrice = 15000;
 
-  const electricityService = appliedServices.find((s: any) => s.category === 'electricity') || {
+  // Pricing comes only from the contract's service snapshot. A "typical" rate
+  // fallback here silently billed tenants at a price the owner never set, so an
+  // unconfigured utility now bills 0 and the screen says so explicitly.
+  const electricityFromContract = appliedServices.find((s: any) => s.category === 'electricity');
+  const waterFromContract = appliedServices.find((s: any) => s.category === 'water');
+
+  const electricityConfigured = Boolean(electricityFromContract);
+  const waterConfigured = Boolean(waterFromContract);
+
+  const electricityService = electricityFromContract || {
     service_id: '0',
     name: 'Tiền điện',
     category: 'electricity',
     type: 'metered',
-    applied_unit_price: defaultElecPrice,
+    applied_unit_price: 0,
     amount: null,
   };
 
-  const waterService = appliedServices.find((s: any) => s.category === 'water') || {
+  const waterService = waterFromContract || {
     service_id: '0',
     name: 'Tiền nước',
     category: 'water',
     type: 'metered',
-    applied_unit_price: defaultWaterPrice,
+    applied_unit_price: 0,
     amount: null,
   };
 
@@ -361,6 +368,23 @@ export default function NewInvoiceScreen() {
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
+        {contract && (!electricityConfigured || !waterConfigured) && (
+          <Card style={styles.warningCard}>
+            <Text style={styles.warningTitle}>
+              Hợp đồng chưa áp dụng dịch vụ{' '}
+              {!electricityConfigured && !waterConfigured
+                ? 'điện và nước'
+                : !electricityConfigured
+                  ? 'điện'
+                  : 'nước'}
+            </Text>
+            <Text style={styles.warningBody}>
+              Đơn giá đang để 0 đ vì chưa có cấu hình — hệ thống không tự đặt giá thay bạn. Hãy tạo
+              dịch vụ rồi cập nhật hợp đồng để hóa đơn tính đúng.
+            </Text>
+          </Card>
+        )}
+
         {/* Contract Picker if none specified */}
         {contracts.length > 1 && !contract_id && (
           <Card style={styles.card}>
@@ -666,6 +690,9 @@ const styles = StyleSheet.create({
   loadingText: { marginTop: 12, fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
   card: { padding: 16, backgroundColor: Colors.surface, borderRadius: 16, borderWidth: 1, borderColor: Colors.borderLight },
   cardTitle: { fontSize: 14, fontFamily: Typography.fontFamily.semibold, color: Colors.textPrimary, marginBottom: 12 },
+  warningCard: { padding: 16, backgroundColor: '#fffbeb', borderRadius: 16, borderWidth: 1, borderColor: '#fde68a' },
+  warningTitle: { fontSize: 14, fontFamily: Typography.fontFamily.semibold, color: '#78350f' },
+  warningBody: { fontSize: 12, lineHeight: 18, fontFamily: Typography.fontFamily.regular, color: '#92400e', marginTop: 4 },
   headerCard: { backgroundColor: '#f0f9ff', borderColor: '#bae6fd' },
   headerInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   roomTitle: { fontSize: 18, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary, letterSpacing: -0.4 },

@@ -6,6 +6,7 @@ import type { AppEnv } from "../types.js";
 import { parseJson, toId } from "../utils/validation.js";
 import { logAuditAction } from "../utils/audit.js";
 import { updateWalletBalance } from "../utils/wallet.js";
+import { summarizeRoomInvoices } from "../utils/billing.js";
 import { env } from "../config/env.js";
 
 
@@ -230,7 +231,7 @@ rentalRoutes.get("/rooms", async (c) => {
     roomsQuery = roomsQuery.eq("boarding_house_id", buildingId);
   }
 
-  const [roomsRes, contractsRes, tenantsRes, reservationsRes] = await Promise.all([
+  const [roomsRes, contractsRes, tenantsRes, reservationsRes, invoicesRes] = await Promise.all([
     roomsQuery,
     db.from("contracts").select("*").eq("user_id", user.id).eq("status", "active"),
     db.from("tenants").select("*").eq("user_id", user.id),
@@ -239,24 +240,35 @@ rentalRoutes.get("/rooms", async (c) => {
       .eq("user_id", user.id)
       .eq("type", "reservation")
       .eq("status", "active"),
+    // Outstanding debt is derived here rather than stored on the room: invoices
+    // are the source of truth, and a denormalized column would drift every time
+    // a payment lands via the SePay webhook.
+    db.from("invoices")
+      .select("room_id,total_amount,paid_amount,status,month,year")
+      .eq("user_id", user.id),
   ]);
 
   if (roomsRes.error) return c.json({ error: roomsRes.error.message }, 500);
   if (contractsRes.error) return c.json({ error: contractsRes.error.message }, 500);
   if (tenantsRes.error) return c.json({ error: tenantsRes.error.message }, 500);
   if (reservationsRes.error) return c.json({ error: reservationsRes.error.message }, 500);
+  if (invoicesRes.error) return c.json({ error: invoicesRes.error.message }, 500);
 
   const contracts = contractsRes.data ?? [];
   const tenants = tenantsRes.data ?? [];
   const reservations = reservationsRes.data ?? [];
+  const invoiceSummaryByRoom = summarizeRoomInvoices(invoicesRes.data ?? []);
 
   const data = (roomsRes.data ?? [])
     .map((room) => {
       const contract = contracts.find((x) => String(x.room_id) === String(room.id));
       const reservation = reservations.find((x) => String(x.room_id) === String(room.id));
-      const baseRoom = { 
-        ...room, 
-        hasAc: room.has_ac, 
+      const invoiceSummary = invoiceSummaryByRoom.get(String(room.id));
+      const baseRoom = {
+        ...room,
+        outstanding_amount: invoiceSummary?.outstanding ?? 0,
+        latest_invoice_status: invoiceSummary?.latestStatus ?? null,
+        hasAc: room.has_ac,
         numPeople: room.num_people,
         roomType: room.room_type ?? null,
         room_type: room.room_type ?? null,
@@ -958,6 +970,71 @@ rentalRoutes.delete("/services/:id", async (c) => {
   const { error } = await db.from("services").delete().eq("id", id).eq("user_id", user.id);
   if (error) return c.json({ error: error.message }, 400);
   return c.json({ ok: true });
+});
+
+// Starter set for a new owner. These are editable suggestions, not authoritative
+// prices — they exist so that a brand-new account can reach a correct invoice
+// without hand-entering five services first. Nothing in the invoicing path falls
+// back to these numbers; an owner who skips this still gets an explicit
+// "chưa cấu hình dịch vụ" prompt rather than an invented price.
+const DEFAULT_SERVICE_TEMPLATES = [
+  { name: "Tiền điện", type: "metered", unit_price: 3500, unit_price_ac: 4000, unit: "kWh", icon: "⚡" },
+  { name: "Tiền nước", type: "metered", unit_price: 15000, unit_price_ac: 0, unit: "m³", icon: "💧" },
+  { name: "Internet / Wifi", type: "per_room", unit_price: 100000, unit_price_ac: 0, unit: "phòng", icon: "📶" },
+  { name: "Tiền rác", type: "per_room", unit_price: 20000, unit_price_ac: 0, unit: "phòng", icon: "🗑️" },
+  { name: "Gửi xe", type: "per_person", unit_price: 100000, unit_price_ac: 0, unit: "xe", icon: "🛵" },
+] as const;
+
+rentalRoutes.post("/services/seed-defaults", async (c) => {
+  const user = c.get("user");
+  const db = c.get("supabase");
+
+  const { data: existing, error: existingError } = await db
+    .from("services")
+    .select("name")
+    .eq("user_id", user.id);
+
+  if (existingError) return c.json({ error: existingError.message }, 500);
+
+  // Re-running this must not create duplicates, so skip any template whose name
+  // the owner already has (case/whitespace-insensitive).
+  const takenNames = new Set(
+    (existing ?? []).map((s: any) => String(s.name || "").trim().toLowerCase()),
+  );
+  const toInsert = DEFAULT_SERVICE_TEMPLATES.filter(
+    (t) => !takenNames.has(t.name.trim().toLowerCase()),
+  ).map((t) => ({
+    user_id: user.id,
+    name: t.name,
+    type: t.type,
+    unit_price: t.unit_price,
+    unit_price_ac: t.unit_price_ac,
+    unit: t.unit,
+    icon: t.icon,
+    active: true,
+  }));
+
+  if (toInsert.length === 0) {
+    return c.json({ data: [], created: 0, skipped: DEFAULT_SERVICE_TEMPLATES.length });
+  }
+
+  const { data, error } = await db.from("services").insert(toInsert).select("*");
+  if (error) return c.json({ error: error.message }, 400);
+
+  const formatted = (data ?? []).map((s: any) => ({
+    ...s,
+    unitPrice: s.unit_price,
+    unitPriceAc: s.unit_price_ac,
+  }));
+
+  return c.json(
+    {
+      data: formatted,
+      created: formatted.length,
+      skipped: DEFAULT_SERVICE_TEMPLATES.length - formatted.length,
+    },
+    201,
+  );
 });
 
 // ═══════════════════════════════════════════════
