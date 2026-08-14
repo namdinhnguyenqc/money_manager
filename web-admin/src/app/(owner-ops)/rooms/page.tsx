@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Edit3, Trash2, Plus, X } from "lucide-react";
+import { Edit3, Trash2, Plus, X, LayoutGrid, List, Search, MoreHorizontal, Banknote, Bell, Wrench, FileText } from "lucide-react";
 import {
   RentalRoom,
   formatMoney,
@@ -16,8 +16,11 @@ import {
   deleteRoom,
   currentPeriod,
   createOwnerRoom,
+  forfeitReservationDeposit,
+  createFacilityBlock,
+  loadFacilityBlocks,
 } from "@/lib/rentalOps";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
@@ -27,6 +30,7 @@ import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import { useToast } from "@/components/ui/Toast";
+import ConfirmDialog from "@/components/ops/ConfirmDialog";
 
 const roomFilters = ["Tất cả", "Trống", "Đang thuê", "Bảo trì", "Sắp hết HĐ", "Đã cọc"];
 const pageSize = 10;
@@ -40,7 +44,11 @@ export default function AllRoomsPage() {
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [reservationToForfeit, setReservationToForfeit] = useState<RentalRoom | null>(null);
   const [page, setPage] = useState(1);
+  const [view, setView] = useState<"map" | "list">("map");
+  const [search, setSearch] = useState("");
+  const [blockFilter, setBlockFilter] = useState("");
 
   const housesQuery = useQuery({ queryKey: ["facilities"], queryFn: loadBoardingHouses, staleTime: 60_000 });
   const roomsQuery = useQuery({
@@ -69,6 +77,9 @@ export default function AllRoomsPage() {
     return houses.find((h) => String(h.id) === String(fid))?.name || "";
   };
 
+  const selectedBlocksQuery = useQuery({ queryKey: ["facility-blocks", facilityIdFilter], queryFn: () => loadFacilityBlocks(facilityIdFilter), enabled: Boolean(facilityIdFilter), staleTime: 30_000 });
+  const facilityBlocks = selectedBlocksQuery.data || [];
+
   const filteredRooms = useMemo(() => rooms.filter((room) => {
     // Filter by facility if coming from boarding-houses page
     if (facilityIdFilter) {
@@ -76,13 +87,19 @@ export default function AllRoomsPage() {
       if (fid && String(fid) !== String(facilityIdFilter)) return false;
     }
     const status = String(room.status || "").toLowerCase() || "vacant";
-    if (roomFilter === "Trống") return status !== "occupied" && status !== "maintenance";
-    if (roomFilter === "Đang thuê") return status === "occupied" || status === "occupied_soon";
-    if (roomFilter === "Bảo trì") return status === "maintenance";
-    if (roomFilter === "Sắp hết HĐ") return isContractSoonEnding(room);
-    if (roomFilter === "Đã cọc") return status === "reserved";
+    if (roomFilter === "Trống" && (status === "occupied" || status === "maintenance")) return false;
+    if (roomFilter === "Đang thuê" && status !== "occupied" && status !== "occupied_soon") return false;
+    if (roomFilter === "Bảo trì" && status !== "maintenance") return false;
+    if (roomFilter === "Sắp hết HĐ" && !isContractSoonEnding(room)) return false;
+    if (roomFilter === "Đã cọc" && status !== "reserved") return false;
+    if (blockFilter === "unassigned" && (room as any).block_id) return false;
+    if (blockFilter && blockFilter !== "unassigned" && String((room as any).block_id || "") !== blockFilter) return false;
+    if (search.trim()) {
+      const needle = search.trim().toLocaleLowerCase("vi-VN");
+      if (![room.name, room.tenant_name, getFacilityName(room)].some((value) => String(value || "").toLocaleLowerCase("vi-VN").includes(needle))) return false;
+    }
     return true;
-  }), [rooms, roomFilter, facilityIdFilter]);
+  }), [rooms, roomFilter, facilityIdFilter, blockFilter, search]);
   const visibleRooms = useMemo(() => filteredRooms.slice((page - 1) * pageSize, page * pageSize), [filteredRooms, page]);
 
   useEffect(() => setPage(1), [roomFilter, facilityIdFilter]);
@@ -105,6 +122,20 @@ export default function AllRoomsPage() {
       setError(err?.message || "Không xóa được phòng.");
     }
   };
+
+  const forfeitReservationMutation = useMutation({
+    mutationFn: (depositId: string) => forfeitReservationDeposit(depositId),
+    onSuccess: async (_, depositId) => {
+      const room = reservationToForfeit;
+      await invalidateOwnerOpsQueries(queryClient, {
+        facilityId: room ? getFacilityId(room) : facilityIdFilter || undefined,
+        roomId: room?.id,
+      });
+      setReservationToForfeit(null);
+      showToast("Đã bỏ cọc và mở lại phòng.");
+    },
+    onError: (err: any) => setError(err?.message || "Chưa thể bỏ cọc giữ chỗ."),
+  });
 
   return (
     <div className="mx-auto max-w-7xl animate-in fade-in duration-500">
@@ -170,6 +201,14 @@ export default function AllRoomsPage() {
         </div>
       </div>
 
+      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-1 flex-wrap gap-2">
+          <div className="relative min-w-[220px] flex-1 sm:max-w-sm"><Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input className="input w-full pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm phòng hoặc khách thuê" /></div>
+          {facilityIdFilter ? <select aria-label="Lọc theo dãy" value={blockFilter} onChange={(event) => setBlockFilter(event.target.value)} className="input w-auto min-w-[180px]"><option value="">Tất cả dãy</option><option value="unassigned">Không phân dãy</option>{facilityBlocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}</select> : null}
+        </div>
+        <div className="inline-flex w-fit rounded-[8px] border border-slate-200 bg-white p-1" role="group" aria-label="Chế độ hiển thị"><button onClick={() => setView("map")} className={`inline-flex items-center gap-1.5 rounded-[6px] px-3 py-2 text-sm font-semibold ${view === "map" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}><LayoutGrid size={16} />Sơ đồ phòng</button><button onClick={() => setView("list")} className={`inline-flex items-center gap-1.5 rounded-[6px] px-3 py-2 text-sm font-semibold ${view === "list" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}><List size={16} />Danh sách</button></div>
+      </div>
+
       {roomsQuery.isLoading && (
         <div className="grid gap-4 lg:grid-cols-2">
            {[1,2,3,4].map(i => (
@@ -178,7 +217,10 @@ export default function AllRoomsPage() {
         </div>
       )}
 
-      {!roomsQuery.isLoading && (
+      {!roomsQuery.isLoading && view === "map" && (
+        <RoomMap rooms={visibleRooms} blocks={facilityBlocks} houses={houses} facilityIdFilter={facilityIdFilter} getFacilityName={getFacilityName} getFacilityId={getFacilityId} onForfeit={setReservationToForfeit} />
+      )}
+      {!roomsQuery.isLoading && view === "list" && (
         <div className="grid gap-4 lg:grid-cols-2">
           {visibleRooms.map((room) => {
             const meta = roomStatusMeta(room.status, isContractSoonEnding(room), (room as any).is_expired);
@@ -231,6 +273,11 @@ export default function AllRoomsPage() {
                             <Button variant="outline" size="sm">Đặt cọc</Button>
                           </Link>
                         )}
+                        {String(room.status || "").toLowerCase() === "reserved" && room.reservation_deposit_id && (
+                          <Button variant="danger-ghost" size="sm" onClick={() => setReservationToForfeit(room)}>
+                            Bỏ cọc
+                          </Button>
+                        )}
                       </>
                     )}
                     {String(room.status || "").toLowerCase() === "occupied" && room.contract_id && (
@@ -274,8 +321,47 @@ export default function AllRoomsPage() {
           }}
         />
       )}
+
+      {reservationToForfeit && (
+        <ConfirmDialog
+          title={`Bỏ cọc phòng ${reservationToForfeit.name}?`}
+          description={`Khách ${reservationToForfeit.reservation_tenant_name || "đặt cọc"} sẽ không tiếp tục nhận phòng. Phòng chuyển về trạng thái Trống; khoản cọc ${formatMoney(Number(reservationToForfeit.reservation_amount || 0))} vẫn được giữ lại như khoản thu đã ghi nhận.`}
+          isLoading={forfeitReservationMutation.isPending}
+          onCancel={() => setReservationToForfeit(null)}
+          onConfirm={() => {
+            const depositId = reservationToForfeit.reservation_deposit_id;
+            if (depositId) forfeitReservationMutation.mutate(depositId);
+          }}
+        />
+      )}
     </div>
   );
+}
+
+function RoomMap({ rooms, blocks, houses, facilityIdFilter, getFacilityName, getFacilityId, onForfeit }: { rooms: RentalRoom[]; blocks: any[]; houses: any[]; facilityIdFilter: string; getFacilityName: (room: RentalRoom) => string; getFacilityId: (room: RentalRoom) => string; onForfeit: (room: RentalRoom) => void }) {
+  const groups = new Map<string, RentalRoom[]>();
+  rooms.forEach((room) => {
+    const facilityKey = facilityIdFilter || getFacilityId(room) || "unassigned-facility";
+    const blockKey = (room as any).block_id || "unassigned";
+    const key = `${facilityKey}:${blockKey}`;
+    groups.set(key, [...(groups.get(key) || []), room]);
+  });
+  if (!rooms.length) return <Card className="p-8 text-center text-sm text-slate-500">Không có phòng phù hợp bộ lọc.</Card>;
+  return <div className="space-y-6">{Array.from(groups.entries()).map(([key, groupRooms]) => {
+    const facilityId = getFacilityId(groupRooms[0]);
+    const blockId = (groupRooms[0] as any).block_id || "unassigned";
+    const blockName = blockId === "unassigned" ? "Không phân dãy" : blocks.find((block) => block.id === blockId)?.name || "Dãy đã xóa";
+    return <section key={key} className="rounded-[12px] border border-slate-200 bg-white p-4 sm:p-5"><div className="mb-4 flex items-baseline gap-2"><h2 className="text-base font-bold text-slate-900">{facilityIdFilter ? blockName : getFacilityName(groupRooms[0])}</h2>{!facilityIdFilter ? <span className="text-sm text-slate-500">· {blockName}</span> : null}<span className="text-xs text-slate-400">{groupRooms.length} phòng</span></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{groupRooms.map((room) => <RoomMiniCard key={room.id} room={room} facilityId={facilityId} onForfeit={onForfeit} />)}</div></section>;
+  })}</div>;
+}
+
+function RoomMiniCard({ room, facilityId, onForfeit }: { room: RentalRoom; facilityId: string; onForfeit: (room: RentalRoom) => void }) {
+  const status = String(room.status || "vacant").toLowerCase();
+  const expiring = isContractSoonEnding(room);
+  const overdue = Number(room.outstanding_amount || 0) > 0 && String(room.latest_invoice_status || "").toUpperCase() !== "PAID";
+  const dot = overdue ? "bg-red-500" : expiring || status === "reserved" ? "bg-amber-400" : status === "maintenance" ? "bg-slate-500" : status === "occupied" ? "bg-emerald-500" : "bg-slate-300";
+  const label = overdue ? "Cần thu" : expiring ? "Sắp hết HĐ" : status === "reserved" ? "Đã cọc" : status === "maintenance" ? "Bảo trì" : status === "occupied" ? "Đang thuê" : "Trống";
+  return <div className="rounded-[8px] border border-slate-200 bg-white p-3 transition-colors hover:border-blue-300"><div className="flex items-start justify-between gap-2"><Link href={`/rooms/${room.id}/edit?facility_id=${facilityId}`} className="min-w-0"><div className="font-bold text-slate-900">{room.name}</div><div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-slate-600"><span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />{label}</div></Link><button aria-label={`Thao tác với phòng ${room.name}`} className="rounded p-1 text-slate-400 hover:bg-slate-100"><MoreHorizontal size={17} /></button></div><div className="mt-3 text-sm font-semibold text-slate-800">{formatMoney(room.price)}<span className="font-normal text-slate-500">/tháng</span></div><p className="mt-1 truncate text-xs text-slate-500">{room.tenant_name || "Chưa có khách thuê"}</p><div className="mt-3 flex gap-2">{overdue ? <><Link className="flex-1" href={`/invoices?room_id=${room.id}`}><Button size="sm" variant="primary" className="w-full"><Banknote size={14} />Thu tiền</Button></Link><Link href={`/invoices?room_id=${room.id}&action=remind`}><Button size="sm" variant="outline" aria-label="Nhắc nợ"><Bell size={14} /></Button></Link></> : status === "maintenance" ? <Link className="flex-1" href={`/rooms/${room.id}/edit?facility_id=${facilityId}`}><Button size="sm" variant="outline" className="w-full"><Wrench size={14} />Chi tiết</Button></Link> : status === "occupied" && expiring ? <><Link className="flex-1" href={`/contracts/${room.contract_id}`}><Button size="sm" variant="primary" className="w-full">Gia hạn</Button></Link><Link href={`/contracts/${room.contract_id}?action=terminate`}><Button size="sm" variant="outline">Trả phòng</Button></Link></> : status === "occupied" ? <><Link className="flex-1" href={`/invoices?room_id=${room.id}`}><Button size="sm" variant="primary" className="w-full"><Banknote size={14} />Thu tiền</Button></Link><Link href={`/contracts/${room.contract_id}?action=terminate`}><Button size="sm" variant="outline">Trả phòng</Button></Link></> : status === "reserved" ? <><Link className="flex-1" href={`/contracts/new?room_id=${room.id}&facility_id=${facilityId}`}><Button size="sm" variant="primary" className="w-full"><FileText size={14} />Tạo HĐ</Button></Link>{room.reservation_deposit_id ? <Button size="sm" variant="outline" onClick={() => onForfeit(room)}>Bỏ cọc</Button> : null}</> : <><Link className="flex-1" href={`/contracts/new?room_id=${room.id}&facility_id=${facilityId}`}><Button size="sm" variant="primary" className="w-full">Tạo HĐ</Button></Link><Link href={`/deposits?room_id=${room.id}`}><Button size="sm" variant="outline">Đặt cọc</Button></Link></>}</div></div>;
 }
 
 function AddRoomModal({ houses, defaultFacilityId, onClose, onSaved }: { houses: any[], defaultFacilityId?: string, onClose: () => void, onSaved: () => void }) {
@@ -285,20 +371,27 @@ function AddRoomModal({ houses, defaultFacilityId, onClose, onSaved }: { houses:
     price: "",
     area: "20",
     maxPeople: "3",
+    blockId: "",
   });
   const [saving, setSaving] = useState(false);
+  const [newBlockName, setNewBlockName] = useState("");
   const { showToast } = useToast();
+  const blocksQuery = useQuery({ queryKey: ["facility-blocks", form.facilityId], queryFn: () => loadFacilityBlocks(form.facilityId), enabled: Boolean(form.facilityId) });
+  const blocks = blocksQuery.data || [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.facilityId) { showToast("Vui lòng chọn cơ sở!", "error"); return; }
     setSaving(true);
     try {
+      let blockId = form.blockId || null;
+      if (newBlockName.trim()) blockId = (await createFacilityBlock(form.facilityId, newBlockName.trim())).id;
       await createOwnerRoom(form.facilityId, {
         name: form.name,
         price: Number(form.price),
         area: Number(form.area),
         maxPeople: Number(form.maxPeople),
+        blockId,
         status: "AVAILABLE",
       });
       onSaved();
@@ -323,11 +416,16 @@ function AddRoomModal({ houses, defaultFacilityId, onClose, onSaved }: { houses:
             <Label>Chọn cơ sở (Tòa nhà)</Label>
             <Select 
               value={form.facilityId}
-              onChange={(e) => setForm(p => ({ ...p, facilityId: e.target.value }))}
+            onChange={(e) => setForm(p => ({ ...p, facilityId: e.target.value }))}
               required
             >
               {houses.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
             </Select>
+          </div>
+          <div>
+            <Label>Dãy <span className="font-normal text-slate-400">(tùy chọn)</span></Label>
+            <Select value={form.blockId} onChange={(e) => setForm(p => ({ ...p, blockId: e.target.value }))}><option value="">Không phân dãy</option>{blocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}</Select>
+            <div className="mt-2 flex gap-2"><Input value={newBlockName} onChange={(event) => setNewBlockName(event.target.value)} placeholder="Hoặc tạo dãy mới, ví dụ Dãy A" /><span className="shrink-0 self-center text-xs text-slate-500">tạo khi lưu</span></div>
           </div>
           <div>
             <Label>Tên / Số phòng</Label>

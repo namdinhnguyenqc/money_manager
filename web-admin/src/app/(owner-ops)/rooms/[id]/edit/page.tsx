@@ -14,7 +14,8 @@ import {
   loadRoom, 
   normalizeRoomStatus, 
   updateRoom,
-  RentalRoom
+  RentalRoom,
+  loadFacilityBlocks,
 } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
@@ -44,6 +45,7 @@ export default function EditRoomPage() {
     area: "",
     max_people: "",
     status: "",
+    blockId: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -57,9 +59,13 @@ export default function EditRoomPage() {
         area: String(roomQuery.data.area || ""),
         max_people: String(roomQuery.data.max_people || "3"),
         status: roomQuery.data.status || "vacant",
+        blockId: (roomQuery.data as any).block_id || "",
       });
     }
   }, [roomQuery.data]);
+
+  const resolvedFacilityId = facilityId || String((roomQuery.data as any)?.boarding_house_id || "");
+  const blocksQuery = useQuery({ queryKey: ["facility-blocks", resolvedFacilityId], queryFn: () => loadFacilityBlocks(resolvedFacilityId), enabled: Boolean(resolvedFacilityId), staleTime: 30_000 });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +78,7 @@ export default function EditRoomPage() {
         area: Number(form.area),
         max_people: Number(form.max_people),
         status: form.status,
+        blockId: form.blockId || null,
       });
       setToast("Đã cập nhật thông tin phòng thành công!");
       await invalidateOwnerOpsQueries(queryClient, {
@@ -172,6 +179,13 @@ export default function EditRoomPage() {
                     onChange={(e) => setForm({...form, area: e.target.value})}
                   />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dãy trọ <span className="font-normal normal-case tracking-normal">(tùy chọn)</span></label>
+                <select className="w-full rounded-2xl border-none bg-slate-50 px-5 py-4 text-sm font-bold text-slate-900 outline-none ring-2 ring-transparent transition-all focus:ring-indigo-500" value={form.blockId} onChange={(event) => setForm({ ...form, blockId: event.target.value })}>
+                  <option value="">Không phân dãy</option>
+                  {(blocksQuery.data || []).map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}
+                </select>
               </div>
 
               <div className="grid gap-6 sm:grid-cols-2">

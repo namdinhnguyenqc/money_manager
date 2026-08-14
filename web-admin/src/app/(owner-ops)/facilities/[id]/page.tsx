@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Pencil, Trash2 } from "lucide-react";
 import EmptyState from "@/components/ops/EmptyState";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import StatusBadge from "@/components/ops/StatusBadge";
@@ -23,6 +23,10 @@ import {
   normalizeRoomStatus,
   roomStatusLabel,
   deleteRoom,
+  loadFacilityBlocks,
+  createFacilityBlock,
+  updateFacilityBlock,
+  deleteFacilityBlock,
 } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
@@ -47,11 +51,14 @@ export default function FacilityDetailPage() {
     status: "AVAILABLE" as "AVAILABLE" | "OCCUPIED" | "MAINTENANCE"
   });
   const [roomFormError, setRoomFormError] = useState("");
+  const [blockName, setBlockName] = useState("");
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
 
   const facilityQuery = useQuery({ queryKey: ["facility", facilityId], queryFn: () => loadBoardingHouse(facilityId), staleTime: 60_000 });
   const roomsQuery = useQuery({ queryKey: ["rooms", { facilityId }], queryFn: () => loadRentalRooms(facilityId), staleTime: 30_000 });
   const contractsQuery = useQuery({ queryKey: ["contracts", { facilityId }], queryFn: () => loadContracts(), staleTime: 30_000 });
   const invoicesQuery = useQuery({ queryKey: ["invoices", { facilityId }], queryFn: () => loadInvoices(facilityId), staleTime: 30_000 });
+  const blocksQuery = useQuery({ queryKey: ["facility-blocks", facilityId], queryFn: () => loadFacilityBlocks(facilityId), staleTime: 30_000 });
 
   const rooms = roomsQuery.data || [];
   const contracts = useMemo(() => {
@@ -59,6 +66,17 @@ export default function FacilityDetailPage() {
     return list.filter((c) => String(c.facility_id || "") === String(facilityId));
   }, [contractsQuery.data, facilityId]);
   const invoices = invoicesQuery.data || [];
+  const blocks = blocksQuery.data || [];
+
+  const blockMutation = useMutation({
+    mutationFn: async () => {
+      const name = blockName.trim();
+      if (!name) throw new Error("Vui lòng nhập tên dãy.");
+      return editingBlockId ? updateFacilityBlock(facilityId, editingBlockId, name) : createFacilityBlock(facilityId, name);
+    },
+    onSuccess: () => { setBlockName(""); setEditingBlockId(null); queryClient.invalidateQueries({ queryKey: ["facility-blocks", facilityId] }); },
+  });
+  const deleteBlockMutation = useMutation({ mutationFn: (blockId: string) => deleteFacilityBlock(facilityId, blockId), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["facility-blocks", facilityId] }) });
 
   const filteredRooms = useMemo(() => rooms.filter((room) => {
     const status = normalizeRoomStatus(room);
@@ -146,6 +164,12 @@ export default function FacilityDetailPage() {
               <Plus size={16} />
               Thêm phòng
             </button>
+          </div>
+
+          <div className="mb-5 rounded-[12px] border border-slate-200 bg-white p-4">
+            <div className="mb-3"><h2 className="text-base font-bold text-slate-900">Dãy trọ <span className="font-medium text-slate-400">— tùy chọn</span></h2><p className="mt-1 text-sm text-slate-500">Phòng không thuộc dãy sẽ nằm trong nhóm “Không phân dãy”.</p></div>
+            <div className="flex flex-wrap gap-2">{blocks.map((block) => <span key={block.id} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 py-1 pl-3 pr-1 text-sm font-medium text-slate-700">{block.name}<button aria-label={`Đổi tên ${block.name}`} onClick={() => { setEditingBlockId(block.id); setBlockName(block.name); }} className="rounded-full p-1 text-slate-400 hover:bg-white hover:text-blue-600"><Pencil size={13} /></button><button aria-label={`Xóa ${block.name}`} onClick={() => deleteBlockMutation.mutate(block.id)} className="rounded-full p-1 text-slate-400 hover:bg-white hover:text-red-600"><Trash2 size={13} /></button></span>)}</div>
+            <form className="mt-3 flex max-w-md gap-2" onSubmit={(event) => { event.preventDefault(); blockMutation.mutate(); }}><input className="input min-w-0 flex-1" value={blockName} onChange={(event) => setBlockName(event.target.value)} placeholder={editingBlockId ? "Đổi tên dãy" : "Tên dãy mới, ví dụ Dãy A"} /><button className="rounded-[8px] bg-blue-600 px-3 text-sm font-semibold text-white disabled:opacity-50" disabled={blockMutation.isPending}>{editingBlockId ? "Lưu" : "Thêm dãy"}</button>{editingBlockId ? <button type="button" className="rounded-[8px] px-2 text-sm font-semibold text-slate-500" onClick={() => { setEditingBlockId(null); setBlockName(""); }}>Hủy</button> : null}</form>
           </div>
 
           {roomFormOpen ? (
