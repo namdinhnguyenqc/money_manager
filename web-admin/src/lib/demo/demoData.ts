@@ -136,6 +136,116 @@ function dashboardInit() {
   };
 }
 
+// Derived from the same mock rows the other screens use, so the dashboard tells
+// the same story as the invoice and room lists instead of showing stray numbers.
+function dashboardSummary(search: URLSearchParams) {
+  const month = Number(search.get("month")) || new Date().getMonth() + 1;
+  const year = Number(search.get("year")) || new Date().getFullYear();
+  const facilityId = search.get("facilityId");
+
+  const rooms = facilityId ? ROOMS.filter((r) => r.boarding_house_id === facilityId) : ROOMS;
+  const roomIds = new Set(rooms.map((r) => r.id));
+  const invoices = INVOICES.filter((i) => roomIds.has(i.room_id));
+
+  const billed = invoices.reduce((sum, i) => sum + Number(i.total_amount || 0), 0);
+  const collected = invoices.reduce((sum, i) => sum + Number(i.paid_amount || 0), 0);
+  const receivable = Math.max(0, billed - collected);
+  const overdueInvoices = invoices.filter((i) => i.status !== "paid");
+  const overdue = overdueInvoices.reduce(
+    (sum, i) => sum + Math.max(0, Number(i.total_amount || 0) - Number(i.paid_amount || 0)),
+    0,
+  );
+  const expense = TRANSACTIONS.filter((t) => t.type === "expense").reduce(
+    (sum, t) => sum + Number(t.amount || 0),
+    0,
+  );
+  const profit = collected - expense;
+
+  const occupied = rooms.filter((r) => r.status === "occupied").length;
+  const maintenance = rooms.filter((r) => r.status === "maintenance").length;
+
+  return {
+    period: { month, year },
+    facilities: FACILITIES.map((f) => ({ id: f.id, name: f.name })),
+    scope: { facilityId: facilityId || null },
+    totals: {
+      billed,
+      collected,
+      receivable,
+      overdue,
+      notDue: Math.max(0, receivable - overdue),
+      expense,
+      overdueCount: overdueInvoices.length,
+      averageOverdueDays: overdueInvoices.length > 0 ? 14 : 0,
+      profit,
+      margin: collected > 0 ? profit / collected : 0,
+      netCashflow: profit,
+      collectionRate: billed > 0 ? collected / billed : 0,
+    },
+    occupancy: {
+      total: rooms.length,
+      occupied,
+      vacant: rooms.length - occupied - maintenance,
+      maintenance,
+      expiringContracts: 0,
+    },
+    facilitiesPerformance: FACILITIES.map((f) => {
+      const fRooms = ROOMS.filter((r) => r.boarding_house_id === f.id);
+      const fRoomIds = new Set(fRooms.map((r) => r.id));
+      const fInvoices = INVOICES.filter((i) => fRoomIds.has(i.room_id));
+      const fBilled = fInvoices.reduce((s, i) => s + Number(i.total_amount || 0), 0);
+      const fCollected = fInvoices.reduce((s, i) => s + Number(i.paid_amount || 0), 0);
+      const fOccupied = fRooms.filter((r) => r.status === "occupied").length;
+      return {
+        id: f.id,
+        name: f.name,
+        occupancyRate: fRooms.length > 0 ? fOccupied / fRooms.length : 0,
+        collectedRate: fBilled > 0 ? fCollected / fBilled : 0,
+        overdue: Math.max(0, fBilled - fCollected),
+        receivable: Math.max(0, fBilled - fCollected),
+        billed: fBilled,
+        collected: fCollected,
+        roomCount: fRooms.length,
+        occupied: fOccupied,
+      };
+    }),
+    expenseComposition: [
+      { name: "Điện nước", amount: Math.round(expense * 0.45) },
+      { name: "Bảo trì", amount: Math.round(expense * 0.3) },
+      { name: "Khác", amount: Math.round(expense * 0.25) },
+    ],
+  };
+}
+
+function cashflowSummary(search: URLSearchParams) {
+  const months = Math.min(18, Math.max(1, Number(search.get("months")) || 12));
+  const now = new Date();
+  const result = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const income = TRANSACTIONS.filter(
+      (t) =>
+        t.type === "income" &&
+        new Date(t.date).getMonth() === d.getMonth() &&
+        new Date(t.date).getFullYear() === d.getFullYear(),
+    ).reduce((s, t) => s + Number(t.amount || 0), 0);
+    const expense = TRANSACTIONS.filter(
+      (t) =>
+        t.type === "expense" &&
+        new Date(t.date).getMonth() === d.getMonth() &&
+        new Date(t.date).getFullYear() === d.getFullYear(),
+    ).reduce((s, t) => s + Number(t.amount || 0), 0);
+    result.push({
+      month: d.getMonth() + 1,
+      year: d.getFullYear(),
+      income,
+      expense,
+      profit: income - expense,
+    });
+  }
+  return { months: result };
+}
+
 let PAYMENT_CHANNELS: any[] = [
   {
     id: "pc1",
@@ -159,6 +269,8 @@ export function resolveDemoPayload(pathname: string, method: string, search: URL
   if (p === "/auth/me") return DEMO_USER;
   if (p === "/owner/permissions") return { permissions: ALL_PERMISSIONS };
   if (p === "/owner/dashboard-init") return dashboardInit();
+  if (p === "/owner/dashboard-summary") return dashboardSummary(search);
+  if (p === "/owner/cashflow-summary") return cashflowSummary(search);
   if (p === "/owner/boarding-houses") return { data: FACILITIES };
   if (p.startsWith("/owner/boarding-houses/") && p.endsWith("/rooms")) {
     const parts = p.split("/");

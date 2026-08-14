@@ -207,7 +207,12 @@ export default function AllRoomsPage() {
 
       <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-1 flex-wrap gap-2">
-          <div className="relative min-w-[220px] flex-1 sm:max-w-sm"><Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input className="input w-full pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm phòng hoặc khách thuê" /></div>
+          <div className="relative min-w-[220px] flex-1 sm:max-w-sm"><Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />{/* `.input` in globals.css sets the `padding` shorthand, which is emitted after
+              Tailwind's utilities and resets `pl-9` to 12px — putting the placeholder
+              underneath the search icon. `!pl-9` wins that tie. Fixed here rather than by
+              moving `.input` into @layer components, which would also let w-28/flex-1/
+              text-xs start overriding it and shift unrelated inputs across the app. */}
+          <input className="input w-full !pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm phòng hoặc khách thuê" /></div>
           {facilityIdFilter && facilityBlocks.length > 0 ? <select aria-label="Lọc theo dãy" value={blockFilter} onChange={(event) => setBlockFilter(event.target.value)} className="input w-auto min-w-[180px]"><option value="">Tất cả dãy của cơ sở này</option><option value="unassigned">Chưa phân dãy</option>{facilityBlocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}</select> : null}
         </div>
         <div className="inline-flex w-fit rounded-[8px] border border-slate-200 bg-white p-1" role="group" aria-label="Chế độ hiển thị"><button onClick={() => setView("map")} className={`inline-flex items-center gap-1.5 rounded-[6px] px-3 py-2 text-sm font-semibold ${view === "map" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}><LayoutGrid size={16} />Sơ đồ phòng</button><button onClick={() => setView("list")} className={`inline-flex items-center gap-1.5 rounded-[6px] px-3 py-2 text-sm font-semibold ${view === "list" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}><List size={16} />Danh sách</button></div>

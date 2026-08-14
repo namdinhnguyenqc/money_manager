@@ -165,8 +165,12 @@ export default function OwnerDashboard() {
 
   // Donut/Collection Data
   const collectionChartData = useMemo(() => {
-    if (summary) {
-      return { billed: summary.totals.billed, paid: summary.totals.collected, unpaid: summary.totals.receivable, rate: Math.round(summary.totals.collectionRate * 100) };
+    // Guard on `totals`, not on `summary`: a response that is missing the
+    // aggregate (an unmapped endpoint in demo mode, or a partial payload) is
+    // still a truthy object, and reading `.billed` off it took the whole
+    // dashboard down with a client-side exception.
+    if (summary?.totals) {
+      return { billed: summary.totals.billed, paid: summary.totals.collected, unpaid: summary.totals.receivable, rate: Math.round((summary.totals.collectionRate ?? 0) * 100) };
     }
     let billed = 0, paid = 0;
     for (const inv of thisMonthInvoices) {
@@ -302,7 +306,7 @@ export default function OwnerDashboard() {
         <OwnerOnboardingGuide />
 
         {/* ── OVERDUE ALERT BANNER ── */}
-        {summary?.totals.overdueCount ? (
+        {summary?.totals?.overdueCount ? (
           <Link href="/invoices?filter=Quá+hạn" className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 transition hover:bg-amber-100/80 active:scale-[0.99] shadow-xs">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-xs">
               <AlertCircle size={18} />
@@ -328,7 +332,7 @@ export default function OwnerDashboard() {
               </div>
             </div>
             <div className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-none">
-              {formatMoney(summary?.totals.billed ?? collectionChartData.billed)}
+              {formatMoney(summary?.totals?.billed ?? collectionChartData.billed)}
             </div>
             <div className="mt-2.5 flex items-center gap-1.5 text-xs font-medium text-slate-500">
               <span className="truncate">Tổng giá trị hóa đơn trong kỳ</span>
@@ -343,10 +347,10 @@ export default function OwnerDashboard() {
               </div>
             </div>
             <div className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-none">
-              {formatMoney(summary?.totals.collected ?? collectionChartData.paid)}
+              {formatMoney(summary?.totals?.collected ?? collectionChartData.paid)}
             </div>
             <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 font-medium">
-              <span>{Math.round((summary?.totals.collectionRate ?? (collectionChartData.rate / 100)) * 100)}% doanh thu đã thu</span>
+              <span>{Math.round((summary?.totals?.collectionRate ?? (collectionChartData.rate / 100)) * 100)}% doanh thu đã thu</span>
             </div>
           </div>
 
@@ -358,10 +362,10 @@ export default function OwnerDashboard() {
               </div>
             </div>
             <div className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-none">
-              {formatMoney(summary?.totals.receivable ?? collectionChartData.unpaid)}
+              {formatMoney(summary?.totals?.receivable ?? collectionChartData.unpaid)}
             </div>
             <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 font-medium">
-              <span className="text-amber-700">Quá hạn: {formatMoney(summary?.totals.overdue ?? overdueAmount)}</span>
+              <span className="text-amber-700">Quá hạn: {formatMoney(summary?.totals?.overdue ?? overdueAmount)}</span>
             </div>
           </Link>
 
@@ -373,11 +377,11 @@ export default function OwnerDashboard() {
               </div>
             </div>
             <div className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-none">
-              {formatMoney(summary?.totals.profit ?? 0)}
+              {formatMoney(summary?.totals?.profit ?? 0)}
             </div>
             <div className="mt-2.5 flex items-center justify-between text-xs font-medium text-slate-500">
-              <span>Biên lợi nhuận {Math.round((summary?.totals.margin || 0) * 100)}%</span>
-              <span>Dòng tiền ròng {formatMoney(summary?.totals.netCashflow || 0)}</span>
+              <span>Biên lợi nhuận {Math.round((summary?.totals?.margin || 0) * 100)}%</span>
+              <span>Dòng tiền ròng {formatMoney(summary?.totals?.netCashflow || 0)}</span>
             </div>
           </div>
 
@@ -570,11 +574,11 @@ export default function OwnerDashboard() {
               <Link href="/owner/transactions" className="text-[11px] font-bold text-blue-600">Chi tiết →</Link>
             </div>
             <div className="space-y-2 text-xs">
-              <div className="flex justify-between text-slate-600"><span>Doanh thu phát sinh</span><strong className="text-slate-900">{formatMoney(summary?.totals.billed || 0)}</strong></div>
-              <div className="flex justify-between text-slate-600"><span>(-) Chi phí vận hành</span><strong className="text-slate-900">{formatMoney(summary?.totals.expense || 0)}</strong></div>
+              <div className="flex justify-between text-slate-600"><span>Doanh thu phát sinh</span><strong className="text-slate-900">{formatMoney(summary?.totals?.billed || 0)}</strong></div>
+              <div className="flex justify-between text-slate-600"><span>(-) Chi phí vận hành</span><strong className="text-slate-900">{formatMoney(summary?.totals?.expense || 0)}</strong></div>
             </div>
-            <div className="pt-2 border-t border-slate-100 text-xs font-medium flex justify-between"><span className="font-bold text-slate-700">Lợi nhuận</span><span className="font-black text-emerald-600">{formatMoney(summary?.totals.profit || 0)}</span></div>
-            <div className="text-[11px] text-slate-500">Biên lợi nhuận {Math.round((summary?.totals.margin || 0) * 100)}%</div>
+            <div className="pt-2 border-t border-slate-100 text-xs font-medium flex justify-between"><span className="font-bold text-slate-700">Lợi nhuận</span><span className="font-black text-emerald-600">{formatMoney(summary?.totals?.profit || 0)}</span></div>
+            <div className="text-[11px] text-slate-500">Biên lợi nhuận {Math.round((summary?.totals?.margin || 0) * 100)}%</div>
           </div>
 
           {/* Module 2: Chi phí vận hành */}
@@ -582,7 +586,7 @@ export default function OwnerDashboard() {
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Cơ cấu chi phí</h4>
               <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
-                {formatMoney(summary?.totals.expense || 0)}
+                {formatMoney(summary?.totals?.expense || 0)}
               </span>
             </div>
 
@@ -591,12 +595,12 @@ export default function OwnerDashboard() {
                 {(summary?.expenseComposition || []).length ? (summary?.expenseComposition || []).map((item) => <div key={item.name} className="flex justify-between text-slate-600"><span className="truncate pr-2">{item.name}</span><strong className="text-slate-800">{formatMoney(item.amount)}</strong></div>) : <span className="text-slate-400">Chưa có chi phí trong kỳ</span>}
               </div>
               <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden mt-1.5">
-                <div className="h-full bg-red-500 rounded-full transition-all" style={{ width: `${Math.min(100, Math.round((summary?.totals.expense || 0) / Math.max(1, summary?.totals.billed || 0) * 100))}%` }} />
+                <div className="h-full bg-red-500 rounded-full transition-all" style={{ width: `${Math.min(100, Math.round((summary?.totals?.expense || 0) / Math.max(1, summary?.totals?.billed || 0) * 100))}%` }} />
               </div>
             </div>
 
             <div className="pt-2 border-t border-slate-100 text-xs font-medium text-slate-500 flex justify-between">
-              <span>{Math.round((summary?.totals.margin || 0) * 100)}% doanh thu</span>
+              <span>{Math.round((summary?.totals?.margin || 0) * 100)}% doanh thu</span>
               <Link href="/owner/transactions" className="font-bold text-blue-600">Xem sổ thu chi →</Link>
             </div>
           </div>
@@ -606,14 +610,14 @@ export default function OwnerDashboard() {
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Tình trạng phòng</h4>
               <span className="text-[11px] font-bold text-blue-600">
-                {summary?.occupancy.total ? Math.round((summary.occupancy.occupied / summary.occupancy.total) * 100) : 0}% lấp đầy
+                {summary?.occupancy?.total ? Math.round((summary.occupancy.occupied / summary.occupancy.total) * 100) : 0}% lấp đầy
               </span>
             </div>
 
             <div className="space-y-2 text-xs">
-              <div className="flex justify-between"><span className="text-slate-500">Đang thuê</span><strong>{summary?.occupancy.occupied || 0} / {summary?.occupancy.total || 0} phòng</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500">Phòng trống</span><strong className="text-amber-700">{summary?.occupancy.vacant || 0}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-500">Sắp hết hợp đồng (30 ngày)</span><strong>{summary?.occupancy.expiringContracts || 0}</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500">Đang thuê</span><strong>{summary?.occupancy?.occupied || 0} / {summary?.occupancy?.total || 0} phòng</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500">Phòng trống</span><strong className="text-amber-700">{summary?.occupancy?.vacant || 0}</strong></div>
+              <div className="flex justify-between"><span className="text-slate-500">Sắp hết hợp đồng (30 ngày)</span><strong>{summary?.occupancy?.expiringContracts || 0}</strong></div>
             </div>
           </div>
 
