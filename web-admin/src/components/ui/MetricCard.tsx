@@ -41,7 +41,12 @@ export default function MetricCard({
         </div>
       )}
       <div className="text-xs font-semibold text-slate-600">{label}</div>
-      <div className={`mt-1 truncate text-xl font-bold leading-7 tabular-nums ${styles.value}`} title={typeof value === "string" ? value : undefined}>
+      {/* These cards sit two-per-row on a phone, which leaves roughly 120px of
+          text width — not enough for a full "16.350.000 ₫" at text-xl, so the
+          amount used to be clipped to "16.350.0…". In a money app the figure is
+          the whole point, so it scales down on small screens and is allowed to
+          wrap rather than ever being hidden behind an ellipsis. */}
+      <div className={`mt-1 text-base font-bold leading-6 tabular-nums break-words sm:text-xl sm:leading-7 ${styles.value}`} title={typeof value === "string" ? value : undefined}>
         {value}
       </div>
       {description && <div className="mt-2 min-h-5 text-xs font-medium text-slate-500">{description}</div>}
