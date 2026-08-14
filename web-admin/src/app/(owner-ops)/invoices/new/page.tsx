@@ -36,14 +36,26 @@ export default function NewInvoicePage() {
   const contract = contractQuery.data;
 
   const appliedServices = contract?.applied_services_snapshot || [];
-  const defaultElecPrice = (contract?.has_ac) ? 4000 : 3500;
-  const defaultWaterPrice = 15000;
 
-  const electricityService = appliedServices.find((service) => String(service.category || "").toLowerCase() === "electricity") || {
-    service_id: 0, name: "Tiền điện", category: "electricity", type: "metered", applied_unit_price: defaultElecPrice, amount: null,
+  // The contract's service snapshot is the only source of truth for pricing.
+  // Falling back to a "typical" rate here silently produced invoices with prices
+  // the owner never configured, so an unconfigured utility now bills 0 and the
+  // form tells the owner to go set it up.
+  const electricityFromContract = appliedServices.find(
+    (service) => String(service.category || "").toLowerCase() === "electricity",
+  );
+  const waterFromContract = appliedServices.find(
+    (service) => String(service.category || "").toLowerCase() === "water",
+  );
+
+  const electricityConfigured = Boolean(electricityFromContract);
+  const waterConfigured = Boolean(waterFromContract);
+
+  const electricityService = electricityFromContract || {
+    service_id: 0, name: "Tiền điện", category: "electricity", type: "metered", applied_unit_price: 0, amount: null,
   };
-  const waterService = appliedServices.find((service) => String(service.category || "").toLowerCase() === "water") || {
-    service_id: 0, name: "Tiền nước", category: "water", type: "metered", applied_unit_price: defaultWaterPrice, amount: null,
+  const waterService = waterFromContract || {
+    service_id: 0, name: "Tiền nước", category: "water", type: "metered", applied_unit_price: 0, amount: null,
   };
   const otherServices = appliedServices.filter((service) => !["electricity", "water"].includes(String(service.category || "").toLowerCase()));
   const electricityIsMetered = ["meter", "metered"].includes(String(electricityService?.type || "").toLowerCase());
@@ -180,6 +192,20 @@ export default function NewInvoicePage() {
       </div>
 
       {error && <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</div>}
+
+      {(!electricityConfigured || !waterConfigured) && (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+          <p className="text-sm font-semibold text-amber-900">
+            Hợp đồng này chưa áp dụng dịch vụ {!electricityConfigured && !waterConfigured ? "điện và nước" : !electricityConfigured ? "điện" : "nước"}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-amber-800">
+            Đơn giá đang để 0 đ vì chưa có cấu hình — hệ thống không tự đặt giá thay bạn. Hãy tạo dịch vụ rồi cập nhật hợp đồng để hóa đơn tính đúng.
+          </p>
+          <Link href="/owner/services" className="mt-2 inline-block text-xs font-bold text-blue-700 hover:underline">
+            Cấu hình dịch vụ →
+          </Link>
+        </div>
+      )}
 
       <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="space-y-3">
         {/* Electricity */}

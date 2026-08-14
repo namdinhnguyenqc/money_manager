@@ -102,9 +102,12 @@ export default function ContractPrintPage() {
             <div className="mb-6 space-y-1">
               <p>Giá thuê: <span className="font-bold underline">{formatMoney(contract.rent_amount)} VNĐ/tháng</span> (Hai triệu bốn trăm nghìn đồng)</p>
               <p>Hình thức thanh toán: Chuyển khoản hoặc tiền mặt</p>
-              <p>Tiền điện: <span className="font-bold">{formatMoney(electricity?.applied_unit_price || 3500)} đ/kwh</span> {contract.has_ac ? "(Có máy lạnh)" : "(Không máy lạnh)"} tính theo chỉ số công tơ, thanh toán vào ngày 12 đến ngày 15 hàng tháng.</p>
-              <p>Tiền nước: <span className="font-bold">{formatMoney(water?.applied_unit_price || 50000)} đ/người</span> thanh toán vào ngày 12 đến ngày 15 hàng tháng.</p>
-              <p>Tiền rác: <span className="font-bold">{formatMoney(garbage?.applied_unit_price || 36500)} đ/tháng</span> thanh toán vào ngày 12 đến ngày 15 hàng tháng.</p>
+              {/* A printed contract is signed by the tenant, so an unconfigured
+                  utility must read as "chưa thỏa thuận" rather than inherit a
+                  placeholder rate the owner never agreed to. */}
+              <p>Tiền điện: <span className="font-bold">{electricity?.applied_unit_price ? `${formatMoney(electricity.applied_unit_price)} đ/kwh` : "……… đ/kwh (theo thỏa thuận)"}</span> {contract.has_ac ? "(Có máy lạnh)" : "(Không máy lạnh)"} tính theo chỉ số công tơ, thanh toán vào ngày 12 đến ngày 15 hàng tháng.</p>
+              <p>Tiền nước: <span className="font-bold">{water?.applied_unit_price ? `${formatMoney(water.applied_unit_price)} đ/người` : "……… đ/người (theo thỏa thuận)"}</span> thanh toán vào ngày 12 đến ngày 15 hàng tháng.</p>
+              <p>Tiền rác: <span className="font-bold">{garbage?.applied_unit_price ? `${formatMoney(garbage.applied_unit_price)} đ/tháng` : "……… đ/tháng (theo thỏa thuận)"}</span> thanh toán vào ngày 12 đến ngày 15 hàng tháng.</p>
               <p>Tiền đặt cọc: <span className="font-bold underline">{formatMoney(contract.deposit_amount)} VNĐ</span></p>
               <p>Hợp đồng có giá trị kể từ ngày <span className="font-bold underline">{contract.start_date || "…"}</span> đến ngày <span className="font-bold underline">{contract.end_date || "…"}</span></p>
             </div>

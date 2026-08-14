@@ -992,6 +992,15 @@ export async function toggleServiceStatus(id: string, active: boolean) {
   return (res?.data ?? res) as ServiceConfig;
 }
 
+export async function seedDefaultServices() {
+  const res = await apiPost<any>("/rental/services/seed-defaults", {});
+  return {
+    data: (res?.data ?? []) as ServiceConfig[],
+    created: Number(res?.created ?? 0),
+    skipped: Number(res?.skipped ?? 0),
+  };
+}
+
 // ═══════════════════════════════════════════
 // Wallet Management
 // ═══════════════════════════════════════════

@@ -6,12 +6,17 @@ import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import ConfirmDialog from "@/components/ops/ConfirmDialog";
 import {
   RentalRoom,
+  ServiceConfig,
   createContract,
   createTenant,
+  describeServiceType,
   formatMoney,
+  getServiceCategory,
+  getServiceUnitLabel,
   getTenantValidationMessage,
   isContractSoonEnding,
   loadRentalRooms,
+  loadServiceConfigs,
   onlyDigits,
   roomStatusMeta,
   deleteContract,
@@ -166,7 +171,32 @@ function ContractDrawer({ rooms, onClose, onSaved }: { rooms: RentalRoom[]; onCl
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [services, setServices] = useState<ServiceConfig[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const selectedRoom = rooms.find((room) => String(room.id) === form.roomId);
+
+  // Without this the contract is created with an empty service snapshot, and the
+  // first invoice then has no prices to derive electricity/water from.
+  useEffect(() => {
+    let mounted = true;
+    loadServiceConfigs(true)
+      .then((data) => {
+        if (!mounted) return;
+        const active = data.filter((service) => service.active !== false);
+        setServices(active);
+        setSelectedServiceIds(active.map((service) => String(service.id)));
+      })
+      .catch(() => {
+        if (mounted) setServices([]);
+      })
+      .finally(() => {
+        if (mounted) setServicesLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
   const months = form.endDate ? Math.max(1, Math.round((new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / (30 * 24 * 60 * 60 * 1000))) : 0;
 
   const submit = async (event: React.FormEvent) => {
@@ -196,7 +226,7 @@ function ContractDrawer({ rooms, onClose, onSaved }: { rooms: RentalRoom[]; onCl
         waterStart: Number(form.waterStart || 0),
         occupantCount: Number(form.occupantCount || selectedRoom.num_people || 1),
         note: form.note || "",
-        serviceIds: [] 
+        serviceIds: selectedServiceIds,
       });
       onSaved();
     } catch (err: any) {
@@ -240,6 +270,59 @@ function ContractDrawer({ rooms, onClose, onSaved }: { rooms: RentalRoom[]; onCl
             <Field label="Số người ở trong phòng"><input className="input" type="number" min={1} value={form.occupantCount} onChange={(e) => setForm((prev) => ({ ...prev, occupantCount: e.target.value }))} /></Field>
             <Field label="Điện đầu kỳ"><input className="input" type="number" value={form.elecStart} onChange={(e) => setForm((prev) => ({ ...prev, elecStart: e.target.value }))} /></Field>
             <Field label="Nước đầu kỳ"><input className="input" type="number" value={form.waterStart} onChange={(e) => setForm((prev) => ({ ...prev, waterStart: e.target.value }))} /></Field>
+          </div>
+          <div>
+            <div className="mb-2 text-sm font-semibold text-slate-700">Dịch vụ áp dụng</div>
+            {servicesLoading ? (
+              <p className="text-sm text-slate-500">Đang tải dịch vụ...</p>
+            ) : services.length === 0 ? (
+              <div className="rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-3">
+                <p className="text-sm font-semibold text-amber-900">Chưa cấu hình dịch vụ nào</p>
+                <p className="mt-1 text-xs leading-5 text-amber-800">
+                  Hợp đồng này sẽ chỉ thu tiền phòng. Hóa đơn sẽ không tự tính được tiền điện, nước.
+                </p>
+                <Link href="/owner/services" className="mt-2 inline-block text-xs font-bold text-blue-700 hover:underline">
+                  Tạo bộ dịch vụ mẫu →
+                </Link>
+              </div>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {services.map((service) => {
+                  const checked = selectedServiceIds.some((id) => String(id) === String(service.id));
+                  const category = getServiceCategory(service);
+                  const price =
+                    category === "electricity" && selectedRoom?.has_ac && Number(service.unit_price_ac || 0) > 0
+                      ? Number(service.unit_price_ac || 0)
+                      : Number(service.unit_price || 0);
+                  return (
+                    <label
+                      key={service.id}
+                      className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 transition-colors ${checked ? "border-blue-200 bg-blue-50" : "border-slate-200 hover:bg-slate-50"}`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300"
+                        checked={checked}
+                        onChange={(event) =>
+                          setSelectedServiceIds((prev) =>
+                            event.target.checked
+                              ? [...prev, String(service.id)]
+                              : prev.filter((item) => String(item) !== String(service.id)),
+                          )
+                        }
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-slate-900">{service.name}</span>
+                        <span className="mt-0.5 block text-xs text-slate-600">
+                          {describeServiceType(service)} · {formatMoney(price)}
+                          {getServiceUnitLabel(service)}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <Field label="Ghi chú"><textarea className="input min-h-24" value={form.note} onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))} /></Field>
           <button disabled={saving || !form.roomId} className="w-full rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Đang lưu..." : "Lưu hợp đồng"}</button>

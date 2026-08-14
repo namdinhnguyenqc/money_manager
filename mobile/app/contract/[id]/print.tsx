@@ -104,9 +104,9 @@ Số điện thoại: ${contract.tenant_phone || "Chưa cung cấp"}
 Hai bên cùng thống nhất thỏa thuận thuê phòng trọ tại địa chỉ 60/7/4A đường số 4, phường Thủ Đức, TP Hồ Chí Minh với các điều khoản sau:
 - Giá thuê: ${formatMoney(contract.rent_amount)} VNĐ/tháng
 - Tiền cọc: ${formatMoney(contract.deposit_amount)} VNĐ
-- Tiền điện: ${formatMoney(electricity?.applied_unit_price || 3500)} đ/kwh ${contract.has_ac ? "(Có máy lạnh)" : "(Không máy lạnh)"}
-- Tiền nước: ${formatMoney(water?.applied_unit_price || 50000)} đ/người
-- Tiền rác: ${formatMoney(garbage?.applied_unit_price || 36500)} đ/tháng
+- Tiền điện: ${electricity?.applied_unit_price ? `${formatMoney(electricity.applied_unit_price)} đ/kwh` : "……… đ/kwh (theo thỏa thuận)"} ${contract.has_ac ? "(Có máy lạnh)" : "(Không máy lạnh)"}
+- Tiền nước: ${water?.applied_unit_price ? `${formatMoney(water.applied_unit_price)} đ/người` : "……… đ/người (theo thỏa thuận)"}
+- Tiền rác: ${garbage?.applied_unit_price ? `${formatMoney(garbage.applied_unit_price)} đ/tháng` : "……… đ/tháng (theo thỏa thuận)"}
 - Hạn hợp đồng: Từ ${contract.start_date || "…"} đến ${contract.end_date || "…"}
   `;
 
@@ -183,14 +183,14 @@ Hai bên cùng thống nhất thỏa thuận thuê phòng trọ tại địa ch�
               · Tiền đặt cọc: <Text style={styles.boldText}>{formatMoney(contract.deposit_amount)}</Text>.
             </Text>
             <Text style={styles.specItem}>
-              · Tiền điện: <Text style={styles.boldText}>{formatMoney(electricity?.applied_unit_price || 3500)} / kwh</Text> {contract.has_ac ? "(Có máy lạnh)" : "(Không máy lạnh)"} tính theo số đo công tơ.
+              · Tiền điện: <Text style={styles.boldText}>{electricity?.applied_unit_price ? `${formatMoney(electricity.applied_unit_price)} / kwh` : "……… / kwh (theo thỏa thuận)"}</Text> {contract.has_ac ? "(Có máy lạnh)" : "(Không máy lạnh)"} tính theo số đo công tơ.
             </Text>
             <Text style={styles.specItem}>
-              · Tiền nước: <Text style={styles.boldText}>{formatMoney(water?.applied_unit_price || 50000)} / người</Text>.
+              · Tiền nước: <Text style={styles.boldText}>{water?.applied_unit_price ? `${formatMoney(water.applied_unit_price)} / người` : "……… / người (theo thỏa thuận)"}</Text>.
             </Text>
             {garbage && (
               <Text style={styles.specItem}>
-                · Tiền rác: <Text style={styles.boldText}>{formatMoney(garbage?.applied_unit_price || 36500)} / tháng</Text>.
+                · Tiền rác: <Text style={styles.boldText}>{garbage?.applied_unit_price ? `${formatMoney(garbage.applied_unit_price)} / tháng` : "……… / tháng (theo thỏa thuận)"}</Text>.
               </Text>
             )}
             <Text style={styles.specItem}>
