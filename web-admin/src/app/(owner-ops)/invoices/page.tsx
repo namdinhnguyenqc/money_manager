@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { RefreshCw, Trash2, Calendar, ChevronLeft, ChevronRight, FileSpreadsheet, AlertTriangle, Send, X, CheckCircle2 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import StatusBadge from "@/components/ops/StatusBadge";
 import { 
   BoardingHouse, 
@@ -254,20 +254,16 @@ function ZaloSendProgressDialog({ job }: { job: ZaloBulkJob }) {
 
 export default function InvoicesPage() {
   const queryClient = useQueryClient();
-  const [houses, setHouses] = useState<BoardingHouse[]>([]);
   const [selectedHouse, setSelectedHouse] = useState("all");
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [pendingRooms, setPendingRooms] = useState<RentalRoom[]>([]);
   const [filter, setFilter] = useState("Tất cả");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [sendingZalo, setSendingZalo] = useState(false);
   const [zaloSummary, setZaloSummary] = useState<ZaloBatchSummary | null>(null);
   const [zaloJob, setZaloJob] = useState<ZaloBulkJob | null>(null);
-  const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
   const [page, setPage] = useState(1);
 
 
@@ -277,42 +273,61 @@ export default function InvoicesPage() {
     return { month: now.getMonth() + 1, year: now.getFullYear() };
   });
 
-  // Guards against race conditions: when the user switches period/facility
-  // quickly (or a cold backend makes an earlier request resolve later), only the
-  // most recent load() is allowed to write state — so stale responses can never
-  // overwrite fresh data (the "sometimes data, sometimes empty" bug).
-  const loadSeq = useRef(0);
+  // This screen used to fetch all three endpoints by hand on every mount, with a
+  // useRef sequence counter so a slow earlier response could not overwrite a
+  // newer one. That meant no cache: returning to this tab always paid three
+  // fresh round trips, which is expensive against a cold backend. React Query
+  // caches per (facility, period) and discards out-of-order responses itself.
+  const houseId = selectedHouse === "all" ? undefined : selectedHouse;
+
+  // Same key the facilities screen uses, so moving between them reuses one
+  // cached list instead of refetching.
+  const housesQuery = useQuery({
+    queryKey: ["facilities"],
+    queryFn: loadBoardingHouses,
+    staleTime: 60_000,
+  });
+
+  const invoicesQuery = useQuery({
+    queryKey: ["invoices", houseId ?? "all"],
+    queryFn: () => loadInvoices(houseId),
+    staleTime: 30_000,
+    // Keep the previous rows on screen while the next period loads instead of
+    // flashing an empty table on every month change.
+    placeholderData: (previous) => previous,
+  });
+
+  const pendingQuery = useQuery({
+    queryKey: ["pending-billing", houseId ?? "all", period.month, period.year],
+    queryFn: () => loadPendingBilling(period.month, period.year, houseId),
+    staleTime: 30_000,
+    placeholderData: (previous) => previous,
+  });
+
+  const houses = housesQuery.data ?? [];
+  const pendingRooms = pendingQuery.data ?? [];
+
+  // Period filtering stays here so the cached response is the raw server list
+  // and changing month does not invalidate it.
+  const invoices = useMemo(() => {
+    return (invoicesQuery.data ?? []).filter((invoice) => {
+      const isCurrentPeriod = invoice.month === period.month && invoice.year === period.year;
+      const isCarryOverOverdue = isInvoiceBeforePeriod(invoice, period) && isInvoiceUnpaid(invoice);
+      return isCurrentPeriod || isCarryOverOverdue;
+    });
+  }, [invoicesQuery.data, period]);
+
+  const loading = housesQuery.isPending || invoicesQuery.isPending || pendingQuery.isPending;
+  const error =
+    actionError ||
+    (housesQuery.error as any)?.message ||
+    (invoicesQuery.error as any)?.message ||
+    (pendingQuery.error as any)?.message ||
+    "";
 
   const load = async () => {
-    const seq = ++loadSeq.current;
-    setLoading(true);
-    setError("");
-    try {
-      const hId = selectedHouse === "all" ? undefined : selectedHouse;
-      const [nextHouses, nextInvoices, nextPending] = await Promise.all([
-        loadBoardingHouses(),
-        loadInvoices(hId),
-        loadPendingBilling(period.month, period.year, hId)
-      ]);
-      if (seq !== loadSeq.current) return; // a newer load() superseded this one
-      setHouses(nextHouses);
-      setInvoices(nextInvoices.filter((invoice) => {
-        const isCurrentPeriod = invoice.month === period.month && invoice.year === period.year;
-        const isCarryOverOverdue = isInvoiceBeforePeriod(invoice, period) && isInvoiceUnpaid(invoice);
-        return isCurrentPeriod || isCarryOverOverdue;
-      }));
-      setPendingRooms(nextPending);
-    } catch (err: any) {
-      if (seq !== loadSeq.current) return;
-      setError(err?.message || "Không tải được dữ liệu.");
-    } finally {
-      if (seq === loadSeq.current) setLoading(false);
-    }
+    await invalidateOwnerOpsQueries(queryClient, { facilityId: houseId });
   };
-
-  useEffect(() => {
-    load();
-  }, [selectedHouse, period]);
 
   const handleAutoGenerate = () => {
     setIsBulkModalOpen(true);
@@ -336,14 +351,14 @@ export default function InvoicesPage() {
       .map(([k]) => k);
     if (ids.length === 0) return;
     if (!confirm(`Bạn có chắc muốn xóa ${ids.length} hóa đơn đã chọn không?`)) return;
-    setError("");
+    setActionError("");
     let hasError = false;
     for (const id of ids) {
       try {
         await apiDelete(`/invoices/${id}`);
       } catch (err: any) {
         hasError = true;
-        setError(err?.message || "Xóa hóa đơn thất bại.");
+        setActionError(err?.message || "Xóa hóa đơn thất bại.");
         break;
       }
     }
@@ -358,7 +373,7 @@ export default function InvoicesPage() {
 
   const handleDeleteSingle = async (id: string) => {
     if (!confirm("Bạn có chắc muốn xóa hóa đơn này không?")) return;
-    setError("");
+    setActionError("");
     try {
       await apiDelete(`/invoices/${id}`);
       await invalidateOwnerOpsQueries(queryClient, {
@@ -367,7 +382,7 @@ export default function InvoicesPage() {
       });
       await load();
     } catch (err: any) {
-      setError(err?.message || "Xóa hóa đơn thất bại.");
+      setActionError(err?.message || "Xóa hóa đơn thất bại.");
     }
   };
 
@@ -408,7 +423,7 @@ export default function InvoicesPage() {
   const handleBulkSendZalo = async () => {
     if (selectedIds.length === 0 || sendingZalo) return;
     setSendingZalo(true);
-    setError("");
+    setActionError("");
     setZaloSummary(null);
     setZaloJob(null);
     try {
@@ -445,7 +460,7 @@ export default function InvoicesPage() {
 
       if (!finished) throw new Error("Gửi Zalo lâu hơn dự kiến. Vui lòng kiểm tra lại sau.");
     } catch (err: any) {
-      setError(err?.message || "Không gửi được hóa đơn qua Zalo. Vui lòng kiểm tra kết nối Zalo.");
+      setActionError(err?.message || "Không gửi được hóa đơn qua Zalo. Vui lòng kiểm tra kết nối Zalo.");
       setZaloJob(null);
     } finally {
       setSendingZalo(false);
