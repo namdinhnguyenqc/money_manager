@@ -7,7 +7,8 @@
     "dev": "next dev --port 3011",
     "build": "next build",
     "start": "next start --port 3011",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.6",
