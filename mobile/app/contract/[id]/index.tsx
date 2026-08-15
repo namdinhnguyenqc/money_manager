@@ -17,7 +17,6 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
   Modal,
 } from 'react-native';
@@ -30,7 +29,8 @@ import Card from '@/components/ui/Card';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import Toast from '@/components/ui/Toast';
+import { CardSkeleton } from '@/components/ui/Skeleton';
+import { useAppToast } from '@/components/ui/ToastProvider';
 import {
   loadContract,
   loadInvoicesByContract,
@@ -45,6 +45,7 @@ import {
 export default function ContractDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { showSuccess, showError } = useAppToast();
 
   // Loading States
   const [loading, setLoading] = useState(true);
@@ -68,12 +69,6 @@ export default function ContractDetailScreen() {
   });
   const [selectedWalletId, setSelectedWalletId] = useState('');
   
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-  };
-
   const fetchData = useCallback(async () => {
     if (!id) return;
     try {
@@ -103,7 +98,7 @@ export default function ContractDetailScreen() {
       }));
 
     } catch (e: any) {
-      showToast(e?.message || 'Không thể tải chi tiết hợp đồng.', 'error');
+      showError(e?.message || 'Không thể tải chi tiết hợp đồng.', 'Không tải được hợp đồng');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -132,10 +127,10 @@ export default function ContractDetailScreen() {
             try {
               setActionLoading(true);
               await deleteContract(id!);
-              showToast('Đã xóa hợp đồng thành công.', 'success');
+              showSuccess('Hợp đồng đã được xóa.', 'Đã xóa hợp đồng');
               setTimeout(() => router.back(), 1000);
             } catch (e: any) {
-              Alert.alert('Lỗi', e?.message || 'Không thể xóa hợp đồng.');
+              showError(e?.message || 'Không thể xóa hợp đồng.', 'Xóa hợp đồng chưa thành công');
             } finally {
               setActionLoading(false);
             }
@@ -159,11 +154,11 @@ export default function ContractDetailScreen() {
         settlementStatus: refundForm.settlementStatus,
       });
 
-      showToast('Thanh lý hợp đồng thành công!', 'success');
+      showSuccess('Hợp đồng đã được thanh lý.', 'Đã thanh lý hợp đồng');
       setTerminateVisible(false);
       fetchData();
     } catch (e: any) {
-      Alert.alert('Lỗi thanh lý', e?.message || 'Thanh lý hợp đồng thất bại.');
+      showError(e?.message || 'Thanh lý hợp đồng thất bại.', 'Thanh lý chưa thành công');
     } finally {
       setActionLoading(false);
     }
@@ -172,9 +167,10 @@ export default function ContractDetailScreen() {
   if (loading && !contract) {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Đang tải chi tiết hợp đồng...</Text>
+        <View style={styles.loadingContainer} accessibilityLabel="Đang tải chi tiết hợp đồng">
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
         </View>
       </SafeAreaView>
     );
@@ -447,13 +443,6 @@ export default function ContractDetailScreen() {
           </SafeAreaView>
         </View>
       </Modal>
-
-      <Toast
-        visible={!!toast}
-        message={toast?.message || ''}
-        type={toast?.type}
-        onDismiss={() => setToast(null)}
-      />
     </SafeAreaView>
   );
 }
@@ -487,8 +476,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     letterSpacing: -0.3,
   },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-  loadingText: { marginTop: 12, fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  loadingContainer: { flex: 1, padding: 16, gap: 14, backgroundColor: Colors.background },
   errorText: { fontSize: 14, fontFamily: Typography.fontFamily.regular, color: Colors.danger, textAlign: 'center' },
   card: { padding: 16, backgroundColor: Colors.surface, borderRadius: 16, borderWidth: 1, borderColor: Colors.borderLight },
   summaryCard: { padding: 18, backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', borderRadius: 20 },

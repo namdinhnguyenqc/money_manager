@@ -15,6 +15,8 @@ import {
   Alert,
   SafeAreaView,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,7 +25,8 @@ import Typography from '@/constants/Typography';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
-import Toast from '@/components/ui/Toast';
+import { useAppToast } from '@/components/ui/ToastProvider';
+import { CardSkeleton } from '@/components/ui/Skeleton';
 import MeterOcrAction from '@/components/invoice/MeterOcrAction';
 import {
   loadContract,
@@ -51,6 +54,7 @@ const isValidIsoDate = (value: string) => {
 
 export default function NewInvoiceScreen() {
   const router = useRouter();
+  const { showToast, showError, showSuccess } = useAppToast();
   const { contract_id } = useLocalSearchParams<{ contract_id?: string }>();
 
   // State
@@ -71,7 +75,6 @@ export default function NewInvoiceScreen() {
   });
 
   const [fees, setFees] = useState<Array<{ name: string; amount: string }>>([]);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // 1. Fetch contracts if no contract_id is specified
   useEffect(() => {
@@ -178,10 +181,6 @@ export default function NewInvoiceScreen() {
     }
   };
 
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-  };
-
   // Select services config
   const appliedServices = contract?.applied_services_snapshot || [];
 
@@ -281,22 +280,22 @@ export default function NewInvoiceScreen() {
 
   const handleSubmit = async () => {
     if (!contract) {
-      Alert.alert('Lỗi', 'Vui lòng chọn một hợp đồng.');
+      showError('Vui lòng chọn một hợp đồng.', 'Thiếu thông tin');
       return;
     }
 
     if (electricityIsMetered && Number(form.electricNew) < Number(form.electricOld)) {
-      Alert.alert('Chỉ số điện lỗi', 'Chỉ số điện mới không được nhỏ hơn chỉ số cũ.');
+      showError('Chỉ số điện mới không được nhỏ hơn chỉ số cũ.', 'Chỉ số điện không hợp lệ');
       return;
     }
 
     if (waterIsMetered && Number(form.waterNew) < Number(form.waterOld)) {
-      Alert.alert('Chỉ số nước lỗi', 'Chỉ số nước mới không được nhỏ hơn chỉ số cũ.');
+      showError('Chỉ số nước mới không được nhỏ hơn chỉ số cũ.', 'Chỉ số nước không hợp lệ');
       return;
     }
 
     if (!isValidIsoDate(form.dueDate)) {
-      Alert.alert('Ngày chưa hợp lệ', 'Hạn thanh toán cần có định dạng YYYY-MM-DD, ví dụ 2026-07-25.');
+      showError('Hạn thanh toán cần có định dạng YYYY-MM-DD, ví dụ 2026-07-25.', 'Ngày chưa hợp lệ');
       return;
     }
 
@@ -316,10 +315,10 @@ export default function NewInvoiceScreen() {
         items: fees.filter((f) => f.name.trim()).map((f) => ({ name: f.name.trim(), amount: Number(f.amount || 0) })),
       });
 
-      showToast('Tạo hóa đơn thành công!', 'success');
+      showSuccess('Hóa đơn đã được tạo.', 'Đã tạo hóa đơn');
       router.replace(`/invoice/${invoice.id}`);
     } catch (e: any) {
-      Alert.alert('Lỗi', e?.message || 'Không tạo được hóa đơn.');
+      showError(e?.message || 'Không tạo được hóa đơn.', 'Tạo hóa đơn chưa thành công');
     } finally {
       setSubmitting(false);
     }
@@ -350,9 +349,10 @@ export default function NewInvoiceScreen() {
 
   if (loading && !contract) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Đang tải chi tiết hợp đồng...</Text>
+      <View style={styles.loadingContainer} accessibilityLabel="Đang chuẩn bị hóa đơn">
+        <CardSkeleton />
+        <CardSkeleton />
+        <CardSkeleton />
       </View>
     );
   }
@@ -367,7 +367,13 @@ export default function NewInvoiceScreen() {
           headerTitleStyle: { fontFamily: Typography.fontFamily.bold },
         }}
       />
-      <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         {contract && (!electricityConfigured || !waterConfigured) && (
           <Card style={styles.warningCard}>
             <Text style={styles.warningTitle}>
@@ -653,6 +659,7 @@ export default function NewInvoiceScreen() {
           </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Sticky Bottom Summary */}
       {contract && (
@@ -672,12 +679,6 @@ export default function NewInvoiceScreen() {
         </View>
       )}
 
-      <Toast
-        visible={!!toast}
-        message={toast?.message || ''}
-        type={toast?.type}
-        onDismiss={() => setToast(null)}
-      />
     </SafeAreaView>
   );
 }
@@ -686,8 +687,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   container: { flex: 1 },
   scroll: { padding: 16, paddingBottom: 110, gap: 14 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-  loadingText: { marginTop: 12, fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  loadingContainer: { flex: 1, padding: 16, gap: 14, backgroundColor: Colors.background },
   card: { padding: 16, backgroundColor: Colors.surface, borderRadius: 16, borderWidth: 1, borderColor: Colors.borderLight },
   cardTitle: { fontSize: 14, fontFamily: Typography.fontFamily.semibold, color: Colors.textPrimary, marginBottom: 12 },
   warningCard: { padding: 16, backgroundColor: '#fffbeb', borderRadius: 16, borderWidth: 1, borderColor: '#fde68a' },

@@ -78,7 +78,7 @@ export default function OwnerProfileSettingsPage() {
           <ArrowLeft size={16} />
           Quay lại hồ sơ
         </Link>
-        <h1 className="mt-4 text-2xl font-black text-slate-900">Cài đặt hồ sơ</h1>
+        <h1 className="mt-4 text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Cài đặt hồ sơ</h1>
         <p className="mt-1 text-sm text-slate-500">Cập nhật thông tin liên hệ của chủ trọ. Email, role và provider chỉ đọc.</p>
       </div>
 

@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Banknote, Landmark, RefreshCw, Smartphone, WalletCards } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { BoardingHouse, Transaction, formatMoney, loadBoardingHouses, loadTransactions } from "@/lib/rentalOps";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -17,7 +17,6 @@ const methods = ["Tất cả", "Tiền mặt", "Chuyển khoản", "Ví điện 
 const pageSize = 10;
 
 export default function PaymentsPage() {
-  const queryClient = useQueryClient();
   const [method, setMethod] = useState("Tất cả");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -62,11 +61,6 @@ export default function PaymentsPage() {
   const loading = housesQuery.isLoading || transactionsQuery.isLoading;
   const error = (housesQuery.error || transactionsQuery.error) ? "Không tải được lịch sử thu tiền." : "";
 
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["boardinghouses"] });
-    queryClient.invalidateQueries({ queryKey: ["transactions"] });
-  };
-
   const total = filtered.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
   const totalCash = filtered.filter((tx) => !String(tx.description || "").includes("Chuyển khoản") && !String(tx.description || "").includes("Ví điện tử")).reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
   const totalBank = filtered.filter((tx) => String(tx.description || "").includes("Chuyển khoản")).reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
@@ -79,11 +73,6 @@ export default function PaymentsPage() {
         subtitle="Lịch sử thu tiền"
         title="Thu tiền"
         description="Theo dõi các khoản tiền phòng đã ghi nhận, tách khỏi bước lập hóa đơn."
-        actions={
-          <Button variant="outline" icon={<RefreshCw size={15} />} onClick={handleRefresh}>
-            Làm mới
-          </Button>
-        }
       />
 
       <Card className="mb-4 p-4">

@@ -93,15 +93,19 @@ export default function OwnerDashboard() {
   // Request enough months to also cover whatever period the user has
   // navigated to via "Tháng trước/sau", capped at the 18 the backend allows.
   // The chart draws exactly `chartMonths` buckets ending at the selected period,
-  // so ask the API for that window directly. This used to request months ending
-  // at *today*, which for any past period barely overlapped the range being
-  // drawn — the uncovered buckets fell back to 0 and the chart flat-lined.
+  // so ask the API for that window directly. This used to request
+  // `max(chartMonths, diff + 1)` months ending at *today*, which for any past
+  // period returned a range that barely overlapped the one being drawn — the
+  // uncovered buckets fell back to 0 and the chart flat-lined. It also stopped
+  // working entirely once `diff` pushed the count past the API's 18-month cap.
   const cashflowQuery = useOwnerCashflowSummary(chartMonths, selectedPeriod.month, selectedPeriod.year);
   const cashflowMonths = useMemo(() => cashflowQuery.data?.months ?? [], [cashflowQuery.data]);
 
   const findBucket = React.useCallback((month: number, year: number) =>
     cashflowMonths.find(b => b.month === month && b.year === year),
     [cashflowMonths]);
+
+  const isCurrentPeriod = selectedPeriod.month === curM + 1 && selectedPeriod.year === curY;
 
   // Financial details calculated dynamically based on selectedPeriod
   const selectedPeriodFinancial = useMemo(() => {
@@ -285,13 +289,14 @@ export default function OwnerDashboard() {
                 </div>
                 <button
                   type="button"
+                  disabled={isCurrentPeriod}
                   onClick={() => {
                     let m = selectedPeriod.month + 1;
                     let y = selectedPeriod.year;
                     if (m > 12) { m = 1; y++; }
                     setSelectedPeriod({ month: m, year: y });
                   }}
-                  className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors"
+                  className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors disabled:cursor-not-allowed disabled:opacity-30"
                   title="Tháng sau"
                 >
                   <ChevronRight size={16} />

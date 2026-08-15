@@ -76,9 +76,9 @@ export const cardHover =
 
 /* ── Typography scale ───────────────────────────────────────────── */
 export const typography = {
-  pageTitle: "text-xl sm:text-2xl font-black tracking-tight text-slate-900",
+  pageTitle: "text-xl sm:text-[22px] font-bold leading-7 tracking-[-0.02em] text-slate-950",
   pageSubtitle: "text-xs font-bold text-blue-600",
-  pageDescription: "mt-1 text-sm font-medium text-slate-500",
+  pageDescription: "mt-1 text-sm leading-5 text-slate-600",
   sectionTitle: "text-base sm:text-lg font-bold text-slate-900",
   label: "text-xs font-semibold text-slate-600",
   body: "text-sm font-medium text-slate-600",

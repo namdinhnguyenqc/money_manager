@@ -267,10 +267,6 @@ export default function AdminFeedbackPage() {
             Tiếp nhận báo lỗi, phản hồi trao đổi và cập nhật trạng thái sửa lỗi cho chủ nhà trọ.
           </p>
         </div>
-        <button onClick={fetchReports} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
-          <RefreshCw size={14} />
-          Làm mới hệ thống
-        </button>
       </div>
 
       {error && (

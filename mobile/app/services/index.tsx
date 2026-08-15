@@ -6,7 +6,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, RefreshControl, TextInput, Modal,
+  Alert, RefreshControl, TextInput, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
+import { useAppToast } from '@/components/ui/ToastProvider';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import {
   loadServiceConfigs, createService, updateService, deleteService,
@@ -30,6 +31,7 @@ const SERVICE_TYPES = [
 
 export default function ServicesScreen() {
   const router = useRouter();
+  const { showSuccess, showError } = useAppToast();
   const [services, setServices] = useState<ServiceConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,7 +58,7 @@ export default function ServicesScreen() {
   const onRefresh = () => { setRefreshing(true); fetchData(); };
 
   const handleSubmit = async () => {
-    if (!form.name.trim()) { Alert.alert('Lỗi', 'Vui lòng nhập tên dịch vụ.'); return; }
+    if (!form.name.trim()) { showError('Vui lòng nhập tên dịch vụ.', 'Thiếu thông tin'); return; }
     setSaving(true);
     try {
       if (editingId) {
@@ -67,7 +69,7 @@ export default function ServicesScreen() {
           unitPriceAc: Number(form.unitPriceAc) || 0,
           unit: form.unit || undefined,
         });
-        Alert.alert('Thành công', 'Đã cập nhật dịch vụ.');
+        showSuccess('Dịch vụ đã được cập nhật.');
       } else {
         await createService({
           name: form.name.trim(),
@@ -76,14 +78,14 @@ export default function ServicesScreen() {
           unitPriceAc: Number(form.unitPriceAc) || undefined,
           unit: form.unit || undefined,
         });
-        Alert.alert('Thành công', 'Đã thêm dịch vụ mới.');
+        showSuccess('Dịch vụ mới đã được thêm.');
       }
       setForm({ name: '', type: 'metered', unitPrice: '', unitPriceAc: '', unit: '' });
       setEditingId(null);
       setShowAdd(false);
       fetchData();
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.message || 'Không thể lưu dịch vụ.');
+      showError(err?.message || 'Không thể lưu dịch vụ.', 'Lưu dịch vụ chưa thành công');
     } finally {
       setSaving(false);
     }
@@ -107,8 +109,8 @@ export default function ServicesScreen() {
       {
         text: 'Xóa', style: 'destructive',
         onPress: async () => {
-          try { await deleteService(id); fetchData(); }
-          catch (err: any) { Alert.alert('Lỗi', err?.message || 'Không thể xóa.'); }
+          try { await deleteService(id); showSuccess('Dịch vụ đã được xoá.'); fetchData(); }
+          catch (err: any) { showError(err?.message || 'Không thể xóa dịch vụ.', 'Xóa dịch vụ chưa thành công'); }
         },
       },
     ]);
@@ -117,9 +119,10 @@ export default function ServicesScreen() {
   const handleToggle = async (service: ServiceConfig) => {
     try {
       await toggleServiceStatus(service);
+      showSuccess(service.active ? 'Dịch vụ đã được tạm ngưng.' : 'Dịch vụ đã được kích hoạt.');
       fetchData();
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.message || 'Không thể cập nhật.');
+      showError(err?.message || 'Không thể cập nhật.', 'Cập nhật chưa thành công');
     }
   };
 
@@ -135,10 +138,13 @@ export default function ServicesScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
       {/* Header */}
       <View style={styles.header}>
@@ -263,12 +269,14 @@ export default function ServicesScreen() {
         ))
       )}
     </ScrollView>
+    </KeyboardAvoidingView>
   </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
+  flex: { flex: 1 },
   container: { flex: 1, backgroundColor: Colors.background },
   scroll: { padding: 16, paddingBottom: 40, gap: 10 },
   header: {

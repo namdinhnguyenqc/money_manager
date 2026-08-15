@@ -18,8 +18,9 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -29,7 +30,8 @@ import Typography from '@/constants/Typography';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
-import Toast from '@/components/ui/Toast';
+import { useAppToast } from '@/components/ui/ToastProvider';
+import { CardSkeleton } from '@/components/ui/Skeleton';
 import {
   loadRentalRooms,
   loadServiceConfigs,
@@ -43,6 +45,7 @@ import {
 
 export default function NewContractScreen() {
   const router = useRouter();
+  const { showToast, showError } = useAppToast();
   const { room_id, facility_id, tenant_name, tenant_phone } = useLocalSearchParams<{
     room_id?: string;
     facility_id?: string;
@@ -83,7 +86,6 @@ export default function NewContractScreen() {
     note: '',
   });
 
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Initialize
   useEffect(() => {
@@ -164,10 +166,6 @@ export default function NewContractScreen() {
     return `${y}-${m}-${d}`;
   };
 
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-  };
-
   // Quick duration selection helper
   const setDuration = (months: number) => {
     const start = contractForm.startDate ? new Date(contractForm.startDate) : new Date();
@@ -205,17 +203,17 @@ export default function NewContractScreen() {
 
   const handleSubmit = async () => {
     if (!selectedRoom) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng chọn phòng cần cho thuê.');
+      showError('Vui lòng chọn phòng cần cho thuê.', 'Thiếu thông tin');
       return;
     }
 
     if (!tenantForm.name.trim()) {
-      Alert.alert('Thiếu thông tin', 'Họ tên khách thuê không được để trống.');
+      showError('Họ tên khách thuê không được để trống.', 'Thiếu thông tin');
       return;
     }
 
     if (tenantForm.phone.replace(/\D/g, '').length !== 10) {
-      Alert.alert('Thông tin không hợp lệ', 'Số điện thoại khách thuê phải có đúng 10 chữ số.');
+      showError('Số điện thoại khách thuê phải có đúng 10 chữ số.', 'Thông tin không hợp lệ');
       return;
     }
 
@@ -224,7 +222,7 @@ export default function NewContractScreen() {
       const inputPhone = tenantForm.phone.replace(/\D/g, '');
       const duplicate = (tenants || []).find(t => (t.phone || '').replace(/\D/g, '') === inputPhone);
       if (duplicate) {
-        Alert.alert('Trùng số điện thoại', 'Số điện thoại này đã được sử dụng cho người thuê khác. Vui lòng kiểm tra lại.');
+        showError('Số điện thoại này đã được sử dụng cho người thuê khác. Vui lòng kiểm tra lại.', 'Trùng số điện thoại');
         return;
       }
     } catch (e) {
@@ -233,22 +231,22 @@ export default function NewContractScreen() {
 
     const cleanIdCard = tenantForm.idCard.replace(/\D/g, '');
     if (cleanIdCard && cleanIdCard.length !== 12) {
-      Alert.alert('Thông tin không hợp lệ', 'CCCD phải có đúng 12 chữ số.');
+      showError('CCCD phải có đúng 12 chữ số.', 'Thông tin không hợp lệ');
       return;
     }
 
     if (!contractForm.startDate || !contractForm.endDate) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập ngày bắt đầu và kết thúc hợp đồng.');
+      showError('Vui lòng nhập ngày bắt đầu và kết thúc hợp đồng.', 'Thiếu thông tin');
       return;
     }
     const startDate = parseIsoDate(contractForm.startDate);
     const endDate = parseIsoDate(contractForm.endDate);
     if (!startDate || !endDate) {
-      Alert.alert('Ngày hợp đồng không hợp lệ', 'Ngày bắt đầu và ngày kết thúc phải có định dạng YYYY-MM-DD hợp lệ.');
+      showError('Ngày bắt đầu và ngày kết thúc phải có định dạng YYYY-MM-DD hợp lệ.', 'Ngày hợp đồng không hợp lệ');
       return;
     }
     if (endDate.getTime() <= startDate.getTime()) {
-      Alert.alert('Ngày hợp đồng không hợp lệ', 'Ngày kết thúc phải sau ngày bắt đầu.');
+      showError('Ngày kết thúc phải sau ngày bắt đầu.', 'Ngày hợp đồng không hợp lệ');
       return;
     }
 
@@ -260,23 +258,23 @@ export default function NewContractScreen() {
     const occupantCount = Number(contractForm.occupantCount || 1);
 
     if (!Number.isFinite(rentAmount) || rentAmount <= 0) {
-      Alert.alert('Giá thuê không hợp lệ', 'Tiền thuê phòng phải lớn hơn 0.');
+      showError('Tiền thuê phòng phải lớn hơn 0.', 'Giá thuê không hợp lệ');
       return;
     }
     if (!Number.isFinite(depositAmount) || depositAmount < 0) {
-      Alert.alert('Tiền cọc không hợp lệ', 'Tiền cọc không được âm.');
+      showError('Tiền cọc không được âm.', 'Tiền cọc không hợp lệ');
       return;
     }
     if (!Number.isInteger(billingDay) || billingDay < 1 || billingDay > 28) {
-      Alert.alert('Ngày chốt tiền không hợp lệ', 'Ngày chốt tiền phải nằm trong khoảng 1 đến 28.');
+      showError('Ngày chốt tiền phải nằm trong khoảng 1 đến 28.', 'Ngày chốt tiền không hợp lệ');
       return;
     }
     if (!Number.isFinite(electricStart) || electricStart < 0 || !Number.isFinite(waterStart) || waterStart < 0) {
-      Alert.alert('Chỉ số công tơ không hợp lệ', 'Chỉ số điện/nước ban đầu không được âm.');
+      showError('Chỉ số điện/nước ban đầu không được âm.', 'Chỉ số công tơ không hợp lệ');
       return;
     }
     if (!Number.isInteger(occupantCount) || occupantCount <= 0) {
-      Alert.alert('Số người không hợp lệ', 'Số người ở phải lớn hơn 0.');
+      showError('Số người ở phải lớn hơn 0.', 'Số người không hợp lệ');
       return;
     }
 
@@ -284,7 +282,7 @@ export default function NewContractScreen() {
       setSubmitting(true);
       
       // Step 1: Create Tenant
-      showToast('Đang tạo hồ sơ khách thuê...', 'success');
+      showToast('Đang tạo hồ sơ khách thuê…', 'info', 'Đang xử lý');
       const tenant = await createTenant({
         name: tenantForm.name,
         phone: tenantForm.phone,
@@ -298,7 +296,7 @@ export default function NewContractScreen() {
       }
 
       // Step 2: Create Contract
-      showToast('Đang thiết lập hợp đồng thuê...', 'success');
+      showToast('Đang thiết lập hợp đồng thuê…', 'info', 'Đang xử lý');
       const contract = await createContract({
         roomId: selectedRoom.id,
         tenantId: tenant.id,
@@ -321,9 +319,9 @@ export default function NewContractScreen() {
     } catch (e: any) {
       if (e instanceof RentalValidationError) {
         const msg = Object.values(e.fieldErrors).join('\n');
-        Alert.alert('Lỗi nhập liệu', msg);
+        showError(msg, 'Lỗi nhập liệu');
       } else {
-        Alert.alert('Lỗi hệ thống', e?.message || 'Không tạo được hợp đồng.');
+        showError(e?.message || 'Không tạo được hợp đồng.', 'Tạo hợp đồng chưa thành công');
       }
     } finally {
       setSubmitting(false);
@@ -333,9 +331,10 @@ export default function NewContractScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Đang tải danh mục cho thuê...</Text>
+        <View style={styles.loadingContainer} accessibilityLabel="Đang chuẩn bị hợp đồng">
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
         </View>
       </SafeAreaView>
     );
@@ -353,7 +352,13 @@ export default function NewContractScreen() {
         <Text style={styles.headerTitle}>Tạo hợp đồng</Text>
         <View style={{ width: 36 }} />
       </View>
-      <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         
         {/* Room Picker */}
         <Card style={styles.card}>
@@ -614,13 +619,8 @@ export default function NewContractScreen() {
           icon={submitting ? <ActivityIndicator size="small" color="#fff" /> : undefined}
         />
       </ScrollView>
+      </KeyboardAvoidingView>
 
-      <Toast
-        visible={!!toast}
-        message={toast?.message || ''}
-        type={toast?.type}
-        onDismiss={() => setToast(null)}
-      />
     </SafeAreaView>
   );
 }
@@ -654,8 +654,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     letterSpacing: -0.3,
   },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-  loadingText: { marginTop: 12, fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  loadingContainer: { flex: 1, padding: 16, gap: 14, backgroundColor: Colors.background },
   card: { padding: 16, backgroundColor: Colors.surface, borderRadius: 16, borderWidth: 1, borderColor: Colors.borderLight },
   sectionHeader: { fontSize: 15, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary, marginBottom: 12, letterSpacing: -0.3 },
   emptyText: { fontSize: 13, fontFamily: Typography.fontFamily.regular, color: Colors.textMuted, textAlign: 'center', paddingVertical: 10 },

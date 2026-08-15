@@ -56,6 +56,8 @@ export default function Input({
           style={[styles.input, disabled && styles.textDisabled]}
           placeholderTextColor={Colors.textMuted}
           editable={!disabled}
+          accessibilityLabel={label}
+          accessibilityState={{ disabled }}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           {...inputProps}
@@ -93,18 +95,9 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: Colors.primary,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 2,
   },
   inputError: {
     borderColor: Colors.danger,
-    shadowColor: Colors.danger,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
   },
   inputDisabled: {
     backgroundColor: '#f1f5f9',

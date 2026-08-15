@@ -27,6 +27,7 @@ import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import { useSearchParams } from "next/navigation";
+import { useToast } from "@/components/ui/Toast";
 
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 
@@ -39,6 +40,7 @@ const statusFilters = [
 ];
 
 export default function DepositsPage() {
+  const { showToast } = useToast();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const urlRoomId = searchParams.get("room_id") || "";
@@ -205,7 +207,9 @@ export default function DepositsPage() {
               <div className="text-xs text-slate-500 flex items-center gap-1"><Calendar size={12} />{deposit.deposit_date}</div>
               {deposit.status === "holding" && (
                 <Button variant="danger-ghost" size="sm" onClick={() => {
-                  if (window.confirm("Hủy khoản cọc này?")) cancelDeposit(deposit.id, "Hủy bởi chủ nhà").then(() => invalidateOwnerOpsQueries(queryClient, { roomId: deposit.room_id }));
+                  if (window.confirm("Hủy khoản cọc này?")) cancelDeposit(deposit.id, "Hủy bởi chủ nhà")
+                    .then(() => { showToast("Đã hủy khoản cọc.", "success"); void invalidateOwnerOpsQueries(queryClient, { roomId: deposit.room_id }); })
+                    .catch((err: any) => showToast(err?.message || "Không hủy được khoản cọc.", "error"));
                 }}>
                   Hủy cọc
                 </Button>
@@ -238,10 +242,12 @@ export default function DepositsPage() {
 
 function DepositRow({ deposit, onCancelled }: { deposit: Deposit; onCancelled: () => void }) {
   const [confirming, setConfirming] = useState(false);
+  const { showToast } = useToast();
 
   const cancelMutation = useMutation({
     mutationFn: () => cancelDeposit(deposit.id, "Hủy bởi chủ nhà"),
-    onSuccess: onCancelled,
+    onSuccess: () => { setConfirming(false); showToast("Đã hủy khoản cọc.", "success"); onCancelled(); },
+    onError: (err: any) => showToast(err?.message || "Không hủy được khoản cọc.", "error"),
   });
 
   return (

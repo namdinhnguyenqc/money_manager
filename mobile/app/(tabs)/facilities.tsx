@@ -94,16 +94,6 @@ export default function FacilitiesScreen() {
     );
   }, [facilities]);
 
-  const setupState = useMemo(() => {
-    const hasFacility = facilities.length > 0;
-    const hasRooms = facilities.some((item) => Number(item.room_count ?? item.roomCount ?? 0) > 0);
-    const hasOccupied = facilities.some((item) => Number(item.occupied_count ?? item.occupiedCount ?? 0) > 0);
-    if (!hasFacility) return { step: 1, label: 'Tạo dãy trọ đầu tiên', action: () => router.push('/facility/new' as any) };
-    if (!hasRooms) return { step: 2, label: 'Thêm phòng vào dãy', action: () => router.push({ pathname: '/room/new', params: { facility_id: facilities[0].id } }) };
-    if (!hasOccupied) return { step: 3, label: 'Tạo hợp đồng cho phòng', action: () => router.push({ pathname: '/contract/new', params: { facility_id: facilities[0].id } }) };
-    return { step: 4, label: 'Lập hóa đơn hàng tháng', action: () => router.push('/invoice/bulk' as any) };
-  }, [facilities, router]);
-
   const filteredFacilities = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return facilities.filter((item) => {
@@ -134,24 +124,8 @@ export default function FacilitiesScreen() {
 
   const renderHeader = () => (
     <View style={styles.headerContent}>
-      <View style={styles.onboardingPanel}>
-        <View style={styles.panelTop}>
-          <View style={styles.stepBadge}>
-            <Text style={styles.stepBadgeText}>{setupState.step}/4</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.panelTitle}>Thiết lập vận hành</Text>
-            <Text style={styles.panelDesc}>Bước {setupState.step}/4 · {setupState.label}</Text>
-          </View>
-        </View>
-        <TouchableOpacity style={styles.nextButton} onPress={setupState.action} activeOpacity={0.72}>
-          <Text style={styles.nextButtonText}>Tiếp tục</Text>
-          <Ionicons name="arrow-forward" size={16} color={Colors.primary} />
-        </TouchableOpacity>
-      </View>
-
       <View style={styles.statsGrid} accessibilityLabel={`${totals.facilities} dãy, ${totals.rooms} phòng, ${totals.vacant} phòng trống, ${totals.occupied} phòng đã thuê`}>
-        <StatBox label="Dãy" value={totals.facilities} />
+        <StatBox label="Cơ sở" value={totals.facilities} />
         <StatBox label="Phòng" value={totals.rooms} />
         <StatBox label="Trống" value={totals.vacant} tone="success" />
         <StatBox label="Đã thuê" value={totals.occupied} tone="info" />
@@ -160,7 +134,7 @@ export default function FacilitiesScreen() {
       <View style={styles.searchRow}>
         <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
         <TextInput
-          placeholder="Tìm dãy trọ hoặc địa chỉ"
+          placeholder="Tìm cơ sở hoặc địa chỉ"
           value={searchQuery}
           onChangeText={setSearchQuery}
           style={styles.searchInput}
@@ -205,11 +179,11 @@ export default function FacilitiesScreen() {
         ListEmptyComponent={
           <View style={styles.emptyPanel}>
             <Ionicons name="business-outline" size={42} color={Colors.textMuted} />
-            <Text style={styles.emptyTitle}>{searchQuery ? 'Không tìm thấy dãy trọ' : 'Bắt đầu bằng một dãy trọ'}</Text>
+            <Text style={styles.emptyTitle}>{searchQuery ? 'Không tìm thấy cơ sở' : 'Bắt đầu bằng một cơ sở'}</Text>
             <Text style={styles.emptyDesc}>
-              {searchQuery ? 'Thử đổi từ khóa hoặc bộ lọc.' : 'Tạo dãy trọ trước, sau đó thêm phòng để bắt đầu quản lý khách thuê.'}
+              {searchQuery ? 'Thử đổi từ khóa hoặc bộ lọc.' : 'Tạo cơ sở trước, sau đó thêm phòng để bắt đầu quản lý khách thuê.'}
             </Text>
-            {!searchQuery ? <Button title="Tạo dãy trọ" size="sm" onPress={() => router.push('/facility/new' as any)} style={{ marginTop: 14 }} /> : null}
+            {!searchQuery ? <Button title="Tạo cơ sở" size="sm" onPress={() => router.push('/facility/new' as any)} style={{ marginTop: 14 }} /> : null}
           </View>
         }
         renderItem={({ item }) => (
@@ -224,34 +198,16 @@ export default function FacilitiesScreen() {
               </View>
               <Ionicons name="chevron-forward" size={17} color={Colors.textMuted} />
             </View>
-
             <View style={styles.roomSummary}>
               <RoomCount label="Tổng" value={item.room_count ?? item.roomCount ?? 0} />
               <RoomCount label="Trống" value={item.vacant_count ?? item.vacantCount ?? 0} tone="success" />
               <RoomCount label="Đã thuê" value={item.occupied_count ?? item.occupiedCount ?? 0} tone="info" />
               <RoomCount label="Bảo trì" value={item.maintenance_count ?? item.maintenanceCount ?? 0} tone="warning" />
             </View>
-
-            <View style={styles.actionRow}>
-              <MiniAction icon="add-circle-outline" label="Thêm phòng" onPress={() => router.push({ pathname: '/room/new', params: { facility_id: item.id } })} />
-              <MiniAction icon="document-text-outline" label="Hợp đồng" onPress={() => router.push({ pathname: '/contract/new', params: { facility_id: item.id } })} />
-              <MiniAction icon="receipt-outline" label="Hóa đơn" onPress={() => router.push('/invoice/bulk' as any)} />
-            </View>
           </TouchableOpacity>
         )}
       />
 
-    </View>
-  );
-}
-
-function SetupStep({ index, label, active }: { index: number; label: string; active: boolean }) {
-  return (
-    <View style={styles.setupStep}>
-      <View style={[styles.setupDot, active && styles.setupDotActive]}>
-        <Text style={[styles.setupDotText, active && styles.setupDotTextActive]}>{index}</Text>
-      </View>
-      <Text style={[styles.setupLabel, active && styles.setupLabelActive]}>{label}</Text>
     </View>
   );
 }
@@ -290,22 +246,6 @@ const styles = StyleSheet.create({
   skeletonList: { padding: 16, gap: 12 },
   list: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 104, gap: 14 },
   headerContent: { gap: 12, marginBottom: 4 },
-  onboardingPanel: { borderRadius: 16, backgroundColor: Colors.surface, borderWidth: 1, borderColor: '#E2E8F0', padding: 16 },
-  panelTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  stepBadge: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center' },
-  stepBadgeText: { fontSize: 13, fontFamily: Typography.fontFamily.bold, color: Colors.primary },
-  panelTitle: { fontSize: 15, lineHeight: 20, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
-  panelDesc: { marginTop: 3, fontSize: 12, lineHeight: 17, fontFamily: Typography.fontFamily.regular, color: Colors.textSecondary },
-  stepTrack: { flexDirection: 'row', justifyContent: 'space-between', gap: 6, marginTop: 14 },
-  setupStep: { flex: 1, alignItems: 'center', gap: 6 },
-  setupDot: { width: 26, height: 26, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
-  setupDotActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  setupDotText: { fontSize: 11, fontFamily: Typography.fontFamily.bold, color: Colors.textMuted },
-  setupDotTextActive: { color: Colors.textWhite },
-  setupLabel: { fontSize: 10, fontFamily: Typography.fontFamily.medium, color: Colors.textMuted },
-  setupLabelActive: { color: Colors.textPrimary },
-  nextButton: { minHeight: 44, marginTop: 10, marginLeft: 56, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  nextButtonText: { fontSize: 12, fontFamily: Typography.fontFamily.bold, color: Colors.primary },
   statsGrid: { flexDirection: 'row', paddingVertical: 13, borderRadius: 16, backgroundColor: Colors.surface },
   statBox: { flex: 1, minWidth: 0, paddingHorizontal: 10, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#E2E8F0' },
   statValue: { fontSize: 18, lineHeight: 24, fontFamily: Typography.fontFamily.bold },
@@ -326,6 +266,13 @@ const styles = StyleSheet.create({
   facilityInfo: { flex: 1, minWidth: 0 },
   facilityName: { fontSize: 15, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
   facilityAddress: { marginTop: 3, fontSize: 12, fontFamily: Typography.fontFamily.regular, color: Colors.textMuted },
+  roomStatus: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 999 },
+  roomStatusDot: { width: 6, height: 6, borderRadius: 3 },
+  roomStatusText: { fontSize: 10.5, fontFamily: Typography.fontFamily.semibold },
+  roomMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 11, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E2E8F0' },
+  roomMetaItem: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  roomMetaText: { flex: 1, fontSize: 12, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  roomPrice: { fontSize: 12, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
   roomSummary: { flexDirection: 'row', gap: 8 },
   roomCount: { flex: 1, minWidth: 0, paddingVertical: 7, alignItems: 'center', borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#E2E8F0' },
   roomValue: { fontSize: 15, fontFamily: Typography.fontFamily.bold },

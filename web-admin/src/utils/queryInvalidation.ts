@@ -61,7 +61,9 @@ export async function invalidateOwnerOpsQueries(
     keys.map((queryKey) =>
       queryClient.invalidateQueries({
         queryKey,
-        refetchType: "all",
+        // Mark inactive screens stale without downloading all of them now.
+        // Only data visible on the current screen needs an immediate refetch.
+        refetchType: "active",
       }),
     ),
   );

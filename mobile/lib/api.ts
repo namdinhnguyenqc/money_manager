@@ -299,6 +299,27 @@ export async function getPersistentApiCache<T>(
   }
 }
 
+/**
+ * Persist a composed screen response (for example an analytics page that
+ * combines several endpoints). Kept separate from the GET cache so screens
+ * can paint their last successful data before their background refresh ends.
+ */
+export async function setPersistentApiCache<T>(
+  path: string,
+  value: T,
+  cacheKey = `GET:${path}`,
+): Promise<void> {
+  try {
+    await AsyncStorage.setItem(
+      persistentStorageKey(cacheKey),
+      JSON.stringify({ value, storedAt: Date.now() } satisfies PersistentCacheEntry<T>),
+    );
+    logPerfEvent('PERSISTENT_CACHE_WRITE', { path, cacheKey });
+  } catch (error: any) {
+    logPerfEvent('PERSISTENT_CACHE_FAILED', { path, cacheKey, message: String(error?.message || error) });
+  }
+}
+
 async function clearPersistentApiCache() {
   try {
     const keys = await AsyncStorage.getAllKeys();

@@ -286,9 +286,6 @@ export default function OwnerFeedbackPage() {
         subtitle="Ý kiến của bạn giúp TrọCare hoạt động mượt mà và thông minh hơn."
         actions={
           <div className="flex gap-2.5">
-            <Button variant="outline" icon={<RefreshCw size={14} />} onClick={fetchReports} className="border-slate-200 hover:bg-slate-50 transition-all font-semibold rounded-xl text-slate-700">
-              Làm mới
-            </Button>
             <Button 
               variant="primary" 
               icon={<Plus size={15} />} 

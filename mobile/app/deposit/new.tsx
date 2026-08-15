@@ -16,7 +16,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   BackHandler,
   KeyboardAvoidingView,
   Platform,
@@ -28,12 +27,14 @@ import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import Toast from '@/components/ui/Toast';
+import { useAppToast } from '@/components/ui/ToastProvider';
 import DataErrorState from '@/components/ui/DataErrorState';
+import { CardSkeleton } from '@/components/ui/Skeleton';
 import { loadRentalRooms, loadWallets, createDeposit, formatMoney } from '@/lib/rentalOps';
 
 export default function NewDepositScreen() {
   const router = useRouter();
+  const { showToast, showError, showSuccess } = useAppToast();
   const { room_id, facility_id } = useLocalSearchParams<{ room_id?: string; facility_id?: string }>();
 
   // States
@@ -56,12 +57,6 @@ export default function NewDepositScreen() {
     depositDate: '',
     note: '',
   });
-
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-  };
 
   const handleBack = useCallback(() => {
     router.replace('/deposit' as any);
@@ -143,33 +138,33 @@ export default function NewDepositScreen() {
 
   const handleSubmit = async () => {
     if (!selectedRoom) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng chọn phòng để cọc.');
+      showError('Vui lòng chọn phòng để cọc.', 'Thiếu thông tin');
       return;
     }
 
     if (!form.tenantName.trim()) {
-      Alert.alert('Thiếu thông tin', 'Họ tên khách cọc không được để trống.');
+      showError('Họ tên khách cọc không được để trống.', 'Thiếu thông tin');
       return;
     }
 
     if (form.tenantPhone && form.tenantPhone.replace(/\D/g, '').length !== 10) {
-      Alert.alert('Thông tin không hợp lệ', 'Số điện thoại khách cọc phải có đúng 10 chữ số.');
+      showError('Số điện thoại khách cọc phải có đúng 10 chữ số.', 'Thông tin không hợp lệ');
       return;
     }
 
     if (!form.amount || Number(form.amount) <= 0) {
-      Alert.alert('Thông tin không hợp lệ', 'Số tiền cọc giữ phòng phải lớn hơn 0.');
+      showError('Số tiền cọc giữ phòng phải lớn hơn 0.', 'Thông tin không hợp lệ');
       return;
     }
 
     if (!form.depositDate) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng chọn ngày nhận tiền cọc.');
+      showError('Vui lòng chọn ngày nhận tiền cọc.', 'Thiếu thông tin');
       return;
     }
 
     try {
       setSubmitting(true);
-      showToast('Đang tạo phiếu đặt cọc giữ phòng...', 'success');
+      showToast('Đang tạo phiếu đặt cọc giữ phòng…', 'info', 'Đang xử lý');
 
       await createDeposit({
         roomId: selectedRoom.id,
@@ -181,10 +176,10 @@ export default function NewDepositScreen() {
         walletId: selectedWalletId || undefined,
       });
 
-      showToast('Ghi nhận đặt cọc giữ phòng thành công!', 'success');
+      showSuccess('Phiếu cọc đã được ghi nhận và phòng chuyển sang trạng thái giữ chỗ.', 'Đã nhận cọc giữ phòng');
       router.replace('/deposit' as any);
     } catch (e: any) {
-      Alert.alert('Lỗi tạo đặt cọc', e?.message || 'Không thể tạo phiếu cọc giữ phòng.');
+      showError(e?.message || 'Không thể tạo phiếu cọc giữ phòng.', 'Tạo phiếu cọc chưa thành công');
     } finally {
       setSubmitting(false);
     }
@@ -192,9 +187,10 @@ export default function NewDepositScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Đang tải danh mục cho thuê...</Text>
+      <View style={styles.loadingContainer} accessibilityLabel="Đang chuẩn bị phiếu cọc giữ phòng">
+        <CardSkeleton />
+        <CardSkeleton />
+        <CardSkeleton />
       </View>
     );
   }
@@ -416,12 +412,6 @@ export default function NewDepositScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      <Toast
-        visible={!!toast}
-        message={toast?.message || ''}
-        type={toast?.type}
-        onDismiss={() => setToast(null)}
-      />
     </SafeAreaView>
   );
 }
@@ -431,8 +421,7 @@ const styles = StyleSheet.create({
   headerBackButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   container: { flex: 1 },
   scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-  loadingText: { marginTop: 12, fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  loadingContainer: { flex: 1, padding: 16, gap: 14, backgroundColor: Colors.background },
   introRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 },
   introIcon: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primaryLight },
   introText: { flex: 1, fontSize: 13, lineHeight: 19, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },

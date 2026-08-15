@@ -5,12 +5,11 @@ import Link from "next/link";
 import RBACGuard from "@/components/RBACGuard";
 import { loadRentalRooms, normalizeRoomStatus, roomStatusLabel, formatMoney, type RentalRoom } from "@/lib/rentalOps";
 import { apiGet, apiPatch } from "@/utils/apiClient";
-import {
-  Users, Phone, ShieldCheck, Search, Home, Calendar,
-  DollarSign, ChevronRight, AlertCircle, UserCheck, UserX, Download
-} from "lucide-react";
+import { Users, Phone, Search, ChevronRight, AlertCircle, UserCheck, UserX, Pencil, X } from "lucide-react";
 import Input from "@/components/ui/Input";
 import Pagination from "@/components/ui/Pagination";
+import PageHeader from "@/components/ui/PageHeader";
+import { useToast } from "@/components/ui/Toast";
 
 type Tenant = {
   id: string;
@@ -27,9 +26,20 @@ type TenantWithRoom = Tenant & {
   isActive: boolean;
 };
 
-const pageSize = 12;
+const pageSize = 20;
+
+const normalizeTenant = (raw: any): Tenant => ({
+  ...raw,
+  id: String(raw?.id || raw?.tenant_id || ""),
+  name: String(raw?.name || raw?.full_name || raw?.tenant_name || "Khách thuê"),
+  phone: raw?.phone || raw?.tenant_phone || "",
+  email: raw?.email || raw?.tenant_email || "",
+  id_card: raw?.id_card || raw?.idCard || raw?.tenant_id_card || "",
+  address: raw?.address || raw?.tenant_address || "",
+});
 
 export default function OwnerTenantsPage() {
+  const { showToast } = useToast();
   const [tenants, setTenants] = useState<Tenant[]>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -45,102 +55,34 @@ export default function OwnerTenantsPage() {
   const [loading, setLoading] = useState(tenants.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filter, setFilter] = useState<"active" | "all">("active");
+  // Start with the complete tenant list. An empty "Đang thuê" state is
+  // misleading when a workspace has tenants without a currently linked room.
+  const [filter, setFilter] = useState<"active" | "inactive" | "all">("all");
   const [page, setPage] = useState(1);
   
-  const [scanningTenantId, setScanningTenantId] = useState<string | null>(null);
-  const [ocrLoading, setOcrLoading] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", phone: "", email: "", idCard: "", address: "" });
+  const [savingEdit, setSavingEdit] = useState(false);
 
-  useEffect(() => {
-    // Dynamic import Tesseract.js script from CDN
-    if (typeof window !== "undefined" && !(window as any).Tesseract) {
-      const script = document.createElement("script");
-      script.src = "https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js";
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  }, []);
-
-  const triggerOcrForTenant = (tenantId: string) => {
-    setScanningTenantId(tenantId);
-    setError(null);
-    setToast(null);
-    const input = document.getElementById("ocr-file-input");
-    if (input) {
-      (input as HTMLInputElement).value = ""; // Clear file selector
-      input.click();
-    }
+  const openEdit = (tenant: Tenant) => {
+    setEditingTenant(tenant);
+    setEditForm({ name: tenant.name || "", phone: tenant.phone || "", email: tenant.email || "", idCard: tenant.id_card || "", address: tenant.address || "" });
   };
 
-  const handleOcrFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0 || !scanningTenantId) return;
-
-    setOcrLoading(true);
-    setError(null);
-    setToast(null);
-
+  const saveEdit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!editingTenant || !editForm.name.trim()) return;
+    setSavingEdit(true);
     try {
-      let combinedName = "";
-      let combinedCccd = "";
-      let combinedAddress = "";
-
-      const fileList = Array.from(files).slice(0, 2);
-      for (const file of fileList) {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://money-manager-xdem.onrender.com"}/owner/ocr-cccd`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("accessToken") || ""}`
-          },
-          body: formData
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || `Lỗi máy chủ khi quét ảnh (${res.status})`);
-        }
-
-        const data = await res.json();
-        if (data.name) combinedName = data.name;
-        if (data.cccd) combinedCccd = data.cccd;
-        if (data.address) combinedAddress = data.address;
-      }
-
-      if (!combinedCccd && !combinedName) {
-        throw new Error("Không nhận diện được Họ tên hoặc số CCCD. Hãy đảm bảo ảnh chụp đủ ánh sáng và rõ nét.");
-      }
-
-      const payload: any = {};
-      if (combinedName) payload.name = combinedName;
-      if (combinedCccd) payload.idCard = combinedCccd;
-      if (combinedAddress) payload.address = combinedAddress;
-
-      await apiPatch(`/rental/tenants/${scanningTenantId}`, payload);
-
-      setTenants(prev => prev.map(t => t.id === scanningTenantId ? {
-        ...t,
-        name: combinedName || t.name,
-        id_card: combinedCccd || t.id_card,
-        address: combinedAddress || t.address
-      } : t));
-
-      setToast({
-        message: `Cập nhật thành công: ${combinedName || ""} (${combinedCccd || ""})`,
-        type: "success"
-      });
-
-      setTimeout(() => setToast(null), 4000);
-
+      const res = await apiPatch<any>(`/rental/tenants/${editingTenant.id}`, { ...editForm, name: editForm.name.trim() });
+      const updated = normalizeTenant(res?.data || { ...editingTenant, ...editForm, id_card: editForm.idCard });
+      setTenants((prev) => prev.map((tenant) => String(tenant.id) === String(updated.id) ? updated : tenant));
+      setEditingTenant(null);
+      showToast("Đã cập nhật khách thuê.", "success");
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Lỗi xử lý hình ảnh OCR.");
+      showToast(err?.message || "Không cập nhật được khách thuê.", "error");
     } finally {
-      setOcrLoading(false);
-      setScanningTenantId(null);
+      setSavingEdit(false);
     }
   };
 
@@ -152,7 +94,7 @@ export default function OwnerTenantsPage() {
         apiGet<any>("/rental/tenants"),
         loadRentalRooms(),
       ]);
-      const nextTenants = tenantRes?.data ?? [];
+      const nextTenants = (tenantRes?.data ?? []).map(normalizeTenant);
       setTenants(nextTenants);
       setRooms(roomData);
       if (typeof window !== "undefined") {
@@ -171,36 +113,10 @@ export default function OwnerTenantsPage() {
 
   useEffect(() => { load(); }, []);
 
-  const exportToCSV = () => {
-    if (filtered.length === 0) return;
-    
-    const headers = ["Họ và tên", "Số điện thoại", "Số CCCD/CMND", "Địa chỉ thường trú", "Phòng trọ", "Giá thuê phòng", "Trạng thái hoạt động"];
-    
-    const rows = filtered.map(t => [
-      `"${(t.name || "").replace(/"/g, '""')}"`,
-      `"${(t.phone || "").replace(/"/g, '""')}"`,
-      `"${(t.id_card || "").replace(/"/g, '""')}"`,
-      `"${(t.address || "").replace(/"/g, '""')}"`,
-      `"${(t.room?.name || "Chưa xếp phòng").replace(/"/g, '""')}"`,
-      `"${t.room?.price ? formatMoney(t.room.price) : ""}"`,
-      `"${t.isActive ? "Đang ở" : "Đã trả phòng"}"`
-    ]);
-
-    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Danh_sach_khai_bao_tam_tru_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '_')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   // Merge tenants with their room data
   const enriched = useMemo<TenantWithRoom[]>(() => {
     return tenants.map((t) => {
-      const room = rooms.find((r) => r.tenant_id === t.id);
+      const room = rooms.find((r) => String(r.tenant_id || "") === String(t.id));
       const status = room ? String(normalizeRoomStatus(room)) : null;
       const isActive = status === "occupied" || status === "expiring_soon" || status === "reserved";
       return { ...t, room, isActive };
@@ -208,9 +124,18 @@ export default function OwnerTenantsPage() {
   }, [tenants, rooms]);
 
   const activeCount = useMemo(() => enriched.filter((t) => t.isActive).length, [enriched]);
+  const inactiveCount = tenants.length - activeCount;
+  const totalOutstanding = useMemo(
+    () => enriched.reduce((total, tenant) => total + Number(tenant.room?.outstanding_amount || 0), 0),
+    [enriched]
+  );
 
   const filtered = useMemo(() => {
-    let list = filter === "active" ? enriched.filter((t) => t.isActive) : enriched;
+    let list = filter === "active"
+      ? enriched.filter((t) => t.isActive)
+      : filter === "inactive"
+        ? enriched.filter((t) => !t.isActive)
+        : enriched;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
@@ -234,8 +159,18 @@ export default function OwnerTenantsPage() {
     <RBACGuard allowedRoles={["OWNER", "SUPER_ADMIN"]}>
       <div className="mx-auto max-w-7xl animate-in fade-in duration-500">
 
+        <PageHeader
+          title="Khách thuê"
+          description="Theo dõi người thuê, phòng đang ở và công nợ cần xử lý."
+          actions={
+            <div className="text-sm text-slate-500">
+              {loading ? "Đang đồng bộ dữ liệu…" : `${filtered.length} khách đang hiển thị`}
+            </div>
+          }
+        />
+
         {/* Stats row */}
-        <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
               <Users size={20} />
@@ -263,13 +198,24 @@ export default function OwnerTenantsPage() {
               <div className="text-xs font-semibold text-slate-500">Chưa có phòng</div>
             </div>
           </div>
+          <div className={`rounded-2xl border p-4 shadow-sm flex items-center gap-3 ${totalOutstanding > 0 ? "border-rose-100 bg-rose-50" : "border-slate-200 bg-white"}`}>
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${totalOutstanding > 0 ? "bg-rose-100 text-rose-600" : "bg-slate-100 text-slate-500"}`}>
+              <AlertCircle size={20} />
+            </div>
+            <div className="min-w-0">
+              <div className={`truncate text-lg font-black ${totalOutstanding > 0 ? "text-rose-700" : "text-slate-700"}`}>{formatMoney(totalOutstanding)}</div>
+              <div className={`text-xs font-semibold ${totalOutstanding > 0 ? "text-rose-600" : "text-slate-500"}`}>Tổng công nợ</div>
+            </div>
+          </div>
         </div>
 
         {/* Search + Filter tabs */}
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm w-fit">
             {([
               { key: "active", label: "Đang thuê", count: activeCount },
+              { key: "inactive", label: "Chưa có phòng", count: inactiveCount },
               { key: "all", label: "Tất cả", count: tenants.length },
             ] as const).map(({ key, label, count }) => (
               <button
@@ -299,17 +245,14 @@ export default function OwnerTenantsPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <button
-              onClick={exportToCSV}
-              disabled={filtered.length === 0}
-              className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs sm:text-sm font-bold text-slate-700 transition hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shrink-0"
-              title="Xuất danh sách khai báo tạm trú"
-            >
-              <Download size={16} className="text-slate-500" />
-              <span className="hidden xs:inline">Xuất CSV</span>
-              <span className="hidden sm:inline">tạm trú</span>
-            </button>
           </div>
+          </div>
+          {(searchQuery || filter !== "active") && (
+            <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
+              <span>{filtered.length} kết quả phù hợp</span>
+              <button type="button" onClick={() => { setSearchQuery(""); setFilter("all"); }} className="font-semibold text-blue-600 hover:text-blue-700">Đặt lại bộ lọc</button>
+            </div>
+          )}
         </div>
 
         {/* Error */}
@@ -322,9 +265,9 @@ export default function OwnerTenantsPage() {
 
         {/* Content */}
         {loading ? (
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-2">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-52 animate-pulse rounded-2xl bg-white shadow-sm border border-slate-100" />
+              <div key={i} className="h-16 animate-pulse rounded-[8px] border border-slate-100 bg-white" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -342,123 +285,80 @@ export default function OwnerTenantsPage() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div className="overflow-hidden rounded-[12px] border border-slate-200 bg-white">
+            <div className="hidden grid-cols-[minmax(220px,1.5fr)_minmax(120px,0.7fr)_minmax(130px,0.8fr)_minmax(120px,0.7fr)_52px] gap-4 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-600 md:grid">
+              <span>Khách thuê</span>
+              <span>Phòng</span>
+              <span>Trạng thái</span>
+              <span className="text-right">Công nợ</span>
+              <span />
+            </div>
             {visible.map((tenant) => {
               const room = tenant.room;
               const status = room ? String(normalizeRoomStatus(room)) : null;
               const isExpiringSoon = status === "expiring_soon";
               const isExpired = status === "expired";
+              const outstanding = Number(room?.outstanding_amount || 0);
 
               return (
                 <Link
                   key={tenant.id}
                   href={`/owner/tenants/${tenant.id}`}
-                  className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-200"
+                  className="group grid gap-3 border-b border-slate-100 px-4 py-4 transition-colors last:border-b-0 hover:bg-blue-50/40 md:grid-cols-[minmax(220px,1.5fr)_minmax(120px,0.7fr)_minmax(130px,0.8fr)_minmax(120px,0.7fr)_52px] md:items-center md:gap-4"
                 >
-                  {/* Decorative gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50/0 to-indigo-50/0 group-hover:from-blue-50/60 group-hover:to-indigo-50/40 transition-all duration-300 rounded-2xl" />
-
-                  <div className="relative">
-                    {/* Header */}
-                    <div className="mb-4 flex items-start justify-between">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-200 transition-transform group-hover:scale-105">
-                          <span className="text-lg font-black">{tenant.name.charAt(0).toUpperCase()}</span>
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="truncate text-base font-black text-slate-900 group-hover:text-blue-600 transition-colors">
-                            {tenant.name}
-                          </h3>
-                          {tenant.isActive ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                              Đang thuê
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500">
-                              <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-                              Chưa có phòng
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <ChevronRight size={16} className="shrink-0 text-slate-400 group-hover:text-blue-400 transition-colors mt-1" />
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-blue-50 text-sm font-bold text-blue-700">
+                      {tenant.name.charAt(0).toUpperCase()}
                     </div>
-
-                    {/* Contact info */}
-                    <div className="space-y-2 border-t border-slate-100 pt-4">
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
-                          <Phone size={13} />
-                        </div>
-                        <span>{tenant.phone || "Chưa có SĐT"}</span>
+                    <div className="min-w-0">
+                      <div className="truncate font-bold text-slate-900 group-hover:text-blue-700">{tenant.name}</div>
+                      <div className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-slate-500">
+                        <Phone size={12} className="shrink-0" />
+                        {tenant.phone || "Chưa có SĐT"}
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors">
-                          <ShieldCheck size={13} />
-                        </div>
-                        <div className="flex-1 flex items-center justify-between min-w-0">
-                          <span className="truncate">{tenant.id_card || "Chưa có CCCD"}</span>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              triggerOcrForTenant(tenant.id);
-                            }}
-                            className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-black text-blue-600 border border-blue-100 bg-blue-50/50 hover:bg-blue-100 transition-colors shrink-0"
-                            title="Quét CCCD để cập nhật hồ sơ khách thuê này"
-                          >
-                            ⚡ Quét CCCD
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Room info if active */}
-                      {room && (
-                        <>
-                          <div className="flex items-center gap-2 text-sm text-slate-600">
-                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-500 transition-colors">
-                              <Home size={13} />
-                            </div>
-                            <span className="font-semibold">{room.name}</span>
-                          </div>
-                          {room.start_date && (
-                            <div className="flex items-center gap-2 text-sm text-slate-500">
-                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400">
-                                <Calendar size={13} />
-                              </div>
-                              <span>Vào ở: {new Date(room.start_date).toLocaleDateString("vi-VN")}</span>
-                            </div>
-                          )}
-                          {(room.deposit ?? 0) > 0 && (
-                            <div className="flex items-center gap-2 text-sm text-slate-500">
-                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400">
-                                <DollarSign size={13} />
-                              </div>
-                              <span>Cọc: <span className="font-bold text-slate-700">{formatMoney(room.deposit!)}</span></span>
-                            </div>
-                          )}
-                        </>
-                      )}
                     </div>
+                  </div>
 
-                    {/* Contract expiry warning */}
-                    {(isExpiringSoon || isExpired) && (
-                      <div className={`mt-3 flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold ${
-                        isExpired ? "bg-red-50 text-red-700 border border-red-100" : "bg-amber-50 text-amber-700 border border-amber-100"
-                      }`}>
-                        <AlertCircle size={12} />
-                        {isExpired ? "Hợp đồng đã hết hạn" : "Hợp đồng sắp hết hạn"}
-                      </div>
-                    )}
+                  <div className="flex items-center justify-between gap-2 md:block">
+                    <span className="text-xs font-medium text-slate-500 md:hidden">Phòng</span>
+                    <span className="text-sm font-semibold text-slate-800">{room?.name || "—"}</span>
+                  </div>
 
-                    {/* Outstanding debt warning */}
-                    {(room?.outstanding_amount ?? 0) > 0 && (
-                      <div className="mt-3 flex items-center justify-between rounded-xl bg-red-50 border border-red-100 px-3 py-2">
-                        <span className="text-xs font-bold text-red-700">Đang nợ</span>
-                        <span className="text-xs font-black text-red-700">{formatMoney(room!.outstanding_amount!)}</span>
-                      </div>
+                  <div className="flex items-center justify-between gap-2 md:block">
+                    <span className="text-xs font-medium text-slate-500 md:hidden">Trạng thái</span>
+                    {isExpired ? (
+                      <span className="inline-flex rounded-full bg-red-50 px-2 py-1 text-xs font-bold text-red-700">Hết hạn</span>
+                    ) : isExpiringSoon ? (
+                      <span className="inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">Sắp hết hạn</span>
+                    ) : tenant.isActive ? (
+                      <span className="inline-flex rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">Đang thuê</span>
+                    ) : (
+                      <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">Chưa có phòng</span>
                     )}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 md:block md:text-right">
+                    <span className="text-xs font-medium text-slate-500 md:hidden">Công nợ</span>
+                    <span className={outstanding > 0 ? "text-sm font-bold text-red-700" : "text-sm font-medium text-slate-500"}>
+                      {outstanding > 0 ? formatMoney(outstanding) : "0 đ"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        openEdit(tenant);
+                      }}
+                      aria-label={`Chỉnh sửa ${tenant.name}`}
+                      title="Chỉnh sửa"
+                      className="rounded-[6px] p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-700"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <ChevronRight size={16} className="text-slate-400 group-hover:text-blue-600" />
                   </div>
                 </Link>
               );
@@ -473,34 +373,29 @@ export default function OwnerTenantsPage() {
           onPageChange={setPage}
         />
 
-        {/* Hidden inputs & loading overlays for OCR processing */}
-        <input
-          type="file"
-          multiple
-          accept="image/*"
-          id="ocr-file-input"
-          className="hidden"
-          onChange={handleOcrFileChange}
-        />
-
-        {ocrLoading && (
-          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="rounded-2xl bg-white p-6 shadow-2xl flex flex-col items-center max-w-sm text-center">
-              <svg className="animate-spin h-10 w-10 text-blue-600 mb-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-              <h4 className="text-sm font-bold text-slate-950">Đang quét ảnh CCCD (OCR)</h4>
-              <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">Hệ thống đang trích xuất Họ tên, Số CCCD và Địa chỉ hoàn toàn offline bảo mật trong trình duyệt của bạn...</p>
-            </div>
+        {editingTenant ? (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 px-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !savingEdit) setEditingTenant(null); }}>
+            <form onSubmit={saveEdit} className="w-full max-w-xl rounded-xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="edit-tenant-title">
+              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                <div><h2 id="edit-tenant-title" className="font-bold text-slate-950">Chỉnh sửa khách thuê</h2><p className="mt-0.5 text-sm text-slate-600">Cập nhật thông tin sẽ đồng bộ sang phòng và hợp đồng.</p></div>
+                <button type="button" disabled={savingEdit} onClick={() => setEditingTenant(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Đóng"><X size={18} /></button>
+              </div>
+              <div className="grid gap-4 p-5 sm:grid-cols-2">
+                <EditField label="Họ và tên *"><input autoFocus className="input" value={editForm.name} onChange={(event) => setEditForm((prev) => ({ ...prev, name: event.target.value }))} /></EditField>
+                <EditField label="Số điện thoại"><input className="input" inputMode="tel" value={editForm.phone} onChange={(event) => setEditForm((prev) => ({ ...prev, phone: event.target.value.replace(/\D/g, "") }))} /></EditField>
+                <EditField label="CCCD"><input className="input" inputMode="numeric" value={editForm.idCard} onChange={(event) => setEditForm((prev) => ({ ...prev, idCard: event.target.value.replace(/\D/g, "") }))} /></EditField>
+                <EditField label="Email"><input className="input" type="email" value={editForm.email} onChange={(event) => setEditForm((prev) => ({ ...prev, email: event.target.value }))} /></EditField>
+                <div className="sm:col-span-2"><EditField label="Địa chỉ"><input className="input" value={editForm.address} onChange={(event) => setEditForm((prev) => ({ ...prev, address: event.target.value }))} /></EditField></div>
+              </div>
+              <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-4"><button type="button" disabled={savingEdit} onClick={() => setEditingTenant(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Hủy</button><button disabled={savingEdit || !editForm.name.trim()} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{savingEdit ? "Đang lưu..." : "Lưu thay đổi"}</button></div>
+            </form>
           </div>
-        )}
-
-        {toast && (
-          <div className="fixed bottom-5 right-5 z-50 animate-in slide-in-from-bottom-5 duration-300">
-            <div className={`rounded-xl px-4 py-3 shadow-lg text-xs font-bold border ${toast.type === "success" ? "bg-emerald-50 border-emerald-100 text-emerald-800" : "bg-red-50 border-red-100 text-red-800"}`}>
-              {toast.message}
-            </div>
-          </div>
-        )}
+        ) : null}
       </div>
     </RBACGuard>
   );
+}
+
+function EditField({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">{label}</span>{children}</label>;
 }

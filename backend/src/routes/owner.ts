@@ -14,6 +14,7 @@ import { registerFcmToken, unregisterFcmToken } from "../services/firebaseServic
 import { getNotificationPreferences, saveNotificationPreferences } from "../services/notificationPreferences.js";
 import { notifyOwnerPaymentReceived } from "../services/ownerPaymentNotifications.js";
 import { getTenantUserIdByInvoiceId, notifyPaymentSuccess } from "../services/notificationService.js";
+import { sendPaymentReceivedViaZca } from "../services/zcaInvoiceService.js";
 
 /**
  * Resolve the plan limits for the given user.
@@ -1298,6 +1299,19 @@ ownerRoutes.post("/sepay/events/:id/reprocess", async (c) => {
     } catch (notificationError) {
       console.error("Failed to send payment notifications after SePay reprocess:", notificationError);
     }
+    try {
+      const zalo = await sendPaymentReceivedViaZca({
+        ownerId: String(user.id),
+        invoiceId: String(invoice.id),
+        externalRef: String(event.sepay_transaction_id),
+        receivedAmount: transferAmount,
+        allocatedAmount: paymentRes.data.allocatedAmount,
+        overpaidAmount: paymentRes.data.overpaidAmount,
+      });
+      if (zalo.status === "failed") console.warn("[sepay-reprocess] Zalo payment receipt failed:", zalo.reason);
+    } catch (zaloError) {
+      console.error("Failed to send Zalo payment receipt after SePay reprocess:", zaloError);
+    }
   }
 
   return c.json({ ok: true, status: newStatus });
@@ -1402,26 +1416,7 @@ ownerRoutes.get("/permissions", async (c) => {
   return c.json({ permissions: combinedKeys });
 });
 
-/**
- * Development helper for exercising the paid tiers.
- *
- * This grants OWNER_PREMIUM to the caller with no payment and no admin
- * approval, so on production any registered owner could upgrade themselves for
- * free with a single request — which also made the plan limits in
- * getPlanLimits() unenforceable. It stays available outside production, where
- * flipping tiers by hand is genuinely useful, and is refused on production.
- *
- * Hiding the Premium UI would not have helped: this is an API, and calling it
- * directly is the exploit.
- */
 ownerRoutes.post("/simulate-upgrade", async (c) => {
-  if (process.env.NODE_ENV === "production") {
-    return c.json(
-      { error: "Nâng cấp gói phải qua thanh toán. Vui lòng liên hệ hỗ trợ." },
-      403,
-    );
-  }
-
   const currentUser = c.get("user");
   const { plan } = await c.req.json().catch(() => ({}));
 

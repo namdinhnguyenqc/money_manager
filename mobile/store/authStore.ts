@@ -34,7 +34,9 @@ interface AuthState {
   markProfilePendingApproval: () => void;
 }
 
-const SECURE_STORE_READ_TIMEOUT_MS = 2500;
+// Android Keystore can take several seconds after a cold boot or an overnight
+// idle period. A short timeout makes a valid session look like a logout.
+const SECURE_STORE_READ_TIMEOUT_MS = 8000;
 
 class SecureStoreReadTimeoutError extends Error {
   constructor() {
@@ -92,6 +94,20 @@ function getUserFromToken(token: string): AuthUser | null {
   } as AuthUser;
 }
 
+function authenticatedStateFromToken(token: string) {
+  const user = getUserFromToken(token);
+  if (!user) return null;
+  return {
+    user,
+    isAuthenticated: true,
+    isProfileCompleted: getProfileCompleted(user),
+    approvalStatus: getApprovalStatus(user),
+    onboardingStep: user.onboardingStep ?? null,
+    isLoading: false,
+    isHydrated: true,
+  } as const;
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
@@ -114,8 +130,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         return;
       }
 
-      const tokenUser = getUserFromToken(token);
-      if (!tokenUser) {
+      const authenticatedState = authenticatedStateFromToken(token);
+      if (!authenticatedState) {
         await clearTokens();
         clearUserCaches();
         set({ user: null, isAuthenticated: false, isProfileCompleted: false, approvalStatus: null, onboardingStep: null, isLoading: false, isHydrated: true });
@@ -124,15 +140,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         return;
       }
 
-      set({
-        user: tokenUser,
-        isAuthenticated: true,
-        isProfileCompleted: getProfileCompleted(tokenUser),
-        approvalStatus: getApprovalStatus(tokenUser),
-        onboardingStep: tokenUser.onboardingStep ?? null,
-        isLoading: false,
-        isHydrated: true,
-      });
+      set(authenticatedState);
       markLoginTimeline("TOKEN_HYDRATE_DONE", { hasToken: true, authenticated: true, source: "token" });
       logPerfEvent("TOKEN_HYDRATE_DONE", { hasToken: true, authenticated: true, source: "token" });
 
@@ -167,8 +175,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         });
     } catch (error) {
       if (error instanceof SecureStoreReadTimeoutError) {
-        // Never trap the user behind the boot screen. Keep stored credentials
-        // untouched so a later launch can recover, but continue to Login now.
+        // Never delete a session merely because Android Keystore was slow.
+        // Complete the delayed read in the background and restore the user as
+        // soon as it returns; the routing guard then leaves Login automatically.
         set({
           user: null,
           isAuthenticated: false,
@@ -180,6 +189,31 @@ export const useAuthStore = create<AuthState>((set) => ({
         });
         markLoginTimeline('TOKEN_HYDRATE_DONE', { authenticated: false, storageTimeout: true });
         logPerfEvent('TOKEN_HYDRATE_DONE', { authenticated: false, storageTimeout: true });
+        void getAccessToken().then((lateToken) => {
+          const lateState = lateToken ? authenticatedStateFromToken(lateToken) : null;
+          if (!lateState) return;
+          set(lateState);
+          markLoginTimeline('TOKEN_HYDRATE_RECOVERED', { source: 'delayed_secure_store_read' });
+          logPerfEvent('TOKEN_HYDRATE_RECOVERED', { source: 'delayed_secure_store_read' });
+          // `/auth/me` also refreshes an expired access token. It must not
+          // clear storage on transient offline/cold-start failures.
+          void checkAuth().then((user) => {
+            if (!user) return;
+            set({
+              user,
+              isAuthenticated: true,
+              isProfileCompleted: getProfileCompleted(user),
+              approvalStatus: getApprovalStatus(user),
+              onboardingStep: user.onboardingStep ?? null,
+              isLoading: false,
+              isHydrated: true,
+            });
+          }).catch(() => {
+            // The cached session remains usable until the server is reachable.
+          });
+        }).catch(() => {
+          // No action: this is a storage read failure, never a reason to erase tokens.
+        });
         return;
       }
       if (error instanceof ApiClientError && ![400, 401, 403].includes(error.status)) {

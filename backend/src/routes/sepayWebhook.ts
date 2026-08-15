@@ -8,6 +8,7 @@ import { notifyOwnerPaymentReceived } from "../services/ownerPaymentNotification
 import { extractPaymentCodeFromPayload } from "../utils/paymentCodes.js";
 import { resolveSepayChannel } from "../services/sepayReconcile.js";
 import { extractSepayApiKey, verifySepayWebhookAuth } from "../services/sepayAuth.js";
+import { sendPaymentReceivedViaZca } from "../services/zcaInvoiceService.js";
 import type { AppEnv } from "../types.js";
 
 const sepayWebhookRoutes = new Hono<AppEnv>();
@@ -363,6 +364,22 @@ sepayWebhookRoutes.post("/", async (c) => {
     status,
     raw_payload: payload,
   });
+
+  if (!paymentRes.data.idempotent) {
+    try {
+      const zalo = await sendPaymentReceivedViaZca({
+        ownerId: String(invoice.user_id),
+        invoiceId: String(invoice.id),
+        externalRef: sepayTransactionId,
+        receivedAmount: transferAmount,
+        allocatedAmount: paymentRes.data.allocatedAmount,
+        overpaidAmount: paymentRes.data.overpaidAmount,
+      });
+      if (zalo.status === "failed") console.warn("[sepay] Zalo payment receipt failed:", zalo.reason);
+    } catch (error: any) {
+      console.warn("[sepay] Zalo payment receipt could not be queued:", error?.message || error);
+    }
+  }
 
   // A bank webhook is a dashboard write: remove both cached KPI payloads so
   // the owner sees the reconciled cash flow on their next screen refresh.

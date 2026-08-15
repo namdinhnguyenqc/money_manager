@@ -14,6 +14,13 @@
       "runtimeArgs": ["run", "dev"],
       "cwd": "web-admin",
       "port": 3001
+    },
+    {
+      "name": "admin-portal",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "admin-portal",
+      "port": 3011
     }
   ]
 }

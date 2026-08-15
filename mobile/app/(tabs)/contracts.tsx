@@ -13,8 +13,9 @@ import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import StatusBadge from '@/components/ui/StatusBadge';
 import EmptyState from '@/components/ui/EmptyState';
+import DataErrorState from '@/components/ui/DataErrorState';
 import { ListItemSkeleton } from '@/components/ui/Skeleton';
-import { apiGet } from '@/lib/api';
+import { apiGet, getPersistentApiCache } from '@/lib/api';
 import { logPerfEvent } from '@/lib/telemetry/appPerformance';
 
 const formatMoney = (value?: number | null) =>
@@ -49,17 +50,28 @@ export default function ContractsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('Tất cả');
+  const [loadError, setLoadError] = useState('');
 
   const fetchData = useCallback(async (forceRefresh = false) => {
     const tab = "contracts";
     logPerfEvent("SECONDARY_DATA_START", { tab, forceRefresh });
     try {
-      const res = await apiGet<any>('/rental/contracts', { forceRefresh });
+      setLoadError('');
+      if (!forceRefresh) {
+        const cached = await getPersistentApiCache<any>('/rental/contracts', 24 * 60 * 60 * 1000);
+        if (cached?.data) {
+          setContracts(cached.data);
+          setLoading(false);
+          logPerfEvent('TAB_DATA_READY_CONTRACTS', { success: true, source: 'persistent-cache', itemCount: cached.data.length });
+        }
+      }
+      const res = await apiGet<any>('/rental/contracts', { forceRefresh, persistCache: true });
       const items = res?.data ?? [];
       setContracts(items);
       logPerfEvent("TAB_DATA_READY_CONTRACTS", { success: true, itemCount: items.length });
       logPerfEvent("SECONDARY_DATA_READY", { tab, success: true });
     } catch (error: any) {
+      setLoadError(error?.message || 'Không thể tải hợp đồng.');
       logPerfEvent("TAB_DATA_READY_CONTRACTS", { success: false, message: String(error?.message || error) });
       logPerfEvent("SECONDARY_DATA_READY", { tab, success: false });
     } finally { setLoading(false); setRefreshing(false); }
@@ -72,6 +84,10 @@ export default function ContractsScreen() {
 
   if (loading) {
     return <View style={styles.container}>{[1,2,3,4].map(i => <ListItemSkeleton key={i} />)}</View>;
+  }
+
+  if (loadError && contracts.length === 0) {
+    return <DataErrorState message={loadError} onRetry={() => { setLoading(true); void fetchData(true); }} />;
   }
 
   return (

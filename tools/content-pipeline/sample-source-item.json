@@ -1,0 +1,14 @@
+{
+  "title": "Example source item: Chelsea injury update",
+  "url": "https://www.chelseafc.com/en/news/article/chelsea-injury-update-newcastle-united",
+  "source_key": "chelsea-official-news",
+  "source_type": "official",
+  "trust_level": 3,
+  "published_at": "2026-07-11T00:00:00Z",
+  "content_type": "injury",
+  "facts": [
+    "The club published an injury update ahead of the fixture.",
+    "The article names the players and the reported status."
+  ],
+  "editorial_angle": "Giải thích tác động của tình hình thể lực tới lựa chọn đội hình, không chẩn đoán y khoa."
+}

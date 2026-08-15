@@ -16,6 +16,8 @@ import {
   Modal,
   Alert,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,18 +26,21 @@ import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
-import Toast from '@/components/ui/Toast';
+import { ListItemSkeleton } from '@/components/ui/Skeleton';
+import DataErrorState from '@/components/ui/DataErrorState';
+import { useAppToast } from '@/components/ui/ToastProvider';
 import { loadTenants, updateTenant, formatMoney } from '@/lib/rentalOps';
 
 export default function TenantsScreen() {
   const router = useRouter();
+  const { showSuccess, showError } = useAppToast();
 
   // State
   const [tenants, setTenants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Edit Modal State
   const [editingTenant, setEditingTenant] = useState<any | null>(null);
@@ -48,19 +53,16 @@ export default function TenantsScreen() {
     address: '',
   });
 
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-  };
-
   const fetchTenants = async (isRef = false) => {
     try {
+      setLoadError('');
       if (isRef) setRefreshing(true);
       else setLoading(true);
 
       const list = await loadTenants();
       setTenants(list);
     } catch (e: any) {
-      showToast(e?.message || 'Không tải được danh sách khách thuê.', 'error');
+      setLoadError(e?.message || 'Không tải được danh sách khách thuê.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -91,18 +93,18 @@ export default function TenantsScreen() {
 
   const handleSave = async () => {
     if (!editForm.name.trim()) {
-      Alert.alert('Thiếu thông tin', 'Họ tên không được để trống.');
+      showError('Họ tên không được để trống.', 'Thiếu thông tin');
       return;
     }
 
     if (editForm.phone.replace(/\D/g, '').length !== 10) {
-      Alert.alert('Thông tin không hợp lệ', 'Số điện thoại phải có đúng 10 chữ số.');
+      showError('Số điện thoại phải có đúng 10 chữ số.', 'Thông tin không hợp lệ');
       return;
     }
 
     const cleanIdCard = editForm.idCard.replace(/\D/g, '');
     if (cleanIdCard && cleanIdCard.length !== 12) {
-      Alert.alert('Thông tin không hợp lệ', 'Số CCCD phải có đúng 12 chữ số.');
+      showError('Số CCCD phải có đúng 12 chữ số.', 'Thông tin không hợp lệ');
       return;
     }
 
@@ -116,11 +118,11 @@ export default function TenantsScreen() {
         address: editForm.address.trim() || undefined,
       });
 
-      showToast('Cập nhật hồ sơ khách thuê thành công!', 'success');
+      showSuccess('Thông tin khách thuê đã được cập nhật.', 'Đã lưu khách thuê');
       setEditingTenant(null);
       fetchTenants();
     } catch (e: any) {
-      Alert.alert('Lỗi cập nhật', e?.message || 'Không thể lưu thông tin.');
+      showError(e?.message || 'Không thể lưu thông tin.', 'Cập nhật chưa thành công');
     } finally {
       setSaving(false);
     }
@@ -165,10 +167,13 @@ export default function TenantsScreen() {
         </View>
 
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Đang tải danh sách khách thuê...</Text>
+          <View style={styles.loadingContainer} accessibilityLabel="Đang tải danh sách khách thuê">
+            <ListItemSkeleton />
+            <ListItemSkeleton />
+            <ListItemSkeleton />
           </View>
+        ) : loadError && tenants.length === 0 ? (
+          <DataErrorState message={loadError} onRetry={() => fetchTenants()} />
         ) : (
           <FlatList
             data={filtered}
@@ -243,7 +248,7 @@ export default function TenantsScreen() {
       {/* Edit Modal */}
       <Modal visible={!!editingTenant} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <SafeAreaView style={styles.modalContent}>
+          <KeyboardAvoidingView style={styles.modalContent} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Cập nhật khách thuê</Text>
               <TouchableOpacity onPress={() => setEditingTenant(null)} style={styles.closeBtn}>
@@ -312,16 +317,10 @@ export default function TenantsScreen() {
                 </View>
               )}
             />
-          </SafeAreaView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
-      <Toast
-        visible={!!toast}
-        message={toast?.message || ''}
-        type={toast?.type}
-        onDismiss={() => setToast(null)}
-      />
     </SafeAreaView>
   );
 }
@@ -349,8 +348,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   clearBtn: { position: 'absolute', right: 28, padding: 4 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 12, fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  loadingContainer: { flex: 1, padding: 16, gap: 12 },
   list: { padding: 16, gap: 14 },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80, gap: 8 },
   emptyTitle: { fontSize: 16, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },

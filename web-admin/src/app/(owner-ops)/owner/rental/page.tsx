@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import ConfirmDialog from "@/components/ops/ConfirmDialog";
 import {
   RentalRoom,
@@ -86,14 +86,10 @@ export default function OwnerContractsPage() {
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm font-medium text-blue-700">Hợp đồng</p>
-          <h1 className="text-2xl font-semibold text-slate-950">Quản lý hợp đồng thuê</h1>
+          <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Quản lý hợp đồng thuê</h1>
           <p className="mt-1 text-sm text-slate-500">Tạo hợp đồng cho phòng trống và theo dõi trạng thái hợp đồng đang hiệu lực.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={load} className="inline-flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700">
-            <RefreshCw size={16} />
-            Làm mới
-          </button>
           <button onClick={() => setFormOpen(true)} className="inline-flex items-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">
             <Plus size={16} />
             Tạo hợp đồng

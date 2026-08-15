@@ -113,8 +113,12 @@ export async function sendPushNotification(
     }
 
     const tokenStrings = tokens.map((t) => t.token);
-    const expoTokens = tokenStrings.filter((token) => /^ExponentPushToken\[.+\]$/.test(token));
-    const firebaseTokens = tokenStrings.filter((token) => !/^ExponentPushToken\[.+\]$/.test(token));
+    // Expo issues both legacy `ExponentPushToken[...]` and current
+    // `ExpoPushToken[...]` values. The current format used to be sent to FCM
+    // by mistake, so it never reached Android when the app was backgrounded.
+    const expoTokenPattern = /^(?:Exponent|Expo)PushToken\[.+\]$/;
+    const expoTokens = tokenStrings.filter((token) => expoTokenPattern.test(token));
+    const firebaseTokens = tokenStrings.filter((token) => !expoTokenPattern.test(token));
     let expoSentCount = 0;
     let expoFailedCount = 0;
 
@@ -129,6 +133,8 @@ export async function sendPushNotification(
             body: notification.body,
             data: notification.data || {},
             sound: "default",
+            channelId: "payments",
+            priority: "high",
           }))),
         });
         if (!expoResponse.ok) throw new Error(`Expo push returned ${expoResponse.status}`);

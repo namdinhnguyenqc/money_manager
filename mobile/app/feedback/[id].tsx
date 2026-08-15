@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import { apiGet, apiPost } from '@/lib/api';
+import { useAppToast } from '@/components/ui/ToastProvider';
 
 type Attachment = {
   id: string;
@@ -48,10 +49,10 @@ type Comment = {
 };
 
 const statusMap = {
-  new: { label: 'Mới gửi', color: '#0071e3', bg: 'rgba(0, 113, 227, 0.08)' },
-  in_progress: { label: 'Đang xử lý', color: '#EAB308', bg: 'rgba(234, 179, 8, 0.08)' },
-  resolved: { label: 'Đã xử lý xong', color: '#0D9488', bg: 'rgba(13, 148, 136, 0.08)' },
-  reopened: { label: 'Yêu cầu lại', color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.08)' },
+  new: { label: 'Mới gửi', color: Colors.primary, bg: Colors.primaryLight },
+  in_progress: { label: 'Đang xử lý', color: Colors.warning, bg: Colors.warningLight },
+  resolved: { label: 'Đã xử lý xong', color: Colors.successDark, bg: Colors.successLight },
+  reopened: { label: 'Yêu cầu lại', color: Colors.danger, bg: Colors.dangerLight },
   closed: { label: 'Đã đóng', color: '#94A3B8', bg: 'rgba(148, 163, 184, 0.08)' },
 };
 
@@ -71,6 +72,7 @@ const priorityLabels = {
 export default function FeedbackDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { showSuccess } = useAppToast();
   const [report, setReport] = useState<FeedbackReport | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,7 +132,7 @@ export default function FeedbackDetailScreen() {
           try {
             setLoading(true);
             await apiPost(`/owner/feedback/${id}/close`, {});
-            Alert.alert('Thành công', 'Báo cáo đã được đóng.');
+            showSuccess('Báo cáo đã được đóng.');
             router.back();
           } catch (err: any) {
             Alert.alert('Lỗi', err.message);
@@ -152,7 +154,7 @@ export default function FeedbackDetailScreen() {
       await apiPost(`/owner/feedback/${id}/reopen`, {
         message: reopenText.trim(),
       });
-      Alert.alert('Yêu cầu xử lý lại', 'Đã gửi yêu cầu kỹ thuật xử lý lại.');
+      showSuccess('Yêu cầu xử lý lại đã được gửi.');
       setShowReopenInput(false);
       setReopenText('');
       await loadDetails();
@@ -503,7 +505,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: Colors.successLight,
     borderWidth: 1,
-    borderColor: 'rgba(13, 148, 136, 0.16)',
+    borderColor: '#A7F3D0',
     gap: 6,
   },
   resolvedTitle: {
@@ -558,7 +560,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: Colors.dangerLight,
     borderWidth: 1,
-    borderColor: 'rgba(244, 63, 94, 0.16)',
+    borderColor: '#FECACA',
     gap: 8,
   },
   reopenTitle: {

@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
+import { useAppToast } from '@/components/ui/ToastProvider';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import {
   loadWallets, createWallet, deleteWallet, formatMoney,
@@ -28,6 +29,7 @@ const WALLET_TYPES = [
 
 export default function WalletsScreen() {
   const router = useRouter();
+  const { showSuccess, showToast } = useAppToast();
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -74,7 +76,7 @@ export default function WalletsScreen() {
       setForm({ name: '', type: 'personal' });
       setShowAdd(false);
       fetchData();
-      Alert.alert('Thành công', 'Đã tạo ví mới.');
+      showSuccess('Ví mới đã được tạo.');
     } catch (err: any) {
       Alert.alert('Lỗi', err?.message || 'Không thể tạo ví.');
     } finally {
@@ -92,7 +94,7 @@ export default function WalletsScreen() {
           try {
             await deleteWallet(id);
             fetchData();
-            Alert.alert('Thành công', 'Đã xóa ví.');
+            showSuccess('Ví đã được xóa.');
           } catch (err: any) {
             Alert.alert('Lỗi', err?.message || 'Không thể xóa ví.');
           }
@@ -113,7 +115,7 @@ export default function WalletsScreen() {
       const missing = DEFAULT_WALLETS.filter((w) => !existingTypes.has(w.type));
 
       if (missing.length === 0) {
-        Alert.alert('Thông tin', 'Bạn đã có đầy đủ các loại ví mặc định.');
+        showToast('Bạn đã có đầy đủ các loại ví mặc định.', 'info');
         return;
       }
 
@@ -121,7 +123,7 @@ export default function WalletsScreen() {
         await createWallet(w);
       }
       fetchData();
-      Alert.alert('Thành công', 'Đã khởi tạo bộ ví mặc định.');
+      showSuccess('Bộ ví mặc định đã được khởi tạo.');
     } catch (err: any) {
       Alert.alert('Lỗi', err?.message || 'Không thể khởi tạo ví mặc định.');
     } finally {

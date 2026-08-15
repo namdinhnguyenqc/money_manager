@@ -3,17 +3,19 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import { useAppToast } from '@/components/ui/ToastProvider';
 import { apiPost } from '@/lib/api';
 
 export default function NewFacilityScreen() {
   const router = useRouter();
+  const { showSuccess, showError } = useAppToast();
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [description, setDescription] = useState('');
@@ -34,9 +36,10 @@ export default function NewFacilityScreen() {
         description: description.trim() || '',
         status: 'ACTIVE',
       });
+      showSuccess('Cơ sở mới đã được tạo.');
       router.back();
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.message || 'Không thể tạo dãy trọ.');
+      showError(error?.message || 'Không thể tạo cơ sở.');
     } finally {
       setLoading(false);
     }
@@ -46,7 +49,8 @@ export default function NewFacilityScreen() {
     <>
       <Stack.Screen options={{ headerShown: true, title: 'Thêm dãy trọ', headerBackTitle: 'Quay lại' }} />
       <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           <Input
             label="Tên dãy trọ"
             value={name}
@@ -74,6 +78,7 @@ export default function NewFacilityScreen() {
           />
           <Button title="Tạo dãy trọ" onPress={handleSubmit} variant="primary" size="lg" fullWidth loading={loading} />
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </>
   );
@@ -81,5 +86,6 @@ export default function NewFacilityScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  flex: { flex: 1 },
   scroll: { padding: 20, paddingBottom: 40 },
 });

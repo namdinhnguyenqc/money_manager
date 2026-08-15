@@ -18,6 +18,7 @@ import {
   loadFacilityBlocks,
 } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+import { useToast } from "@/components/ui/Toast";
 
 const roomStatuses = [
   { value: "vacant", label: "Còn trống" },
@@ -30,6 +31,7 @@ export default function EditRoomPage() {
   const { id } = useParams();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const searchParams = useSearchParams();
   const facilityId = searchParams.get("facility_id");
   
@@ -49,7 +51,6 @@ export default function EditRoomPage() {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState("");
 
   useEffect(() => {
     if (roomQuery.data) {
@@ -80,14 +81,15 @@ export default function EditRoomPage() {
         status: form.status,
         blockId: form.blockId || null,
       });
-      setToast("Đã cập nhật thông tin phòng thành công!");
-      await invalidateOwnerOpsQueries(queryClient, {
+      showToast("Đã cập nhật thông tin phòng.", "success");
+      void invalidateOwnerOpsQueries(queryClient, {
         facilityId,
         roomId: String(id),
       });
-      setTimeout(() => setToast(""), 3000);
     } catch (err: any) {
-      setError(err?.message || "Lỗi khi cập nhật phòng. Vui lòng thử lại!");
+      const message = err?.message || "Lỗi khi cập nhật phòng. Vui lòng thử lại!";
+      setError(message);
+      showToast(message, "error");
     } finally {
       setSaving(false);
     }
@@ -101,7 +103,7 @@ export default function EditRoomPage() {
       {/* Header */}
       <div className="mb-8">
         <Link 
-          href={facilityId ? `/owner/boarding-houses/${facilityId}` : "/rooms"} 
+          href="/rooms"
           className="group mb-4 inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors"
         >
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 group-hover:bg-indigo-50 transition-colors">
@@ -117,17 +119,11 @@ export default function EditRoomPage() {
               </span>
               <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Thiết lập phòng</span>
             </div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900">Chỉnh sửa phòng: {roomQuery.data.name}</h1>
+            <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Chỉnh sửa phòng: {roomQuery.data.name}</h1>
           </div>
           <StatusBadge status={normalizeRoomStatus(roomQuery.data)} />
         </div>
       </div>
-
-      {toast && (
-        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-bold text-emerald-700 animate-in slide-in-from-top-4">
-          <CheckCircle2 size={18} /> {toast}
-        </div>
-      )}
 
       {error && (
         <div className="mb-6 flex items-center gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700 animate-in slide-in-from-top-4">

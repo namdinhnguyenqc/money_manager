@@ -796,6 +796,15 @@ invoicesRoutes.post("/", async (c) => {
 
   const contract = contractRes.data;
   const contractId = String(contract.id);
+  const contractServicesSnapshot = Array.isArray(contract.applied_services_snapshot)
+    ? contract.applied_services_snapshot
+    : [];
+  if (contractServicesSnapshot.length === 0) {
+    return c.json({
+      code: "SERVICES_NOT_CONFIGURED",
+      error: "Hợp đồng chưa có bảng giá dịch vụ. Hãy cấu hình dịch vụ và cập nhật hợp đồng trước khi tạo hóa đơn.",
+    }, 409);
+  }
   const roomId = parsed.data.roomId ?? contract.room_id;
   if (!roomId) return c.json({ error: "Missing roomId" }, 400);
 
@@ -855,7 +864,13 @@ invoicesRoutes.post("/", async (c) => {
     month: parsed.data.month,
     year: parsed.data.year,
   });
-  const previousDebt = parsed.data.previousDebt ?? 0;
+  const previousDebt = Math.max(0, Number(parsed.data.previousDebt ?? 0));
+  if (!Number.isFinite(previousDebt) || !Number.isFinite(roomFee) || roomFee < 0) {
+    return c.json({ error: "Giá hóa đơn hoặc công nợ không hợp lệ." }, 400);
+  }
+  if ((items || []).some((item) => !Number.isFinite(Number(item.amount)) || Number(item.amount) < 0)) {
+    return c.json({ error: "Có dòng dịch vụ không có giá hợp lệ. Vui lòng kiểm tra lại cấu hình dịch vụ." }, 400);
+  }
   const serviceFees = items.reduce((sum, item) => sum + item.amount, 0);
   const total = roomFee + serviceFees + previousDebt;
 

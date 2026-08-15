@@ -23,7 +23,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Button from '@/components/ui/Button';
-import Toast from '@/components/ui/Toast';
+import { CardSkeleton } from '@/components/ui/Skeleton';
+import { useAppToast } from '@/components/ui/ToastProvider';
 import MeterOcrAction from '@/components/invoice/MeterOcrAction';
 import {
   loadBoardingHouses,
@@ -74,6 +75,7 @@ interface RoomBillingState {
 
 export default function BulkInvoiceScreen() {
   const router = useRouter();
+  const { showToast, showSuccess } = useAppToast();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ month?: string; year?: string }>();
 
@@ -99,8 +101,6 @@ export default function BulkInvoiceScreen() {
   const [captureVisible, setCaptureVisible] = useState(false);
   const [captureIndex, setCaptureIndex] = useState(0);
   const hasLoadedRef = useRef(false);
-
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const draftKey = `trocare-meter-draft:${period.year}-${period.month}`;
 
@@ -207,13 +207,13 @@ export default function BulkInvoiceScreen() {
         })
       );
     } catch (e: any) {
-      setToast({ message: e?.message || 'Lỗi tải danh sách lập hóa đơn.', type: 'error' });
+      showToast(e?.message || 'Lỗi tải danh sách lập hóa đơn.', 'error', 'Không tải được dữ liệu');
     } finally {
       hasLoadedRef.current = true;
       setLoading(false);
       setRefreshing(false);
     }
-  }, [period.month, period.year, draftKey, router]);
+  }, [period.month, period.year, draftKey, router, showToast]);
 
   useFocusEffect(useCallback(() => {
     void initData(true);
@@ -501,7 +501,7 @@ export default function BulkInvoiceScreen() {
 
       await AsyncStorage.removeItem(draftKey).catch(() => undefined);
 
-      setToast({ message: `Lập thành công ${payloads.length} hóa đơn!`, type: 'success' });
+      showSuccess(`Đã tạo ${payloads.length} hóa đơn cho kỳ T${period.month}/${period.year}.`, 'Lập hóa đơn thành công');
       setTimeout(() => {
         handleBack();
       }, 1500);
@@ -567,9 +567,10 @@ export default function BulkInvoiceScreen() {
 
   if (loading && Object.keys(billingStates).length === 0) {
     return (
-      <View style={styles.stateContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.stateText}>Đang kiểm tra chỉ số điện nước & dịch vụ...</Text>
+      <View style={styles.stateContainer} accessibilityLabel="Đang chuẩn bị lập hóa đơn hàng loạt">
+        <CardSkeleton />
+        <CardSkeleton />
+        <CardSkeleton />
       </View>
     );
   }
@@ -627,20 +628,22 @@ export default function BulkInvoiceScreen() {
         </ScrollView>
       </View>
 
-      {/* Select All Checkbox Row */}
+      {/* Batch selection summary — keeps the working scope visible without a second toolbar. */}
       {filteredStates.length > 0 && (
-        <View style={styles.selectAllRow}>
-          <TouchableOpacity style={styles.checkboxRow} onPress={toggleSelectAll} activeOpacity={0.7}>
+        <View style={styles.batchSummary}>
+          <View style={styles.batchSummaryIcon}>
+            <Ionicons name="receipt-outline" size={19} color={Colors.primary} />
+          </View>
+          <View style={styles.batchSummaryCopy}>
+            <Text style={styles.batchSummaryTitle}>{visibleSelectedCount}/{filteredStates.length} phòng đã chọn</Text>
+            <Text style={styles.batchSummaryText}>Chỉ các phòng được chọn mới được lập hóa đơn</Text>
+          </View>
+          <TouchableOpacity style={styles.selectAllCompact} onPress={toggleSelectAll} activeOpacity={0.74} accessibilityRole="checkbox" accessibilityState={{ checked: allVisibleSelected }}>
             <View style={[styles.checkbox, allVisibleSelected && styles.checkboxChecked]}>
-              {allVisibleSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+              {allVisibleSelected && <Ionicons name="checkmark" size={13} color="#fff" />}
             </View>
-            <Text style={styles.selectAllText}>
-              {allVisibleSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả phòng hiển thị'}
-            </Text>
+            <Text style={styles.selectAllCompactText}>{allVisibleSelected ? 'Bỏ chọn' : 'Chọn tất cả'}</Text>
           </TouchableOpacity>
-          <Text style={styles.selectedCount}>
-            Đã chọn {visibleSelectedCount}/{filteredStates.length} phòng
-          </Text>
         </View>
       )}
 
@@ -760,7 +763,7 @@ export default function BulkInvoiceScreen() {
                         {hasElec && (
                           <View style={styles.inputCol}>
                             <View style={styles.inputLabelRow}>
-                              <Ionicons name="flash-outline" size={12} color="#EAB308" />
+                              <Ionicons name="flash-outline" size={12} color={Colors.primary} />
                               <Text style={styles.inputFieldLabel}>Điện (Cũ: {state.elecOld})</Text>
                             </View>
                             <View style={styles.meterInputRow}>
@@ -790,7 +793,7 @@ export default function BulkInvoiceScreen() {
                         {hasWater && (
                           <View style={styles.inputCol}>
                             <View style={styles.inputLabelRow}>
-                              <Ionicons name="water-outline" size={12} color="#06B6D4" />
+                              <Ionicons name="water-outline" size={12} color={Colors.primary} />
                               <Text style={styles.inputFieldLabel}>Nước (Cũ: {state.waterOld})</Text>
                             </View>
                             <View style={styles.meterInputRow}>
@@ -933,12 +936,6 @@ export default function BulkInvoiceScreen() {
         </View>
       </Modal>
 
-      <Toast
-        visible={!!toast}
-        message={toast?.message || ''}
-        type={toast?.type}
-        onDismiss={() => setToast(null)}
-      />
     </View>
   );
 }
@@ -980,8 +977,7 @@ const styles = StyleSheet.create({
   },
   container: { flex: 1 },
   scroll: { padding: 16, gap: 12 },
-  stateContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background, gap: 12 },
-  stateText: { fontSize: 13, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  stateContainer: { flex: 1, padding: 16, backgroundColor: Colors.background, gap: 14 },
   headerBackButton: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1030,25 +1026,31 @@ const styles = StyleSheet.create({
   pickerText: { fontSize: 12, fontFamily: Typography.fontFamily.semibold, color: Colors.textSecondary },
   pickerTextActive: { color: Colors.primary, fontFamily: Typography.fontFamily.bold },
 
-  selectAllRow: {
+  batchSummary: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: Colors.surface,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: Colors.border,
     gap: 10,
+    marginHorizontal: 16,
+    marginBottom: 2,
+    padding: 12,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  selectAllText: { fontSize: 12, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
-  selectedCount: {
-    flexShrink: 0,
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.semibold,
-    color: Colors.textSecondary,
+  batchSummaryIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primaryLight,
   },
+  batchSummaryCopy: { flex: 1, minWidth: 0 },
+  batchSummaryTitle: { fontSize: 14, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  batchSummaryText: { marginTop: 2, fontSize: 11, lineHeight: 16, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  selectAllCompact: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingLeft: 4 },
+  selectAllCompactText: { fontSize: 11, fontFamily: Typography.fontFamily.bold, color: Colors.primary },
   captureBanner: {
     minHeight: 64,
     marginHorizontal: 16,

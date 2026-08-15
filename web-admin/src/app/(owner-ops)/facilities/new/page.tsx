@@ -21,7 +21,7 @@ export default function NewFacilityPage() {
     onSuccess: async (facility) => {
       await createFacilityBlocks(facility.id, blockNames, createFacilityBlock);
       await invalidateOwnerOpsQueries(queryClient, { facilityId: facility.id });
-      router.push(`/facilities/${facility.id}`);
+      router.push(`/rooms?facility_id=${encodeURIComponent(facility.id)}`);
     },
     onError: (err: any) => setError(err?.message || "Không tạo được cơ sở."),
   });
@@ -48,7 +48,7 @@ export default function NewFacilityPage() {
       </Link>
       <div className="mb-6">
         <p className="text-sm font-medium text-blue-700">Cơ sở & Phòng</p>
-        <h1 className="text-2xl font-semibold text-slate-950">Thêm cơ sở</h1>
+        <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Thêm cơ sở</h1>
       </div>
 
       {error && <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
