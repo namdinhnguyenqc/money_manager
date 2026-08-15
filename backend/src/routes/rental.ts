@@ -1358,30 +1358,14 @@ rentalRoutes.post("/contracts", async (c) => {
   if (serviceIds.length > 0) {
     const { data: services, error: sErr } = await db.from("services").select("*").eq("user_id", user.id).in("id", serviceIds);
     if (!sErr && services) {
-      appliedServicesSnapshot = services.map(s => {
-        const isElec = String(s.name || "").toLowerCase().includes("điện") || String(s.type || "").toLowerCase().includes("meter");
-        const price = (isElec && room.has_ac && s.unit_price_ac > 0) ? s.unit_price_ac : s.unit_price;
-        const occupantCount = Number(parsed.data.occupantCount || room.num_people || 1);
-        
-        let amount = price;
-        if (s.type === "per_person") {
-          amount = price * occupantCount;
-        } else if (s.type === "per_room") {
-          amount = price;
-        }
-
-        return {
-          service_id: s.id, 
-          name: s.name, 
-          type: s.type,
-          unit_price: s.unit_price, 
-          unit_price_ac: s.unit_price_ac,
-          applied_unit_price: price, 
-          unit: s.unit,
-          occupant_count: occupantCount,
-          amount: amount,
-          category: isElec ? "electricity" : (String(s.name || "").toLowerCase().includes("nước") ? "water" : "other")
-        };
+      // Shared with the renewal path so the code paths cannot drift. The
+      // inline copy this replaces treated any "metered" service as electricity —
+      // and metered *water* has type "metered", so water was labelled
+      // electricity. The invoice screen then looked for a service with category
+      // "water", found none, and billed water at 0.
+      appliedServicesSnapshot = buildAppliedServicesSnapshot(services, {
+        occupantCount: Number(parsed.data.occupantCount || room.num_people || 1),
+        roomHasAc: Boolean(room.has_ac),
       });
     }
   }
@@ -1548,21 +1532,10 @@ rentalRoutes.patch("/contracts/:id", async (c) => {
       const { data: services } = await db.from("services").select("*").eq("user_id", user.id).in("id", idsToFetch);
       if (services) {
         const occupantCount = Number(parsed.data.occupantCount || contract.occupant_count || 1);
-        updatePayload.applied_services_snapshot = services.map(s => {
-          const isElec = String(s.name || "").toLowerCase().includes("điện") || String(s.type || "").toLowerCase().includes("meter");
-          const price = (isElec && room.has_ac && s.unit_price_ac > 0) ? s.unit_price_ac : s.unit_price;
-          
-          let amount = price;
-          if (s.type === "per_person") amount = price * occupantCount;
-          else if (s.type === "per_room") amount = price;
-
-          return {
-            service_id: s.id, name: s.name, type: s.type,
-            unit_price: s.unit_price, unit_price_ac: s.unit_price_ac,
-            applied_unit_price: price, unit: s.unit,
-            occupant_count: occupantCount, amount: amount,
-            category: isElec ? "electricity" : (String(s.name || "").toLowerCase().match(/nước|nuoc/i) ? "water" : "other")
-          };
+        // Same shared builder as the create and renew paths.
+        updatePayload.applied_services_snapshot = buildAppliedServicesSnapshot(services, {
+          occupantCount,
+          roomHasAc: Boolean(room.has_ac),
         });
       }
     }
