@@ -14,12 +14,13 @@ before — read this table before touching any deploy setting.
 | `money-manager/` | Legacy Vite React app, reference only. | — | — |
 | `money-manager-backend-express/` | Legacy Express backend, reference only. | — | — |
 
-⚠️ **The trap:** [`vercel.json`](./vercel.json) in this root forces
-`npm --prefix web-admin run build`. It applies to any Vercel project whose Root
-Directory is `.`, and it **overrides the dashboard settings** — so a project
-configured to build `admin-portal` will still build the owner app. Keep each
-project's Root Directory pointed at its own subdirectory and this file stays out
-of scope.
+⚠️ **Do not add a `vercel.json` to this root.** One used to live here forcing
+`npm --prefix web-admin run build`. A repo-root `vercel.json` applies to any
+Vercel project whose Root Directory is `.` and **overrides that project's
+dashboard settings**, so `tcare.production` — configured to build
+`admin-portal` — silently shipped the owner app instead, and reverted to it on
+every push. Each app already carries its own `vercel.json`; keep the config
+next to the app it configures.
 
 `admin-portal/` is intentionally **not** an npm workspace (it keeps its own
 lockfile and deploys standalone), so `npm run lint/typecheck/test --workspaces`
