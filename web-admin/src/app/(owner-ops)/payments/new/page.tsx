@@ -91,7 +91,7 @@ export default function NewPaymentPage() {
       </Link>
       <div className="mb-6">
         <p className="text-sm font-medium text-blue-700">Thu tiền</p>
-        <h1 className="text-2xl font-semibold text-slate-950">Ghi nhận thu tiền</h1>
+        <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Ghi nhận thu tiền</h1>
       </div>
 
       {error && <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}

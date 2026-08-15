@@ -13,8 +13,10 @@ import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { CardSkeleton } from '@/components/ui/Skeleton';
-import { apiGet, apiDelete } from '@/lib/api';
+import DataErrorState from '@/components/ui/DataErrorState';
+import { apiGet, apiDelete, apiPost } from '@/lib/api';
 import { buildInvoiceQrUrl } from '@/lib/rentalOps';
+import { useAppToast } from '@/components/ui/ToastProvider';
 
 const formatMoney = (v?: number | null) => `${new Intl.NumberFormat('vi-VN').format(Math.round(Number(v || 0)))} ₫`;
 const BANK_LABELS: Record<string, string> = {
@@ -33,11 +35,15 @@ const getBankLabel = (bankId?: string) => BANK_LABELS[String(bankId || '').trim(
 export default function InvoiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { showSuccess, showError } = useAppToast();
   const invoiceCardRef = useRef<View>(null);
   const [invoice, setInvoice] = useState<any>(null);
   const [bankConfig, setBankConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [sharingInvoice, setSharingInvoice] = useState(false);
+  const [zaloSending, setZaloSending] = useState(false);
+  const [reminding, setReminding] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -49,7 +55,7 @@ export default function InvoiceDetailScreen() {
         setInvoice(invoiceRes?.data ?? invoiceRes);
         setBankConfig(bankRes?.data ?? null);
       })
-      .catch(() => {})
+      .catch((error: any) => setLoadError(error?.message || 'Không thể tải chi tiết hóa đơn.'))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -57,15 +63,24 @@ export default function InvoiceDetailScreen() {
     Alert.alert('Xóa hóa đơn', 'Bạn có chắc chắn muốn xóa?', [
       { text: 'Hủy', style: 'cancel' },
       { text: 'Xóa', style: 'destructive', onPress: async () => {
-        try { await apiDelete(`/invoices/${id}`); router.back(); }
-        catch (e: any) { Alert.alert('Lỗi', e?.message || 'Không thể xóa.'); }
+        try { await apiDelete(`/invoices/${id}`); showSuccess('Hóa đơn đã được xoá.'); router.back(); }
+        catch (e: any) { showError(e?.message || 'Không thể xoá hóa đơn.'); }
       }},
     ]);
   };
 
   if (loading) return (<><Stack.Screen options={{ headerShown: true, title: 'Hóa đơn' }} /><View style={styles.container}><CardSkeleton /><CardSkeleton /></View></>);
 
-  if (!invoice) return (<><Stack.Screen options={{ headerShown: true, title: 'Hóa đơn' }} /><View style={styles.container}><Text>Không tìm thấy hóa đơn.</Text></View></>);
+  if (!invoice) return (
+    <>
+      <Stack.Screen options={{ headerShown: true, title: 'Hóa đơn' }} />
+      <DataErrorState
+        title={loadError ? 'Chưa tải được hóa đơn' : 'Không tìm thấy hóa đơn'}
+        message={loadError || 'Hóa đơn có thể đã bị xóa hoặc bạn không còn quyền truy cập.'}
+        onRetry={() => router.replace(`/invoice/${id}`)}
+      />
+    </>
+  );
 
   const total = Number(invoice.total_amount || 0);
   const paid = Number(invoice.paid_amount || 0);
@@ -101,7 +116,7 @@ export default function InvoiceDetailScreen() {
     try {
       await Share.share({ message: value, title: label });
     } catch {
-      Alert.alert(label, value);
+      showError(value, label);
     }
   };
 
@@ -116,7 +131,7 @@ export default function InvoiceDetailScreen() {
       });
 
       if (!(await Sharing.isAvailableAsync())) {
-        Alert.alert('Không thể chia sẻ ảnh', 'Thiết bị chưa hỗ trợ chia sẻ file ảnh.');
+        showError('Thiết bị chưa hỗ trợ chia sẻ file ảnh.', 'Không thể chia sẻ ảnh');
         return;
       }
 
@@ -125,10 +140,36 @@ export default function InvoiceDetailScreen() {
         dialogTitle: `Hóa đơn phòng ${invoice.room_name || ''} T${invoice.month}/${invoice.year}`,
       });
     } catch {
-      Alert.alert('Không thể chia sẻ ảnh', 'Vui lòng thử lại sau khi hóa đơn hiển thị đầy đủ.');
+      showError('Vui lòng thử lại sau khi hóa đơn hiển thị đầy đủ.', 'Không thể chia sẻ ảnh');
     } finally {
       setSharingInvoice(false);
     }
+  };
+
+  const sendZalo = async (reminder = false) => {
+    const phone = String(invoice?.tenant_phone || '').replace(/\D/g, '').replace(/^84(?=\d{9}$)/, '0');
+    if (!/^0\d{9}$/.test(phone)) {
+      showError('Cập nhật SĐT Việt Nam 10 số của khách trong hợp đồng trước khi gửi Zalo.', 'Thiếu số điện thoại');
+      return;
+    }
+    const label = reminder ? 'nhắc nợ' : 'gửi ảnh hóa đơn';
+    Alert.alert(`Xác nhận ${label}`, reminder ? 'Tin nhắc không kèm ảnh hóa đơn.' : 'Hóa đơn sẽ được gửi dưới dạng ảnh PNG.', [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Gửi', onPress: async () => {
+        reminder ? setReminding(true) : setZaloSending(true);
+        try {
+          // Zalo routes are mounted below /api, unlike the regular invoice API.
+          const path = reminder ? `/api/invoices/${id}/send-reminder-zalo` : `/api/invoices/${id}/send-zalo`;
+          const res = await apiPost<any>(path, { phoneNumber: phone });
+          if (!res?.success) throw new Error(res?.error || 'Gửi Zalo thất bại.');
+          showSuccess(reminder ? 'Tin nhắc đã được gửi tới Zalo của khách.' : 'Ảnh hóa đơn PNG đã được gửi tới Zalo của khách.', reminder ? 'Đã gửi nhắc nợ' : 'Đã gửi hóa đơn');
+        } catch (error: any) {
+          showError(error?.message || 'Kiểm tra kết nối Zalo và thử lại.', 'Gửi Zalo thất bại');
+        } finally {
+          reminder ? setReminding(false) : setZaloSending(false);
+        }
+      } },
+    ]);
   };
 
   return (
@@ -235,6 +276,28 @@ export default function InvoiceDetailScreen() {
             disabled={sharingInvoice}
             icon={<Ionicons name="share-social-outline" size={18} color={Colors.textPrimary} />}
           />
+          <Button
+            title={zaloSending ? "Đang gửi Zalo..." : "Gửi hóa đơn qua Zalo"}
+            variant="primary"
+            size="lg"
+            fullWidth
+            onPress={() => sendZalo(false)}
+            loading={zaloSending}
+            disabled={zaloSending || reminding}
+            icon={<Ionicons name="send-outline" size={18} color={Colors.textWhite} />}
+          />
+          {total > 0 && paid < total && outstanding > 0 && (
+            <Button
+              title={reminding ? "Đang nhắc..." : "Nhắc nợ qua Zalo"}
+              variant="outline"
+              size="lg"
+              fullWidth
+              onPress={() => sendZalo(true)}
+              loading={reminding}
+              disabled={zaloSending || reminding}
+              icon={<Ionicons name="notifications-outline" size={18} color={Colors.textPrimary} />}
+            />
+          )}
           {total > 0 && paid < total && outstanding > 0 && (
             <Button
               title="Thu tiền"

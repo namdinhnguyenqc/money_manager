@@ -19,7 +19,6 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,11 +29,13 @@ import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
-import Toast from '@/components/ui/Toast';
+import { CardSkeleton } from '@/components/ui/Skeleton';
+import { useAppToast } from '@/components/ui/ToastProvider';
 import {
   loadRoom,
   updateRoom,
   deleteRoom,
+  forfeitReservationDeposit,
   formatMoney,
   getRoomArea,
 } from '@/lib/rentalOps';
@@ -42,6 +43,7 @@ import {
 export default function RoomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { showSuccess, showError } = useAppToast();
 
   // Loading states
   const [loading, setLoading] = useState(true);
@@ -50,19 +52,13 @@ export default function RoomDetailScreen() {
 
   // Business Data
   const [room, setRoom] = useState<any | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-  };
-
   const fetchData = useCallback(async () => {
     if (!id) return;
     try {
       const roomData = await loadRoom(id);
       setRoom(roomData);
     } catch (e: any) {
-      showToast(e?.message || 'Không thể tải thông tin phòng.', 'error');
+      showError(e?.message || 'Không thể tải thông tin phòng.', 'Không tải được phòng');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -91,7 +87,7 @@ export default function RoomDetailScreen() {
             try {
               setActionLoading(true);
               await deleteRoom(id!);
-              showToast('Đã xóa phòng trọ thành công.', 'success');
+              showSuccess('Phòng đã được xóa khỏi danh sách.', 'Đã xóa phòng');
               setTimeout(() => router.back(), 1000);
             } catch (e: any) {
               Alert.alert('Lỗi', e?.message || 'Không thể xóa phòng trọ.');
@@ -112,24 +108,52 @@ export default function RoomDetailScreen() {
     try {
       setActionLoading(true);
       await updateRoom(room.id, { status: newStatus });
-      showToast(
-        isMaintenance ? 'Đã chuyển trạng thái sang Trống.' : 'Đã chuyển phòng sang Bảo trì.',
-        'success'
+      showSuccess(
+        isMaintenance ? 'Phòng hiện sẵn sàng để cho thuê.' : 'Phòng đã được đánh dấu bảo trì.',
+        'Đã cập nhật trạng thái'
       );
       fetchData();
     } catch (e: any) {
-      Alert.alert('Lỗi', e?.message || 'Không thể cập nhật trạng thái.');
+      showError(e?.message || 'Không thể cập nhật trạng thái.', 'Cập nhật chưa thành công');
     } finally {
       setActionLoading(false);
     }
   };
 
+  const handleForfeitReservation = () => {
+    if (!room?.reservation_deposit_id) return;
+    Alert.alert(
+      `Bỏ cọc phòng ${room.name}?`,
+      `Khách ${room.reservation_tenant_name || 'đặt cọc'} sẽ không nhận phòng. Phòng sẽ trở lại trạng thái Trống; ${formatMoney(room.reservation_amount || 0)} cọc đã thu được giữ lại và không tạo thêm giao dịch.`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Bỏ cọc',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setActionLoading(true);
+              await forfeitReservationDeposit(room.reservation_deposit_id);
+              showSuccess('Phòng đã trở lại trạng thái trống. Khoản cọc giữ chỗ được lưu trong lịch sử.', 'Đã bỏ cọc');
+              await fetchData();
+            } catch (e: any) {
+              showError(e?.message || 'Chưa thể bỏ cọc giữ chỗ.', 'Thao tác chưa thành công');
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading && !room) {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Đang tải chi tiết phòng trọ...</Text>
+        <View style={styles.detailSkeleton} accessibilityLabel="Đang tải chi tiết phòng">
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
         </View>
       </SafeAreaView>
     );
@@ -147,6 +171,7 @@ export default function RoomDetailScreen() {
   }
 
   const isOccupied = room.status === 'occupied' || room.status === 'occupied_soon';
+  const isReserved = room.status === 'reserved';
   const isVacant = room.status === 'vacant';
   const isMaintenance = room.status === 'maintenance';
 
@@ -258,6 +283,45 @@ export default function RoomDetailScreen() {
           </Card>
         )}
 
+        {/* Deposit has reserved the room, but it is not a lease until a contract exists. */}
+        {isReserved && !room.contract_id && (
+          <Card style={styles.pendingContractCard}>
+            <View style={styles.pendingContractIcon}>
+              <Ionicons name="document-text-outline" size={22} color={Colors.primary} />
+            </View>
+            <View style={styles.pendingContractCopy}>
+              <Text style={styles.pendingContractTitle}>Chờ ký hợp đồng</Text>
+              <Text style={styles.pendingContractDesc}>
+                Phòng đã nhận cọc cho {room.reservation_tenant_name || 'khách thuê'}. Hoàn tất hợp đồng để bắt đầu quản lý kỳ thu và dịch vụ.
+              </Text>
+            </View>
+            <Button
+              title="Ký hợp đồng"
+              variant="primary"
+              onPress={() => router.push({
+                pathname: '/contract/new',
+                params: {
+                  room_id: room.id,
+                  facility_id: room.boarding_house_id,
+                  tenant_name: room.reservation_tenant_name || '',
+                  tenant_phone: room.reservation_tenant_phone || '',
+                },
+              })}
+              icon={<Ionicons name="create-outline" size={16} color={Colors.textWhite} />}
+              style={styles.pendingContractButton}
+            />
+            <Button
+              title="Bỏ cọc"
+              variant="outline"
+              onPress={handleForfeitReservation}
+              disabled={actionLoading || !room.reservation_deposit_id}
+              icon={<Ionicons name="close-circle-outline" size={16} color={Colors.danger} />}
+              style={styles.pendingContractButton}
+              textStyle={{ color: Colors.danger }}
+            />
+          </Card>
+        )}
+
         {/* Vacant Call to Action */}
         {isVacant && (
           <Card style={styles.vacantCard}>
@@ -310,7 +374,7 @@ export default function RoomDetailScreen() {
             />
           )}
 
-          {!isOccupied && (
+          {!isOccupied && !isReserved && (
             <Button
               title={isMaintenance ? 'Mở khóa phòng' : 'Đưa vào bảo trì'}
               variant="outline"
@@ -331,13 +395,6 @@ export default function RoomDetailScreen() {
           />
         </View>
       </ScrollView>
-
-      <Toast
-        visible={!!toast}
-        message={toast?.message || ''}
-        type={toast?.type}
-        onDismiss={() => setToast(null)}
-      />
     </SafeAreaView>
   );
 }
@@ -372,7 +429,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-  loadingText: { marginTop: 12, fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  detailSkeleton: { flex: 1, padding: 16, gap: 14, backgroundColor: Colors.background },
   errorText: { fontSize: 14, fontFamily: Typography.fontFamily.regular, color: Colors.danger, textAlign: 'center' },
   card: { padding: 16, backgroundColor: Colors.surface, borderRadius: 16, borderWidth: 1, borderColor: Colors.borderLight },
   summaryCard: { padding: 18, backgroundColor: '#f5f3ff', borderColor: '#ddd6fe', borderRadius: 20 },
@@ -398,6 +455,12 @@ const styles = StyleSheet.create({
   vacantBtn: { marginTop: 18, alignSelf: 'stretch' },
   maintenanceCard: { alignItems: 'center', padding: 24, backgroundColor: '#fffbeb', borderColor: '#fef3c7' },
   maintenanceTitle: { fontSize: 16, fontFamily: Typography.fontFamily.bold, color: Colors.warning },
+  pendingContractCard: { padding: 16, backgroundColor: Colors.surface, borderRadius: 16, borderWidth: 1, borderColor: Colors.primaryAlpha20 },
+  pendingContractIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  pendingContractCopy: { minWidth: 0 },
+  pendingContractTitle: { fontSize: 16, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  pendingContractDesc: { marginTop: 4, fontSize: 13, lineHeight: 19, fontFamily: Typography.fontFamily.regular, color: Colors.textSecondary },
+  pendingContractButton: { marginTop: 14 },
   actionsContainer: { gap: 10, marginTop: 14 },
   actionBtn: { paddingVertical: 12 },
 });

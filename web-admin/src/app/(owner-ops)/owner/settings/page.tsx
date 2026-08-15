@@ -97,6 +97,13 @@ const DEFAULT_ZALO_REMINDER_TEMPLATE =
   "Mã chuyển khoản: {payment_code}.\n" +
   "Nếu đã thanh toán, vui lòng bỏ qua tin này. Cảm ơn anh/chị.";
 
+const DEFAULT_ZALO_PAYMENT_RECEIVED_TEMPLATE =
+  "Chào {tenant_name}, TrọCare đã nhận {received_amount} tiền phòng {room_name} tháng {month}/{year}.\n" +
+  "Trạng thái hóa đơn: {payment_status}.\n" +
+  "Số tiền còn lại: {remaining_amount}.\n" +
+  "Mã thanh toán: {payment_code}.\n" +
+  "Cảm ơn anh/chị đã thanh toán.";
+
 export default function OwnerSettingsPage() {
   const queryClient = useQueryClient();
   const { permission, subscribed, loading: pushLoading, isSupported: pushSupported, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications();
@@ -262,6 +269,12 @@ export default function OwnerSettingsPage() {
 
   const getValue = (key: string, fallback: any = "") => {
     return settings[key]?.value ?? fallback;
+  };
+
+  const getBooleanValue = (key: string, fallback: boolean) => {
+    const value = getValue(key, fallback);
+    if (typeof value === "boolean") return value;
+    return String(value).trim().toLowerCase() === "true";
   };
 
   const handleSave = async () => {
@@ -815,6 +828,66 @@ export default function OwnerSettingsPage() {
                           </code>
                         ))}
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <span className="text-sm font-bold text-slate-900">Xác nhận đã nhận tiền qua Zalo</span>
+                        <p className="mt-1 max-w-2xl text-xs font-medium leading-5 text-slate-600">
+                          Tự gửi tin nhắn sau khi SePay gạch nợ và ghi nhận tiền vào ví thành công. Webhook gửi lại sẽ không làm khách nhận trùng tin.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={getBooleanValue("zalo_payment_received_enabled", true)}
+                        aria-label="Tự gửi Zalo khi nhận tiền"
+                        onClick={() => handleChange(
+                          "zalo_payment_received_enabled",
+                          !getBooleanValue("zalo_payment_received_enabled", true),
+                          "boolean",
+                          "zalo"
+                        )}
+                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+                          getBooleanValue("zalo_payment_received_enabled", true) ? "bg-blue-600" : "bg-slate-300"
+                        }`}
+                      >
+                        <span className={`pointer-events-none mt-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                          getBooleanValue("zalo_payment_received_enabled", true) ? "translate-x-5" : "translate-x-0.5"
+                        }`} />
+                      </button>
+                    </div>
+
+                    <label className="block space-y-2">
+                      <span className="text-xs font-bold text-slate-700">Nội dung tin xác nhận thanh toán</span>
+                      <textarea
+                        rows={6}
+                        className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium leading-6 text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
+                        value={getValue("zalo_payment_received_template", DEFAULT_ZALO_PAYMENT_RECEIVED_TEMPLATE)}
+                        onChange={(e) => handleChange("zalo_payment_received_template", e.target.value, "string", "zalo")}
+                      />
+                    </label>
+
+                    <div className="flex flex-col gap-3 rounded-xl bg-slate-50 p-3 text-xs font-medium text-slate-600 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <span className="font-bold text-slate-800">Biến tự động:</span>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {["{tenant_name}", "{room_name}", "{month}/{year}", "{received_amount}", "{remaining_amount}", "{payment_status}", "{payment_code}", "{payment_date}"].map((token) => (
+                            <code key={token} className="rounded-lg bg-white px-2 py-1 font-mono text-[11px] text-slate-700 ring-1 ring-slate-200">
+                              {token}
+                            </code>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleChange("zalo_payment_received_template", DEFAULT_ZALO_PAYMENT_RECEIVED_TEMPLATE, "string", "zalo")}
+                        className="shrink-0 text-xs font-bold text-blue-700 hover:underline"
+                      >
+                        Khôi phục mẫu mặc định
+                      </button>
                     </div>
                   </div>
 

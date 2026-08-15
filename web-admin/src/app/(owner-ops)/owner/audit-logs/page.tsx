@@ -38,7 +38,7 @@ export default function OwnerAuditLogsPage() {
     <RBACGuard allowedRoles={["OWNER", "SUPER_ADMIN"]}>
       <div className="p-6">
         <div className="mb-4">
-          <h1 className="text-2xl font-semibold text-slate-950">Nhật ký thao tác</h1>
+          <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Nhật ký thao tác</h1>
           <p className="text-sm text-slate-500">Theo dõi các hành động booking quan trọng.</p>
         </div>
         {loading && <div className="rounded border border-slate-200 bg-white p-4 text-sm text-slate-600">Đang tải audit log...</div>}

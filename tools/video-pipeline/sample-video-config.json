@@ -1,0 +1,20 @@
+{
+  "brand": "Sư Tử Xanh",
+  "ai_mode": "local",
+  "voice_source": "own_recording",
+  "voiceover_path": "./assets/drogba-voice.wav",
+  "title": "Một khoảnh khắc làm thay đổi Chelsea",
+  "hook": "Bạn còn nhớ khoảnh khắc này của The Blues?",
+  "cta": "Theo dõi Sư Tử Xanh để xem thêm những câu chuyện Chelsea.",
+  "hashtags": ["#SuTuXanh", "#Chelsea", "#FootballHistory"],
+  "segments": [
+    { "text": "Đây là phần mở đầu của câu chuyện.", "seconds": 3 },
+    { "text": "Thêm bối cảnh và nhận xét riêng của bạn ở đây.", "seconds": 4 },
+    { "text": "Kết thúc bằng một câu hỏi để kéo bình luận cộng đồng.", "seconds": 4 }
+  ],
+  "assets": [
+    { "path": "./assets/blue-stadium.jpg", "kind": "image", "license": "owned", "attribution": "Your own image" },
+    { "path": "./assets/blue-texture.jpg", "kind": "image", "license": "generated", "attribution": "Generated visual" }
+  ],
+  "outputDir": "./.local-video-output"
+}

@@ -16,7 +16,6 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Alert,
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
@@ -27,15 +26,17 @@ import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
-import Toast from '@/components/ui/Toast';
+import { useAppToast } from '@/components/ui/ToastProvider';
+import { CardSkeleton } from '@/components/ui/Skeleton';
 import { apiGet } from '@/lib/api';
 import { loadWallets, createTransaction, formatMoney } from '@/lib/rentalOps';
 
 export default function NewTransactionScreen() {
   const router = useRouter();
+  const { showToast, showError } = useAppToast();
 
   // Loading States
-  const [dataLoading, setDataLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [loadError, setLoadError] = useState('');
 
@@ -51,30 +52,20 @@ export default function NewTransactionScreen() {
   const [categoryId, setCategoryId] = useState<string>('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-  };
-
   useEffect(() => {
     function init() {
       setLoadError('');
-      loadWallets().then((wRes) => {
-        setWallets(wRes);
-        if (wRes.length > 0) setWalletId(wRes[0].id);
-      }).catch((error: any) => {
-        setLoadError(error?.message || 'Chưa tải được danh sách ví. Bạn vẫn có thể nhập thông tin phiếu.');
-      });
-
-      apiGet<any>('/categories').then((cRes) => {
-        const cats = cRes?.data ?? [];
-        setCategories(cats);
-        const matchingCats = cats.filter((c: any) => c.type === 'income');
-        if (matchingCats.length > 0) setCategoryId(matchingCats[0].id);
-      }).catch((error: any) => {
-        setLoadError(error?.message || 'Chưa tải được danh mục. Bạn vẫn có thể nhập thông tin phiếu.');
-      });
+      Promise.all([loadWallets(), apiGet<any>('/categories')])
+        .then(([wRes, cRes]) => {
+          setWallets(wRes);
+          if (wRes.length > 0) setWalletId(wRes[0].id);
+          const cats = cRes?.data ?? [];
+          setCategories(cats);
+          const matchingCats = cats.filter((c: any) => c.type === 'income');
+          if (matchingCats.length > 0) setCategoryId(matchingCats[0].id);
+        })
+        .catch((error: any) => setLoadError(error?.message || 'Chưa tải được ví hoặc danh mục. Vui lòng kéo xuống để thử lại.'))
+        .finally(() => setDataLoading(false));
     }
     init();
   }, []);
@@ -103,19 +94,19 @@ export default function NewTransactionScreen() {
 
   const handleSubmit = async () => {
     if (!amount || Number(amount) <= 0) {
-      Alert.alert('Lỗi', 'Vui lòng nhập số tiền hợp lệ lớn hơn 0.');
+      showError('Vui lòng nhập số tiền hợp lệ lớn hơn 0.', 'Thông tin không hợp lệ');
       return;
     }
     if (!description.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập mô tả / lý do thu chi.');
+      showError('Vui lòng nhập mô tả / lý do thu chi.', 'Thiếu thông tin');
       return;
     }
     if (!walletId) {
-      Alert.alert('Lỗi', 'Vui lòng chọn ví thực hiện giao dịch.');
+      showError('Vui lòng chọn ví thực hiện giao dịch.', 'Thiếu thông tin');
       return;
     }
     if (!parseIsoDate(date)) {
-      Alert.alert('Ngày không hợp lệ', 'Ngày giao dịch phải có định dạng YYYY-MM-DD.');
+      showError('Ngày giao dịch phải có định dạng YYYY-MM-DD.', 'Ngày không hợp lệ');
       return;
     }
 
@@ -135,7 +126,7 @@ export default function NewTransactionScreen() {
         router.replace('/transactions');
       }, 1000);
     } catch (e: any) {
-      Alert.alert('Lỗi', e?.message || 'Không thể tạo giao dịch.');
+      showError(e?.message || 'Không thể tạo giao dịch.', 'Tạo giao dịch chưa thành công');
     } finally {
       setSubmitting(false);
     }
@@ -150,6 +141,14 @@ export default function NewTransactionScreen() {
     const digits = value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
     setAmount(digits);
   };
+
+  const adjustDate = (days: number) => {
+    const parsed = parseIsoDate(date) || new Date();
+    parsed.setDate(parsed.getDate() + days);
+    setDate(parsed.toISOString().slice(0, 10));
+  };
+
+  const resetToday = () => setDate(new Date().toISOString().slice(0, 10));
 
   const categoryIcon = (name?: string): keyof typeof Ionicons.glyphMap => {
     const value = String(name || '').toLowerCase();
@@ -166,13 +165,14 @@ export default function NewTransactionScreen() {
       <Stack.Screen options={{ headerShown: true, title: type === 'expense' ? 'Tạo phiếu chi' : 'Tạo phiếu thu', headerBackTitle: 'Quay lại' }} />
       <SafeAreaView style={styles.container}>
         {dataLoading ? (
-          <View style={styles.stateBox}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.stateText}>Đang tải thông tin thiết lập...</Text>
+          <View style={styles.stateBox} accessibilityLabel="Đang chuẩn bị phiếu thu chi">
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
           </View>
         ) : (
           <KeyboardAvoidingView style={styles.form} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
               {loadError ? (
                 <View style={styles.errorBanner}>
                   <Ionicons name="cloud-offline-outline" size={20} color="#B45309" />
@@ -249,7 +249,12 @@ export default function NewTransactionScreen() {
                     })}
                   </ScrollView>
                 </View>
-              ) : null}
+              ) : (
+                <View style={styles.categoryEmpty}>
+                  <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Danh mục</Text><TouchableOpacity onPress={() => router.push('/transactions/categories')} style={styles.manageButton}><Text style={styles.manageText}>+ Thêm danh mục</Text></TouchableOpacity></View>
+                  <Text style={styles.categoryEmptyText}>Chưa có danh mục {type === 'income' ? 'thu' : 'chi'}. Thêm một danh mục để theo dõi giao dịch rõ ràng hơn.</Text>
+                </View>
+              )}
 
               <View style={styles.detailsPanel}>
                 <Text style={styles.sectionTitle}>Chi tiết phiếu</Text>
@@ -273,8 +278,17 @@ export default function NewTransactionScreen() {
                 <View style={styles.detailRow}>
                   <View style={styles.detailIcon}><Ionicons name="calendar-outline" size={19} color={Colors.primary} /></View>
                   <View style={styles.detailCopy}>
-                    <Text style={styles.detailLabel}>Ngày ghi nhận</Text>
-                    <TextInput value={date} onChangeText={setDate} style={styles.dateInput} placeholder="YYYY-MM-DD" placeholderTextColor="#64748B" />
+                    <View style={styles.dateLabelRow}>
+                      <Text style={styles.detailLabel}>Ngày ghi nhận</Text>
+                      <TouchableOpacity onPress={resetToday} hitSlop={8} accessibilityLabel="Đặt ngày hôm nay">
+                        <Text style={styles.todayText}>Hôm nay</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.dateControl}>
+                      <TouchableOpacity style={styles.dateStep} onPress={() => adjustDate(-1)} accessibilityLabel="Lùi một ngày"><Ionicons name="chevron-back" size={18} color={Colors.primary} /></TouchableOpacity>
+                      <TextInput value={date} onChangeText={setDate} style={styles.dateInput} placeholder="YYYY-MM-DD" placeholderTextColor="#64748B" keyboardType="numbers-and-punctuation" maxLength={10} accessibilityLabel="Ngày giao dịch theo định dạng năm tháng ngày" />
+                      <TouchableOpacity style={styles.dateStep} onPress={() => adjustDate(1)} accessibilityLabel="Tới một ngày"><Ionicons name="chevron-forward" size={18} color={Colors.primary} /></TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -293,12 +307,6 @@ export default function NewTransactionScreen() {
           </KeyboardAvoidingView>
         )}
       </SafeAreaView>
-      <Toast
-        visible={!!toast}
-        message={toast?.message || ''}
-        type={toast?.type}
-        onDismiss={() => setToast(null)}
-      />
     </>
   );
 }
@@ -316,7 +324,7 @@ function TransactionTypeButton({ active, icon, label, danger, onPress }: { activ
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  stateBox: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
+  stateBox: { flex: 1, padding: 16, gap: 14 },
   stateTitle: { fontSize: 17, fontFamily: Typography.fontFamily.semibold, color: Colors.textPrimary },
   stateText: { fontSize: 14, fontFamily: Typography.fontFamily.regular, color: Colors.textMuted, textAlign: 'center', lineHeight: 20 },
   errorBanner: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, borderRadius: 12, backgroundColor: '#FFF7ED' },
@@ -369,6 +377,8 @@ const styles = StyleSheet.create({
   textField: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: '#E2E8F0' },
   textInput: { flex: 1, paddingVertical: 12, fontSize: 13.5, fontFamily: Typography.fontFamily.regular, color: Colors.textPrimary },
   pickerSection: { gap: 10 },
+  categoryEmpty: { gap: 8, padding: 14, borderRadius: 12, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0' },
+  categoryEmptyText: { fontSize: 13, lineHeight: 19, fontFamily: Typography.fontFamily.regular, color: Colors.textSecondary },
   manageButton: { minHeight: 44, justifyContent: 'center', paddingLeft: 14 },
   manageText: { fontSize: 12, fontFamily: Typography.fontFamily.semibold, color: Colors.primary },
   categoryScroll: { gap: 10, paddingRight: 20 },
@@ -385,7 +395,11 @@ const styles = StyleSheet.create({
   detailLabel: { fontSize: 11, lineHeight: 15, fontFamily: Typography.fontFamily.medium, color: Colors.textMuted },
   detailValue: { marginTop: 3, fontSize: 13, lineHeight: 18, fontFamily: Typography.fontFamily.semibold, color: Colors.textPrimary },
   divider: { height: StyleSheet.hairlineWidth, marginLeft: 50, backgroundColor: '#E2E8F0' },
-  dateInput: { paddingVertical: 2, fontSize: 13, lineHeight: 18, fontFamily: Typography.fontFamily.semibold, color: Colors.textPrimary },
+  dateLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  todayText: { fontSize: 11, fontFamily: Typography.fontFamily.semibold, color: Colors.primary },
+  dateControl: { flexDirection: 'row', alignItems: 'center', marginTop: 3, marginLeft: -8 },
+  dateStep: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: '#EFF6FF' },
+  dateInput: { flex: 1, minWidth: 0, paddingVertical: 6, paddingHorizontal: 8, fontSize: 13, lineHeight: 18, textAlign: 'center', fontFamily: Typography.fontFamily.semibold, color: Colors.textPrimary },
   walletScroll: { gap: 8, paddingLeft: 50, paddingBottom: 10 },
   walletChip: { minHeight: 34, justifyContent: 'center', paddingHorizontal: 11, borderRadius: 9, backgroundColor: '#F1F5F9' },
   walletChipActive: { backgroundColor: '#EAF3FF' },

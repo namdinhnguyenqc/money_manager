@@ -11,8 +11,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
-  Alert,
   Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,11 +18,14 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
+import { CardSkeleton } from '@/components/ui/Skeleton';
+import { useAppToast } from '@/components/ui/ToastProvider';
 import { formatMoney, loadContract, loadOwnerProfile } from '@/lib/rentalOps';
 
 export default function ContractPrintScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { showError } = useAppToast();
 
   const [contract, setContract] = useState<any>(null);
   const [owner, setOwner] = useState<any>(null);
@@ -40,7 +41,7 @@ export default function ContractPrintScreen() {
         setContract(c);
         setOwner(o);
       } catch (err) {
-        Alert.alert('Lỗi', 'Không thể tải thông tin in hợp đồng.');
+        showError('Không thể tải thông tin in hợp đồng.', 'Không tải được hợp đồng');
       } finally {
         setLoading(false);
       }
@@ -51,9 +52,9 @@ export default function ContractPrintScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Đang chuẩn bị mẫu hợp đồng...</Text>
+        <View style={styles.loadingContainer} accessibilityLabel="Đang chuẩn bị mẫu hợp đồng">
+          <CardSkeleton />
+          <CardSkeleton />
         </View>
       </SafeAreaView>
     );
@@ -117,7 +118,7 @@ Hai bên cùng thống nhất thỏa thuận thuê phòng trọ tại địa ch�
         title: `Hợp đồng thuê phòng ${contract.room_name}`,
       });
     } catch (e: any) {
-      Alert.alert('Lỗi', 'Không thể chia sẻ hợp đồng.');
+      showError('Không thể chia sẻ hợp đồng.', 'Chia sẻ chưa thành công');
     }
   };
 
@@ -274,8 +275,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     letterSpacing: -0.3,
   },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-  loadingText: { marginTop: 12, fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  loadingContainer: { flex: 1, padding: 16, gap: 14, backgroundColor: Colors.background },
   errorText: { fontSize: 14, fontFamily: Typography.fontFamily.regular, color: Colors.danger, textAlign: 'center' },
   backButtonOutline: { marginTop: 14, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.border },
   backButtonOutlineText: { fontSize: 13, fontFamily: Typography.fontFamily.bold, color: Colors.textSecondary },

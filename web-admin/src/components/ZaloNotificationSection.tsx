@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { AlertCircle, BellRing, CheckCircle2, Clock3, Image as ImageIcon, Phone, RefreshCw, Send } from "lucide-react";
+import { AlertCircle, BellRing, CheckCircle2, Clock3, Image as ImageIcon, Phone, Send } from "lucide-react";
 import { Invoice } from "@/lib/rentalOps";
 import { apiGet, apiPost } from "@/utils/apiClient";
 import Button from "@/components/ui/Button";
@@ -105,15 +105,6 @@ export default function ZaloNotificationSection({ invoice, onStatusChange }: Zal
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={fetchHistory}
-          disabled={loading}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
-          aria-label="Làm mới lịch sử gửi Zalo"
-        >
-          <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-        </button>
       </div>
 
       {message && (
@@ -187,6 +178,7 @@ export default function ZaloNotificationSection({ invoice, onStatusChange }: Zal
                 <div className="min-w-0">
                   <div className="font-semibold text-slate-800">{log.phone_number || log.phone || phoneInput}</div>
                   {log.message_type === "payment_reminder_manual" && <div className="mt-0.5 text-slate-500">Nhắc nợ</div>}
+                  {log.message_type === "payment_received" && <div className="mt-0.5 text-slate-500">Xác nhận thanh toán</div>}
                   <div className="mt-0.5 flex items-center gap-1 text-slate-500">
                     <Clock3 size={12} />
                     {new Date(log.sent_at || log.created_at || log.sentAt).toLocaleString("vi-VN")}

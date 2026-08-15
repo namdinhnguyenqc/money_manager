@@ -1,7 +1,7 @@
 /**
  * TrọCare Mobile — Premium Button Component
  * Variants: primary, ghost, danger, success, outline
- * Includes press scale animation (0.975) matching web-admin premium style.
+ * Shared action vocabulary for the mobile app.
  */
 
 import React from 'react';
@@ -54,6 +54,9 @@ export default function Button({
       onPress={onPress}
       disabled={isDisabled}
       activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
+      accessibilityLabel={title}
       style={[
         styles.base,
         styles[variant],
@@ -78,6 +81,7 @@ export default function Button({
               styles[`textSize_${size}`],
               textStyle,
             ]}
+            numberOfLines={1}
           >
             {title}
           </Text>
@@ -117,44 +121,24 @@ const styles = StyleSheet.create({
 
   // ── Variants ──
   primary: {
-    backgroundColor: Colors.appleBlue,
-    borderColor: 'rgba(0,0,0,0.04)',
-    shadowColor: Colors.appleBlue,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   ghost: {
     backgroundColor: 'transparent',
     borderColor: 'transparent',
   },
   danger: {
-    backgroundColor: Colors.appleRed,
-    borderColor: 'rgba(0,0,0,0.04)',
-    shadowColor: Colors.appleRed,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: Colors.danger,
+    borderColor: Colors.danger,
   },
   success: {
-    backgroundColor: Colors.appleGreen,
-    borderColor: 'rgba(0,0,0,0.04)',
-    shadowColor: Colors.appleGreen,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: Colors.success,
+    borderColor: Colors.success,
   },
   outline: {
     backgroundColor: Colors.surface,
     borderColor: Colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
   },
 
   // ── Sizes ──

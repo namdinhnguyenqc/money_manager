@@ -14,6 +14,7 @@ import { apiGet, apiPost } from '@/lib/api';
 import type { PaymentChannel } from '@/lib/rentalOps';
 import { formatMoney } from '@/lib/rentalOps';
 import Config from '@/constants/Config';
+import { useAppToast } from '@/components/ui/ToastProvider';
 
 const SEPAY_WEBHOOK_URL = `${Config.API_URL.replace(/\/$/, '')}/webhooks/sepay`;
 
@@ -27,6 +28,7 @@ const API_ROWS = [
 ];
 
 export default function SepayScreen() {
+  const { showSuccess } = useAppToast();
   const [channels, setChannels] = useState<PaymentChannel[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,7 +78,7 @@ export default function SepayScreen() {
       setReprocessingId(String(event.id));
       await apiPost(`/owner/sepay/events/${event.id}/reprocess`, {});
       await load();
-      Alert.alert('Đã đối soát lại', 'Giao dịch đã được xử lý với cấu hình hiện tại.');
+      showSuccess('Giao dịch đã được xử lý với cấu hình hiện tại.', 'Đã đối soát lại');
     } catch (error: any) {
       Alert.alert('Chưa thể đối soát', error?.message || 'Hãy kiểm tra mã thanh toán và ví liên kết rồi thử lại.');
     } finally {
@@ -295,8 +297,8 @@ const styles = StyleSheet.create({
   metricCard: { width: '48.5%', borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, padding: 12 },
   metricIcon: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   blueTone: { backgroundColor: Colors.primaryLight, borderColor: Colors.primaryAlpha20 },
-  greenTone: { backgroundColor: Colors.successLight, borderColor: 'rgba(13, 148, 136, 0.2)' },
-  amberTone: { backgroundColor: Colors.warningLight, borderColor: 'rgba(234, 179, 8, 0.2)' },
+  greenTone: { backgroundColor: Colors.successLight, borderColor: '#A7F3D0' },
+  amberTone: { backgroundColor: Colors.warningLight, borderColor: '#FDE68A' },
   slateTone: { backgroundColor: '#F8FAFC', borderColor: Colors.border },
   metricValue: { marginTop: 10, fontSize: 22, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
   metricLabel: { marginTop: 2, fontSize: 11, fontFamily: Typography.fontFamily.semibold, color: Colors.textMuted },

@@ -1,0 +1,74 @@
+[
+  {
+    "source_key": "chelsea-official-news",
+    "name": "Chelsea FC official news",
+    "source_type": "official",
+    "url": "https://www.chelseafc.com/en/news",
+    "trust_level": 3,
+    "usage_policy": "facts_only",
+    "notes": "Use for confirmed club statements, match reports, squad and injury updates. Paraphrase; do not copy full articles or images."
+  },
+  {
+    "source_key": "chelsea-official-transfers",
+    "name": "Chelsea FC official transfer tracker",
+    "source_type": "official",
+    "url": "https://www.chelseafc.com/en/news/article/summer-transfers-2026-all-chelsea-ins-outs-and-new-contracts",
+    "trust_level": 3,
+    "usage_policy": "facts_only",
+    "notes": "Use only for deals or contract news Chelsea has confirmed."
+  },
+  {
+    "source_key": "premier-league-injuries",
+    "name": "Premier League injury updates",
+    "source_type": "official",
+    "url": "https://www.premierleague.com/en/latest-player-injuries",
+    "trust_level": 3,
+    "usage_policy": "facts_only",
+    "notes": "Use for league-level injury and suspension context."
+  },
+  {
+    "source_key": "premier-league-chelsea",
+    "name": "Premier League Chelsea club page",
+    "source_type": "official",
+    "url": "https://www.premierleague.com/en/clubs/8/chelsea/overview",
+    "trust_level": 3,
+    "usage_policy": "facts_only",
+    "notes": "Use for fixtures, results, tables and official match data."
+  },
+  {
+    "source_key": "fabrizio-romano",
+    "name": "Fabrizio Romano public reporting",
+    "source_type": "reporter",
+    "url": "https://x.com/FabrizioRomano",
+    "trust_level": 2,
+    "usage_policy": "link_and_paraphrase",
+    "notes": "Early signal only. Verify with a club, player, league or second reputable source before calling a deal confirmed. Use permitted API/feed access; do not scrape or copy posts."
+  },
+  {
+    "source_key": "bbc-sport-football",
+    "name": "BBC Sport football",
+    "source_type": "publisher",
+    "url": "https://www.bbc.com/sport/football",
+    "trust_level": 2,
+    "usage_policy": "link_and_paraphrase",
+    "notes": "Use for independent context and reporting."
+  },
+  {
+    "source_key": "sky-sports-football",
+    "name": "Sky Sports football",
+    "source_type": "publisher",
+    "url": "https://www.skysports.com/football",
+    "trust_level": 2,
+    "usage_policy": "link_and_paraphrase",
+    "notes": "Use for independent context and reporting."
+  },
+  {
+    "source_key": "fan-community-leads",
+    "name": "Fan communities",
+    "source_type": "community",
+    "url": "https://www.reddit.com/r/chelseafc/",
+    "trust_level": 1,
+    "usage_policy": "lead_only",
+    "notes": "Idea discovery only. Never publish claims from this source without independent confirmation."
+  }
+]

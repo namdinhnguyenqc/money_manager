@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Alert, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Platform, KeyboardAvoidingView } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
@@ -13,6 +13,9 @@ import Typography from '@/constants/Typography';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import { useAppToast } from '@/components/ui/ToastProvider';
+import { CardSkeleton } from '@/components/ui/Skeleton';
+import DataErrorState from '@/components/ui/DataErrorState';
 import { apiGet } from '@/lib/api';
 import { recordPayment } from '@/lib/rentalOps';
 
@@ -22,6 +25,7 @@ const PAYMENT_METHODS = ['Tiền mặt', 'Chuyển khoản', 'Ví điện tử']
 export default function NewPaymentScreen() {
   const { invoice_id } = useLocalSearchParams<{ invoice_id: string }>();
   const router = useRouter();
+  const { showSuccess, showError } = useAppToast();
   const [invoice, setInvoice] = useState<any>(null);
   const [wallets, setWallets] = useState<any[]>([]);
   const [outstandingInvoices, setOutstandingInvoices] = useState<any[]>([]);
@@ -92,38 +96,38 @@ export default function NewPaymentScreen() {
   const handleSubmit = async () => {
     const activeInvoiceId = invoice_id || invoice?.id;
     if (!activeInvoiceId) {
-      Alert.alert('Lỗi', 'Vui lòng chọn hóa đơn cần thu tiền.');
+      showError('Vui lòng chọn hóa đơn cần thu tiền.', 'Thiếu thông tin');
       return;
     }
     if (!amount || Number(amount) <= 0) {
-      Alert.alert('Lỗi', 'Vui lòng nhập số tiền hợp lệ.');
+      showError('Vui lòng nhập số tiền hợp lệ.', 'Thông tin không hợp lệ');
       return;
     }
     const outstanding = invoice
       ? Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0)
       : 0;
     if (outstanding > 0 && Number(amount) > outstanding) {
-      Alert.alert('Số tiền vượt quá', 'Số tiền thu không được lớn hơn số tiền còn lại của hóa đơn.');
+      showError('Số tiền thu không được lớn hơn số tiền còn lại của hóa đơn.', 'Số tiền vượt quá');
       return;
     }
     if (!walletId) {
-      Alert.alert('Lỗi', 'Vui lòng chọn ví thanh toán.');
+      showError('Vui lòng chọn ví thanh toán.', 'Thiếu thông tin');
       return;
     }
     if (!invoice) {
-      Alert.alert('Lỗi', 'Không tải được hóa đơn cần thu tiền.');
+      showError('Không tải được hóa đơn cần thu tiền.', 'Chưa thể thu tiền');
       return;
     }
     if (!parseIsoDate(date)) {
-      Alert.alert('Ngày thu không hợp lệ', 'Ngày thu tiền phải có định dạng YYYY-MM-DD hợp lệ.');
+      showError('Ngày thu tiền phải có định dạng YYYY-MM-DD hợp lệ.', 'Ngày thu không hợp lệ');
       return;
     }
     if (!collector.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập người thu tiền.');
+      showError('Vui lòng nhập người thu tiền.', 'Thiếu thông tin');
       return;
     }
     if ((method === 'Chuyển khoản' || method === 'Ví điện tử') && !transactionCode.trim() && !note.trim()) {
-      Alert.alert('Thiếu mã giao dịch', 'Vui lòng nhập mã giao dịch hoặc ghi chú cho khoản thu không dùng tiền mặt.');
+      showError('Vui lòng nhập mã giao dịch hoặc ghi chú cho khoản thu không dùng tiền mặt.', 'Thiếu mã giao dịch');
       return;
     }
 
@@ -137,11 +141,10 @@ export default function NewPaymentScreen() {
         collector: collector.trim(),
         note: [transactionCode.trim() ? `Mã GD: ${transactionCode.trim()}` : '', note.trim()].filter(Boolean).join(' · ') || undefined,
       });
-      Alert.alert('Thành công', 'Đã ghi nhận thanh toán.', [
-        { text: 'Xem hóa đơn', onPress: () => router.replace(`/invoice/${activeInvoiceId}`) },
-      ]);
+      showSuccess('Thanh toán đã được ghi nhận.');
+      router.replace(`/invoice/${activeInvoiceId}`);
     } catch (e: any) {
-      Alert.alert('Lỗi', e?.message || 'Không thể ghi nhận thanh toán.');
+      showError(e?.message || 'Không thể ghi nhận thanh toán.', 'Thu tiền chưa thành công');
     } finally {
       setLoading(false);
     }
@@ -152,20 +155,16 @@ export default function NewPaymentScreen() {
       <Stack.Screen options={{ headerShown: true, title: 'Thu tiền', headerBackTitle: 'Quay lại' }} />
       <SafeAreaView style={styles.container}>
         {dataLoading ? (
-          <View style={styles.stateBox}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.stateText}>Đang tải thông tin thu tiền...</Text>
+          <View style={styles.stateBox} accessibilityLabel="Đang chuẩn bị phiếu thu tiền">
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
           </View>
         ) : loadError ? (
-          <View style={styles.stateBox}>
-            <Ionicons name="alert-circle-outline" size={42} color={Colors.danger} />
-            <Text style={styles.stateTitle}>Không thể thu tiền</Text>
-            <Text style={styles.stateText}>{loadError}</Text>
-            <Button title="Thử lại" onPress={() => router.replace(`/payment/new?invoice_id=${invoice_id || ''}`)} variant="outline" size="md" />
-          </View>
+          <DataErrorState title="Không thể thu tiền" message={loadError} onRetry={() => router.replace(`/payment/new?invoice_id=${invoice_id || ''}`)} />
         ) : (
-        <>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           {/* Outstanding Invoice Selector (General Collection Mode) */}
           {!invoice_id && outstandingInvoices.length > 0 && (
             <View style={{ marginBottom: 20 }}>
@@ -318,7 +317,7 @@ export default function NewPaymentScreen() {
             style={styles.footerButton}
           />
         </View>
-        </>
+        </KeyboardAvoidingView>
         )}
       </SafeAreaView>
     </>
@@ -376,7 +375,7 @@ const styles = StyleSheet.create({
   invoicePickerBalanceActive: {
     color: Colors.primary,
   },
-  stateBox: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
+  stateBox: { flex: 1, padding: 16, gap: 14 },
   stateTitle: { fontSize: 17, fontFamily: Typography.fontFamily.semibold, color: Colors.textPrimary },
   stateText: { fontSize: 14, fontFamily: Typography.fontFamily.regular, color: Colors.textMuted, textAlign: 'center', lineHeight: 20 },
   scroll: { padding: 20, paddingBottom: 40 },

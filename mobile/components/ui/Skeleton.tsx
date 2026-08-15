@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet, ViewStyle } from 'react-native';
+import Colors from '@/constants/Colors';
 
 interface SkeletonProps {
   width?: number | string;
@@ -72,13 +73,13 @@ export function ListItemSkeleton() {
 
 const styles = StyleSheet.create({
   skeleton: {
-    backgroundColor: '#e2e8f0',
+    backgroundColor: Colors.border,
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(226, 232, 240, 0.6)',
+    borderColor: Colors.border,
     padding: 20,
     gap: 4,
   },

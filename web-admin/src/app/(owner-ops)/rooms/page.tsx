@@ -17,7 +17,6 @@ import {
   currentPeriod,
   createOwnerRoom,
   forfeitReservationDeposit,
-  createFacilityBlock,
   loadFacilityBlocks,
 } from "@/lib/rentalOps";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -27,7 +26,6 @@ import Card from "@/components/ui/Card";
 import Input, { Label, Select } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
 import Pagination from "@/components/ui/Pagination";
-import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import { useToast } from "@/components/ui/Toast";
 import ConfirmDialog from "@/components/ops/ConfirmDialog";
@@ -39,11 +37,10 @@ export default function AllRoomsPage() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { showToast } = useToast();
   const facilityIdFilter = searchParams.get("facility_id") || searchParams.get("facilityId") || searchParams.get("buildingId") || searchParams.get("house_id") || "";
   const [roomFilter, setRoomFilter] = useState("Tất cả");
-  const [toast, setToast] = useState("");
   const [error, setError] = useState("");
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [reservationToForfeit, setReservationToForfeit] = useState<RentalRoom | null>(null);
   const [page, setPage] = useState(1);
   const [view, setView] = useState<"map" | "list">("map");
@@ -77,14 +74,21 @@ export default function AllRoomsPage() {
     return houses.find((h) => String(h.id) === String(fid))?.name || "";
   };
 
-  // Blocks are only meaningful inside one facility: across facilities the same
-  // block names repeat and grouping by them says nothing useful. So they are
-  // fetched, filtered by, and grouped on only when a facility is selected.
+  // Blocks used to load only for a selected facility, so on "all facilities" the
+  // block filter disappeared and the room map received an empty block list and
+  // rendered every room in one flat group. Load them for whichever facilities
+  // are in view instead.
+  const blockFacilityIds = facilityIdFilter ? [facilityIdFilter] : houses.map((h) => String(h.id));
   const selectedBlocksQuery = useQuery({
-    queryKey: ["facility-blocks", facilityIdFilter],
-    queryFn: () => loadFacilityBlocks(facilityIdFilter),
-    enabled: Boolean(facilityIdFilter),
+    queryKey: ["facility-blocks", blockFacilityIds.join(",")],
+    enabled: blockFacilityIds.length > 0,
     staleTime: 30_000,
+    queryFn: async () => {
+      const lists = await Promise.all(
+        blockFacilityIds.map((id) => loadFacilityBlocks(id).catch(() => [])),
+      );
+      return lists.flat();
+    },
   });
   const facilityBlocks = selectedBlocksQuery.data || [];
 
@@ -115,11 +119,6 @@ export default function AllRoomsPage() {
     setBlockFilter("");
   }, [roomFilter, facilityIdFilter]);
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(""), 2500);
-  };
-
   const handleDelete = async (room: RentalRoom) => {
     if (!window.confirm(`Xóa phòng ${room.name}? Hành động này không thể hoàn tác.`)) return;
     try {
@@ -128,7 +127,7 @@ export default function AllRoomsPage() {
         facilityId: getFacilityId(room),
         roomId: room.id,
       });
-      showToast("Đã xóa phòng.");
+      showToast("Đã xóa phòng.", "success");
     } catch (err: any) {
       setError(err?.message || "Không xóa được phòng.");
     }
@@ -136,14 +135,14 @@ export default function AllRoomsPage() {
 
   const forfeitReservationMutation = useMutation({
     mutationFn: (depositId: string) => forfeitReservationDeposit(depositId),
-    onSuccess: async (_, depositId) => {
+    onSuccess: async (result) => {
       const room = reservationToForfeit;
       await invalidateOwnerOpsQueries(queryClient, {
         facilityId: room ? getFacilityId(room) : facilityIdFilter || undefined,
         roomId: room?.id,
       });
       setReservationToForfeit(null);
-      showToast("Đã bỏ cọc và mở lại phòng.");
+      showToast(result?.message || "Đã bỏ cọc, ghi nhận doanh thu và mở lại phòng.", result?.revenueRecorded === false ? "info" : "success");
     },
     onError: (err: any) => setError(err?.message || "Chưa thể bỏ cọc giữ chỗ."),
   });
@@ -154,43 +153,27 @@ export default function AllRoomsPage() {
         subtitle="Quản lý vận hành"
         title={currentFacility ? `${currentFacility.name} — Phòng` : `Tất cả phòng`}
         description={`${filteredRooms.length} phòng`}
-        actions={
-          <>
-            {facilityIdFilter && (
-              <Link href="/rooms" className="text-sm font-semibold text-slate-500 hover:text-blue-600 transition-colors">← Tất cả phòng</Link>
-            )}
-            <Button
-              variant="primary"
-              icon={<Plus size={16} />}
-              onClick={() => setIsAddModalOpen(true)}
-            >
-              Thêm phòng mới
-            </Button>
-          </>
-        }
       />
 
-      {toast && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 animate-in slide-in-from-top-2">{toast}</div>}
       {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 animate-in slide-in-from-top-2">{error}</div>}
 
-      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-        {/* Status Filters */}
-        <div className="flex flex-wrap gap-2">
-          {roomFilters.map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setRoomFilter(filter)}
-              className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${roomFilter === filter ? filterPillActive : filterPillInactive}`}
-            >
-              {filter}
-            </button>
-          ))}
-        </div>
-
-        {/* Facility Filter Dropdown */}
-        <div className="flex items-center gap-2 min-w-[240px] md:max-w-[320px] w-full md:w-auto">
-          <span className="text-xs font-black uppercase text-slate-400 whitespace-nowrap">Cơ sở:</span>
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+          <div className="relative min-w-0 flex-1 xl:max-w-sm">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            {/* `.input` in globals.css sets the `padding` shorthand, which is emitted
+                after Tailwind's utilities and therefore resets `pl-9` back to 12px —
+                putting the placeholder underneath the search icon. `!pl-9` wins that
+                tie. Fixed here rather than by moving `.input` into @layer components,
+                which would also let w-28/flex-1/text-xs start overriding it and shift
+                unrelated inputs across the app. */}
+            <input className="input w-full !pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm phòng hoặc khách thuê" />
+          </div>
+          <select aria-label="Lọc trạng thái phòng" value={roomFilter} onChange={(event) => setRoomFilter(event.target.value)} className="input min-w-[150px] xl:w-auto">
+            {roomFilters.map((filter) => <option key={filter} value={filter}>Trạng thái: {filter}</option>)}
+          </select>
           <select
+            aria-label="Lọc theo cơ sở"
             value={facilityIdFilter}
             onChange={(e) => {
               const val = e.target.value;
@@ -201,7 +184,7 @@ export default function AllRoomsPage() {
                 router.push(`/rooms`);
               }
             }}
-            className="w-full text-sm font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm cursor-pointer"
+            className="input min-w-[190px] xl:w-auto"
           >
             <option value="">— Tất cả cơ sở —</option>
             {houses.map((h) => (
@@ -221,9 +204,8 @@ export default function AllRoomsPage() {
               moving `.input` into @layer components, which would also let w-28/flex-1/
               text-xs start overriding it and shift unrelated inputs across the app. */}
           <input className="input w-full !pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm phòng hoặc khách thuê" /></div>
-          {facilityIdFilter && facilityBlocks.length > 1 ? <select aria-label="Lọc theo dãy" value={blockFilter} onChange={(event) => setBlockFilter(event.target.value)} className="input w-auto min-w-[180px]"><option value="">Tất cả dãy</option><option value="unassigned">Chưa phân dãy</option>{facilityBlocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}</select> : null}
+          {facilityBlocks.length > 0 ? <select aria-label="Lọc theo dãy" value={blockFilter} onChange={(event) => setBlockFilter(event.target.value)} className="input w-auto min-w-[180px]"><option value="">{facilityIdFilter ? "Tất cả dãy của cơ sở này" : "Tất cả dãy"}</option><option value="unassigned">Chưa phân dãy</option>{facilityBlocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}</select> : null}
         </div>
-        <div className="inline-flex w-fit rounded-[8px] border border-slate-200 bg-white p-1" role="group" aria-label="Chế độ hiển thị"><button onClick={() => setView("map")} className={`inline-flex items-center gap-1.5 rounded-[6px] px-3 py-2 text-sm font-semibold ${view === "map" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}><LayoutGrid size={16} />Sơ đồ phòng</button><button onClick={() => setView("list")} className={`inline-flex items-center gap-1.5 rounded-[6px] px-3 py-2 text-sm font-semibold ${view === "list" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}><List size={16} />Danh sách</button></div>
       </div>
 
       {roomsQuery.isLoading && (
@@ -235,27 +217,12 @@ export default function AllRoomsPage() {
       )}
 
       {!roomsQuery.isLoading && view === "map" && (
-        <RoomMap rooms={visibleRooms} blocks={facilityBlocks} houses={houses} facilityIdFilter={facilityIdFilter} getFacilityName={getFacilityName} getFacilityId={getFacilityId} onForfeit={setReservationToForfeit} />
+        <RoomMap rooms={visibleRooms} blocks={facilityBlocks} facilityIdFilter={facilityIdFilter} getFacilityName={getFacilityName} getFacilityId={getFacilityId} onForfeit={setReservationToForfeit} />
       )}
       {!roomsQuery.isLoading && view === "list" && (
         <RoomList rooms={visibleRooms} facilityIdFilter={facilityIdFilter} getFacilityId={getFacilityId} getFacilityName={getFacilityName} onForfeit={setReservationToForfeit} onDelete={handleDelete} />
       )}
       <Pagination page={page} pageSize={pageSize} total={filteredRooms.length} onPageChange={setPage} />
-
-      {isAddModalOpen && (
-        <AddRoomModal 
-          houses={houses} 
-          defaultFacilityId={facilityIdFilter}
-          onClose={() => setIsAddModalOpen(false)} 
-          onSaved={() => {
-            setIsAddModalOpen(false);
-            invalidateOwnerOpsQueries(queryClient, {
-              facilityId: facilityIdFilter || undefined,
-            });
-            showToast("Đã thêm phòng mới thành công!");
-          }}
-        />
-      )}
 
       {reservationToForfeit && (
         <ConfirmDialog
@@ -273,16 +240,20 @@ export default function AllRoomsPage() {
   );
 }
 
-function RoomMap({ rooms, blocks, houses, facilityIdFilter, getFacilityName, getFacilityId, onForfeit }: { rooms: RentalRoom[]; blocks: any[]; houses: any[]; facilityIdFilter: string; getFacilityName: (room: RentalRoom) => string; getFacilityId: (room: RentalRoom) => string; onForfeit: (room: RentalRoom) => void }) {
-  // Across facilities, block headings just repeat the facility name and split a
-  // short list into fragments. Show the rooms plainly; grouping starts once the
-  // owner has narrowed to one facility.
+function RoomMap({ rooms, blocks, facilityIdFilter, getFacilityName, getFacilityId, onForfeit }: { rooms: RentalRoom[]; blocks: any[]; facilityIdFilter: string; getFacilityName: (room: RentalRoom) => string; getFacilityId: (room: RentalRoom) => string; onForfeit: (room: RentalRoom) => void }) {
+  if (!rooms.length) return <Card className="p-8 text-center text-sm text-slate-500">Không có phòng phù hợp bộ lọc.</Card>;
+
   if (!facilityIdFilter) {
-    if (!rooms.length) return <Card className="p-8 text-center text-sm text-slate-500">Không có phòng phù hợp bộ lọc.</Card>;
     return (
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {rooms.map((room) => (
-          <RoomMiniCard key={room.id} room={room} facilityId={getFacilityId(room)} onForfeit={onForfeit} />
+          <RoomMiniCard
+            key={room.id}
+            room={room}
+            facilityId={getFacilityId(room)}
+            facilityName={getFacilityName(room)}
+            onForfeit={onForfeit}
+          />
         ))}
       </div>
     );
@@ -290,27 +261,24 @@ function RoomMap({ rooms, blocks, houses, facilityIdFilter, getFacilityName, get
 
   const groups = new Map<string, RentalRoom[]>();
   rooms.forEach((room) => {
-    const facilityKey = facilityIdFilter || getFacilityId(room) || "unassigned-facility";
     const blockKey = (room as any).block_id || "unassigned";
-    const key = `${facilityKey}:${blockKey}`;
-    groups.set(key, [...(groups.get(key) || []), room]);
+    groups.set(blockKey, [...(groups.get(blockKey) || []), room]);
   });
-  if (!rooms.length) return <Card className="p-8 text-center text-sm text-slate-500">Không có phòng phù hợp bộ lọc.</Card>;
   return <div className="space-y-6">{Array.from(groups.entries()).map(([key, groupRooms]) => {
     const facilityId = getFacilityId(groupRooms[0]);
     const blockId = (groupRooms[0] as any).block_id || "unassigned";
     const blockName = blockId === "unassigned" ? "Không phân dãy" : blocks.find((block) => block.id === blockId)?.name || "Dãy đã xóa";
-    return <section key={key} className="rounded-[12px] border border-slate-200 bg-white p-4 sm:p-5"><div className="mb-4 flex items-baseline gap-2"><h2 className="text-base font-bold text-slate-900">{facilityIdFilter ? blockName : getFacilityName(groupRooms[0])}</h2>{!facilityIdFilter ? <span className="text-sm text-slate-500">· {blockName}</span> : null}<span className="text-xs text-slate-400">{groupRooms.length} phòng</span></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{groupRooms.map((room) => <RoomMiniCard key={room.id} room={room} facilityId={facilityId} onForfeit={onForfeit} />)}</div></section>;
+    return <section key={key} className="rounded-[12px] border border-slate-200 bg-white p-4 sm:p-5"><div className="mb-4 flex items-baseline gap-2"><h2 className="text-base font-bold text-slate-900">{blockName}</h2><span className="text-xs text-slate-400">{groupRooms.length} phòng</span></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{groupRooms.map((room) => <RoomMiniCard key={room.id} room={room} facilityId={facilityId} onForfeit={onForfeit} />)}</div></section>;
   })}</div>;
 }
 
-function RoomMiniCard({ room, facilityId, onForfeit }: { room: RentalRoom; facilityId: string; onForfeit: (room: RentalRoom) => void }) {
+function RoomMiniCard({ room, facilityId, facilityName, onForfeit }: { room: RentalRoom; facilityId: string; facilityName?: string; onForfeit: (room: RentalRoom) => void }) {
   const status = String(room.status || "vacant").toLowerCase();
   const expiring = isContractSoonEnding(room);
   const overdue = Number(room.outstanding_amount || 0) > 0 && String(room.latest_invoice_status || "").toUpperCase() !== "PAID";
   const dot = overdue ? "bg-red-500" : expiring || status === "reserved" ? "bg-amber-400" : status === "maintenance" ? "bg-slate-500" : status === "occupied" ? "bg-emerald-500" : "bg-slate-300";
   const label = overdue ? "Cần thu" : expiring ? "Sắp hết HĐ" : status === "reserved" ? "Đã cọc" : status === "maintenance" ? "Bảo trì" : status === "occupied" ? "Đang thuê" : "Trống";
-  return <div className="rounded-[8px] border border-slate-200 bg-white p-3 transition-colors hover:border-blue-300"><div className="flex items-start justify-between gap-2"><Link href={`/rooms/${room.id}/edit?facility_id=${facilityId}`} className="min-w-0"><div className="font-bold text-slate-900">{room.name}</div><div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-slate-600"><span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />{label}</div></Link><RoomActionMenu room={room} facilityId={facilityId} onForfeit={onForfeit} /></div><div className="mt-3 text-sm font-semibold text-slate-800">{formatMoney(room.price)}<span className="font-normal text-slate-500">/tháng</span></div><p className="mt-1 truncate text-xs text-slate-500">{room.tenant_name || "Chưa có khách thuê"}</p><div className="mt-3 flex gap-2">{overdue ? <><Link className="flex-1" href={`/invoices?room_id=${room.id}`}><Button size="sm" variant="primary" className="w-full"><Banknote size={14} />Thu tiền</Button></Link><Link href={`/invoices?room_id=${room.id}&action=remind`}><Button size="sm" variant="outline" aria-label="Nhắc nợ"><Bell size={14} /></Button></Link></> : status === "maintenance" ? <Link className="flex-1" href={`/rooms/${room.id}/edit?facility_id=${facilityId}`}><Button size="sm" variant="outline" className="w-full"><Wrench size={14} />Chi tiết</Button></Link> : status === "occupied" && expiring ? <><Link className="flex-1" href={`/contracts/${room.contract_id}`}><Button size="sm" variant="primary" className="w-full">Gia hạn</Button></Link><Link href={`/contracts/${room.contract_id}?action=terminate`}><Button size="sm" variant="outline">Trả phòng</Button></Link></> : status === "occupied" ? <><Link className="flex-1" href={`/invoices?room_id=${room.id}`}><Button size="sm" variant="primary" className="w-full"><Banknote size={14} />Thu tiền</Button></Link><Link href={`/contracts/${room.contract_id}?action=terminate`}><Button size="sm" variant="outline">Trả phòng</Button></Link></> : status === "reserved" ? <><Link className="flex-1" href={`/contracts/new?room_id=${room.id}&facility_id=${facilityId}`}><Button size="sm" variant="primary" className="w-full"><FileText size={14} />Tạo HĐ</Button></Link>{room.reservation_deposit_id ? <Button size="sm" variant="outline" onClick={() => onForfeit(room)}>Bỏ cọc</Button> : null}</> : <><Link className="flex-1" href={`/contracts/new?room_id=${room.id}&facility_id=${facilityId}`}><Button size="sm" variant="primary" className="w-full">Tạo HĐ</Button></Link><Link href={`/deposits?room_id=${room.id}`}><Button size="sm" variant="outline">Đặt cọc</Button></Link></>}</div></div>;
+  return <div className="rounded-[8px] border border-slate-200 bg-white p-3 transition-colors hover:border-blue-300"><div className="flex items-start justify-between gap-2"><Link href={`/rooms/${room.id}/edit?facility_id=${facilityId}`} className="min-w-0"><div className="font-bold text-slate-900">{room.name}</div>{facilityName ? <div className="mt-0.5 truncate text-xs font-medium text-blue-700">{facilityName}</div> : null}<div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-slate-600"><span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />{label}</div></Link><RoomActionMenu room={room} facilityId={facilityId} onForfeit={onForfeit} /></div><div className="mt-3 text-sm font-semibold text-slate-800">{formatMoney(room.price)}<span className="font-normal text-slate-500">/tháng</span></div><p className="mt-1 truncate text-xs text-slate-500">{room.tenant_name || "Chưa có khách thuê"}</p><div className="mt-3 flex gap-2">{overdue ? <><Link className="flex-1" href={`/invoices?room_id=${room.id}`}><Button size="sm" variant="primary" className="w-full"><Banknote size={14} />Thu tiền</Button></Link><Link href={`/invoices?room_id=${room.id}&action=remind`}><Button size="sm" variant="outline" aria-label="Nhắc nợ"><Bell size={14} /></Button></Link></> : status === "maintenance" ? <Link className="flex-1" href={`/rooms/${room.id}/edit?facility_id=${facilityId}`}><Button size="sm" variant="outline" className="w-full"><Wrench size={14} />Chi tiết</Button></Link> : status === "occupied" && expiring ? <><Link className="flex-1" href={`/contracts/${room.contract_id}`}><Button size="sm" variant="primary" className="w-full">Gia hạn</Button></Link><Link href={`/contracts/${room.contract_id}?action=terminate`}><Button size="sm" variant="outline">Trả phòng</Button></Link></> : status === "occupied" ? <><Link className="flex-1" href={`/invoices?room_id=${room.id}`}><Button size="sm" variant="primary" className="w-full"><Banknote size={14} />Thu tiền</Button></Link><Link href={`/contracts/${room.contract_id}?action=terminate`}><Button size="sm" variant="outline">Trả phòng</Button></Link></> : status === "reserved" ? <><Link className="flex-1" href={`/contracts/new?room_id=${room.id}&facility_id=${facilityId}`}><Button size="sm" variant="primary" className="w-full"><FileText size={14} />Tạo HĐ</Button></Link>{room.reservation_deposit_id ? <Button size="sm" variant="outline" onClick={() => onForfeit(room)}>Bỏ cọc</Button> : null}</> : <><Link className="flex-1" href={`/contracts/new?room_id=${room.id}&facility_id=${facilityId}`}><Button size="sm" variant="primary" className="w-full">Tạo HĐ</Button></Link><Link href={`/deposits?room_id=${room.id}`}><Button size="sm" variant="outline">Đặt cọc</Button></Link></>}</div></div>;
 }
 
 function RoomList({ rooms, facilityIdFilter, getFacilityId, getFacilityName, onForfeit, onDelete }: { rooms: RentalRoom[]; facilityIdFilter: string; getFacilityId: (room: RentalRoom) => string; getFacilityName: (room: RentalRoom) => string; onForfeit: (room: RentalRoom) => void; onDelete: (room: RentalRoom) => void }) {
@@ -334,7 +302,6 @@ function AddRoomModal({ houses, defaultFacilityId, onClose, onSaved }: { houses:
     blockId: "",
   });
   const [saving, setSaving] = useState(false);
-  const [newBlockName, setNewBlockName] = useState("");
   const { showToast } = useToast();
   const blocksQuery = useQuery({ queryKey: ["facility-blocks", form.facilityId], queryFn: () => loadFacilityBlocks(form.facilityId), enabled: Boolean(form.facilityId) });
   const blocks = blocksQuery.data || [];
@@ -344,14 +311,12 @@ function AddRoomModal({ houses, defaultFacilityId, onClose, onSaved }: { houses:
     if (!form.facilityId) { showToast("Vui lòng chọn cơ sở!", "error"); return; }
     setSaving(true);
     try {
-      let blockId = form.blockId || null;
-      if (newBlockName.trim()) blockId = (await createFacilityBlock(form.facilityId, newBlockName.trim())).id;
       await createOwnerRoom(form.facilityId, {
         name: form.name,
         price: Number(form.price),
         area: Number(form.area),
         maxPeople: Number(form.maxPeople),
-        blockId,
+        blockId: form.blockId || null,
         status: "AVAILABLE",
       });
       onSaved();
@@ -385,7 +350,6 @@ function AddRoomModal({ houses, defaultFacilityId, onClose, onSaved }: { houses:
           <div>
             <Label>Dãy <span className="font-normal text-slate-400">(tùy chọn)</span></Label>
             <Select value={form.blockId} onChange={(e) => setForm(p => ({ ...p, blockId: e.target.value }))}><option value="">Không phân dãy</option>{blocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}</Select>
-            <div className="mt-2 flex gap-2"><Input value={newBlockName} onChange={(event) => setNewBlockName(event.target.value)} placeholder="Hoặc tạo dãy mới, ví dụ Dãy A" /><span className="shrink-0 self-center text-xs text-slate-500">tạo khi lưu</span></div>
           </div>
           <div>
             <Label>Tên / Số phòng</Label>

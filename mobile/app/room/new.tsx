@@ -16,8 +16,9 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Alert,
   TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -27,11 +28,13 @@ import Typography from '@/constants/Typography';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
-import Toast from '@/components/ui/Toast';
+import { useAppToast } from '@/components/ui/ToastProvider';
+import { CardSkeleton } from '@/components/ui/Skeleton';
 import { createOwnerRoom, loadBoardingHouse } from '@/lib/rentalOps';
 
 export default function NewRoomScreen() {
   const router = useRouter();
+  const { showToast, showError, showSuccess } = useAppToast();
   const { facility_id } = useLocalSearchParams<{ facility_id: string }>();
 
   // States
@@ -49,18 +52,11 @@ export default function NewRoomScreen() {
     hasAC: false,
   });
 
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-  };
-
   useEffect(() => {
     async function init() {
       if (!facility_id) {
-        Alert.alert('Lỗi', 'Không tìm thấy thông tin dãy trọ.', [
-          { text: 'Quay lại', onPress: () => router.back() },
-        ]);
+        showError('Không tìm thấy thông tin dãy trọ.', 'Không thể thêm phòng');
+        router.back();
         return;
       }
 
@@ -79,12 +75,12 @@ export default function NewRoomScreen() {
 
   const handleSubmit = async () => {
     if (!form.name.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên phòng (ví dụ: 101).');
+      showError('Vui lòng nhập tên phòng, ví dụ: 101.', 'Thiếu thông tin');
       return;
     }
 
     if (!form.price || Number(form.price) <= 0) {
-      Alert.alert('Giá trị không hợp lệ', 'Vui lòng nhập đơn giá thuê hàng tháng hợp lệ.');
+      showError('Vui lòng nhập đơn giá thuê hàng tháng hợp lệ.', 'Giá trị không hợp lệ');
       return;
     }
 
@@ -98,10 +94,10 @@ export default function NewRoomScreen() {
         status: form.status,
       });
 
-      showToast('Thêm phòng trọ thành công!', 'success');
+      showSuccess('Phòng mới đã được thêm vào cơ sở.', 'Đã thêm phòng');
       router.back();
     } catch (e: any) {
-      Alert.alert('Lỗi thêm phòng', e?.message || 'Không thể tạo phòng trọ mới.');
+      showError(e?.message || 'Không thể tạo phòng trọ mới.', 'Thêm phòng chưa thành công');
     } finally {
       setSubmitting(false);
     }
@@ -110,9 +106,9 @@ export default function NewRoomScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Đang tải thông tin dãy trọ...</Text>
+        <View style={styles.loadingContainer} accessibilityLabel="Đang tải thông tin cơ sở">
+          <CardSkeleton />
+          <CardSkeleton />
         </View>
       </SafeAreaView>
     );
@@ -130,7 +126,13 @@ export default function NewRoomScreen() {
         <Text style={styles.headerTitle}>Thêm phòng mới</Text>
         <View style={{ width: 36 }} />
       </View>
-      <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         
         {/* Boarding House Reference */}
         {facility && (
@@ -270,13 +272,8 @@ export default function NewRoomScreen() {
           icon={submitting ? <ActivityIndicator size="small" color="#fff" /> : undefined}
         />
       </ScrollView>
+      </KeyboardAvoidingView>
 
-      <Toast
-        visible={!!toast}
-        message={toast?.message || ''}
-        type={toast?.type}
-        onDismiss={() => setToast(null)}
-      />
     </SafeAreaView>
   );
 }
@@ -310,8 +307,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     letterSpacing: -0.3,
   },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-  loadingText: { marginTop: 12, fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  loadingContainer: { flex: 1, padding: 16, gap: 14, backgroundColor: Colors.background },
   refCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', padding: 14 },
   refLabel: { fontSize: 11, fontFamily: Typography.fontFamily.medium, color: Colors.textMuted },
   refValue: { fontSize: 14, fontFamily: Typography.fontFamily.bold, color: Colors.successDark, marginTop: 2 },

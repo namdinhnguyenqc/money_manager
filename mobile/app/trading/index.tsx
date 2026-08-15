@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
+import { useAppToast } from '@/components/ui/ToastProvider';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import {
   loadWallets, loadTradingItems, loadTradingStats,
@@ -26,6 +27,7 @@ type TabKey = 'available' | 'sold';
 
 export default function TradingScreen() {
   const router = useRouter();
+  const { showSuccess, showError } = useAppToast();
   const [isPremium, setIsPremium] = useState<boolean | null>(null);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<string>('');
@@ -82,8 +84,8 @@ export default function TradingScreen() {
   const today = () => new Date().toISOString().slice(0, 10);
 
   const handleCreate = async () => {
-    if (!form.name.trim()) { Alert.alert('Lỗi', 'Nhập tên sản phẩm.'); return; }
-    if (!Number(form.importPrice)) { Alert.alert('Lỗi', 'Nhập giá nhập.'); return; }
+    if (!form.name.trim()) { showError('Nhập tên sản phẩm.', 'Thiếu thông tin'); return; }
+    if (!Number(form.importPrice)) { showError('Nhập giá nhập.', 'Thiếu thông tin'); return; }
     setSaving(true);
     try {
       await createTradingItem({
@@ -96,22 +98,24 @@ export default function TradingScreen() {
       });
       setForm({ name: '', importPrice: '', importDate: '', note: '', quantity: '1' });
       setShowAdd(false);
+      showSuccess('Sản phẩm đã được ghi nhận.');
       fetchData();
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.message || 'Không thể tạo.');
+      showError(err?.message || 'Không thể tạo sản phẩm.', 'Nhập hàng chưa thành công');
     } finally { setSaving(false); }
   };
 
   const handleSell = async () => {
-    if (!sellItem || !Number(sellPrice)) { Alert.alert('Lỗi', 'Nhập giá bán.'); return; }
+    if (!sellItem || !Number(sellPrice)) { showError('Nhập giá bán trước khi xác nhận.', 'Thiếu thông tin'); return; }
     setSaving(true);
     try {
       await sellTradingItem(sellItem.id, { sellPrice: Number(sellPrice), sellDate: today() });
       setSellItem(null);
       setSellPrice('');
+      showSuccess('Đã ghi nhận bán hàng.');
       fetchData();
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.message || 'Không thể bán.');
+      showError(err?.message || 'Không thể ghi nhận bán hàng.', 'Bán hàng chưa thành công');
     } finally { setSaving(false); }
   };
 
@@ -121,8 +125,8 @@ export default function TradingScreen() {
       {
         text: 'Xóa', style: 'destructive',
         onPress: async () => {
-          try { await deleteTradingItem(item.id); fetchData(); }
-          catch (err: any) { Alert.alert('Lỗi', err?.message || 'Không thể xóa.'); }
+          try { await deleteTradingItem(item.id); showSuccess('Sản phẩm đã được xoá.'); fetchData(); }
+          catch (err: any) { showError(err?.message || 'Không thể xóa sản phẩm.', 'Xóa sản phẩm chưa thành công'); }
         },
       },
     ]);
@@ -182,6 +186,8 @@ export default function TradingScreen() {
         style={styles.container}
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {/* Header */}
         <View style={styles.header}>
