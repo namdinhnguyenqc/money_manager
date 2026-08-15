@@ -220,9 +220,15 @@ function dashboardSummary(search: URLSearchParams) {
 function cashflowSummary(search: URLSearchParams) {
   const months = Math.min(18, Math.max(1, Number(search.get("months")) || 12));
   const now = new Date();
+  // Mirror the real endpoint: the window ends at the requested period, not at
+  // today, so navigating the dashboard back in time behaves the same in demo.
+  const endMonth = Number(search.get("endMonth"));
+  const endYear = Number(search.get("endYear"));
+  const endMonthIndex = endMonth >= 1 && endMonth <= 12 ? endMonth - 1 : now.getMonth();
+  const endFullYear = endYear >= 2000 ? endYear : now.getFullYear();
   const result = [];
   for (let i = months - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const d = new Date(endFullYear, endMonthIndex - i, 1);
     const income = TRANSACTIONS.filter(
       (t) =>
         t.type === "income" &&

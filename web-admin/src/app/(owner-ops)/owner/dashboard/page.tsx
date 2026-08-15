@@ -92,11 +92,11 @@ export default function OwnerDashboard() {
   // payload small — see backend/src/routes/owner.ts:/cashflow-summary).
   // Request enough months to also cover whatever period the user has
   // navigated to via "Tháng trước/sau", capped at the 18 the backend allows.
-  const monthsNeeded = useMemo(() => {
-    const diff = (curY - selectedPeriod.year) * 12 + (curM - (selectedPeriod.month - 1));
-    return Math.min(18, Math.max(chartMonths, diff + 1));
-  }, [chartMonths, selectedPeriod, curY, curM]);
-  const cashflowQuery = useOwnerCashflowSummary(monthsNeeded);
+  // The chart draws exactly `chartMonths` buckets ending at the selected period,
+  // so ask the API for that window directly. This used to request months ending
+  // at *today*, which for any past period barely overlapped the range being
+  // drawn — the uncovered buckets fell back to 0 and the chart flat-lined.
+  const cashflowQuery = useOwnerCashflowSummary(chartMonths, selectedPeriod.month, selectedPeriod.year);
   const cashflowMonths = useMemo(() => cashflowQuery.data?.months ?? [], [cashflowQuery.data]);
 
   const findBucket = React.useCallback((month: number, year: number) =>

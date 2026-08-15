@@ -72,6 +72,10 @@ export function useOwnerDashboardSummary(month: number, year: number, facilityId
     queryKey: ["owner", "dashboard-summary", month, year, facilityId || "all"],
     queryFn: () => apiClient<DashboardSummary>(`/owner/dashboard-summary?${params.toString()}`),
     staleTime: 30_000,
+    // Keep the previous period visible while the next request completes. This
+    // prevents the KPI/chart from flashing zeros when users click months or
+    // change facility scope quickly.
+    placeholderData: (previousData) => previousData,
   });
 }
 
@@ -84,10 +88,22 @@ export type CashflowMonth = {
   composition: { rent: number; electricity: number; water: number; other: number };
 };
 
-export function useOwnerCashflowSummary(months: number) {
+/**
+ * `endMonth`/`endYear` anchor the window to the period being viewed. Without
+ * them the API always returned the months ending at today, so navigating the
+ * dashboard back in time asked for buckets the response never contained and the
+ * chart drew zeros.
+ */
+export function useOwnerCashflowSummary(months: number, endMonth?: number, endYear?: number) {
+  const params = new URLSearchParams({ months: String(months) });
+  if (endMonth) params.set("endMonth", String(endMonth));
+  if (endYear) params.set("endYear", String(endYear));
+  const query = params.toString();
+
   return useQuery({
-    queryKey: ["owner", "cashflow-summary", months],
-    queryFn: () => apiClient<{ months: CashflowMonth[] }>(`/owner/cashflow-summary?months=${months}`),
+    queryKey: ["owner", "cashflow-summary", months, endMonth ?? "now", endYear ?? "now"],
+    queryFn: () => apiClient<{ months: CashflowMonth[] }>(`/owner/cashflow-summary?${query}`),
     staleTime: 60_000,
+    placeholderData: (previousData) => previousData,
   });
 }
