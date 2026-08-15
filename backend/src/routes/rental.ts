@@ -245,7 +245,10 @@ rentalRoutes.get("/rooms", async (c) => {
     // a payment lands via the SePay webhook.
     db.from("invoices")
       .select("room_id,total_amount,paid_amount,status,month,year")
-      .eq("user_id", user.id),
+      .eq("user_id", user.id)
+      // Only unsettled invoices are needed, which keeps this query proportional
+      // to outstanding debt instead of billing history.
+      .neq("status", "paid"),
   ]);
 
   if (roomsRes.error) return c.json({ error: roomsRes.error.message }, 500);
@@ -268,6 +271,10 @@ rentalRoutes.get("/rooms", async (c) => {
         ...room,
         outstanding_amount: invoiceSummary?.outstanding ?? 0,
         latest_invoice_status: invoiceSummary?.latestStatus ?? null,
+        // The rooms table mixes casing: the column defaults to 'AVAILABLE' and
+        // the room form writes uppercase, while every backend transition writes
+        // lowercase. Normalize so callers see one form.
+        status: String(room.status || "").trim().toLowerCase(),
         hasAc: room.has_ac,
         numPeople: room.num_people,
         roomType: room.room_type ?? null,

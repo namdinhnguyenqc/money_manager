@@ -196,14 +196,32 @@ ownerRoutes.get("/cashflow-summary", cacheMiddleware(60), async (c) => {
   const requestedMonths = Number(c.req.query("months") || 12);
   const months = Math.min(18, Math.max(1, Number.isFinite(requestedMonths) ? requestedMonths : 12));
 
+  // The window ends at the period the caller is looking at, not always at today.
+  // The dashboard chart draws `months` buckets ending at the month the owner has
+  // navigated to; when that was in the past, a window anchored to today returned
+  // almost none of the requested buckets and the chart rendered a row of zeros.
   const now = new Date();
-  const rangeStart = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+  const requestedEndMonth = Number(c.req.query("endMonth"));
+  const requestedEndYear = Number(c.req.query("endYear"));
+  const endMonthIndex =
+    Number.isFinite(requestedEndMonth) && requestedEndMonth >= 1 && requestedEndMonth <= 12
+      ? requestedEndMonth - 1
+      : now.getMonth();
+  const endYear =
+    Number.isFinite(requestedEndYear) && requestedEndYear >= 2000 && requestedEndYear <= 2200
+      ? requestedEndYear
+      : now.getFullYear();
+
+  const rangeStart = new Date(endYear, endMonthIndex - (months - 1), 1);
+  // Exclusive upper bound: first day of the month after the window.
+  const rangeEndExclusive = new Date(endYear, endMonthIndex + 1, 1);
 
   const { data, error } = await supabase
     .from("transactions")
     .select("type, amount, date, description, invoice_id, metadata, categories(name)")
     .eq("user_id", currentUser.id)
     .gte("date", rangeStart.toISOString().slice(0, 10))
+    .lt("date", rangeEndExclusive.toISOString().slice(0, 10))
     .limit(5000);
 
   if (error) return c.json({ error: error.message }, 500);
@@ -738,7 +756,11 @@ ownerRoutes.get("/boarding-houses/:id/rooms", async (c) => {
       maxPeople: r.max_people ?? 1,
       numPeople: r.num_people ?? 0,
       hasAc: r.has_ac ?? false,
-      status: r.status,
+      // Lowercased for the same reason as /rental/rooms and /dashboard-init:
+      // the column mixes 'AVAILABLE' (default and room-form writes) with
+      // 'occupied'/'vacant' (every backend transition), so callers comparing
+      // against a single spelling were silently never matching.
+      status: String(r.status || "").trim().toLowerCase(),
       createdAt: r.created_at,
     })),
   });
