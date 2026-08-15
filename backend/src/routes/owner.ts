@@ -1402,7 +1402,26 @@ ownerRoutes.get("/permissions", async (c) => {
   return c.json({ permissions: combinedKeys });
 });
 
+/**
+ * Development helper for exercising the paid tiers.
+ *
+ * This grants OWNER_PREMIUM to the caller with no payment and no admin
+ * approval, so on production any registered owner could upgrade themselves for
+ * free with a single request — which also made the plan limits in
+ * getPlanLimits() unenforceable. It stays available outside production, where
+ * flipping tiers by hand is genuinely useful, and is refused on production.
+ *
+ * Hiding the Premium UI would not have helped: this is an API, and calling it
+ * directly is the exploit.
+ */
 ownerRoutes.post("/simulate-upgrade", async (c) => {
+  if (process.env.NODE_ENV === "production") {
+    return c.json(
+      { error: "Nâng cấp gói phải qua thanh toán. Vui lòng liên hệ hỗ trợ." },
+      403,
+    );
+  }
+
   const currentUser = c.get("user");
   const { plan } = await c.req.json().catch(() => ({}));
 
