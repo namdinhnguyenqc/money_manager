@@ -75,7 +75,7 @@ export default function FacilitiesPage() {
         {houses.map((facility) => {
           const summary = summaries[facility.id] || { total: 0, vacant: 0, occupied: 0, maintenance: 0, reserved: 0 };
           return (
-            <Link key={facility.id} href={`/facilities/${facility.id}`} className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow-md">
+            <Link key={facility.id} href={`/rooms?facility_id=${encodeURIComponent(facility.id)}`} className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow-md">
               <div className="font-semibold text-slate-950">{facility.name}</div>
               <div className="mt-1 line-clamp-2 text-sm text-gray-500">{facility.address || "Chưa có địa chỉ"}</div>
               {/* Reserved rooms used to fall into "Trống", which reads as
