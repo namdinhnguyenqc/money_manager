@@ -97,3 +97,61 @@ export function summarizeRoomInvoices(rows: InvoiceDebtRow[]): Map<string, RoomI
     ]),
   );
 }
+
+export type ServiceRow = {
+  id: string;
+  name?: string | null;
+  type?: string | null;
+  unit?: string | null;
+  unit_price?: number | string | null;
+  unit_price_ac?: number | string | null;
+};
+
+/**
+ * Builds the applied-services snapshot a contract carries.
+ *
+ * A contract stores the prices agreed at signing rather than reading the
+ * service table live, so later price changes never silently alter what a tenant
+ * already agreed to. Re-running this is therefore an explicit act — renewing at
+ * today's prices — not a background refresh.
+ */
+export function buildAppliedServicesSnapshot(
+  services: ServiceRow[],
+  options: { occupantCount: number; roomHasAc: boolean },
+) {
+  const occupantCount = Math.max(1, Number(options.occupantCount || 1));
+
+  return (services ?? []).map((service) => {
+    const name = String(service.name || "");
+    const type = String(service.type || "");
+    // Water must be settled first. A metered service matches `type` "metered",
+    // and treating that as proof of electricity mislabels water as electricity —
+    // after which the invoice screen cannot find a water service at all and
+    // bills it at 0.
+    const isWater = /nước|nuoc/i.test(name);
+    const isElectricity = !isWater && (name.toLowerCase().includes("điện") || type.toLowerCase().includes("meter"));
+
+    const base = Number(service.unit_price || 0);
+    const acPrice = Number(service.unit_price_ac || 0);
+    // The air-conditioned rate only applies to electricity, and only when the
+    // owner actually configured one.
+    const appliedUnitPrice = isElectricity && options.roomHasAc && acPrice > 0 ? acPrice : base;
+
+    let amount = appliedUnitPrice;
+    if (type === "per_person") amount = appliedUnitPrice * occupantCount;
+    else if (type === "per_room") amount = appliedUnitPrice;
+
+    return {
+      service_id: service.id,
+      name,
+      type,
+      unit_price: base,
+      unit_price_ac: acPrice,
+      applied_unit_price: appliedUnitPrice,
+      unit: service.unit ?? "",
+      occupant_count: occupantCount,
+      amount,
+      category: isElectricity ? "electricity" : isWater ? "water" : "other",
+    };
+  });
+}

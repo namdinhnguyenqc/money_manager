@@ -567,6 +567,21 @@ export async function loadInvoicesByContract(contractId: string) {
   return (res?.data ?? []) as Invoice[];
 }
 
+/**
+ * Extends a running tenancy.
+ *
+ * `serviceIds` is deliberately optional: omitting it keeps the prices the tenant
+ * already agreed to, and sending it is the explicit act of re-agreeing at the
+ * owner's current service prices.
+ */
+export async function renewContract(
+  contractId: string,
+  input: { endDate: string; rentAmount?: number; serviceIds?: string[]; note?: string },
+) {
+  const res = await apiPost<any>(`/rental/contracts/${contractId}/renew`, input);
+  return (res?.data ?? res) as any;
+}
+
 export async function terminateContract(contract: ContractView, input: { refundAmount: number; refundDate: string; refundMethod: string; note: string; walletId?: string; settlementWalletId?: string; settlementAmount?: number; settlementStatus?: string }) {
   const res = await apiPost<any>(`/rental/contracts/${contract.id}/terminate`, {
     roomId: contract.room_id,

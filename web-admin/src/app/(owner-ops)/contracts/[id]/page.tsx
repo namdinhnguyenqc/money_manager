@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, FileText, XCircle, Settings, X, Printer, Check } from "lucide-react";
+import { ArrowLeft, FileText, XCircle, Settings, X, Printer, Check, CalendarPlus } from "lucide-react";
 import ConfirmDialog from "@/components/ops/ConfirmDialog";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import StatusBadge from "@/components/ops/StatusBadge";
@@ -17,6 +17,7 @@ import {
   normalizeInvoiceStatus, 
   terminateContract, 
   updateContract, 
+  renewContract, 
   loadServiceConfigs, 
   ServiceConfig,
   loadDepositRefund,
@@ -34,6 +35,7 @@ export default function ContractDetailPage() {
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [renewOpen, setRenewOpen] = useState(false);
   const contractQuery = useQuery({ queryKey: ["contracts", id], queryFn: () => loadContract(String(id)), staleTime: 60_000 });
   const invoicesQuery = useQuery({ queryKey: ["contracts", id, "invoices"], queryFn: () => loadInvoicesByContract(String(id)), enabled: Boolean(contractQuery.data), staleTime: 30_000 });
   const refundQuery = useQuery({ queryKey: ["contracts", id, "refund"], queryFn: () => loadDepositRefund(String(id)), enabled: contractQuery.data?.status === "ended", staleTime: 60_000 });
@@ -204,6 +206,14 @@ export default function ContractDetailPage() {
       </section>
 
       <div className="mt-5 flex flex-wrap gap-2">
+        <button
+          disabled={contract.status !== "active"}
+          onClick={() => setRenewOpen(true)}
+          className="inline-flex items-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <CalendarPlus size={16} />
+          Gia hạn
+        </button>
         <button 
           disabled={contract.status !== "active"} 
           onClick={() => setEditOpen(true)}
@@ -268,7 +278,132 @@ export default function ContractDetailPage() {
           }} 
         />
       )}
+
+      {renewOpen && contract && (
+        <RenewContractPanel
+          contract={contract}
+          onClose={() => setRenewOpen(false)}
+          onRenewed={() => {
+            setRenewOpen(false);
+            void invalidateOwnerOpsQueries(queryClient, {
+              facilityId: contract.facility_id,
+              roomId: contract.room_id,
+              contractId: String(id),
+            });
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * Extends a running tenancy.
+ *
+ * Only the three things a renewal can legitimately change are offered: the end
+ * date, the rent, and whether to re-agree service prices. Start date, deposit
+ * and meter baselines stay put — the tenancy is continuous, and rewriting them
+ * would corrupt first-month proration and the meter history invoices are built
+ * from. Ending the tenancy is a different action ("Trả phòng") with its own
+ * settlement flow.
+ */
+function RenewContractPanel({ contract, onClose, onRenewed }: { contract: any; onClose: () => void; onRenewed: () => void }) {
+  const currentEnd = contract.end_date ? String(contract.end_date).slice(0, 10) : "";
+
+  // Default to one more year from the current end date — the common case — so
+  // the owner usually only has to confirm.
+  const suggestedEnd = React.useMemo(() => {
+    const base = currentEnd ? new Date(currentEnd) : new Date();
+    const next = new Date(base.getFullYear() + 1, base.getMonth(), base.getDate());
+    return next.toISOString().slice(0, 10);
+  }, [currentEnd]);
+
+  const [endDate, setEndDate] = useState(suggestedEnd);
+  const [rentAmount, setRentAmount] = useState(String(Number(contract.rent_amount || 0)));
+  const [reprice, setReprice] = useState(false);
+  const [services, setServices] = useState<ServiceConfig[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  React.useEffect(() => {
+    loadServiceConfigs(true).then((data) => setServices(data.filter((s) => s.active !== false))).catch(() => setServices([]));
+  }, []);
+
+  const rentChanged = Math.round(Number(rentAmount || 0)) !== Math.round(Number(contract.rent_amount || 0));
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError("");
+
+    if (!endDate) return setError("Vui lòng chọn ngày kết thúc mới.");
+    if (currentEnd && endDate <= currentEnd) {
+      return setError(`Ngày kết thúc mới phải sau ${currentEnd}.`);
+    }
+
+    setSaving(true);
+    try {
+      await renewContract(contract.id, {
+        endDate,
+        rentAmount: rentChanged ? Number(rentAmount || 0) : undefined,
+        // Only sent when the owner ticks the box, so an untouched renewal never
+        // silently changes prices the tenant already agreed to.
+        serviceIds: reprice ? services.map((s) => String(s.id)) : undefined,
+      });
+      onRenewed();
+    } catch (err: any) {
+      setError(err?.message || "Không gia hạn được hợp đồng.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <SidePanel title="Gia hạn hợp đồng" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="rounded-[8px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+          <div className="font-semibold text-slate-900">Phòng {contract.room_name} · {contract.tenant_name}</div>
+          <div className="mt-1 text-slate-600">
+            Hạn hiện tại: <strong>{currentEnd || "chưa đặt"}</strong>
+          </div>
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            Gia hạn giữ nguyên ngày bắt đầu, tiền cọc và chỉ số công tơ — đây là thuê liên tục, không phải hợp đồng mới.
+          </p>
+        </div>
+
+        <label className="block">
+          <span className="mb-1 block text-sm font-semibold text-slate-700">Ngày kết thúc mới *</span>
+          <input type="date" className="input" value={endDate} min={currentEnd || undefined} onChange={(e) => setEndDate(e.target.value)} required />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-sm font-semibold text-slate-700">Tiền thuê/tháng</span>
+          <input type="number" min={0} className="input" value={rentAmount} onChange={(e) => setRentAmount(e.target.value)} />
+          {rentChanged ? (
+            <span className="mt-1 block text-xs font-medium text-amber-700">
+              Thay đổi từ {formatMoney(contract.rent_amount)} → {formatMoney(Number(rentAmount || 0))}
+            </span>
+          ) : (
+            <span className="mt-1 block text-xs text-slate-500">Để nguyên nếu không tăng giá.</span>
+          )}
+        </label>
+
+        <label className={`flex cursor-pointer items-start gap-3 rounded-[8px] border px-3 py-3 transition-colors ${reprice ? "border-amber-200 bg-amber-50" : "border-slate-200 hover:bg-slate-50"}`}>
+          <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-slate-300" checked={reprice} onChange={(e) => setReprice(e.target.checked)} />
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-slate-900">Cập nhật giá dịch vụ theo bảng giá hiện tại</span>
+            <span className="mt-0.5 block text-xs leading-5 text-slate-600">
+              Không tick: giữ nguyên giá đã thỏa thuận trong hợp đồng. Tick: chốt lại theo {services.length} dịch vụ đang bật.
+            </span>
+          </span>
+        </label>
+
+        {error ? <p className="text-sm font-semibold text-red-600">{error}</p> : null}
+
+        <button disabled={saving} className="w-full rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+          {saving ? "Đang gia hạn..." : "Xác nhận gia hạn"}
+        </button>
+      </form>
+    </SidePanel>
   );
 }
 

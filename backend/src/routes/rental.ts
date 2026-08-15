@@ -6,7 +6,7 @@ import type { AppEnv } from "../types.js";
 import { parseJson, toId } from "../utils/validation.js";
 import { logAuditAction } from "../utils/audit.js";
 import { updateWalletBalance } from "../utils/wallet.js";
-import { summarizeRoomInvoices } from "../utils/billing.js";
+import { summarizeRoomInvoices, buildAppliedServicesSnapshot } from "../utils/billing.js";
 import { env } from "../config/env.js";
 
 
@@ -1593,6 +1593,116 @@ rentalRoutes.patch("/contracts/:id", async (c) => {
   }
 
   return c.json({ data: updateRes.data });
+});
+
+const renewContractSchema = z.object({
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày kết thúc không hợp lệ."),
+  rentAmount: z.number().nonnegative().optional(),
+  // Omitted means "keep the agreed prices". Sending it is the explicit act of
+  // re-agreeing at today's service prices.
+  serviceIds: z.array(z.string()).optional(),
+  note: z.string().optional(),
+});
+
+/**
+ * Extends a running tenancy.
+ *
+ * Deliberately not a new contract: the tenancy is continuous, so start_date,
+ * deposit and the meter baselines stay put. Rewriting any of those would break
+ * first-month proration and the meter history the invoices are computed from.
+ */
+rentalRoutes.post("/contracts/:id/renew", async (c) => {
+  const user = c.get("user");
+  const id = toId(c.req.param("id"));
+  if (!id) return c.json({ error: "Invalid contract id" }, 400);
+
+  const parsed = await parseJson(c, renewContractSchema);
+  if (!parsed.ok) return parsed.response;
+
+  const db = c.get("supabase");
+
+  const { data: contract, error: contractError } = await db
+    .from("contracts")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (contractError) return c.json({ error: contractError.message }, 500);
+  if (!contract) return c.json({ error: "Không tìm thấy hợp đồng." }, 404);
+
+  // An ended tenancy needs a new contract, not an extension — renewing one
+  // would silently resurrect a room that has already been settled and released.
+  if (contract.status !== "active") {
+    return c.json({ error: "Chỉ gia hạn được hợp đồng đang hiệu lực." }, 400);
+  }
+
+  const newEndDate = parsed.data.endDate;
+  const currentEnd = contract.end_date ? String(contract.end_date).slice(0, 10) : null;
+  if (currentEnd && newEndDate <= currentEnd) {
+    return c.json(
+      { error: `Ngày kết thúc mới phải sau ngày hiện tại của hợp đồng (${currentEnd}).` },
+      400,
+    );
+  }
+  if (newEndDate <= String(contract.start_date).slice(0, 10)) {
+    return c.json({ error: "Ngày kết thúc phải sau ngày bắt đầu hợp đồng." }, 400);
+  }
+
+  const updatePayload: Record<string, unknown> = {
+    end_date: newEndDate,
+    updated_at: new Date().toISOString(),
+  };
+  if (parsed.data.rentAmount !== undefined) updatePayload.rent_amount = parsed.data.rentAmount;
+  if (parsed.data.note !== undefined) updatePayload.note = parsed.data.note;
+
+  // Only re-price when the caller asked for it.
+  let repricedServices = false;
+  if (parsed.data.serviceIds && parsed.data.serviceIds.length > 0) {
+    const [{ data: services, error: servicesError }, { data: room }] = await Promise.all([
+      db.from("services").select("*").eq("user_id", user.id).in("id", parsed.data.serviceIds),
+      db.from("rooms").select("has_ac").eq("id", contract.room_id).eq("user_id", user.id).maybeSingle(),
+    ]);
+    if (servicesError) return c.json({ error: servicesError.message }, 500);
+
+    updatePayload.applied_services_snapshot = buildAppliedServicesSnapshot(services ?? [], {
+      occupantCount: Number(contract.occupant_count || 1),
+      roomHasAc: Boolean(room?.has_ac),
+    });
+    repricedServices = true;
+  }
+
+  const { data: updated, error: updateError } = await db
+    .from("contracts")
+    .update(updatePayload)
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("*")
+    .single();
+
+  if (updateError) return c.json({ error: updateError.message }, 400);
+
+  if (repricedServices) {
+    await db.from("contract_services").delete().eq("contract_id", id).eq("user_id", user.id);
+    const rows = (parsed.data.serviceIds ?? []).map((serviceId) => ({
+      user_id: user.id,
+      contract_id: id,
+      service_id: serviceId,
+    }));
+    if (rows.length > 0) await db.from("contract_services").insert(rows);
+  }
+
+  // There is no renewals table, so the audit log carries the history: who
+  // extended what, and the before/after of anything that changed.
+  await logAuditAction(db, user.id, "CONTRACT_RENEWED", "contract", id, {
+    previousEndDate: currentEnd,
+    newEndDate,
+    previousRentAmount: Number(contract.rent_amount || 0),
+    newRentAmount: Number(updated.rent_amount || 0),
+    repricedServices,
+  });
+
+  return c.json({ data: updated });
 });
 
 rentalRoutes.post("/contracts/:id/terminate", async (c) => {
