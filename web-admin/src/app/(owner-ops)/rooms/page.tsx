@@ -77,21 +77,14 @@ export default function AllRoomsPage() {
     return houses.find((h) => String(h.id) === String(fid))?.name || "";
   };
 
-  // Blocks used to load only for a selected facility, so on "all facilities" the
-  // block filter disappeared and the room map received an empty block list and
-  // rendered every room in one flat group. Load them for whichever facilities
-  // are in view instead.
-  const blockFacilityIds = facilityIdFilter ? [facilityIdFilter] : houses.map((h) => String(h.id));
+  // Blocks are only meaningful inside one facility: across facilities the same
+  // block names repeat and grouping by them says nothing useful. So they are
+  // fetched, filtered by, and grouped on only when a facility is selected.
   const selectedBlocksQuery = useQuery({
-    queryKey: ["facility-blocks", blockFacilityIds.join(",")],
-    enabled: blockFacilityIds.length > 0,
+    queryKey: ["facility-blocks", facilityIdFilter],
+    queryFn: () => loadFacilityBlocks(facilityIdFilter),
+    enabled: Boolean(facilityIdFilter),
     staleTime: 30_000,
-    queryFn: async () => {
-      const lists = await Promise.all(
-        blockFacilityIds.map((id) => loadFacilityBlocks(id).catch(() => [])),
-      );
-      return lists.flat();
-    },
   });
   const facilityBlocks = selectedBlocksQuery.data || [];
 
@@ -228,7 +221,7 @@ export default function AllRoomsPage() {
               moving `.input` into @layer components, which would also let w-28/flex-1/
               text-xs start overriding it and shift unrelated inputs across the app. */}
           <input className="input w-full !pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm phòng hoặc khách thuê" /></div>
-          {facilityBlocks.length > 0 ? <select aria-label="Lọc theo dãy" value={blockFilter} onChange={(event) => setBlockFilter(event.target.value)} className="input w-auto min-w-[180px]"><option value="">{facilityIdFilter ? "Tất cả dãy của cơ sở này" : "Tất cả dãy"}</option><option value="unassigned">Chưa phân dãy</option>{facilityBlocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}</select> : null}
+          {facilityIdFilter && facilityBlocks.length > 1 ? <select aria-label="Lọc theo dãy" value={blockFilter} onChange={(event) => setBlockFilter(event.target.value)} className="input w-auto min-w-[180px]"><option value="">Tất cả dãy</option><option value="unassigned">Chưa phân dãy</option>{facilityBlocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}</select> : null}
         </div>
         <div className="inline-flex w-fit rounded-[8px] border border-slate-200 bg-white p-1" role="group" aria-label="Chế độ hiển thị"><button onClick={() => setView("map")} className={`inline-flex items-center gap-1.5 rounded-[6px] px-3 py-2 text-sm font-semibold ${view === "map" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}><LayoutGrid size={16} />Sơ đồ phòng</button><button onClick={() => setView("list")} className={`inline-flex items-center gap-1.5 rounded-[6px] px-3 py-2 text-sm font-semibold ${view === "list" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}><List size={16} />Danh sách</button></div>
       </div>
@@ -281,6 +274,20 @@ export default function AllRoomsPage() {
 }
 
 function RoomMap({ rooms, blocks, houses, facilityIdFilter, getFacilityName, getFacilityId, onForfeit }: { rooms: RentalRoom[]; blocks: any[]; houses: any[]; facilityIdFilter: string; getFacilityName: (room: RentalRoom) => string; getFacilityId: (room: RentalRoom) => string; onForfeit: (room: RentalRoom) => void }) {
+  // Across facilities, block headings just repeat the facility name and split a
+  // short list into fragments. Show the rooms plainly; grouping starts once the
+  // owner has narrowed to one facility.
+  if (!facilityIdFilter) {
+    if (!rooms.length) return <Card className="p-8 text-center text-sm text-slate-500">Không có phòng phù hợp bộ lọc.</Card>;
+    return (
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {rooms.map((room) => (
+          <RoomMiniCard key={room.id} room={room} facilityId={getFacilityId(room)} onForfeit={onForfeit} />
+        ))}
+      </div>
+    );
+  }
+
   const groups = new Map<string, RentalRoom[]>();
   rooms.forEach((room) => {
     const facilityKey = facilityIdFilter || getFacilityId(room) || "unassigned-facility";
