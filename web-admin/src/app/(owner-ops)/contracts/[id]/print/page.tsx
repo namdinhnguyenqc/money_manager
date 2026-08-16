@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
-import { formatMoney, loadContract, loadOwnerProfile } from "@/lib/rentalOps";
+import { formatMoney, loadBoardingHouses, loadContract, loadOwnerProfile } from "@/lib/rentalOps";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 
 export default function ContractPrintPage() {
@@ -11,17 +11,20 @@ export default function ContractPrintPage() {
   const router = useRouter();
   const [contract, setContract] = useState<any>(null);
   const [owner, setOwner] = useState<any>(null);
+  const [facilities, setFacilities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [c, o] = await Promise.all([
+        const [c, o, f] = await Promise.all([
           loadContract(String(id)),
-          loadOwnerProfile()
+          loadOwnerProfile(),
+          loadBoardingHouses().catch(() => []),
         ]);
         setContract(c);
         setOwner(o);
+        setFacilities(f);
       } catch (err) {
         console.error("Failed to load contract for printing", err);
       } finally {
@@ -42,6 +45,13 @@ export default function ContractPrintPage() {
   const day = today.getDate();
   const month = today.getMonth() + 1;
   const year = today.getFullYear();
+
+  // The address used to be hard-coded to one specific building, so every owner
+  // printed a contract naming someone else's property. Blank is the only honest
+  // fallback on a document a tenant signs.
+  const facilityAddress =
+    facilities.find((f: any) => String(f.id) === String(contract.facility_id))?.address ||
+    "………………………………………………………………………";
 
   const electricity = (contract.applied_services_snapshot || []).find((s: any) => s.name?.toLowerCase().includes("điện"));
   const water = (contract.applied_services_snapshot || []).find((s: any) => s.name?.toLowerCase().includes("nước"));
@@ -72,17 +82,17 @@ export default function ContractPrintPage() {
           </div>
 
           <div className="space-y-1">
-            <p className="mb-4">Hôm nay ngày {day} tháng {month} năm {year}; tại địa chỉ: 60/7/4A đường số 4, phường Thủ Đức, TP Hồ Chí Minh</p>
+            <p className="mb-4">Hôm nay ngày {day} tháng {month} năm {year}; tại địa chỉ: {facilityAddress}</p>
             
             <p className="mb-2 font-bold underline">Chúng tôi gồm:</p>
             
             <div className="mb-4 space-y-1">
               <p>1. Đại diện bên cho thuê phòng trọ (Bên A):</p>
               <div className="pl-4">
-                <p>Ông/bà: <span className="font-bold">{owner?.name || "Nguyễn Đình Hà Nam"}</span> &nbsp;&nbsp;&nbsp; Sinh ngày: {owner?.dob || "26/11/1999"}</p>
-                <p>Nơi đăng ký HK: {owner?.address || "90 Nguyễn Văn Cừ, Phường Tuy Hòa, Tỉnh Đắk Lắk"}</p>
-                <p>CMND số: <span>{owner?.idCard || "054099004728"}</span> cấp ngày {owner?.idCardDate || "21/01/2025"} &nbsp;&nbsp; tại {owner?.idCardPlace || "Bộ Công An"}</p>
-                <p>Số điện thoại: <span>{owner?.phone || "0927368772"}</span></p>
+                <p>Ông/bà: <span className="font-bold">{owner?.name || "………………………………"}</span> &nbsp;&nbsp;&nbsp; Sinh ngày: {owner?.dob || "…………………"}</p>
+                <p>Nơi đăng ký HK: {owner?.address || "………………………………………………"}</p>
+                <p>CMND số: <span>{owner?.idCard || "…………………"}</span> cấp ngày {owner?.idCardDate || "…………"} &nbsp;&nbsp; tại {owner?.idCardPlace || "…………………"}</p>
+                <p>Số điện thoại: <span>{owner?.phone || "…………………"}</span></p>
               </div>
             </div>
 
@@ -97,10 +107,10 @@ export default function ContractPrintPage() {
             </div>
 
             <p className="mb-4">Sau khi bàn bạc trên tinh thần dân chủ, hai bên cùng có lợi, cùng thống nhất như sau:</p>
-            <p className="mb-4">Bên A đồng ý cho bên B thuê 01 phòng ở tại địa chỉ 60/7/4A đường số 4, phường Thủ Đức, TP Hồ Chí Minh</p>
+            <p className="mb-4">Bên A đồng ý cho bên B thuê 01 phòng ở tại địa chỉ {facilityAddress}</p>
 
             <div className="mb-6 space-y-1">
-              <p>Giá thuê: <span className="font-bold underline">{formatMoney(contract.rent_amount)} VNĐ/tháng</span> (Hai triệu bốn trăm nghìn đồng)</p>
+              <p>Giá thuê: <span className="font-bold underline">{formatMoney(contract.rent_amount)} VNĐ/tháng</span></p>
               <p>Hình thức thanh toán: Chuyển khoản hoặc tiền mặt</p>
               {/* A printed contract is signed by the tenant, so an unconfigured
                   utility must read as "chưa thỏa thuận" rather than inherit a
@@ -156,7 +166,7 @@ export default function ContractPrintPage() {
               <div className="text-center">
                 <p className="font-bold uppercase">ĐẠI DIỆN BÊN A</p>
                 <div className="mt-20"></div>
-                <p className="font-bold uppercase">{owner?.name || "Nguyễn Đình Hà Nam"}</p>
+                <p className="font-bold uppercase">{owner?.name || "………………………………"}</p>
               </div>
             </div>
           </div>

@@ -88,20 +88,20 @@ CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
 
 HỢP ĐỒNG THUÊ PHÒNG TRỌ
 
-Hôm nay ngày ${day} tháng ${month} năm ${year}; tại địa chỉ: 60/7/4A đường số 4, phường Thủ Đức, TP Hồ Chí Minh
+Hôm nay ngày ${day} tháng ${month} năm ${year}; tại địa chỉ: ………………………………………………
 Chúng tôi gồm:
 
 1. Đại diện bên cho thuê phòng trọ (Bên A):
-Ông/bà: ${owner?.name || "Nguyễn Đình Hà Nam"}
-CMND/CCCD số: ${owner?.idCard || "054099004728"}
-Số điện thoại: ${owner?.phone || "0927368772"}
+Ông/bà: ${owner?.name || "………………………………"}
+CMND/CCCD số: ${owner?.idCard || "…………………"}
+Số điện thoại: ${owner?.phone || "…………………"}
 
 2. Bên thuê phòng trọ (Bên B):
 Ông/bà: ${contract.tenant_name}
 Số CMND/CCCD: ${contract.tenant_id_card || "Chưa cung cấp"}
 Số điện thoại: ${contract.tenant_phone || "Chưa cung cấp"}
 
-Hai bên cùng thống nhất thỏa thuận thuê phòng trọ tại địa chỉ 60/7/4A đường số 4, phường Thủ Đức, TP Hồ Chí Minh với các điều khoản sau:
+Hai bên cùng thống nhất thỏa thuận thuê phòng trọ tại địa chỉ ……………………………………………… với các điều khoản sau:
 - Giá thuê: ${formatMoney(contract.rent_amount)} VNĐ/tháng
 - Tiền cọc: ${formatMoney(contract.deposit_amount)} VNĐ
 - Tiền điện: ${electricity?.applied_unit_price ? `${formatMoney(electricity.applied_unit_price)} đ/kwh` : "……… đ/kwh (theo thỏa thuận)"} ${contract.has_ac ? "(Có máy lạnh)" : "(Không máy lạnh)"}
@@ -148,17 +148,17 @@ Hai bên cùng thống nhất thỏa thuận thuê phòng trọ tại địa ch�
 
           {/* Intro */}
           <Text style={styles.paragraph}>
-            Hôm nay ngày <Text style={styles.boldText}>{day}</Text> tháng <Text style={styles.boldText}>{month}</Text> năm <Text style={styles.boldText}>{year}</Text>; tại địa điểm: <Text style={styles.italicText}>60/7/4A đường số 4, phường Thủ Đức, TP Hồ Chí Minh</Text>.
+            Hôm nay ngày <Text style={styles.boldText}>{day}</Text> tháng <Text style={styles.boldText}>{month}</Text> năm <Text style={styles.boldText}>{year}</Text>; tại địa điểm: <Text style={styles.italicText}>………………………………………………</Text>.
           </Text>
 
           {/* Section A */}
           <Text style={styles.sectionTitle}>Chúng tôi gồm:</Text>
           <Text style={styles.partyTitle}>1. Đại diện bên cho thuê phòng trọ (Bên A):</Text>
           <View style={styles.detailsBlock}>
-            <Text style={styles.paragraph}>Ông/bà: <Text style={styles.boldText}>{owner?.name || "Nguyễn Đình Hà Nam"}</Text></Text>
-            <Text style={styles.paragraph}>Nơi đăng ký HK: {owner?.address || "90 Nguyễn Văn Cừ, Phường Tuy Hòa, Tỉnh Đắk Lắk"}</Text>
-            <Text style={styles.paragraph}>CMND/CCCD số: {owner?.idCard || "054099004728"}</Text>
-            <Text style={styles.paragraph}>Số điện thoại: <Text style={styles.boldText}>{owner?.phone || "0927368772"}</Text></Text>
+            <Text style={styles.paragraph}>Ông/bà: <Text style={styles.boldText}>{owner?.name || "………………………………"}</Text></Text>
+            <Text style={styles.paragraph}>Nơi đăng ký HK: {owner?.address || "………………………………………………"}</Text>
+            <Text style={styles.paragraph}>CMND/CCCD số: {owner?.idCard || "…………………"}</Text>
+            <Text style={styles.paragraph}>Số điện thoại: <Text style={styles.boldText}>{owner?.phone || "…………………"}</Text></Text>
           </View>
 
           {/* Section B */}
@@ -172,7 +172,7 @@ Hai bên cùng thống nhất thỏa thuận thuê phòng trọ tại địa ch�
 
           {/* Specifications */}
           <Text style={styles.paragraph}>
-            Sau khi bàn bạc thống nhất, Bên A đồng ý cho Bên B thuê 01 phòng ở tại địa chỉ 60/7/4A đường số 4, phường Thủ Đức, TP Hồ Chí Minh với các thỏa thuận chi tiết như sau:
+            Sau khi bàn bạc thống nhất, Bên A đồng ý cho Bên B thuê 01 phòng ở tại địa chỉ ……………………………………………… với các thỏa thuận chi tiết như sau:
           </Text>
 
           <View style={styles.specList}>
@@ -220,7 +220,7 @@ Hai bên cùng thống nhất thỏa thuận thuê phòng trọ tại địa ch�
             <View style={styles.sigCol}>
               <Text style={styles.sigTitle}>ĐẠI DIỆN BÊN A</Text>
               <Text style={styles.sigSubtitle}>(Ký và ghi rõ họ tên)</Text>
-              <Text style={styles.sigName}>{owner?.name || "Nguyễn Đình Hà Nam"}</Text>
+              <Text style={styles.sigName}>{owner?.name || "………………………………"}</Text>
             </View>
           </View>
         </View>
