@@ -13,6 +13,7 @@ import RBACGuard from '@/components/RBACGuard';
 import { useOwnerDashboardInit, useOwnerCashflowSummary, useOwnerDashboardSummary, OwnerDashboardInit } from '@/hooks/useOwnerData';
 import OwnerOnboardingGuide from '@/components/owner/OwnerOnboardingGuide';
 import PageHeader from '@/components/ui/PageHeader';
+import Button from '@/components/ui/Button';
 import { getStoredSessionUser } from '@/utils/session';
 
 const MONTH_NAMES = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
@@ -402,16 +403,12 @@ export default function OwnerDashboard() {
 
                 <div className="flex items-center gap-1 rounded-xl bg-slate-100/80 p-1">
                   {[3, 6, 12, 18].map((n) => (
-                    <button
+                    <Button
                       key={n}
-                      type="button"
+                      size="sm"
+                      variant={chartMonths === n ? "primary" : "ghost"}
                       onClick={() => setChartMonths(n)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                        chartMonths === n ? "bg-white text-blue-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
-                      }`}
-                    >
-                      {n}T
-                    </button>
+                    >{n}T</Button>
                   ))}
                 </div>
               </div>
