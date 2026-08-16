@@ -49,7 +49,7 @@ export default function ContractsPage() {
 
       {contractsQuery.isLoading ? <LoadingSkeleton rows={5} /> : null}
       {!contractsQuery.isLoading && filtered.length === 0 ? (
-        <EmptyState message="Chưa có hợp đồng phù hợp. Hãy vào một cơ sở, chọn phòng trống và tạo hợp đồng từ phòng đó." action={<Link href="/facilities"><Button variant="primary">Mở cơ sở & phòng</Button></Link>} />
+        <EmptyState message="Chưa có hợp đồng phù hợp. Hãy vào một cơ sở, chọn phòng trống và tạo hợp đồng từ phòng đó." action={<Button href="/facilities" variant="primary">Mở cơ sở &amp; phòng</Button>} />
       ) : null}
 
       {filtered.length > 0 ? (
@@ -62,7 +62,7 @@ export default function ContractsPage() {
               <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{contract.end_date || "-"}</td>
               <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">{formatMoney(contract.rent_amount)}</td>
               <td className="px-4 py-3"><StatusBadge status={contract.status} /></td>
-              <td className="px-4 py-3"><Link href={`/contracts/${contract.id}`} className="font-semibold text-blue-700 hover:underline">Chi tiết</Link></td>
+              <td className="px-4 py-3"><Button href={`/contracts/${contract.id}`} variant="ghost" size="sm">Chi tiết</Button></td>
             </tr>
           ))}
         </DataTable>
@@ -86,7 +86,7 @@ export default function ContractsPage() {
                 <div><div className="text-[11px] uppercase tracking-wide text-slate-400">Tiền thuê</div><div className="text-xs font-semibold text-slate-900">{formatMoney(contract.rent_amount)}</div></div>
               </div>
               <div className="mt-3 border-t border-slate-100 pt-3">
-                <Link href={`/contracts/${contract.id}`} className="text-sm font-semibold text-blue-700">Xem chi tiết →</Link>
+                <Button href={`/contracts/${contract.id}`} variant="ghost" size="sm">Xem chi tiết →</Button>
               </div>
             </div>
           ))}

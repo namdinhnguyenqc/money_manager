@@ -6,6 +6,7 @@ import { Building2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import EmptyState from "@/components/ops/EmptyState";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
+import Button from "@/components/ui/Button";
 import { deleteBoardingHouse, loadBoardingHouses, loadRentalRooms, normalizeRoomStatus, updateBoardingHouse } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import ConfirmDialog from "@/components/ops/ConfirmDialog";
@@ -66,15 +67,12 @@ export default function FacilitiesPage() {
           <p className="text-sm font-medium text-blue-700">Quản lý nhà trọ</p>
           <h1 className="text-2xl font-semibold text-slate-950">Cơ sở của tôi</h1>
         </div>
-        <Link href="/facilities/new" className="inline-flex items-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">
-          <Plus size={16} />
-          Thêm cơ sở
-        </Link>
+        <Button href="/facilities/new" variant="primary" icon={<Plus size={16} />}>Thêm cơ sở</Button>
       </div>
 
       {housesQuery.isLoading ? <LoadingSkeleton rows={3} /> : null}
       {!housesQuery.isLoading && houses.length === 0 ? (
-        <EmptyState icon={<Building2 size={20} />} message="Chưa có cơ sở nào. Bắt đầu bằng cách thêm cơ sở đầu tiên." action={<Link href="/facilities/new" className="rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">Thêm cơ sở</Link>} />
+        <EmptyState icon={<Building2 size={20} />} message="Chưa có cơ sở nào. Bắt đầu bằng cách thêm cơ sở đầu tiên." action={<Button href="/facilities/new" variant="primary">Thêm cơ sở</Button>} />
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

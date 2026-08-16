@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import ConfirmDialog from "@/components/ops/ConfirmDialog";
+import Button from "@/components/ui/Button";
 import {
   RentalRoom,
   ServiceConfig,
@@ -94,10 +95,7 @@ export default function OwnerContractsPage() {
             <RefreshCw size={16} />
             Làm mới
           </button>
-          <button onClick={() => setFormOpen(true)} className="inline-flex items-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">
-            <Plus size={16} />
-            Tạo hợp đồng
-          </button>
+          <Button variant="primary" icon={<Plus size={16} />} onClick={() => setFormOpen(true)}>Tạo hợp đồng</Button>
         </div>
       </div>
 
@@ -126,7 +124,7 @@ export default function OwnerContractsPage() {
                     <td className="px-4 py-3 font-semibold text-slate-900">{formatMoney(room.price)}</td>
                     <td className="px-4 py-3"><span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${meta.className}`}>{meta.label === "Đang thuê" ? "Hiệu lực" : meta.label}</span></td>
                     <td className="px-4 py-3 flex items-center gap-4">
-                      <Link href={`/contracts/${room.contract_id}`} className="font-semibold text-blue-700">Xem</Link>
+                      <Button href={`/contracts/${room.contract_id}`} variant="ghost" size="sm">Xem</Button>
                       <button onClick={() => removeContract(room.contract_id!)} className="text-slate-400 hover:text-red-600 transition-colors" title="Xóa hợp đồng">
                         <Trash2 size={16} />
                       </button>
@@ -325,7 +323,7 @@ function ContractDrawer({ rooms, onClose, onSaved }: { rooms: RentalRoom[]; onCl
             )}
           </div>
           <Field label="Ghi chú"><textarea className="input min-h-24" value={form.note} onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))} /></Field>
-          <button disabled={saving || !form.roomId} className="w-full rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Đang lưu..." : "Lưu hợp đồng"}</button>
+          <Button type="submit" variant="primary" size="lg" loading={saving} disabled={!form.roomId} className="w-full">Lưu hợp đồng</Button>
         </form>
       </aside>
     </div>
