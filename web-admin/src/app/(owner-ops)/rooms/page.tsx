@@ -157,7 +157,7 @@ export default function AllRoomsPage() {
         actions={
           <>
             {facilityIdFilter && (
-              <Link href="/rooms" className="text-sm font-semibold text-slate-500 hover:text-blue-600 transition-colors">← Tất cả phòng</Link>
+              <Button href="/rooms" variant="ghost">← Tất cả phòng</Button>
             )}
             <Button
               variant="primary"
@@ -173,57 +173,65 @@ export default function AllRoomsPage() {
       {toast && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 animate-in slide-in-from-top-2">{toast}</div>}
       {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 animate-in slide-in-from-top-2">{error}</div>}
 
-      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-        {/* Status Filters */}
-        <div className="flex flex-wrap gap-2">
-          {roomFilters.map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setRoomFilter(filter)}
-              className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${roomFilter === filter ? filterPillActive : filterPillInactive}`}
-            >
-              {filter}
-            </button>
-          ))}
-        </div>
+      {/* One filter surface instead of two stacked cards. This screen used to
+          spend four rows of chrome above two rooms.
 
-        {/* Facility Filter Dropdown */}
-        <div className="flex items-center gap-2 min-w-[240px] md:max-w-[320px] w-full md:w-auto">
-          <span className="text-xs font-black uppercase text-slate-400 whitespace-nowrap">Cơ sở:</span>
+          Note the `!w-auto` on the selects: `.input` in globals.css sets
+          width:100% and is emitted after Tailwind's utilities, so a plain
+          `w-auto` loses and each select claims a full row of its own. */}
+      <div className="mb-5 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full min-w-[180px] sm:w-auto sm:max-w-xs sm:flex-1">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input className="input w-full !pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm phòng hoặc khách thuê" />
+          </div>
+
           <select
+            aria-label="Lọc theo cơ sở"
             value={facilityIdFilter}
             onChange={(e) => {
               const val = e.target.value;
               setBlockFilter("");
-              if (val) {
-                router.push(`/rooms?facility_id=${val}`);
-              } else {
-                router.push(`/rooms`);
-              }
+              router.push(val ? `/rooms?facility_id=${val}` : "/rooms");
             }}
-            className="w-full text-sm font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm cursor-pointer"
+            className="input !w-auto min-w-[170px]"
           >
             <option value="">— Tất cả cơ sở —</option>
-            {houses.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name}
-              </option>
-            ))}
+            {houses.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
           </select>
-        </div>
-      </div>
 
-      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-1 flex-wrap gap-2">
-          <div className="relative min-w-[220px] flex-1 sm:max-w-sm"><Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />{/* `.input` in globals.css sets the `padding` shorthand, which is emitted after
-              Tailwind's utilities and resets `pl-9` to 12px — putting the placeholder
-              underneath the search icon. `!pl-9` wins that tie. Fixed here rather than by
-              moving `.input` into @layer components, which would also let w-28/flex-1/
-              text-xs start overriding it and shift unrelated inputs across the app. */}
-          <input className="input w-full !pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm phòng hoặc khách thuê" /></div>
-          {facilityIdFilter && facilityBlocks.length > 1 ? <select aria-label="Lọc theo dãy" value={blockFilter} onChange={(event) => setBlockFilter(event.target.value)} className="input w-auto min-w-[180px]"><option value="">Tất cả dãy</option><option value="unassigned">Chưa phân dãy</option>{facilityBlocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}</select> : null}
+          {facilityIdFilter && facilityBlocks.length > 1 ? (
+            <select aria-label="Lọc theo dãy" value={blockFilter} onChange={(event) => setBlockFilter(event.target.value)} className="input !w-auto min-w-[150px]">
+              <option value="">Tất cả dãy</option>
+              <option value="unassigned">Chưa phân dãy</option>
+              {facilityBlocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}
+            </select>
+          ) : null}
+
+          <div className="ml-auto inline-flex w-fit rounded-[8px] border border-slate-200 bg-white p-1" role="group" aria-label="Chế độ hiển thị">
+            <Button size="sm" variant={view === "map" ? "primary" : "ghost"} icon={<LayoutGrid size={16} />} onClick={() => setView("map")}>
+              <span className="hidden sm:inline">Sơ đồ</span>
+            </Button>
+            <Button size="sm" variant={view === "list" ? "primary" : "ghost"} icon={<List size={16} />} onClick={() => setView("list")}>
+              <span className="hidden sm:inline">Danh sách</span>
+            </Button>
+          </div>
         </div>
-        <div className="inline-flex w-fit rounded-[8px] border border-slate-200 bg-white p-1" role="group" aria-label="Chế độ hiển thị"><button onClick={() => setView("map")} className={`inline-flex items-center gap-1.5 rounded-[6px] px-3 py-2 text-sm font-semibold ${view === "map" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}><LayoutGrid size={16} />Sơ đồ phòng</button><button onClick={() => setView("list")} className={`inline-flex items-center gap-1.5 rounded-[6px] px-3 py-2 text-sm font-semibold ${view === "list" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}><List size={16} />Danh sách</button></div>
+
+        {/* Status chips only earn their row once there is enough to sift. */}
+        {rooms.length > 4 ? (
+          <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+            {roomFilters.map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setRoomFilter(filter)}
+                className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ${roomFilter === filter ? filterPillActive : filterPillInactive}`}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {roomsQuery.isLoading && (
