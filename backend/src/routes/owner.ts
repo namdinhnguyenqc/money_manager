@@ -540,10 +540,39 @@ ownerRoutes.delete("/boarding-houses/:id/blocks/:blockId", async (c) => {
   const currentUser = c.get("user");
   const db = c.get("supabase");
   const blockId = c.req.param("blockId");
-  // Keeping rooms is intentional: they become "Không phân dãy" via ON DELETE SET NULL.
+
+  // A block may only be removed when nothing is being let from it. Vacant rooms
+  // simply fall back to "Không phân dãy" (ON DELETE SET NULL), but an occupied
+  // room would silently lose the location printed on its contract and shown to
+  // the tenant, so those block the delete and the owner is told which rooms.
+  const { data: rooms, error: roomsError } = await db
+    .from("rooms")
+    .select("name, status")
+    .eq("block_id", blockId)
+    .eq("user_id", currentUser.id);
+
+  if (roomsError) return c.json({ error: roomsError.message }, 500);
+
+  const occupied = (rooms ?? []).filter((room: any) => {
+    const status = String(room.status || "").trim().toLowerCase();
+    return status === "occupied" || status === "occupied_soon" || status === "reserved";
+  });
+
+  if (occupied.length > 0) {
+    const names = occupied.map((r: any) => r.name).filter(Boolean).join(", ");
+    return c.json(
+      {
+        error: `Không xoá được dãy: còn ${occupied.length} phòng đang thuê hoặc đã cọc (${names}). Hãy trả phòng hoặc chuyển các phòng này sang dãy khác trước.`,
+        code: "BLOCK_HAS_ACTIVE_ROOMS",
+        rooms: occupied.map((r: any) => r.name),
+      },
+      409,
+    );
+  }
+
   const { error } = await db.from("facility_blocks").delete().eq("id", blockId).eq("boarding_house_id", c.req.param("id")).eq("owner_id", currentUser.id);
   if (error) return c.json({ error: error.message }, 400);
-  return c.json({ ok: true });
+  return c.json({ ok: true, releasedRooms: (rooms ?? []).length });
 });
 
 ownerRoutes.post("/boarding-houses", async (c) => {
