@@ -516,27 +516,35 @@ export default function InvoicesPage() {
         <MetricCard label="Quá hạn" value={`${overdueCarryCount} hóa đơn`} tone="warning" />
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-        <button onClick={() => setSelectedHouse("all")} className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ${selectedHouse === "all" ? filterPillActive : filterPillInactive}`}>Tất cả cơ sở</button>
-        {houses.map((house) => (
-          <button key={house.id} onClick={() => setSelectedHouse(house.id)} className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ${selectedHouse === house.id ? filterPillActive : filterPillInactive}`}>
-            {house.name}
-          </button>
-        ))}
-      </div>
+      {/* Facility and status shared four rows on a phone before the first
+          invoice was visible. One surface now: facility as a select once there
+          is more than one, status chips beneath it. */}
+      <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        {houses.length > 1 ? (
+          <select
+            aria-label="Lọc theo cơ sở"
+            value={selectedHouse}
+            onChange={(event) => setSelectedHouse(event.target.value)}
+            className="input !w-auto min-w-[180px]"
+          >
+            <option value="all">Tất cả cơ sở</option>
+            {houses.map((house) => <option key={house.id} value={house.id}>{house.name}</option>)}
+          </select>
+        ) : null}
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {statusTabs.map((item) => (
-          <button key={item} onClick={() => setFilter(item)} className={`relative rounded-full border px-4 py-1.5 text-sm font-semibold transition-all ${filter === item ? filterPillActive : filterPillInactive}`}>
-            {item}
-            {item === "Chưa lập HĐ" && pendingRooms.length > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">{pendingRooms.length}</span>
-            )}
-            {item === "Quá hạn" && overdueCarryCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] text-white">{overdueCarryCount}</span>
-            )}
-          </button>
-        ))}
+        <div className={`flex flex-wrap gap-2 ${houses.length > 1 ? "mt-3 border-t border-slate-100 pt-3" : ""}`}>
+          {statusTabs.map((item) => (
+            <button key={item} onClick={() => setFilter(item)} className={`relative rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ${filter === item ? filterPillActive : filterPillInactive}`}>
+              {item}
+              {item === "Chưa lập HĐ" && pendingRooms.length > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">{pendingRooms.length}</span>
+              )}
+              {item === "Quá hạn" && overdueCarryCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] text-white">{overdueCarryCount}</span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {overdueCarryCount > 0 && (
