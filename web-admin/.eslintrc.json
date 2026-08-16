@@ -5,6 +5,17 @@
     "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
     "@next/next/no-img-element": "warn",
     "prefer-const": "warn",
-    "react-hooks/exhaustive-deps": "warn"
+    "react-hooks/exhaustive-deps": "warn",
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "JSXOpeningElement[name.name='button'] JSXAttribute[name.name='className'] Literal[value=/\\b(bg-(blue|slate|red|emerald|amber)-[0-9]{3}|h-(8|9|10|11|12)|py-2\\.5|py-3)\\b/]",
+        "message": "Dùng <Button> từ @/components/ui/Button thay vì tự viết class nút. Chiều cao và màu phải đến từ design-tokens, nếu không mỗi màn hình sẽ ra một cỡ nút khác nhau. Trường hợp thật sự không render được Button thì dùng buttonClasses()."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Link'] JSXAttribute[name.name='className'] Literal[value=/\\bbg-(blue|slate|red|emerald)-[0-9]{3}\\b/]",
+        "message": "Link trông như nút thì dùng <Button href=\"...\"> — nó render Link với đúng class của Button. Tự viết class là cách các nút điều hướng lệch chiều cao so với nút thật bên cạnh."
+      }
+    ]
   }
 }
