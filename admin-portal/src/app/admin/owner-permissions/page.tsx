@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ShieldCheck, RefreshCw, Save, CheckSquare, Square, Shield, Settings2, ShieldAlert } from "lucide-react";
+import Button from "@/components/ui/Button";
 import { apiClient } from "@/lib/api";
 
 // Owner operation features mapping
@@ -217,13 +218,6 @@ export default function OwnerPermissionsPage() {
               Thiết lập quyền hạn mặc định và giới hạn tài nguyên chung cho từng nhóm vai trò Owner.
             </p>
           </div>
-          <button
-            onClick={loadRoles}
-            className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition active:scale-95 shadow-sm"
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-            Làm mới
-          </button>
         </div>
 
         {error && (
@@ -357,14 +351,15 @@ export default function OwnerPermissionsPage() {
                   </div>
                 </div>
 
-                <button
+                <Button
+                  variant="warning"
+                  className="w-full"
                   onClick={handleSaveLimits}
-                  disabled={savingLimits}
-                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 py-2 text-xs font-bold text-white transition disabled:opacity-50 shadow-sm"
+                  loading={savingLimits}
+                  icon={<Save size={12} />}
                 >
-                  <Save size={12} />
-                  {savingLimits ? "Đang lưu..." : "Lưu hạn mức"}
-                </button>
+                  Lưu hạn mức
+                </Button>
               </div>
             )}
 
@@ -388,14 +383,15 @@ export default function OwnerPermissionsPage() {
                     className="w-full text-xs p-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 placeholder:text-slate-400"
                   />
                 </div>
-                <button
+                <Button
+                  className="w-full"
                   onClick={handleSave}
-                  disabled={saving || !reason.trim()}
-                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 py-2 text-xs font-bold text-white transition disabled:opacity-50 shadow-sm"
+                  disabled={!reason.trim()}
+                  loading={saving}
+                  icon={<Save size={13} />}
                 >
-                  <Save size={13} />
-                  {saving ? "Đang lưu..." : "Lưu bộ quyền"}
-                </button>
+                  Lưu bộ quyền
+                </Button>
               </div>
             )}
           </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { CheckCircle2, Eye, RefreshCw, UserRound, XCircle, Sparkles, ShieldCheck, Sliders, CheckSquare, Square, Search, ShieldAlert } from "lucide-react";
 import { apiClient } from "@/lib/api";
+import Button from "@/components/ui/Button";
 
 // Owner operation features mapping
 const OWNER_FEATURES = [
@@ -430,13 +431,6 @@ export default function OwnerApprovalsPage() {
                 Đang hoạt động (Active)
               </button>
             </div>
-            <button
-              onClick={load}
-              className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition active:scale-95 shadow-sm"
-            >
-              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-              Làm mới
-            </button>
           </div>
         </div>
 
@@ -462,13 +456,9 @@ export default function OwnerApprovalsPage() {
                 className="w-full text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 placeholder:text-slate-400"
               />
             </div>
-            <button
-              type="submit"
-              disabled={searching}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-xs font-bold text-white transition active:scale-95 disabled:opacity-60 shadow-sm"
-            >
-              {searching ? <RefreshCw size={12} className="animate-spin" /> : "Tìm kiếm"}
-            </button>
+            <Button type="submit" size="sm" loading={searching}>
+              Tìm kiếm
+            </Button>
           </form>
 
           {searchSuccess && (
@@ -495,14 +485,14 @@ export default function OwnerApprovalsPage() {
                         <div className="text-[10px] text-slate-400 mt-0.5">{u.email}</div>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button
+                        <Button
                           type="button"
-                          disabled={promotingId === u.id}
+                          size="sm"
+                          loading={promotingId === u.id}
                           onClick={() => promoteUserToOwner(u.id, u.email)}
-                          className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] transition disabled:opacity-60"
                         >
-                          {promotingId === u.id ? "Đang nâng..." : "Lên Owner"}
-                        </button>
+                          Lên Owner
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -586,31 +576,32 @@ export default function OwnerApprovalsPage() {
                           </td>
                           <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                             <div className="flex justify-end gap-1.5">
-                              <button
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={() => setSelectedId(item.id)}
-                                className="inline-flex items-center justify-center p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition"
                                 title="Xem chi tiết"
-                              >
-                                <Eye size={13} />
-                              </button>
+                                icon={<Eye size={13} />}
+                              />
                               {filterStatus === "PENDING_APPROVAL" && (
                                 <>
-                                  <button
-                                    disabled={savingId === item.id}
+                                  <Button
+                                    size="sm"
+                                    loading={savingId === item.id}
                                     onClick={() => updateApproval(item.id, "approve")}
-                                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-sm transition disabled:opacity-50"
+                                    icon={<CheckCircle2 size={11} />}
                                   >
-                                    <CheckCircle2 size={11} />
                                     Duyệt
-                                  </button>
-                                  <button
-                                    disabled={savingId === item.id}
+                                  </Button>
+                                  <Button
+                                    variant="danger"
+                                    size="sm"
+                                    loading={savingId === item.id}
                                     onClick={() => updateApproval(item.id, "reject")}
-                                    className="inline-flex items-center gap-1 rounded-lg bg-rose-600 hover:bg-rose-700 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-sm transition disabled:opacity-50"
+                                    icon={<XCircle size={11} />}
                                   >
-                                    <XCircle size={11} />
                                     Từ chối
-                                  </button>
+                                  </Button>
                                 </>
                               )}
                             </div>
@@ -749,37 +740,37 @@ export default function OwnerApprovalsPage() {
                           {/* Action Button */}
                           {selectedItem.status === "PENDING_APPROVAL" ? (
                             <div className="space-y-2 pt-1 border-t border-slate-100 mt-2">
-                              <button
-                                disabled={savingId === selectedItem.id}
+                              <Button
+                                className="w-full"
+                                loading={savingId === selectedItem.id}
                                 onClick={() => updateApproval(selectedItem.id, "approve")}
-                                className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 py-2 text-xs font-bold text-white disabled:opacity-65 transition"
+                                icon={<CheckCircle2 size={13} />}
                               >
-                                <CheckCircle2 size={13} />
-                                {savingId === selectedItem.id ? "Đang duyệt..." : `Duyệt & gán gói ${selectedPlan === "premium" ? "Premium ✦" : "Basic"}`}
-                              </button>
-                              <button
-                                disabled={savingId === selectedItem.id}
+                                {`Duyệt & gán gói ${selectedPlan === "premium" ? "Premium ✦" : "Basic"}`}
+                              </Button>
+                              <Button
+                                variant="danger-ghost"
+                                className="w-full border border-red-100"
+                                loading={savingId === selectedItem.id}
                                 onClick={() => updateApproval(selectedItem.id, "reject")}
-                                className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-100 bg-white hover:bg-red-50 py-2 text-xs font-bold text-red-600 disabled:opacity-65 transition"
+                                icon={<XCircle size={12} />}
                               >
-                                <XCircle size={12} />
                                 Từ chối hồ sơ
-                              </button>
+                              </Button>
                             </div>
                           ) : (
-                            <button
+                            <Button
                               type="button"
+                              variant="secondary"
+                              className="w-full"
                               onClick={handleUpdatePlan}
-                              disabled={updatingPlan || selectedPlan === (selectedItem.plan ?? (selectedItem.adminNote?.includes("premium") ? "premium" : "basic"))}
-                              className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-40 shadow-sm"
+                              loading={updatingPlan}
+                              disabled={selectedPlan === (selectedItem.plan ?? (selectedItem.adminNote?.includes("premium") ? "premium" : "basic"))}
                             >
-                              {updatingPlan
-                                ? "Đang lưu..."
-                                : selectedPlan === (selectedItem.plan ?? (selectedItem.adminNote?.includes("premium") ? "premium" : "basic"))
-                                  ? "Gói không đổi"
-                                  : `Chuyển sang ${selectedPlan === "premium" ? "Premium ✦" : "Basic"}`
-                              }
-                            </button>
+                              {selectedPlan === (selectedItem.plan ?? (selectedItem.adminNote?.includes("premium") ? "premium" : "basic"))
+                                ? "Gói không đổi"
+                                : `Chuyển sang ${selectedPlan === "premium" ? "Premium ✦" : "Basic"}`}
+                            </Button>
                           )}
                         </div>
                       </div>
@@ -831,14 +822,15 @@ export default function OwnerApprovalsPage() {
                             </div>
                           )}
 
-                          <button
+                          <Button
                             type="button"
+                            variant="secondary"
+                            className="w-full"
                             onClick={handleSaveUserLimits}
-                            disabled={savingLimits}
-                            className="w-full py-2 bg-slate-950 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition disabled:opacity-40 shadow-sm active:scale-98"
+                            loading={savingLimits}
                           >
-                            {savingLimits ? "Đang lưu..." : "Lưu giới hạn riêng"}
-                          </button>
+                            Lưu giới hạn riêng
+                          </Button>
                         </div>
                       </div>
 

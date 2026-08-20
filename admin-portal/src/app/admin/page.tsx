@@ -6,7 +6,6 @@ import {
   Building2,
   CheckCircle2,
   FileText,
-  RefreshCw,
   Receipt,
   Users,
 } from "lucide-react";
@@ -187,15 +186,6 @@ export default function AdminDashboardPage() {
         subtitle="Bảng điều hành"
         title="Tổng quan vận hành"
         description="Theo dõi sức khỏe hệ thống, công nợ, hợp đồng và các tài khoản cần xử lý trên toàn bộ nền tảng."
-        actions={
-          <button
-            onClick={() => void load()}
-            className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            Làm mới
-          </button>
-        }
       />
 
       {error && (

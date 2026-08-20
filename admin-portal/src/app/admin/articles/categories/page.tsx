@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Plus, Edit2, Trash2, Save, X, Loader2 } from "lucide-react";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/utils/apiClient";
 import ArticlesModuleNav from "@/components/ArticlesModuleNav";
+import Button from "@/components/ui/Button";
 
 interface Category {
   id: string; name: string; slug: string; description: string | null;
@@ -57,9 +58,9 @@ export default function CategoriesPage() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-black uppercase text-slate-500">Danh mục bài viết</h2>
           {!editing && (
-            <button onClick={openNew} className="flex items-center gap-1.5 text-sm font-bold text-indigo-600">
-              <Plus size={16} /> Thêm danh mục
-            </button>
+            <Button onClick={openNew} variant="ghost" size="sm" icon={<Plus size={16} />}>
+              Thêm danh mục
+            </Button>
           )}
         </div>
 
@@ -76,10 +77,8 @@ export default function CategoriesPage() {
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} /> Hiển thị</label>
             </div>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setEditing(null)} className="px-3 py-1.5 text-sm font-semibold text-slate-500"><X size={14} className="inline mr-1" />Hủy</button>
-              <button onClick={save} disabled={saving} className="px-4 py-1.5 bg-indigo-600 text-white text-sm font-bold rounded-lg flex items-center gap-1.5">
-                {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Lưu
-              </button>
+              <Button onClick={() => setEditing(null)} variant="outline" size="sm" icon={<X size={14} />}>Hủy</Button>
+              <Button onClick={save} loading={saving} size="sm" icon={<Save size={14} />}>Lưu</Button>
             </div>
           </div>
         )}
@@ -97,8 +96,8 @@ export default function CategoriesPage() {
                   <p className="text-xs text-slate-400 font-mono">/tin-tuc/danh-muc/{c.slug}</p>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => openEdit(c)} className="p-1.5 text-slate-400 hover:text-indigo-600"><Edit2 size={15} /></button>
-                  <button onClick={() => remove(c)} className="p-1.5 text-slate-400 hover:text-red-500"><Trash2 size={15} /></button>
+                  <Button onClick={() => openEdit(c)} variant="ghost" size="sm" icon={<Edit2 size={15} />} className="px-2" />
+                  <Button onClick={() => remove(c)} variant="danger-ghost" size="sm" icon={<Trash2 size={15} />} className="px-2" />
                 </div>
               </div>
             ))}

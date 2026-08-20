@@ -10,6 +10,7 @@ import { apiGet, apiPost, apiPut, apiDelete } from "@/utils/apiClient";
 import Link from "next/link";
 import ArticlesModuleNav from "@/components/ArticlesModuleNav";
 import { autoFormatContent, sanitizeHtml } from "@/lib/sanitize";
+import Button from "@/components/ui/Button";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Article {
@@ -313,10 +314,9 @@ export default function AdminArticlesPage() {
       ) : (
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-6">
           <ArticlesModuleNav />
-          <button onClick={openCreateForm}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-4 py-2.5 rounded-xl shadow-sm transition-all shrink-0 mb-4">
-            <Plus size={18} /> Viết bài mới
-          </button>
+          <Button onClick={openCreateForm} icon={<Plus size={18} />} className="mb-4 shrink-0">
+            Viết bài mới
+          </Button>
         </div>
       )}
 
@@ -335,10 +335,9 @@ export default function AdminArticlesPage() {
       {isEditing ? (
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           <div className="p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-            <button onClick={() => setIsEditing(false)}
-              className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 text-sm font-semibold">
-              <ArrowLeft size={16} /> Quay lại danh sách
-            </button>
+            <Button onClick={() => setIsEditing(false)} variant="ghost" size="sm" icon={<ArrowLeft size={16} />}>
+              Quay lại danh sách
+            </Button>
             <span className="text-sm font-black text-slate-700">{editId ? "Chỉnh sửa bài viết" : "Viết bài mới"}</span>
           </div>
 
@@ -414,10 +413,9 @@ export default function AdminArticlesPage() {
                 <div className="border-t border-slate-100 pt-4">
                   <div className="flex items-center justify-between mb-3">
                     <label className={labelCls}>Câu hỏi thường gặp (FAQ — tạo schema FAQPage)</label>
-                    <button type="button" onClick={addFaq}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
-                      <Plus size={14} /> Thêm câu hỏi
-                    </button>
+                    <Button type="button" onClick={addFaq} variant="ghost" size="sm" icon={<Plus size={14} />}>
+                      Thêm câu hỏi
+                    </Button>
                   </div>
                   <div className="space-y-3">
                     {faqItems.map((item, i) => (
@@ -425,8 +423,9 @@ export default function AdminArticlesPage() {
                         <div className="flex gap-2">
                           <input value={item.q} onChange={(e) => updateFaq(i, "q", e.target.value)}
                             placeholder="Câu hỏi..." className={`${inputCls} flex-grow`} />
-                          <button type="button" onClick={() => removeFaq(i)}
-                            className="p-2 text-slate-400 hover:text-red-500"><X size={16} /></button>
+                          <Button type="button" onClick={() => removeFaq(i)} variant="danger-ghost" size="sm"
+                            icon={<X size={16} />} className="px-2" />
+
                         </div>
                         <textarea value={item.a} onChange={(e) => updateFaq(i, "a", e.target.value)}
                           rows={2} placeholder="Trả lời..." className={`${inputCls} resize-none`} />
@@ -496,7 +495,7 @@ export default function AdminArticlesPage() {
                       <input value={newTagInput} onChange={(e) => setNewTagInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addNewTag(); } }}
                         placeholder="Thêm tag mới..." className={`${inputCls} text-xs py-1.5`} />
-                      <button type="button" onClick={addNewTag} className="px-2 bg-slate-100 rounded-lg text-slate-600 hover:bg-slate-200"><Plus size={14} /></button>
+                      <Button type="button" onClick={addNewTag} variant="ghost" size="sm" icon={<Plus size={14} />} className="px-2" />
                     </div>
                   </Field>
                 </div>
@@ -508,8 +507,8 @@ export default function AdminArticlesPage() {
                     <div className="relative">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={form.image_url} alt="cover" className="w-full h-32 object-cover rounded-lg" />
-                      <button type="button" onClick={() => set({ image_url: "" })}
-                        className="absolute top-1 right-1 p-1 bg-white/90 rounded-full text-slate-600 hover:text-red-500"><X size={14} /></button>
+                      <Button type="button" onClick={() => set({ image_url: "" })} variant="danger-ghost" size="sm"
+                        icon={<X size={14} />} className="absolute top-1 right-1 !h-auto !p-1 rounded-full bg-white/90" />
                     </div>
                   ) : (
                     <label className="flex flex-col items-center justify-center gap-2 h-28 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-indigo-300 text-slate-400 hover:text-indigo-500">
@@ -581,12 +580,8 @@ export default function AdminArticlesPage() {
 
             {/* ACTIONS */}
             <div className="border-t border-slate-100 pt-5 flex justify-end gap-3 bg-slate-50 p-4 -mx-6 -mb-6 rounded-b-2xl">
-              <button type="button" onClick={() => setIsEditing(false)}
-                className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl">Hủy bỏ</button>
-              <button type="submit" disabled={actionLoading}
-                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold text-sm px-5 py-2.5 rounded-xl shadow-sm">
-                {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Lưu bài viết
-              </button>
+              <Button type="button" onClick={() => setIsEditing(false)} variant="outline">Hủy bỏ</Button>
+              <Button type="submit" loading={actionLoading} icon={<Save size={16} />}>Lưu bài viết</Button>
             </div>
           </form>
         </div>
@@ -614,7 +609,7 @@ export default function AdminArticlesPage() {
                 <option value="scheduled">Lên lịch</option>
                 <option value="archived">Lưu trữ</option>
               </select>
-              <button type="submit" className="bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm px-4 py-2 rounded-xl">Lọc</button>
+              <Button type="submit" variant="secondary">Lọc</Button>
             </div>
           </form>
 
@@ -681,10 +676,10 @@ export default function AdminArticlesPage() {
                               <a href={`${SITE_URL}/tin-tuc/${article.slug}`} target="_blank" rel="noreferrer"
                                 className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Xem bài"><Eye size={16} /></a>
                             )}
-                            <button onClick={() => openEditForm(article)}
-                              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Sửa"><Edit2 size={16} /></button>
-                            <button onClick={() => deleteArticle(article.id, article.title)}
-                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Xóa"><Trash2 size={16} /></button>
+                            <Button onClick={() => openEditForm(article)} variant="ghost" size="sm"
+                              icon={<Edit2 size={16} />} className="px-2" title="Sửa" />
+                            <Button onClick={() => deleteArticle(article.id, article.title)} variant="danger-ghost" size="sm"
+                              icon={<Trash2 size={16} />} className="px-2" title="Xóa" />
                           </div>
                         </td>
                       </tr>
@@ -700,10 +695,8 @@ export default function AdminArticlesPage() {
                   Hiển thị <b>{articles.length}</b> / <b>{totalCount}</b> bài viết
                 </span>
                 <div className="flex gap-2">
-                  <button disabled={page <= 1} onClick={() => setPage(page - 1)}
-                    className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-white disabled:bg-slate-100 disabled:text-slate-400">Trước</button>
-                  <button disabled={page >= totalPages} onClick={() => setPage(page + 1)}
-                    className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-white disabled:bg-slate-100 disabled:text-slate-400">Sau</button>
+                  <Button disabled={page <= 1} onClick={() => setPage(page - 1)} variant="outline" size="sm">Trước</Button>
+                  <Button disabled={page >= totalPages} onClick={() => setPage(page + 1)} variant="outline" size="sm">Sau</Button>
                 </div>
               </div>
             )}

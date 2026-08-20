@@ -75,9 +75,6 @@ export default function SuperAdminReportsPage() {
               <p className="text-sm text-slate-500">Ảnh chụp nhanh về người dùng và hoạt động gần đây.</p>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={loadData} className="rounded border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-blue-400 hover:text-blue-700">
-                Tải lại
-              </button>
               <Link href="/admin" className="text-sm font-semibold text-blue-700 hover:text-blue-800">Mở dashboard Admin</Link>
             </div>
           </div>

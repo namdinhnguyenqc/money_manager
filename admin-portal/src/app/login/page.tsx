@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { LogIn, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Button from "@/components/ui/Button";
 import Logo from "@/components/ui/Logo";
 import { API_URL } from "@/lib/api";
 import { setClientSession } from "@/utils/session";
@@ -94,13 +95,9 @@ export default function AdminLoginPage() {
             />
           </label>
           {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-          <button
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={loading}
-          >
-            <LogIn size={17} />
+          <Button className="w-full" size="lg" loading={loading} icon={<LogIn size={17} />}>
             {loading ? "Đang đăng nhập..." : "Đăng nhập Admin"}
-          </button>
+          </Button>
         </form>
       </section>
     </main>

@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Plus, Edit2, Trash2, Save, X, Loader2 } from "lucide-react";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/utils/apiClient";
 import ArticlesModuleNav from "@/components/ArticlesModuleNav";
+import Button from "@/components/ui/Button";
 
 interface Author {
   id: string; name: string; slug: string; title: string | null; bio: string | null; avatar_url: string | null;
@@ -57,9 +58,9 @@ export default function AuthorsPage() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-black uppercase text-slate-500">Tác giả</h2>
           {!editing && (
-            <button onClick={openNew} className="flex items-center gap-1.5 text-sm font-bold text-indigo-600">
-              <Plus size={16} /> Thêm tác giả
-            </button>
+            <Button onClick={openNew} variant="ghost" size="sm" icon={<Plus size={16} />}>
+              Thêm tác giả
+            </Button>
           )}
         </div>
 
@@ -72,10 +73,8 @@ export default function AuthorsPage() {
             <textarea value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} placeholder="Tiểu sử / chuyên môn (E-E-A-T)" rows={3} className={`${inputCls} resize-none`} />
             <input value={form.avatar_url} onChange={(e) => setForm({ ...form, avatar_url: e.target.value })} placeholder="URL ảnh đại diện" className={inputCls} />
             <div className="flex justify-end gap-2">
-              <button onClick={() => setEditing(null)} className="px-3 py-1.5 text-sm font-semibold text-slate-500"><X size={14} className="inline mr-1" />Hủy</button>
-              <button onClick={save} disabled={saving} className="px-4 py-1.5 bg-indigo-600 text-white text-sm font-bold rounded-lg flex items-center gap-1.5">
-                {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Lưu
-              </button>
+              <Button onClick={() => setEditing(null)} variant="outline" size="sm" icon={<X size={14} />}>Hủy</Button>
+              <Button onClick={save} loading={saving} size="sm" icon={<Save size={14} />}>Lưu</Button>
             </div>
           </div>
         )}
@@ -93,8 +92,8 @@ export default function AuthorsPage() {
                   <p className="text-xs text-slate-400">{a.title || "—"}</p>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => openEdit(a)} className="p-1.5 text-slate-400 hover:text-indigo-600"><Edit2 size={15} /></button>
-                  <button onClick={() => remove(a)} className="p-1.5 text-slate-400 hover:text-red-500"><Trash2 size={15} /></button>
+                  <Button onClick={() => openEdit(a)} variant="ghost" size="sm" icon={<Edit2 size={15} />} className="px-2" />
+                  <Button onClick={() => remove(a)} variant="danger-ghost" size="sm" icon={<Trash2 size={15} />} className="px-2" />
                 </div>
               </div>
             ))}
