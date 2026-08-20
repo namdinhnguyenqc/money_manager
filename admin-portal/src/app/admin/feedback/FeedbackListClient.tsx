@@ -140,10 +140,6 @@ export default function FeedbackListClient() {
             Xem toàn bộ danh sách, phân loại mức ưu tiên và chuyển sang các trang xử lý sự cố.
           </p>
         </div>
-        <button onClick={fetchReports} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
-          <RefreshCw size={14} />
-          Làm mới danh sách
-        </button>
       </div>
 
       {error && (

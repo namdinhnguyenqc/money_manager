@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Lock, Search, ShieldCheck, Trash2 } from "lucide-react";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import Button from "@/components/ui/Button";
+import { buttonSizes, buttonVariants } from "@/components/ui/design-tokens";
 import { API_URL } from "@/lib/api";
 import { translateUserRole, translateUserStatus } from "@/utils/translate";
 
@@ -213,12 +215,6 @@ export default function UsersPage() {
             <h2 className="text-base font-semibold text-slate-950">Danh sách người dùng</h2>
             <p className="mt-1 text-sm text-slate-500">{filteredUsers.length} bản ghi hiển thị</p>
           </div>
-          <button
-            onClick={load}
-            className="rounded-[8px] border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-          >
-            Tải lại
-          </button>
         </div>
 
         {loading ? (
@@ -302,13 +298,15 @@ export default function UsersPage() {
                         <div className="flex flex-wrap gap-2">
                           <Link
                             href={`/admin/users/${user.id}`}
-                            className="inline-flex items-center gap-1 rounded-[8px] border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                            className={`${buttonVariants.outline} ${buttonSizes.sm} inline-flex items-center`}
                           >
-                            <ShieldCheck size={14} />
+                            <ShieldCheck size={14} className="mr-1.5" />
                             Chi tiết
                           </Link>
-                          <button
+                          <Button
                             type="button"
+                            variant="outline"
+                            size="sm"
                             disabled={user.status === "DELETED"}
                             onClick={() =>
                               openConfirm({
@@ -318,13 +316,15 @@ export default function UsersPage() {
                                 userName: user.name,
                               })
                             }
-                            className="inline-flex items-center gap-1 rounded-[8px] border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            icon={<Lock size={14} />}
                           >
-                            <Lock size={14} />
                             {user.status === "BLOCKED" ? "Mở khóa" : "Khóa"}
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
+                            variant="danger-ghost"
+                            size="sm"
+                            className="border border-rose-200"
                             disabled={user.status === "DELETED"}
                             onClick={() =>
                               openConfirm({
@@ -333,11 +333,10 @@ export default function UsersPage() {
                                 userName: user.name,
                               })
                             }
-                            className="inline-flex items-center gap-1 rounded-[8px] border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            icon={<Trash2 size={14} />}
                           >
-                            <Trash2 size={14} />
                             Xóa mềm
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -350,20 +349,18 @@ export default function UsersPage() {
       </section>
 
       <div className="flex items-center gap-2">
-        <button
-          className="rounded-[8px] border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50"
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => setPage((current) => Math.max(1, current - 1))}
           disabled={page === 1}
         >
           Trước
-        </button>
+        </Button>
         <span className="text-sm text-slate-500">Trang {page}</span>
-        <button
-          className="rounded-[8px] border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-          onClick={() => setPage((current) => current + 1)}
-        >
+        <Button variant="outline" size="sm" onClick={() => setPage((current) => current + 1)}>
           Sau
-        </button>
+        </Button>
       </div>
 
       <ConfirmDialog

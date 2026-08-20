@@ -78,9 +78,6 @@ export default function SuperAdminUsersPage() {
             <p className="text-sm text-slate-500">Quản lý vai trò và theo dõi tài khoản hệ thống.</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={loadUsers} className="rounded border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-blue-400 hover:text-blue-700">
-              Tải lại
-            </button>
             <Link href="/admin/users" className="text-sm font-semibold text-blue-700 hover:text-blue-800">Mở giao diện Admin</Link>
           </div>
         </div>

@@ -3,7 +3,9 @@
 import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowDown, ArrowLeft, ArrowUp, Lock, Trash2, Unlock } from "lucide-react";
+import { ArrowLeft, Lock, Trash2, Unlock } from "lucide-react";
+import Button from "@/components/ui/Button";
+import { selectBase } from "@/components/ui/design-tokens";
 import { API_URL } from "@/lib/api";
 import { translateUserRole, translateUserStatus } from "@/utils/translate";
 
@@ -188,75 +190,54 @@ export default function UserDetailPage() {
 
       <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6">
         <h2 className="mb-4 font-semibold text-slate-700">Hành động quản trị</h2>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {user.status === "ACTIVE" ? (
-            <button
+            <Button
+              variant="danger-ghost"
+              className="border border-red-200 bg-red-50"
               onClick={() => updateStatus("BLOCKED")}
               disabled={actionLoading}
-              className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+              icon={<Lock size={15} />}
             >
-              <Lock size={15} />
               Khóa tài khoản
-            </button>
+            </Button>
           ) : user.status === "BLOCKED" ? (
-            <button
+            <Button
+              variant="outline"
+              className="border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
               onClick={() => updateStatus("ACTIVE")}
               disabled={actionLoading}
-              className="inline-flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100 disabled:opacity-50"
+              icon={<Unlock size={15} />}
             >
-              <Unlock size={15} />
               Mở khóa
-            </button>
+            </Button>
           ) : null}
 
-          {user.role === "USER" && (
-            <button
-              onClick={() => updateRole("OWNER")}
-              disabled={actionLoading}
-              className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-            >
-              Chuyển thành Owner
-            </button>
-          )}
-          {user.role === "USER" && (
-            <button
-              onClick={() => updateRole("ADMIN")}
-              disabled={actionLoading}
-              className="inline-flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50"
-            >
-              <ArrowUp size={15} />
-              Nâng lên Admin
-            </button>
-          )}
-          {user.role === "ADMIN" && (
-            <button
-              onClick={() => updateRole("USER")}
-              disabled={actionLoading}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
-            >
-              <ArrowDown size={15} />
-              Hạ xuống User
-            </button>
-          )}
-          {user.role === "OWNER" && (
-            <button
-              onClick={() => updateRole("USER")}
-              disabled={actionLoading}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
-            >
-              Hạ xuống User
-            </button>
+          {(user.role === "USER" || user.role === "ADMIN" || user.role === "OWNER") && (
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              Vai trò:
+              <select
+                value={user.role}
+                disabled={actionLoading}
+                onChange={(e) => updateRole(e.target.value)}
+                className={`${selectBase} w-auto`}
+              >
+                <option value="USER">Người dùng</option>
+                <option value="OWNER">Chủ trọ</option>
+                {(user.role === "ADMIN" || user.role === "USER") && <option value="ADMIN">Quản trị</option>}
+              </select>
+            </label>
           )}
 
           {user.status !== "DELETED" && (
-            <button
+            <Button
+              variant="ghost"
               onClick={softDelete}
               disabled={actionLoading}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+              icon={<Trash2 size={15} />}
             >
-              <Trash2 size={15} />
               Xóa mềm
-            </button>
+            </Button>
           )}
         </div>
         {actionLoading && <p className="mt-3 text-sm text-slate-500">Đang xử lý...</p>}

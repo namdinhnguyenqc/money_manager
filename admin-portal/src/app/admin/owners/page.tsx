@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Search, Users } from "lucide-react";
 import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import DataTable from "@/components/ui/DataTable";
 import PageHeader from "@/components/ui/PageHeader";
@@ -74,9 +75,7 @@ export default function AdminOwnersPage() {
                 className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm outline-none focus:border-blue-500"
               />
             </div>
-            <button onClick={search} className="h-10 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white">
-              Tìm
-            </button>
+            <Button onClick={search}>Tìm</Button>
           </div>
         }
       />
