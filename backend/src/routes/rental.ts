@@ -6,7 +6,7 @@ import type { AppEnv } from "../types.js";
 import { parseJson, toId } from "../utils/validation.js";
 import { logAuditAction } from "../utils/audit.js";
 import { updateWalletBalance } from "../utils/wallet.js";
-import { summarizeRoomInvoices, buildAppliedServicesSnapshot } from "../utils/billing.js";
+import { summarizeRoomInvoices, buildAppliedServicesSnapshot, applyDuePriceChanges } from "../utils/billing.js";
 import { env } from "../config/env.js";
 
 
@@ -74,6 +74,7 @@ const addServiceSchema = z.object({
   unit_price_ac: z.number().nonnegative().optional(),
   unit: z.string().optional(),
   icon: z.string().optional(),
+  note: z.string().optional(),
 });
 
 const updateServiceSchema = z
@@ -86,8 +87,38 @@ const updateServiceSchema = z
     unit: z.string().optional(),
     active: z.boolean().optional(),
     type: z.enum(["fixed", "per_person", "per_room", "metered", "meter"]).optional(),
+    note: z.string().optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, "No fields to update");
+
+const priceUpdateSchema = z.object({
+  newUnitPrice: z.coerce.number().nonnegative(),
+  newUnitPriceAc: z.coerce.number().nonnegative().optional(),
+  effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+const addRoomServiceSchema = z.object({
+  serviceId: z.string().min(1),
+  quantity: z.coerce.number().positive().optional(),
+  customUnitPrice: z.coerce.number().nonnegative().optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+
+const updateRoomServiceSchema = z
+  .object({
+    quantity: z.coerce.number().positive().optional(),
+    customUnitPrice: z.coerce.number().nonnegative().nullable().optional(),
+    status: z.enum(["active", "inactive"]).optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, "No fields to update");
+
+const addRoomAdjustmentSchema = z.object({
+  label: z.string().min(1),
+  amount: z.coerce.number().nonnegative(),
+  periodMonth: z.coerce.number().int().min(1).max(12),
+  periodYear: z.coerce.number().int().min(2000),
+  note: z.string().optional(),
+});
 
 const addContractSchema = z.object({
   roomId: z.string().min(1),
@@ -893,9 +924,9 @@ rentalRoutes.delete("/tenants/:id", async (c) => {
 rentalRoutes.get("/services", async (c) => {
   const user = c.get("user");
 
-
   const activeOnly = c.req.query("activeOnly") !== "0";
   const db = c.get("supabase");
+  await applyDuePriceChanges(db, user.id);
 
   let query = db.from("services").select("*").eq("user_id", user.id).order("name", { ascending: true });
   if (activeOnly) query = query.eq("active", true);
@@ -931,6 +962,7 @@ rentalRoutes.post("/services", async (c) => {
     unit_price_ac: unitPriceAc,
     unit: parsed.data.unit ?? "",
     icon: parsed.data.icon ?? "⚙️",
+    note: parsed.data.note ?? null,
     active: true,
   }).select("*").single();
 
@@ -955,6 +987,7 @@ rentalRoutes.patch("/services/:id", async (c) => {
   if (parsed.data.unit !== undefined) payload.unit = parsed.data.unit;
   if (parsed.data.type !== undefined) payload.type = parsed.data.type;
   if (parsed.data.active !== undefined) payload.active = parsed.data.active;
+  if (parsed.data.note !== undefined) payload.note = parsed.data.note;
   payload.updated_at = new Date().toISOString();
 
 
@@ -971,10 +1004,228 @@ rentalRoutes.delete("/services/:id", async (c) => {
   const id = toId(c.req.param("id"));
   if (!id) return c.json({ error: "Invalid service id" }, 400);
 
+  const db = c.get("supabase");
 
+  const [contractServicesRes, invoiceItemsRes, roomServicesRes] = await Promise.all([
+    db.from("contract_services").select("id").eq("service_id", id).limit(1),
+    db.from("invoice_items").select("id").eq("service_id", id).limit(1),
+    db.from("room_services").select("id").eq("service_id", id).limit(1),
+  ]);
+  const inUse = (contractServicesRes.data?.length ?? 0) > 0
+    || (invoiceItemsRes.data?.length ?? 0) > 0
+    || (roomServicesRes.data?.length ?? 0) > 0;
+  if (inUse) {
+    return c.json({
+      error: "Dịch vụ đã được sử dụng trong hợp đồng, hóa đơn hoặc phòng. Hãy ngưng sử dụng thay vì xóa.",
+      code: "SERVICE_IN_USE",
+    }, 409);
+  }
+
+  const { error } = await db.from("services").delete().eq("id", id).eq("user_id", user.id);
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ ok: true });
+});
+
+rentalRoutes.post("/services/:id/price-update", async (c) => {
+  const user = c.get("user");
+  const id = toId(c.req.param("id"));
+  if (!id) return c.json({ error: "Invalid service id" }, 400);
+
+  const parsed = await parseJson(c, priceUpdateSchema);
+  if (!parsed.ok) return parsed.response;
 
   const db = c.get("supabase");
-  const { error } = await db.from("services").delete().eq("id", id).eq("user_id", user.id);
+  const serviceRes = await db.from("services").select("*").eq("id", id).eq("user_id", user.id).maybeSingle();
+  if (serviceRes.error) return c.json({ error: serviceRes.error.message }, 500);
+  if (!serviceRes.data) return c.json({ error: "Service not found" }, 404);
+
+  const newUnitPriceAc = parsed.data.newUnitPriceAc ?? Number(serviceRes.data.unit_price_ac || 0);
+  const today = new Date().toISOString().slice(0, 10);
+  const isImmediate = parsed.data.effectiveDate <= today;
+
+  const historyRes = await db
+    .from("service_price_history")
+    .insert({
+      user_id: user.id,
+      service_id: id,
+      old_unit_price: serviceRes.data.unit_price,
+      old_unit_price_ac: serviceRes.data.unit_price_ac,
+      new_unit_price: parsed.data.newUnitPrice,
+      new_unit_price_ac: newUnitPriceAc,
+      effective_date: parsed.data.effectiveDate,
+      applied: isImmediate,
+      updated_by: user.id,
+    })
+    .select("*")
+    .single();
+  if (historyRes.error) return c.json({ error: historyRes.error.message }, 400);
+
+  if (isImmediate) {
+    const updateRes = await db
+      .from("services")
+      .update({ unit_price: parsed.data.newUnitPrice, unit_price_ac: newUnitPriceAc, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .select("*")
+      .single();
+    if (updateRes.error) return c.json({ error: updateRes.error.message }, 400);
+    return c.json({ data: { service: updateRes.data, history: historyRes.data } });
+  }
+
+  return c.json({ data: { service: serviceRes.data, history: historyRes.data } });
+});
+
+rentalRoutes.get("/services/:id/price-history", async (c) => {
+  const user = c.get("user");
+  const id = toId(c.req.param("id"));
+  if (!id) return c.json({ error: "Invalid service id" }, 400);
+
+  const db = c.get("supabase");
+  const { data, error } = await db
+    .from("service_price_history")
+    .select("*")
+    .eq("service_id", id)
+    .eq("user_id", user.id)
+    .order("effective_date", { ascending: false });
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ data: data ?? [] });
+});
+
+// ═══════════════════════════════════════════════
+// ROOM-LEVEL SERVICES & AD-HOC ADJUSTMENTS
+// ═══════════════════════════════════════════════
+
+rentalRoutes.get("/rooms/:roomId/services", async (c) => {
+  const user = c.get("user");
+  const roomId = toId(c.req.param("roomId"));
+  if (!roomId) return c.json({ error: "Invalid room id" }, 400);
+
+  const db = c.get("supabase");
+  const { data, error } = await db
+    .from("room_services")
+    .select("*,services(name,unit,unit_price,unit_price_ac,active)")
+    .eq("room_id", roomId)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ data: data ?? [] });
+});
+
+rentalRoutes.post("/rooms/:roomId/services", async (c) => {
+  const user = c.get("user");
+  const roomId = toId(c.req.param("roomId"));
+  if (!roomId) return c.json({ error: "Invalid room id" }, 400);
+
+  const parsed = await parseJson(c, addRoomServiceSchema);
+  if (!parsed.ok) return parsed.response;
+
+  const db = c.get("supabase");
+  const roomRes = await db.from("rooms").select("id").eq("id", roomId).eq("user_id", user.id).maybeSingle();
+  if (roomRes.error) return c.json({ error: roomRes.error.message }, 500);
+  if (!roomRes.data) return c.json({ error: "Room not found" }, 404);
+
+  const { data, error } = await db
+    .from("room_services")
+    .insert({
+      user_id: user.id,
+      room_id: roomId,
+      service_id: parsed.data.serviceId,
+      quantity: parsed.data.quantity ?? 1,
+      custom_unit_price: parsed.data.customUnitPrice ?? null,
+      start_date: parsed.data.startDate ?? new Date().toISOString().slice(0, 10),
+      status: "active",
+    })
+    .select("*,services(name,unit,unit_price,unit_price_ac,active)")
+    .single();
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ data }, 201);
+});
+
+rentalRoutes.patch("/room-services/:id", async (c) => {
+  const user = c.get("user");
+  const id = toId(c.req.param("id"));
+  if (!id) return c.json({ error: "Invalid id" }, 400);
+
+  const parsed = await parseJson(c, updateRoomServiceSchema);
+  if (!parsed.ok) return parsed.response;
+
+  const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (parsed.data.quantity !== undefined) payload.quantity = parsed.data.quantity;
+  if (parsed.data.customUnitPrice !== undefined) payload.custom_unit_price = parsed.data.customUnitPrice;
+  if (parsed.data.status !== undefined) payload.status = parsed.data.status;
+
+  const db = c.get("supabase");
+  const { data, error } = await db
+    .from("room_services")
+    .update(payload)
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("*,services(name,unit,unit_price,unit_price_ac,active)")
+    .single();
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ data });
+});
+
+rentalRoutes.get("/rooms/:roomId/adjustments", async (c) => {
+  const user = c.get("user");
+  const roomId = toId(c.req.param("roomId"));
+  if (!roomId) return c.json({ error: "Invalid room id" }, 400);
+
+  const db = c.get("supabase");
+  const { data, error } = await db
+    .from("room_adjustments")
+    .select("*")
+    .eq("room_id", roomId)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ data: data ?? [] });
+});
+
+rentalRoutes.post("/rooms/:roomId/adjustments", async (c) => {
+  const user = c.get("user");
+  const roomId = toId(c.req.param("roomId"));
+  if (!roomId) return c.json({ error: "Invalid room id" }, 400);
+
+  const parsed = await parseJson(c, addRoomAdjustmentSchema);
+  if (!parsed.ok) return parsed.response;
+
+  const db = c.get("supabase");
+  const roomRes = await db.from("rooms").select("id").eq("id", roomId).eq("user_id", user.id).maybeSingle();
+  if (roomRes.error) return c.json({ error: roomRes.error.message }, 500);
+  if (!roomRes.data) return c.json({ error: "Room not found" }, 404);
+
+  const { data, error } = await db
+    .from("room_adjustments")
+    .insert({
+      user_id: user.id,
+      room_id: roomId,
+      label: parsed.data.label,
+      amount: parsed.data.amount,
+      period_month: parsed.data.periodMonth,
+      period_year: parsed.data.periodYear,
+      note: parsed.data.note ?? null,
+    })
+    .select("*")
+    .single();
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ data }, 201);
+});
+
+rentalRoutes.delete("/room-adjustments/:id", async (c) => {
+  const user = c.get("user");
+  const id = toId(c.req.param("id"));
+  if (!id) return c.json({ error: "Invalid id" }, 400);
+
+  const db = c.get("supabase");
+  const existing = await db.from("room_adjustments").select("id,invoice_id").eq("id", id).eq("user_id", user.id).maybeSingle();
+  if (existing.error) return c.json({ error: existing.error.message }, 500);
+  if (!existing.data) return c.json({ error: "Not found" }, 404);
+  if (existing.data.invoice_id) {
+    return c.json({ error: "Khoản phí này đã được đưa vào hóa đơn, không thể xóa." }, 409);
+  }
+
+  const { error } = await db.from("room_adjustments").delete().eq("id", id).eq("user_id", user.id);
   if (error) return c.json({ error: error.message }, 400);
   return c.json({ ok: true });
 });

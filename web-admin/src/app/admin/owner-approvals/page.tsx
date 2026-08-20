@@ -380,10 +380,6 @@ export default function OwnerApprovalsPage() {
                 Đang hoạt động (Active)
               </button>
             </div>
-            <button onClick={load} className="inline-flex items-center gap-2 rounded-[8px] border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700">
-              <RefreshCw size={16} />
-              Tải lại
-            </button>
           </div>
         </div>
 

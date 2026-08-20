@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Zap, Pencil, Trash2, ToggleLeft, ToggleRight, X, ChevronDown, Sparkles } from "lucide-react";
+import { Plus, Zap, Pencil, Trash2, ToggleLeft, ToggleRight, X, Sparkles, Tag, History } from "lucide-react";
 import {
   loadServiceConfigs,
   createService,
@@ -10,9 +10,12 @@ import {
   deleteService,
   toggleServiceStatus,
   seedDefaultServices,
+  updateServicePrice,
+  loadServicePriceHistory,
   describeServiceType,
   formatMoney,
   ServiceConfig,
+  ServicePriceHistoryEntry,
 } from "@/lib/rentalOps";
 import { useToast } from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
@@ -44,6 +47,7 @@ type ServiceForm = {
   unit_price_ac: string;
   unit: string;
   icon: string;
+  note: string;
 };
 
 const defaultForm = (): ServiceForm => ({
@@ -53,7 +57,10 @@ const defaultForm = (): ServiceForm => ({
   unit_price_ac: "",
   unit: "",
   icon: "🔧",
+  note: "",
 });
+
+const todayStr = () => new Date().toISOString().slice(0, 10);
 
 export default function ServicesPage() {
   const { showToast } = useToast();
@@ -65,6 +72,10 @@ export default function ServicesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
+  const [priceServiceId, setPriceServiceId] = useState<string | null>(null);
+  const [priceForm, setPriceForm] = useState({ newUnitPrice: "", newUnitPriceAc: "", effectiveDate: todayStr() });
+  const [savingPrice, setSavingPrice] = useState(false);
+  const [historyServiceId, setHistoryServiceId] = useState<string | null>(null);
 
   const servicesQuery = useQuery({
     queryKey: ["services"],
@@ -111,6 +122,7 @@ export default function ServicesPage() {
       unit_price_ac: String(svc.unit_price_ac || ""),
       unit: svc.unit || "",
       icon: svc.icon || "🔧",
+      note: svc.note || "",
     });
     setFormOpen(true);
   };
@@ -136,6 +148,7 @@ export default function ServicesPage() {
         unit_price_ac: form.unit_price_ac ? Number(form.unit_price_ac) : undefined,
         unit: form.unit.trim() || undefined,
         icon: form.icon || undefined,
+        note: form.note.trim() || undefined,
         active: true,
       };
       if (editingService) {
@@ -175,6 +188,31 @@ export default function ServicesPage() {
     } finally {
       setDeletingId(null);
       setConfirmDeleteId(null);
+    }
+  };
+
+  const priceService = services.find((s) => s.id === priceServiceId) || null;
+
+  const handleSavePrice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!priceService) return;
+    const newUnitPrice = Number(priceForm.newUnitPrice);
+    if (!newUnitPrice || newUnitPrice <= 0) return showToast("Vui lòng nhập giá mới hợp lệ.", "error");
+    setSavingPrice(true);
+    try {
+      await updateServicePrice(priceService.id, {
+        newUnitPrice,
+        newUnitPriceAc: priceForm.newUnitPriceAc ? Number(priceForm.newUnitPriceAc) : undefined,
+        effectiveDate: priceForm.effectiveDate,
+      });
+      queryClient.invalidateQueries({ queryKey: ["services"] });
+      const isFuture = priceForm.effectiveDate > todayStr();
+      showToast(isFuture ? "Đã lên lịch giá mới, sẽ tự áp dụng đúng ngày hiệu lực." : "Đã cập nhật giá dịch vụ.", "success");
+      setPriceServiceId(null);
+    } catch (err: any) {
+      showToast(err?.message || "Lỗi khi cập nhật giá.", "error");
+    } finally {
+      setSavingPrice(false);
     }
   };
 
@@ -265,6 +303,14 @@ export default function ServicesPage() {
                   ))}
                 </Select>
               </div>
+              <div className="sm:col-span-2">
+                <Label>Ghi chú (tuỳ chọn)</Label>
+                <Input
+                  placeholder="Ghi chú nội bộ về dịch vụ này..."
+                  value={form.note}
+                  onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
+                />
+              </div>
             </div>
             <div className="flex gap-3 pt-1">
               <Button type="button" variant="outline" onClick={closeForm}>Hủy</Button>
@@ -351,6 +397,21 @@ export default function ServicesPage() {
                   >
                     <Pencil size={13} /> Sửa
                   </button>
+                  <button
+                    onClick={() => {
+                      setPriceServiceId(svc.id);
+                      setPriceForm({ newUnitPrice: String(svc.unit_price || ""), newUnitPriceAc: String(svc.unit_price_ac || ""), effectiveDate: todayStr() });
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
+                  >
+                    <Tag size={13} /> Cập nhật giá
+                  </button>
+                  <button
+                    onClick={() => setHistoryServiceId(svc.id)}
+                    className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
+                  >
+                    <History size={13} /> Lịch sử giá
+                  </button>
                 </div>
                 <div>
                   {confirmDeleteId === svc.id ? (
@@ -384,6 +445,113 @@ export default function ServicesPage() {
           ))}
         </div>
       )}
+
+      {priceService && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
+          role="presentation"
+          onMouseDown={(event) => { if (event.target === event.currentTarget) setPriceServiceId(null); }}
+        >
+          <div role="dialog" aria-modal="true" aria-labelledby="price-update-title" className="w-full max-w-md rounded-[12px] bg-white p-5 shadow-xl sm:p-6">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 id="price-update-title" className="text-xl font-bold text-slate-950">Cập nhật giá — {priceService.name}</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Giá hiện tại: {formatMoney(priceService.unit_price)}. Bill cũ giữ nguyên giá cũ, chỉ bill từ kỳ áp dụng mới trở đi dùng giá mới.
+                </p>
+              </div>
+              <button type="button" onClick={() => setPriceServiceId(null)} aria-label="Đóng form" className="rounded-[8px] p-2 text-slate-500 hover:bg-slate-100">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleSavePrice} className="space-y-4">
+              <div>
+                <Label>Giá mới (₫) *</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={priceForm.newUnitPrice}
+                  onChange={(e) => setPriceForm((p) => ({ ...p, newUnitPrice: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <Label>Giá máy lạnh mới (₫, tuỳ chọn)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={priceForm.newUnitPriceAc}
+                  onChange={(e) => setPriceForm((p) => ({ ...p, newUnitPriceAc: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Ngày áp dụng *</Label>
+                <Input
+                  type="date"
+                  value={priceForm.effectiveDate}
+                  onChange={(e) => setPriceForm((p) => ({ ...p, effectiveDate: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" onClick={() => setPriceServiceId(null)}>Hủy</Button>
+                <Button type="submit" variant="primary" loading={savingPrice} disabled={savingPrice}>Lưu giá mới</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {historyServiceId && (
+        <PriceHistoryModal serviceId={historyServiceId} onClose={() => setHistoryServiceId(null)} />
+      )}
+    </div>
+  );
+}
+
+function PriceHistoryModal({ serviceId, onClose }: { serviceId: string; onClose: () => void }) {
+  const historyQuery = useQuery({
+    queryKey: ["service-price-history", serviceId],
+    queryFn: () => loadServicePriceHistory(serviceId),
+  });
+  const history = historyQuery.data ?? [];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
+      role="presentation"
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+    >
+      <div role="dialog" aria-modal="true" aria-labelledby="price-history-title" className="w-full max-w-lg rounded-[12px] bg-white p-5 shadow-xl sm:p-6">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <h2 id="price-history-title" className="text-xl font-bold text-slate-950">Lịch sử giá</h2>
+          <button type="button" onClick={onClose} aria-label="Đóng" className="rounded-[8px] p-2 text-slate-500 hover:bg-slate-100">
+            <X size={18} />
+          </button>
+        </div>
+        {historyQuery.isLoading ? (
+          <div className="py-8 text-center text-sm text-slate-400">Đang tải...</div>
+        ) : history.length === 0 ? (
+          <div className="py-8 text-center text-sm text-slate-400">Chưa có lần đổi giá nào.</div>
+        ) : (
+          <div className="max-h-96 space-y-2 overflow-y-auto">
+            {history.map((h: ServicePriceHistoryEntry) => (
+              <div key={h.id} className="rounded-lg border border-slate-100 p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 line-through">{formatMoney(h.old_unit_price)}</span>
+                  <span className="font-bold text-slate-900">{formatMoney(h.new_unit_price)}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-xs text-slate-400">
+                  <span>Áp dụng từ {h.effective_date}</span>
+                  <span className={h.applied ? "font-semibold text-emerald-600" : "font-semibold text-amber-600"}>
+                    {h.applied ? "Đã áp dụng" : "Chờ áp dụng"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
