@@ -4,20 +4,35 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Trash2, Home, Layout, Ruler, Users, CircleDollarSign, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Home, Layout, Ruler, Users, CircleDollarSign, CheckCircle2, AlertCircle, Plus, X, PauseCircle, PlayCircle } from "lucide-react";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import StatusBadge from "@/components/ops/StatusBadge";
-import { 
-  formatMoney, 
-  getFloorFromRoomName, 
-  getRoomArea, 
-  loadRoom, 
-  normalizeRoomStatus, 
+import {
+  formatMoney,
+  getFloorFromRoomName,
+  getRoomArea,
+  loadRoom,
+  normalizeRoomStatus,
   updateRoom,
   RentalRoom,
   loadFacilityBlocks,
+  loadServiceConfigs,
+  loadRoomServices,
+  addRoomService,
+  updateRoomService,
+  loadRoomAdjustments,
+  addRoomAdjustment,
+  deleteRoomAdjustment,
+  ServiceConfig,
+  RoomService,
+  RoomAdjustment,
 } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+import { useToast } from "@/components/ui/Toast";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import Input, { Label, Select } from "@/components/ui/Input";
+import DataTable from "@/components/ui/DataTable";
 
 const roomStatuses = [
   { value: "vacant", label: "Còn trống" },
@@ -30,6 +45,7 @@ export default function EditRoomPage() {
   const { id } = useParams();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const searchParams = useSearchParams();
   const facilityId = searchParams.get("facility_id");
   
@@ -49,7 +65,6 @@ export default function EditRoomPage() {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState("");
 
   useEffect(() => {
     if (roomQuery.data) {
@@ -80,14 +95,15 @@ export default function EditRoomPage() {
         status: form.status,
         blockId: form.blockId || null,
       });
-      setToast("Đã cập nhật thông tin phòng thành công!");
-      await invalidateOwnerOpsQueries(queryClient, {
+      showToast("Đã cập nhật thông tin phòng.", "success");
+      void invalidateOwnerOpsQueries(queryClient, {
         facilityId,
         roomId: String(id),
       });
-      setTimeout(() => setToast(""), 3000);
     } catch (err: any) {
-      setError(err?.message || "Lỗi khi cập nhật phòng. Vui lòng thử lại!");
+      const message = err?.message || "Lỗi khi cập nhật phòng. Vui lòng thử lại!";
+      setError(message);
+      showToast(message, "error");
     } finally {
       setSaving(false);
     }
@@ -101,7 +117,7 @@ export default function EditRoomPage() {
       {/* Header */}
       <div className="mb-8">
         <Link 
-          href={facilityId ? `/owner/boarding-houses/${facilityId}` : "/rooms"} 
+          href="/rooms"
           className="group mb-4 inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors"
         >
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 group-hover:bg-indigo-50 transition-colors">
@@ -117,17 +133,11 @@ export default function EditRoomPage() {
               </span>
               <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Thiết lập phòng</span>
             </div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900">Chỉnh sửa phòng: {roomQuery.data.name}</h1>
+            <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Chỉnh sửa phòng: {roomQuery.data.name}</h1>
           </div>
           <StatusBadge status={normalizeRoomStatus(roomQuery.data)} />
         </div>
       </div>
-
-      {toast && (
-        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-bold text-emerald-700 animate-in slide-in-from-top-4">
-          <CheckCircle2 size={18} /> {toast}
-        </div>
-      )}
 
       {error && (
         <div className="mb-6 flex items-center gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700 animate-in slide-in-from-top-4">
@@ -252,6 +262,250 @@ export default function EditRoomPage() {
           </div>
         </div>
       </form>
+
+      <div className="mt-8">
+        <RoomServicesSection roomId={String(id)} />
+      </div>
+    </div>
+  );
+}
+
+function RoomServicesSection({ roomId }: { roomId: string }) {
+  const { showToast } = useToast();
+  const queryClient = useQueryClient();
+
+  const servicesQuery = useQuery({ queryKey: ["services", "activeOnly"], queryFn: () => loadServiceConfigs(true), staleTime: 30_000 });
+  const roomServicesQuery = useQuery({ queryKey: ["room-services", roomId], queryFn: () => loadRoomServices(roomId) });
+  const adjustmentsQuery = useQuery({ queryKey: ["room-adjustments", roomId], queryFn: () => loadRoomAdjustments(roomId) });
+
+  const services = servicesQuery.data ?? [];
+  const roomServices = roomServicesQuery.data ?? [];
+  const pendingAdjustments = (adjustmentsQuery.data ?? []).filter((a) => !a.invoice_id);
+
+  const [addServiceOpen, setAddServiceOpen] = useState(false);
+  const [serviceForm, setServiceForm] = useState({ serviceId: "", quantity: "1", customUnitPrice: "", startDate: new Date().toISOString().slice(0, 10) });
+  const [savingService, setSavingService] = useState(false);
+
+  const [addFeeOpen, setAddFeeOpen] = useState(false);
+  const now = new Date();
+  const [feeForm, setFeeForm] = useState({ label: "", amount: "", periodMonth: String(now.getMonth() + 1), periodYear: String(now.getFullYear()), note: "" });
+  const [savingFee, setSavingFee] = useState(false);
+
+  const handleAddService = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!serviceForm.serviceId) return showToast("Vui lòng chọn dịch vụ.", "error");
+    setSavingService(true);
+    try {
+      await addRoomService(roomId, {
+        serviceId: serviceForm.serviceId,
+        quantity: Number(serviceForm.quantity) || 1,
+        customUnitPrice: serviceForm.customUnitPrice ? Number(serviceForm.customUnitPrice) : undefined,
+        startDate: serviceForm.startDate,
+      });
+      queryClient.invalidateQueries({ queryKey: ["room-services", roomId] });
+      showToast("Đã thêm dịch vụ vào phòng.", "success");
+      setAddServiceOpen(false);
+      setServiceForm({ serviceId: "", quantity: "1", customUnitPrice: "", startDate: new Date().toISOString().slice(0, 10) });
+    } catch (err: any) {
+      showToast(err?.message || "Lỗi khi thêm dịch vụ.", "error");
+    } finally {
+      setSavingService(false);
+    }
+  };
+
+  const handleToggleService = async (rs: RoomService) => {
+    try {
+      await updateRoomService(rs.id, { status: rs.status === "active" ? "inactive" : "active" });
+      queryClient.invalidateQueries({ queryKey: ["room-services", roomId] });
+      showToast(rs.status === "active" ? "Đã ngưng dịch vụ." : "Đã bật lại dịch vụ.", "success");
+    } catch (err: any) {
+      showToast(err?.message || "Lỗi khi cập nhật.", "error");
+    }
+  };
+
+  const handleAddFee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amount = Number(feeForm.amount);
+    if (!feeForm.label.trim()) return showToast("Vui lòng nhập nội dung.", "error");
+    if (!amount || amount <= 0) return showToast("Vui lòng nhập số tiền hợp lệ.", "error");
+    setSavingFee(true);
+    try {
+      await addRoomAdjustment(roomId, {
+        label: feeForm.label.trim(),
+        amount,
+        periodMonth: Number(feeForm.periodMonth),
+        periodYear: Number(feeForm.periodYear),
+        note: feeForm.note.trim() || undefined,
+      });
+      queryClient.invalidateQueries({ queryKey: ["room-adjustments", roomId] });
+      showToast("Đã thêm phí phát sinh, sẽ tự động gộp vào hóa đơn đúng kỳ.", "success");
+      setAddFeeOpen(false);
+      setFeeForm({ label: "", amount: "", periodMonth: String(now.getMonth() + 1), periodYear: String(now.getFullYear()), note: "" });
+    } catch (err: any) {
+      showToast(err?.message || "Lỗi khi thêm phí phát sinh.", "error");
+    } finally {
+      setSavingFee(false);
+    }
+  };
+
+  const handleDeleteFee = async (id: string) => {
+    if (!confirm("Xóa khoản phí phát sinh này?")) return;
+    try {
+      await deleteRoomAdjustment(id);
+      queryClient.invalidateQueries({ queryKey: ["room-adjustments", roomId] });
+      showToast("Đã xóa khoản phí.", "success");
+    } catch (err: any) {
+      showToast(err?.message || "Lỗi khi xóa.", "error");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card className="p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-black text-slate-900">Dịch vụ đang sử dụng</h3>
+          <Button type="button" size="sm" icon={<Plus size={14} />} onClick={() => setAddServiceOpen(true)}>Thêm dịch vụ</Button>
+        </div>
+        {roomServicesQuery.isLoading ? (
+          <div className="py-6 text-sm text-slate-400">Đang tải...</div>
+        ) : roomServices.length === 0 ? (
+          <div className="py-6 text-sm text-slate-400">Chưa gán dịch vụ nào cho phòng này.</div>
+        ) : (
+          <DataTable headers={["Dịch vụ", "SL", "Đơn giá", "Thành tiền", "Ngày bắt đầu", "Trạng thái", ""]}>
+            {roomServices.map((rs) => {
+              const unitPrice = rs.custom_unit_price != null ? rs.custom_unit_price : Number(rs.services?.unit_price || 0);
+              return (
+                <tr key={rs.id} className="border-t border-slate-100">
+                  <td className="px-4 py-3 text-sm font-semibold text-slate-800">{rs.services?.name || "-"}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{rs.quantity}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{formatMoney(unitPrice)}</td>
+                  <td className="px-4 py-3 text-sm font-bold text-slate-900">{formatMoney(unitPrice * rs.quantity)}</td>
+                  <td className="px-4 py-3 text-sm text-slate-500">{rs.start_date}</td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${rs.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                      {rs.status === "active" ? "Đang dùng" : "Đã ngưng"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => handleToggleService(rs)}
+                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100"
+                    >
+                      {rs.status === "active" ? <PauseCircle size={14} /> : <PlayCircle size={14} />}
+                      {rs.status === "active" ? "Ngưng" : "Bật lại"}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </DataTable>
+        )}
+      </Card>
+
+      <Card className="p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-black text-slate-900">Phí phát sinh theo kỳ</h3>
+          <Button type="button" size="sm" variant="outline" icon={<Plus size={14} />} onClick={() => setAddFeeOpen(true)}>Thêm phí phát sinh</Button>
+        </div>
+        {adjustmentsQuery.isLoading ? (
+          <div className="py-6 text-sm text-slate-400">Đang tải...</div>
+        ) : pendingAdjustments.length === 0 ? (
+          <div className="py-6 text-sm text-slate-400">Chưa có khoản phí phát sinh nào chờ lên hóa đơn.</div>
+        ) : (
+          <DataTable headers={["Nội dung", "Số tiền", "Kỳ áp dụng", "Ghi chú", ""]}>
+            {pendingAdjustments.map((a) => (
+              <tr key={a.id} className="border-t border-slate-100">
+                <td className="px-4 py-3 text-sm font-semibold text-slate-800">{a.label}</td>
+                <td className="px-4 py-3 text-sm font-bold text-slate-900">{formatMoney(a.amount)}</td>
+                <td className="px-4 py-3 text-sm text-slate-500">T{a.period_month}/{a.period_year}</td>
+                <td className="px-4 py-3 text-sm text-slate-500">{a.note || "-"}</td>
+                <td className="px-4 py-3 text-right">
+                  <button onClick={() => handleDeleteFee(a.id)} className="rounded-lg p-1.5 text-slate-300 hover:bg-red-50 hover:text-red-600">
+                    <Trash2 size={14} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </DataTable>
+        )}
+      </Card>
+
+      {addServiceOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setAddServiceOpen(false); }}>
+          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-[12px] bg-white p-5 shadow-xl sm:p-6">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <h2 className="text-xl font-bold text-slate-950">Thêm dịch vụ vào phòng</h2>
+              <button type="button" onClick={() => setAddServiceOpen(false)} aria-label="Đóng" className="rounded-[8px] p-2 text-slate-500 hover:bg-slate-100"><X size={18} /></button>
+            </div>
+            <form onSubmit={handleAddService} className="space-y-4">
+              <div>
+                <Label>Dịch vụ *</Label>
+                <Select value={serviceForm.serviceId} onChange={(e) => setServiceForm((p) => ({ ...p, serviceId: e.target.value }))} required>
+                  <option value="">-- Chọn dịch vụ --</option>
+                  {services.map((s: ServiceConfig) => <option key={s.id} value={s.id}>{s.name} ({formatMoney(s.unit_price)})</option>)}
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Số lượng</Label>
+                  <Input type="number" min={0.01} value={serviceForm.quantity} onChange={(e) => setServiceForm((p) => ({ ...p, quantity: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Giá riêng (₫, tuỳ chọn)</Label>
+                  <Input type="number" min={0} placeholder="Dùng giá dịch vụ" value={serviceForm.customUnitPrice} onChange={(e) => setServiceForm((p) => ({ ...p, customUnitPrice: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <Label>Ngày bắt đầu áp dụng</Label>
+                <Input type="date" value={serviceForm.startDate} onChange={(e) => setServiceForm((p) => ({ ...p, startDate: e.target.value }))} />
+              </div>
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" onClick={() => setAddServiceOpen(false)}>Hủy</Button>
+                <Button type="submit" loading={savingService} disabled={savingService}>Thêm dịch vụ</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {addFeeOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setAddFeeOpen(false); }}>
+          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-[12px] bg-white p-5 shadow-xl sm:p-6">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <h2 className="text-xl font-bold text-slate-950">Thêm phí phát sinh</h2>
+              <button type="button" onClick={() => setAddFeeOpen(false)} aria-label="Đóng" className="rounded-[8px] p-2 text-slate-500 hover:bg-slate-100"><X size={18} /></button>
+            </div>
+            <form onSubmit={handleAddFee} className="space-y-4">
+              <div>
+                <Label>Nội dung *</Label>
+                <Input placeholder="Vd: Sửa khóa, vệ sinh máy lạnh..." value={feeForm.label} onChange={(e) => setFeeForm((p) => ({ ...p, label: e.target.value }))} required />
+              </div>
+              <div>
+                <Label>Số tiền (₫) *</Label>
+                <Input type="number" min={0} value={feeForm.amount} onChange={(e) => setFeeForm((p) => ({ ...p, amount: e.target.value }))} required />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Tháng áp dụng</Label>
+                  <Input type="number" min={1} max={12} value={feeForm.periodMonth} onChange={(e) => setFeeForm((p) => ({ ...p, periodMonth: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Năm áp dụng</Label>
+                  <Input type="number" min={2000} value={feeForm.periodYear} onChange={(e) => setFeeForm((p) => ({ ...p, periodYear: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <Label>Ghi chú (tuỳ chọn)</Label>
+                <Input value={feeForm.note} onChange={(e) => setFeeForm((p) => ({ ...p, note: e.target.value }))} />
+              </div>
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" onClick={() => setAddFeeOpen(false)}>Hủy</Button>
+                <Button type="submit" loading={savingFee} disabled={savingFee}>Thêm phí</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

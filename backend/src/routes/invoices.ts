@@ -11,7 +11,14 @@ import { notifyOwnerPaymentReceived } from "../services/ownerPaymentNotification
 import { getTenantUserIdByInvoiceId, notifyPaymentSuccess } from "../services/notificationService.js";
 import { getTenantUserIdByContractId, notifyInvoiceCreated } from "../services/notificationService.js";
 import { readMeterNumber } from "../services/meterOcr.js";
-import { resolveInvoiceRoomFee } from "../utils/billing.js";
+import {
+  resolveInvoiceRoomFee,
+  computeCarryover,
+  applyCreditToCurrentCharges,
+  applyDuePriceChanges,
+  buildItemsFromRoomServices,
+  buildItemsFromRoomAdjustments,
+} from "../utils/billing.js";
 import { invalidateCache } from "../middleware/cache.js";
 
 
@@ -785,6 +792,8 @@ invoicesRoutes.post("/", async (c) => {
     return c.json({ error: "Missing contractId or roomId" }, 400);
   }
 
+  await applyDuePriceChanges(db, user.id);
+
   let contractQuery = db.from("contracts").select("*").eq("user_id", user.id);
   contractQuery = parsed.data.contractId
     ? contractQuery.eq("id", parsed.data.contractId)
@@ -796,6 +805,15 @@ invoicesRoutes.post("/", async (c) => {
 
   const contract = contractRes.data;
   const contractId = String(contract.id);
+  const contractServicesSnapshot = Array.isArray(contract.applied_services_snapshot)
+    ? contract.applied_services_snapshot
+    : [];
+  if (contractServicesSnapshot.length === 0) {
+    return c.json({
+      code: "SERVICES_NOT_CONFIGURED",
+      error: "Hợp đồng chưa có bảng giá dịch vụ. Hãy cấu hình dịch vụ và cập nhật hợp đồng trước khi tạo hóa đơn.",
+    }, 409);
+  }
   const roomId = parsed.data.roomId ?? contract.room_id;
   if (!roomId) return c.json({ error: "Missing roomId" }, 400);
 
@@ -847,6 +865,32 @@ invoicesRoutes.post("/", async (c) => {
     }
   }
 
+  // Dịch vụ gán theo phòng + phí phát sinh theo kỳ — cộng thêm, độc lập với
+  // dịch vụ theo hợp đồng ở trên.
+  const roomServicesRes = await db
+    .from("room_services")
+    .select("id,service_id,quantity,custom_unit_price,services(name,unit_price,unit)")
+    .eq("room_id", roomId)
+    .eq("user_id", user.id)
+    .eq("status", "active");
+  if (!roomServicesRes.error && roomServicesRes.data?.length) {
+    items = [...(items ?? []), ...buildItemsFromRoomServices(roomServicesRes.data as any)];
+  }
+
+  const pendingAdjustmentsRes = await db
+    .from("room_adjustments")
+    .select("id,label,amount,note")
+    .eq("room_id", roomId)
+    .eq("user_id", user.id)
+    .eq("period_month", parsed.data.month)
+    .eq("period_year", parsed.data.year)
+    .is("invoice_id", null);
+  const pendingAdjustments = pendingAdjustmentsRes.data ?? [];
+  if (pendingAdjustments.length > 0) {
+    items = [...(items ?? []), ...buildItemsFromRoomAdjustments(pendingAdjustments as any)];
+  }
+  items = items ?? [];
+
   const monthlyRent = Number(contract.rent_amount ?? roomRes.data?.price ?? 0);
   const roomFee = resolveInvoiceRoomFee({
     requestedRoomFee: parsed.data.roomFee,
@@ -855,9 +899,26 @@ invoicesRoutes.post("/", async (c) => {
     month: parsed.data.month,
     year: parsed.data.year,
   });
-  const previousDebt = parsed.data.previousDebt ?? 0;
+  if (!Number.isFinite(roomFee) || roomFee < 0) {
+    return c.json({ error: "Giá hóa đơn không hợp lệ." }, 400);
+  }
+  if ((items || []).some((item) => !Number.isFinite(Number(item.amount)) || Number(item.amount) < 0)) {
+    return c.json({ error: "Có dòng dịch vụ không có giá hợp lệ. Vui lòng kiểm tra lại cấu hình dịch vụ." }, 400);
+  }
   const serviceFees = items.reduce((sum, item) => sum + item.amount, 0);
-  const total = roomFee + serviceFees + previousDebt;
+
+  const carryover = await computeCarryover(db, {
+    userId: user.id,
+    contractId,
+    month: parsed.data.month,
+    year: parsed.data.year,
+  });
+  const { previousCredit, creditBalanceLeftover } = applyCreditToCurrentCharges(
+    carryover.availableCreditAfterDebt,
+    roomFee + serviceFees,
+  );
+  const previousDebt = carryover.previousDebt;
+  const total = Math.max(0, roomFee + serviceFees + previousDebt - previousCredit);
 
   const existingInvoiceRes = await db
     .from("invoices")
@@ -889,6 +950,8 @@ invoicesRoutes.post("/", async (c) => {
       room_fee: roomFee,
       total_amount: total,
       previous_debt: previousDebt,
+      previous_credit: previousCredit,
+      previous_debt_source_invoice_id: carryover.sourceInvoiceId,
       elec_old: elecOld,
       elec_new: parsed.data.elecNew ?? null,
       water_old: waterOld,
@@ -904,6 +967,16 @@ invoicesRoutes.post("/", async (c) => {
   if (invRes.error) return c.json({ error: invRes.error.message }, 400);
 
   const invoiceId = invRes.data.id;
+
+  if (previousCredit > 0 || creditBalanceLeftover !== carryover.availableCreditAfterDebt) {
+    await db.from("contracts").update({ credit_balance: creditBalanceLeftover }).eq("id", contractId).eq("user_id", user.id);
+  }
+  if (pendingAdjustments.length > 0) {
+    await db
+      .from("room_adjustments")
+      .update({ invoice_id: invoiceId })
+      .in("id", pendingAdjustments.map((a: any) => a.id));
+  }
   if (items.length > 0) {
     const rows = items.map((item) => ({
       user_id: user.id,
@@ -1183,6 +1256,66 @@ invoicesRoutes.get("/:id", async (c) => {
   });
 });
 
+const addInvoiceItemSchema = z.object({
+  name: z.string().min(1),
+  amount: z.coerce.number().positive(),
+  note: z.string().optional(),
+});
+
+// Adds a one-off charge (e.g. "sửa khóa") to an already-issued invoice. Distinct
+// from the `items` array on POST / (build-time items) — this is for a fee that
+// only comes up after the bill already exists.
+invoicesRoutes.post("/:id/items", async (c) => {
+  const user = c.get("user");
+  const id = toId(c.req.param("id"));
+  if (!id) return c.json({ error: "Invalid invoice id" }, 400);
+
+  const parsed = await parseJson(c, addInvoiceItemSchema);
+  if (!parsed.ok) return parsed.response;
+
+  const db = c.get("supabase");
+  const invRes = await db
+    .from("invoices")
+    .select("id,total_amount,paid_amount,status")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (invRes.error) return c.json({ error: invRes.error.message }, 500);
+  if (!invRes.data) return c.json({ error: "Invoice not found" }, 404);
+  if (invRes.data.status === "paid") {
+    return c.json({ error: "Hóa đơn đã thanh toán đủ, không thể thêm khoản phí mới." }, 409);
+  }
+
+  const itemRes = await db
+    .from("invoice_items")
+    .insert({
+      user_id: user.id,
+      invoice_id: id,
+      service_id: null,
+      name: parsed.data.name,
+      detail: parsed.data.note ?? "",
+      amount: parsed.data.amount,
+    })
+    .select("*")
+    .single();
+  if (itemRes.error) return c.json({ error: itemRes.error.message }, 400);
+
+  const newTotal = Number(invRes.data.total_amount || 0) + parsed.data.amount;
+  const paid = Number(invRes.data.paid_amount || 0);
+  const newStatus = paid >= newTotal ? "paid" : paid > 0 ? "partial" : "unpaid";
+
+  const updateRes = await db
+    .from("invoices")
+    .update({ total_amount: newTotal, status: newStatus, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("*")
+    .single();
+  if (updateRes.error) return c.json({ error: updateRes.error.message }, 400);
+
+  return c.json({ data: { invoice: updateRes.data, item: itemRes.data } }, 201);
+});
+
 invoicesRoutes.post("/:id/mark-paid", async (c) => {
   const user = c.get("user");
   const id = toId(c.req.param("id"));
@@ -1395,6 +1528,7 @@ invoicesRoutes.post("/auto-generate", async (c) => {
   if (!month || !year) return c.json({ error: "Missing month or year" }, 400);
 
   const db = c.get("supabase");
+  await applyDuePriceChanges(db, user.id);
 
   // 1. Lấy tất cả các phòng đang có khách thuê (occupied) của user này
   let roomsQuery = db
@@ -1486,6 +1620,29 @@ invoicesRoutes.post("/auto-generate", async (c) => {
         }
       }
 
+      const roomServicesRes = await db
+        .from("room_services")
+        .select("id,service_id,quantity,custom_unit_price,services(name,unit_price,unit)")
+        .eq("room_id", room.id)
+        .eq("user_id", user.id)
+        .eq("status", "active");
+      if (!roomServicesRes.error && roomServicesRes.data?.length) {
+        items = [...items, ...buildItemsFromRoomServices(roomServicesRes.data as any)];
+      }
+
+      const pendingAdjustmentsRes = await db
+        .from("room_adjustments")
+        .select("id,label,amount,note")
+        .eq("room_id", room.id)
+        .eq("user_id", user.id)
+        .eq("period_month", month)
+        .eq("period_year", year)
+        .is("invoice_id", null);
+      const pendingAdjustments = pendingAdjustmentsRes.data ?? [];
+      if (pendingAdjustments.length > 0) {
+        items = [...items, ...buildItemsFromRoomAdjustments(pendingAdjustments as any)];
+      }
+
       const roomFee = resolveInvoiceRoomFee({
         monthlyRent: Number(contract.rent_amount ?? room.price ?? 0),
         contractStartDate: contract.start_date,
@@ -1493,7 +1650,13 @@ invoicesRoutes.post("/auto-generate", async (c) => {
         year,
       });
       const serviceFees = items.reduce((sum, item) => sum + item.amount, 0);
-      const total = roomFee + serviceFees;
+      const carryover = await computeCarryover(db, { userId: user.id, contractId, month, year });
+      const { previousCredit, creditBalanceLeftover } = applyCreditToCurrentCharges(
+        carryover.availableCreditAfterDebt,
+        roomFee + serviceFees,
+      );
+      const previousDebt = carryover.previousDebt;
+      const total = Math.max(0, roomFee + serviceFees + previousDebt - previousCredit);
 
       const invRes = await db
         .from("invoices")
@@ -1505,7 +1668,9 @@ invoicesRoutes.post("/auto-generate", async (c) => {
           year,
           room_fee: roomFee,
           total_amount: total,
-          previous_debt: 0,
+          previous_debt: previousDebt,
+          previous_credit: previousCredit,
+          previous_debt_source_invoice_id: carryover.sourceInvoiceId,
           elec_old: elecOld,
           elec_new: null,
           water_old: waterOld,
@@ -1516,6 +1681,18 @@ invoicesRoutes.post("/auto-generate", async (c) => {
         })
         .select("id")
         .single();
+
+      if (!invRes.error && invRes.data) {
+        if (previousCredit > 0 || creditBalanceLeftover !== carryover.availableCreditAfterDebt) {
+          await db.from("contracts").update({ credit_balance: creditBalanceLeftover }).eq("id", contractId).eq("user_id", user.id);
+        }
+        if (pendingAdjustments.length > 0) {
+          await db
+            .from("room_adjustments")
+            .update({ invoice_id: invRes.data.id })
+            .in("id", pendingAdjustments.map((a: any) => a.id));
+        }
+      }
 
       if (!invRes.error && invRes.data) {
         const invoiceId = invRes.data.id;
@@ -1573,6 +1750,7 @@ invoicesRoutes.post("/bulk-create", async (c) => {
   const db = c.get("supabase");
   const results = [];
   const defaultPaymentChannel = await loadDefaultPaymentChannel(db, user.id);
+  await applyDuePriceChanges(db, user.id);
 
   for (const invData of invoices) {
     try {
@@ -1615,7 +1793,16 @@ invoicesRoutes.post("/bulk-create", async (c) => {
         month: Number(invData.month),
         year: Number(invData.year),
       });
-      const totalAmount = Math.max(0, Number(invData.totalAmount || 0) - requestedRoomFee + roomFee);
+      const chargesBeforeDebt = Math.max(0, Number(invData.totalAmount || 0) - requestedRoomFee + roomFee - Number(invData.previousDebt || 0));
+      const carryover = await computeCarryover(db, {
+        userId: user.id,
+        contractId: invData.contractId,
+        month: Number(invData.month),
+        year: Number(invData.year),
+      });
+      const { previousCredit, creditBalanceLeftover } = applyCreditToCurrentCharges(carryover.availableCreditAfterDebt, chargesBeforeDebt);
+      const previousDebt = carryover.previousDebt;
+      const totalAmount = Math.max(0, chargesBeforeDebt + previousDebt - previousCredit);
 
       // Logic tương tự như route POST / nhưng dành cho bulk
       const payload = {
@@ -1626,7 +1813,9 @@ invoicesRoutes.post("/bulk-create", async (c) => {
         year: invData.year,
         room_fee: roomFee,
         total_amount: totalAmount,
-        previous_debt: invData.previousDebt || 0,
+        previous_debt: previousDebt,
+        previous_credit: previousCredit,
+        previous_debt_source_invoice_id: carryover.sourceInvoiceId,
         elec_old: invData.elecOld,
         elec_new: invData.elecNew,
         water_old: invData.waterOld,
@@ -1645,6 +1834,9 @@ invoicesRoutes.post("/bulk-create", async (c) => {
       }
 
       const invoiceId = res.data.id;
+      if (previousCredit > 0 || creditBalanceLeftover !== carryover.availableCreditAfterDebt) {
+        await db.from("contracts").update({ credit_balance: creditBalanceLeftover }).eq("id", invData.contractId).eq("user_id", user.id);
+      }
       if (invData.items && invData.items.length > 0) {
         const rows = invData.items.map((item: any) => ({
           user_id: user.id,

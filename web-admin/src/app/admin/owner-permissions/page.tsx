@@ -208,13 +208,6 @@ export default function OwnerPermissionsPage() {
               Thiết lập bộ quyền hạn và giới hạn tài nguyên cho từng vai trò Owner.
             </p>
           </div>
-          <button
-            onClick={loadRoles}
-            className="inline-flex items-center gap-2 rounded-[8px] border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCw size={16} />
-            Tải lại
-          </button>
         </div>
 
         {error && (

@@ -3,10 +3,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Check, Copy, Wallet, Trash2, History } from "lucide-react";
-import { Invoice, Transaction, BankConfig, buildInvoiceQrUrl, formatMoney, loadBankConfig, loadInvoice, normalizeInvoiceStatus, loadTransactions, loadSettingsMap } from "@/lib/rentalOps";
+import { ArrowLeft, Check, Copy, Wallet, Trash2, History, PlusCircle, X } from "lucide-react";
+import { Invoice, Transaction, BankConfig, buildInvoiceQrUrl, formatMoney, loadBankConfig, loadInvoice, normalizeInvoiceStatus, loadTransactions, loadSettingsMap, addInvoiceItem } from "@/lib/rentalOps";
 import { apiDelete } from "@/utils/apiClient";
 import { useToast } from "@/components/ui/Toast";
+import Button from "@/components/ui/Button";
+import Input, { Label } from "@/components/ui/Input";
 import ZaloNotificationSection from "@/components/ZaloNotificationSection";
 
 const BANK_LABELS: Record<string, string> = {
@@ -28,6 +30,9 @@ export default function InvoiceDetailPage() {
   const [copied, setCopied] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [addFeeOpen, setAddFeeOpen] = useState(false);
+  const [feeForm, setFeeForm] = useState({ name: "", amount: "", note: "" });
+  const [savingFee, setSavingFee] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   const loadInvoiceOnly = async () => {
@@ -93,7 +98,8 @@ export default function InvoiceDetailPage() {
       : "");
 
   const previousDebt = Number((invoice as any).previous_debt || 0);
-  const currentPayable = Math.max(0, total - previousDebt);
+  const previousCredit = Number((invoice as any).previous_credit || 0);
+  const currentPayable = Math.max(0, total - previousDebt + previousCredit);
 
   const copyText = async (field: string, value: string) => {
     if (!value) return;
@@ -226,6 +232,9 @@ export default function InvoiceDetailPage() {
             {/* Left: payment breakdown + bank info */}
             <div className="flex-1 min-w-0 text-[11px] text-slate-900">
               <p className="mb-2 font-black underline">Phần Thanh toán:</p>
+              {previousCredit > 0 && (
+                <PaymentLine label="Số dư kỳ trước (đã trừ vào bill):" value={`${formatMoney(previousCredit)} đ`} />
+              )}
               <PaymentLine label="Số tiền còn nợ tháng trước:" value={`${formatMoney(previousDebt)} đ`} />
               <PaymentLine label="Phải trả tháng này:" value={`${formatMoney(currentPayable)} đ`} />
               <PaymentLine label="Trả cọc:" value="0 đ" />
@@ -312,6 +321,14 @@ export default function InvoiceDetailPage() {
         )}
         {!isPaid && (
           <button
+            onClick={() => setAddFeeOpen(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 py-3 text-sm font-bold text-amber-700 hover:bg-amber-100 active:scale-95 transition-all"
+          >
+            <PlusCircle size={17} /> Thêm khoản phí phát sinh
+          </button>
+        )}
+        {!isPaid && (
+          <button
             onClick={handleDelete}
             disabled={deleting}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-3 text-sm font-bold text-red-600 hover:bg-red-100 active:scale-95 transition-all"
@@ -320,6 +337,76 @@ export default function InvoiceDetailPage() {
           </button>
         )}
       </div>
+
+      {addFeeOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
+          role="presentation"
+          onMouseDown={(event) => { if (event.target === event.currentTarget) setAddFeeOpen(false); }}
+        >
+          <div role="dialog" aria-modal="true" aria-labelledby="add-fee-title" className="w-full max-w-md rounded-[12px] bg-white p-5 shadow-xl sm:p-6">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <h2 id="add-fee-title" className="text-xl font-bold text-slate-950">Thêm khoản phí phát sinh</h2>
+              <button type="button" onClick={() => setAddFeeOpen(false)} aria-label="Đóng" className="rounded-[8px] p-2 text-slate-500 hover:bg-slate-100">
+                <X size={18} />
+              </button>
+            </div>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const amount = Number(feeForm.amount);
+                if (!feeForm.name.trim()) return showToast("Vui lòng nhập nội dung khoản phí.", "error");
+                if (!amount || amount <= 0) return showToast("Vui lòng nhập số tiền hợp lệ.", "error");
+                if (!confirm(`Thêm "${feeForm.name.trim()}" — ${formatMoney(amount)} đ vào hóa đơn này?`)) return;
+                setSavingFee(true);
+                try {
+                  await addInvoiceItem(String(invoice.id), { name: feeForm.name.trim(), amount, note: feeForm.note.trim() || undefined });
+                  await loadInvoiceOnly();
+                  showToast("Đã thêm khoản phí vào hóa đơn.", "success");
+                  setAddFeeOpen(false);
+                  setFeeForm({ name: "", amount: "", note: "" });
+                } catch (err: any) {
+                  showToast(err?.message || "Lỗi khi thêm khoản phí.", "error");
+                } finally {
+                  setSavingFee(false);
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <Label>Nội dung *</Label>
+                <Input
+                  placeholder="Vd: Sửa khóa, vệ sinh máy lạnh..."
+                  value={feeForm.name}
+                  onChange={(e) => setFeeForm((p) => ({ ...p, name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <Label>Số tiền (₫) *</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={feeForm.amount}
+                  onChange={(e) => setFeeForm((p) => ({ ...p, amount: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <Label>Ghi chú (tuỳ chọn)</Label>
+                <Input
+                  value={feeForm.note}
+                  onChange={(e) => setFeeForm((p) => ({ ...p, note: e.target.value }))}
+                />
+              </div>
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" onClick={() => setAddFeeOpen(false)}>Hủy</Button>
+                <Button type="submit" variant="primary" loading={savingFee} disabled={savingFee}>Thêm vào hóa đơn</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <ZaloNotificationSection invoice={invoice} onStatusChange={loadInvoiceOnly} />
     </div>

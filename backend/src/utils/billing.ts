@@ -155,3 +155,147 @@ export function buildAppliedServicesSnapshot(
     };
   });
 }
+
+type SupabaseLike = {
+  from: (table: string) => any;
+};
+
+export type CarryoverResult = {
+  previousDebt: number;
+  previousCredit: number;
+  sourceInvoiceId: string | null;
+};
+
+/**
+ * Computes how much of a contract's prior-period balance should roll into a
+ * new invoice, and how much of any credit (from an overpayment) should offset
+ * it. Only the immediately preceding period is read — each invoice already
+ * carries forward whatever came before it, so this naturally chains across
+ * many unpaid months without needing to sum a whole ledger.
+ *
+ * `previousCredit` returned here is only the portion of the contract's credit
+ * balance actually available after covering the prior debt; consuming it
+ * against this invoice's own charges (and writing the leftover back to
+ * `contracts.credit_balance`) is the caller's job once the current-period
+ * total is known, since that total isn't computed yet at this point.
+ */
+export async function computeCarryover(
+  db: SupabaseLike,
+  input: { userId: string; contractId: string; month: number; year: number },
+): Promise<CarryoverResult & { availableCreditAfterDebt: number }> {
+  let prevMonth = input.month - 1;
+  let prevYear = input.year;
+  if (prevMonth === 0) {
+    prevMonth = 12;
+    prevYear -= 1;
+  }
+
+  const [priorRes, contractRes] = await Promise.all([
+    db
+      .from("invoices")
+      .select("id,total_amount,paid_amount")
+      .eq("contract_id", input.contractId)
+      .eq("user_id", input.userId)
+      .eq("month", prevMonth)
+      .eq("year", prevYear)
+      .maybeSingle(),
+    db.from("contracts").select("credit_balance").eq("id", input.contractId).eq("user_id", input.userId).maybeSingle(),
+  ]);
+
+  const prior = priorRes.data;
+  const priorRemaining = prior ? Math.max(0, Number(prior.total_amount || 0) - Number(prior.paid_amount || 0)) : 0;
+  const creditBalance = Math.max(0, Number(contractRes.data?.credit_balance || 0));
+
+  const appliedCredit = Math.min(priorRemaining, creditBalance);
+  const previousDebt = priorRemaining - appliedCredit;
+  const availableCreditAfterDebt = creditBalance - appliedCredit;
+
+  return {
+    previousDebt,
+    previousCredit: 0,
+    sourceInvoiceId: prior?.id ?? null,
+    availableCreditAfterDebt,
+  };
+}
+
+/**
+ * Given remaining credit after prior debt was offset (see computeCarryover)
+ * and the current period's own charges (before carryover), decides how much
+ * credit to apply to this invoice and how much stays on the contract for a
+ * future period.
+ */
+export function applyCreditToCurrentCharges(
+  availableCreditAfterDebt: number,
+  currentPeriodCharges: number,
+): { previousCredit: number; creditBalanceLeftover: number } {
+  const previousCredit = Math.max(0, Math.min(availableCreditAfterDebt, currentPeriodCharges));
+  return {
+    previousCredit,
+    creditBalanceLeftover: Math.max(0, availableCreditAfterDebt - previousCredit),
+  };
+}
+
+/**
+ * Applies any service price changes whose effective date has arrived. Lazy
+ * (checked on read) instead of cron-driven — called before any code path that
+ * reads or bills service prices, so a scheduled change never has a window
+ * where it silently fails to apply.
+ */
+export async function applyDuePriceChanges(db: SupabaseLike, userId: string): Promise<void> {
+  const { data: due, error } = await db
+    .from("service_price_history")
+    .select("id,service_id,new_unit_price,new_unit_price_ac,effective_date")
+    .eq("user_id", userId)
+    .eq("applied", false)
+    .lte("effective_date", new Date().toISOString().slice(0, 10))
+    .order("effective_date", { ascending: true });
+
+  if (error || !due || due.length === 0) return;
+
+  for (const row of due) {
+    await db
+      .from("services")
+      .update({ unit_price: row.new_unit_price, unit_price_ac: row.new_unit_price_ac, updated_at: new Date().toISOString() })
+      .eq("id", row.service_id)
+      .eq("user_id", userId);
+    await db.from("service_price_history").update({ applied: true }).eq("id", row.id);
+  }
+}
+
+export type RoomServiceRow = {
+  id: string;
+  service_id: string;
+  quantity: number | string;
+  custom_unit_price: number | string | null;
+  services?: { name?: string | null; unit_price?: number | string | null; unit?: string | null } | null;
+};
+
+/** Builds invoice_items rows from a room's active room-level services. */
+export function buildItemsFromRoomServices(rows: RoomServiceRow[]) {
+  return (rows ?? []).map((row) => {
+    const unitPrice = row.custom_unit_price != null ? Number(row.custom_unit_price) : Number(row.services?.unit_price || 0);
+    const quantity = Number(row.quantity || 1);
+    return {
+      serviceId: row.service_id,
+      name: row.services?.name || "Dịch vụ phòng",
+      detail: `${quantity} x ${unitPrice.toLocaleString("vi-VN")}đ`,
+      amount: quantity * unitPrice,
+      calculationType: "room_service",
+      unitPrice,
+      quantity,
+      unit: row.services?.unit ?? undefined,
+    };
+  });
+}
+
+export type RoomAdjustmentRow = { id: string; label: string; amount: number | string; note?: string | null };
+
+/** Builds invoice_items rows from a room's pending (not-yet-billed) ad-hoc fees. */
+export function buildItemsFromRoomAdjustments(rows: RoomAdjustmentRow[]) {
+  return (rows ?? []).map((row) => ({
+    serviceId: null,
+    name: row.label,
+    detail: row.note ?? "",
+    amount: Number(row.amount || 0),
+  }));
+}

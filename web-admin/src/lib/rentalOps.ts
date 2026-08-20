@@ -156,6 +156,41 @@ export type ServiceConfig = {
   unit?: string;
   icon?: string | null;
   active?: boolean;
+  note?: string | null;
+};
+
+export type ServicePriceHistoryEntry = {
+  id: string;
+  service_id: string;
+  old_unit_price: number;
+  old_unit_price_ac: number;
+  new_unit_price: number;
+  new_unit_price_ac: number;
+  effective_date: string;
+  applied: boolean;
+  created_at: string;
+};
+
+export type RoomService = {
+  id: string;
+  room_id: string;
+  service_id: string;
+  quantity: number;
+  custom_unit_price: number | null;
+  start_date: string;
+  status: "active" | "inactive";
+  services?: { name?: string | null; unit?: string | null; unit_price?: number | null; unit_price_ac?: number | null } | null;
+};
+
+export type RoomAdjustment = {
+  id: string;
+  room_id: string;
+  label: string;
+  amount: number;
+  period_month: number;
+  period_year: number;
+  note?: string | null;
+  invoice_id?: string | null;
 };
 
 export type AppliedServiceSnapshot = {
@@ -1005,6 +1040,62 @@ export async function deleteService(id: string) {
 export async function toggleServiceStatus(id: string, active: boolean) {
   const res = await apiPatch<any>(`/rental/services/${id}`, { active });
   return (res?.data ?? res) as ServiceConfig;
+}
+
+export async function updateServicePrice(
+  id: string,
+  input: { newUnitPrice: number; newUnitPriceAc?: number; effectiveDate: string },
+) {
+  const res = await apiPost<any>(`/rental/services/${id}/price-update`, input);
+  return res?.data as { service: ServiceConfig; history: ServicePriceHistoryEntry };
+}
+
+export async function loadServicePriceHistory(id: string) {
+  const res = await apiGet<any>(`/rental/services/${id}/price-history`);
+  return (res?.data ?? []) as ServicePriceHistoryEntry[];
+}
+
+export async function loadRoomServices(roomId: string) {
+  const res = await apiGet<any>(`/rental/rooms/${roomId}/services`);
+  return (res?.data ?? []) as RoomService[];
+}
+
+export async function addRoomService(
+  roomId: string,
+  input: { serviceId: string; quantity?: number; customUnitPrice?: number; startDate?: string },
+) {
+  const res = await apiPost<any>(`/rental/rooms/${roomId}/services`, input);
+  return res?.data as RoomService;
+}
+
+export async function updateRoomService(
+  id: string,
+  input: { quantity?: number; customUnitPrice?: number | null; status?: "active" | "inactive" },
+) {
+  const res = await apiPatch<any>(`/rental/room-services/${id}`, input);
+  return res?.data as RoomService;
+}
+
+export async function loadRoomAdjustments(roomId: string) {
+  const res = await apiGet<any>(`/rental/rooms/${roomId}/adjustments`);
+  return (res?.data ?? []) as RoomAdjustment[];
+}
+
+export async function addRoomAdjustment(
+  roomId: string,
+  input: { label: string; amount: number; periodMonth: number; periodYear: number; note?: string },
+) {
+  const res = await apiPost<any>(`/rental/rooms/${roomId}/adjustments`, input);
+  return res?.data as RoomAdjustment;
+}
+
+export async function deleteRoomAdjustment(id: string) {
+  return apiDelete<any>(`/rental/room-adjustments/${id}`);
+}
+
+export async function addInvoiceItem(invoiceId: string, input: { name: string; amount: number; note?: string }) {
+  const res = await apiPost<any>(`/invoices/${invoiceId}/items`, input);
+  return res?.data;
 }
 
 export async function seedDefaultServices() {
