@@ -1148,6 +1148,21 @@ export default function OwnerSettingsPage() {
                           Tiền tố đi kèm mã hóa đơn trong nội dung chuyển khoản (Ví dụ: <span className="font-mono font-bold text-slate-600">TCINV</span>AB12CD). Hệ thống dùng tiền tố này để tự động khớp giao dịch với hóa đơn.
                         </p>
                       </div>
+
+                      {/* The instructions above told the owner to press "Lưu thay đổi",
+                          but this tab had no such button — API key, webhook secret and
+                          prefix could be typed and never saved. */}
+                      <div className="flex justify-end border-t border-slate-100 pt-4">
+                        <Button
+                          variant="primary"
+                          icon={<Save size={14} />}
+                          onClick={handleSave}
+                          disabled={saving}
+                          loading={saving}
+                        >
+                          Lưu cấu hình SePay
+                        </Button>
+                      </div>
                     </div>
                   </Card>
                 </section>
