@@ -9,6 +9,7 @@ import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import StatusBadge from "@/components/ops/StatusBadge";
 import {
   formatMoney,
+  formatMoneyOrFree,
   getFloorFromRoomName,
   getRoomArea,
   loadRoom,
@@ -378,8 +379,8 @@ function RoomServicesSection({ roomId }: { roomId: string }) {
                 <tr key={rs.id} className="border-t border-slate-100">
                   <td className="px-4 py-3 text-sm font-semibold text-slate-800">{rs.services?.name || "-"}</td>
                   <td className="px-4 py-3 text-sm text-slate-600">{rs.quantity}</td>
-                  <td className="px-4 py-3 text-sm text-slate-600">{formatMoney(unitPrice)}</td>
-                  <td className="px-4 py-3 text-sm font-bold text-slate-900">{formatMoney(unitPrice * rs.quantity)}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{formatMoneyOrFree(unitPrice)}</td>
+                  <td className={`px-4 py-3 text-sm font-bold ${unitPrice ? "text-slate-900" : "text-emerald-600"}`}>{formatMoneyOrFree(unitPrice * rs.quantity)}</td>
                   <td className="px-4 py-3 text-sm text-slate-500">{rs.start_date}</td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${rs.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
@@ -442,7 +443,7 @@ function RoomServicesSection({ roomId }: { roomId: string }) {
                 <Label>Dịch vụ *</Label>
                 <Select value={serviceForm.serviceId} onChange={(e) => setServiceForm((p) => ({ ...p, serviceId: e.target.value }))} required>
                   <option value="">-- Chọn dịch vụ --</option>
-                  {services.map((s: ServiceConfig) => <option key={s.id} value={s.id}>{s.name} ({formatMoney(s.unit_price)})</option>)}
+                  {services.map((s: ServiceConfig) => <option key={s.id} value={s.id}>{s.name} ({formatMoneyOrFree(s.unit_price)})</option>)}
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-4">

@@ -24,6 +24,11 @@ import { invalidateCache } from "../middleware/cache.js";
 
 const invoicesRoutes = new Hono<AppEnv>();
 
+/** Last calendar day of a billing period, as YYYY-MM-DD, for "starts on/before this period" filters. */
+function periodEndDate(month: number, year: number): string {
+  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+}
+
 invoicesRoutes.use("*", requireAuth);
 
 const optionalNumber = z.preprocess(
@@ -877,13 +882,15 @@ invoicesRoutes.post("/", async (c) => {
   }
 
   // Dịch vụ gán theo phòng + phí phát sinh theo kỳ — cộng thêm, độc lập với
-  // dịch vụ theo hợp đồng ở trên.
+  // dịch vụ theo hợp đồng ở trên. Chỉ tính dịch vụ đã bắt đầu áp dụng trước
+  // hoặc trong kỳ này — chưa tới ngày bắt đầu thì chưa được tính vào bill.
   const roomServicesRes = await db
     .from("room_services")
     .select("id,service_id,quantity,custom_unit_price,services(name,unit_price,unit)")
     .eq("room_id", roomId)
     .eq("user_id", user.id)
-    .eq("status", "active");
+    .eq("status", "active")
+    .lte("start_date", periodEndDate(parsed.data.month, parsed.data.year));
   if (!roomServicesRes.error && roomServicesRes.data?.length) {
     items = [...(items ?? []), ...buildItemsFromRoomServices(roomServicesRes.data as any)];
   }
@@ -1649,7 +1656,8 @@ invoicesRoutes.post("/auto-generate", async (c) => {
         .select("id,service_id,quantity,custom_unit_price,services(name,unit_price,unit)")
         .eq("room_id", room.id)
         .eq("user_id", user.id)
-        .eq("status", "active");
+        .eq("status", "active")
+        .lte("start_date", periodEndDate(month, year));
       if (!roomServicesRes.error && roomServicesRes.data?.length) {
         items = [...items, ...buildItemsFromRoomServices(roomServicesRes.data as any)];
       }
