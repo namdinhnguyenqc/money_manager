@@ -237,12 +237,17 @@ export default function ServicesPage() {
 
       {/* Inline form */}
       {formOpen && (
-        <Card className="mb-6 p-5 border-blue-200 bg-blue-50/40 animate-in slide-in-from-top-2 duration-300">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-base font-bold text-slate-900">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-in fade-in duration-300"
+          role="presentation"
+          onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) closeForm(); }}
+        >
+        <div role="dialog" aria-modal="true" aria-labelledby="service-form-title" className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 id="service-form-title" className="text-xl font-bold text-slate-900">
               {editingService ? "Chỉnh sửa dịch vụ" : "Thêm dịch vụ mới"}
-            </h3>
-            <button onClick={closeForm} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 transition-colors">
+            </h2>
+            <button type="button" disabled={saving} onClick={closeForm} className="rounded-lg bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 transition-colors" aria-label="Đóng">
               <X size={18} />
             </button>
           </div>
@@ -334,13 +339,14 @@ export default function ServicesPage() {
               </div>
             </div>
             <div className="flex gap-3 pt-1">
-              <Button type="button" variant="outline" onClick={closeForm}>Hủy</Button>
+              <Button type="button" variant="outline" onClick={closeForm} disabled={saving}>Hủy</Button>
               <Button type="submit" variant="primary" loading={saving} disabled={saving}>
                 {editingService ? "Lưu thay đổi" : "Thêm dịch vụ"}
               </Button>
             </div>
           </form>
-        </Card>
+        </div>
+        </div>
       )}
 
       {/* Service list */}

@@ -3,8 +3,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Banknote, Landmark, RefreshCw, Smartphone, WalletCards } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BoardingHouse, Transaction, formatMoney, loadBoardingHouses, loadTransactions } from "@/lib/rentalOps";
+import { useQuery } from "@tanstack/react-query";
+import { BoardingHouse, Transaction, formatMoney, loadBoardingHouses, loadRentalRooms, loadTransactions } from "@/lib/rentalOps";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input, { Label, Select } from "@/components/ui/Input";
@@ -17,7 +17,7 @@ const methods = ["Tất cả", "Tiền mặt", "Chuyển khoản", "Ví điện 
 const pageSize = 10;
 
 export default function PaymentsPage() {
-  const queryClient = useQueryClient();
+  const [houseId, setHouseId] = useState("");
   const [method, setMethod] = useState("Tất cả");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -29,6 +29,12 @@ export default function PaymentsPage() {
     staleTime: 60_000,
   });
 
+  const roomsQuery = useQuery({
+    queryKey: ["rooms", "all"],
+    queryFn: () => loadRentalRooms(),
+    staleTime: 30_000,
+  });
+
   const transactionsQuery = useQuery({
     queryKey: ["transactions"],
     queryFn: loadTransactions,
@@ -36,7 +42,20 @@ export default function PaymentsPage() {
   });
 
   const houses = housesQuery.data || [];
+  const rooms = roomsQuery.data || [];
   const allTransactions = transactionsQuery.data || [];
+
+  // A payment doesn't carry a facility id directly — it's reached through the
+  // contract that was billed, then the room that contract belongs to.
+  const houseIdByContractId = useMemo(() => {
+    const map = new Map<string, string>();
+    rooms.forEach((room) => {
+      const contractId = (room as any).contract_id;
+      const boardingHouseId = (room as any).boarding_house_id;
+      if (contractId && boardingHouseId) map.set(String(contractId), String(boardingHouseId));
+    });
+    return map;
+  }, [rooms]);
 
   const payments = useMemo(() => {
     return allTransactions.filter(
@@ -48,24 +67,23 @@ export default function PaymentsPage() {
     return payments.filter((tx) => {
       if (from && tx.date < from) return false;
       if (to && tx.date > to) return false;
+      if (houseId) {
+        const txHouseId = tx.contract_id ? houseIdByContractId.get(String(tx.contract_id)) : undefined;
+        if (txHouseId !== houseId) return false;
+      }
       if (method !== "Tất cả") {
         if (method === "SePay" && tx.source !== "sepay") return false;
         if (method !== "SePay" && !String(tx.description || "").includes(method)) return false;
       }
       return true;
     });
-  }, [payments, from, to, method]);
+  }, [payments, from, to, method, houseId, houseIdByContractId]);
   const visiblePayments = useMemo(() => filtered.slice((page - 1) * pageSize, page * pageSize), [filtered, page]);
 
-  useEffect(() => setPage(1), [from, to, method]);
+  useEffect(() => setPage(1), [from, to, method, houseId]);
 
-  const loading = housesQuery.isLoading || transactionsQuery.isLoading;
-  const error = (housesQuery.error || transactionsQuery.error) ? "Không tải được lịch sử thu tiền." : "";
-
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["boardinghouses"] });
-    queryClient.invalidateQueries({ queryKey: ["transactions"] });
-  };
+  const loading = housesQuery.isLoading || transactionsQuery.isLoading || roomsQuery.isLoading;
+  const error = (housesQuery.error || transactionsQuery.error || roomsQuery.error) ? "Không tải được lịch sử thu tiền." : "";
 
   const total = filtered.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
   const totalCash = filtered.filter((tx) => !String(tx.description || "").includes("Chuyển khoản") && !String(tx.description || "").includes("Ví điện tử")).reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
@@ -79,20 +97,15 @@ export default function PaymentsPage() {
         subtitle="Lịch sử thu tiền"
         title="Thu tiền"
         description="Theo dõi các khoản tiền phòng đã ghi nhận, tách khỏi bước lập hóa đơn."
-        actions={
-          <Button variant="outline" icon={<RefreshCw size={15} />} onClick={handleRefresh}>
-            Làm mới
-          </Button>
-        }
       />
 
       <Card className="mb-4 p-4">
         <div className="grid gap-3 md:grid-cols-4">
           <div>
             <Label>Cơ sở</Label>
-            <Select>
-              <option>Tất cả cơ sở</option>
-              {houses.map((house) => <option key={house.id}>{house.name}</option>)}
+            <Select value={houseId} onChange={(e) => setHouseId(e.target.value)}>
+              <option value="">Tất cả cơ sở</option>
+              {houses.map((house) => <option key={house.id} value={house.id}>{house.name}</option>)}
             </Select>
           </div>
           <div>
