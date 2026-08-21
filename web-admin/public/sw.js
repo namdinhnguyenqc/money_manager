@@ -4,7 +4,7 @@
    - API calls (/api, backend): never cached (always live data).
    - Push notifications: show notification on payment received.
    Bump CACHE_VERSION whenever this file or the cached shell changes. */
-const CACHE_VERSION = "trocare-v5";
+const CACHE_VERSION = "trocare-v6";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = "/offline.html";
 
@@ -58,7 +58,29 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Static assets: stale-while-revalidate.
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      const network = fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const copy = response.clone();
+            caches.open(STATIC_CACHE).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() => cached);
+      return cached || network;
+    })
+  );
+});
+
 // ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────────
+// These must stay at the top level. They were previously nested inside the
+// fetch handler, which meant they were only registered once a fetch had already
+// fired: a worker woken by a push alone had no push listener and dropped the
+// notification, while an active session re-registered a duplicate listener on
+// every asset request and showed the same notification many times over.
 self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data?.json() ?? {}; } catch { data = { title: "TrọCare", body: event.data?.text() ?? "" }; }
@@ -89,20 +111,3 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 // ──────────────────────────────────────────────────────────────────────────────
-
-  // Static assets: stale-while-revalidate.
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const copy = response.clone();
-            caches.open(STATIC_CACHE).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
-  );
-});
