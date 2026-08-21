@@ -9,9 +9,10 @@ import ConfirmDialog from "@/components/ops/ConfirmDialog";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import StatusBadge from "@/components/ops/StatusBadge";
 import { 
-  describeServiceType, 
-  formatMoney, 
-  getServiceUnitLabel, 
+  describeServiceType,
+  formatMoney,
+  formatMoneyOrFree,
+  getServiceUnitLabel,
   loadContract, 
   loadInvoicesByContract, 
   normalizeInvoiceStatus, 
@@ -539,7 +540,7 @@ function EditContractPanel({ contract, onClose, onSaved }: { contract: any; onCl
                   />
                   <div className="text-sm">
                     <div className="font-medium text-slate-900">{service.name}</div>
-                    <div className="text-xs text-slate-500">{formatMoney(service.unit_price)}{getServiceUnitLabel(service)}</div>
+                    <div className="text-xs text-slate-500">{formatMoneyOrFree(service.unit_price)}{service.unit_price ? getServiceUnitLabel(service) : ""}</div>
                   </div>
                 </label>
               );
