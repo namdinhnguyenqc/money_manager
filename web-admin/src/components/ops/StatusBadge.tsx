@@ -25,6 +25,7 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
   cancelled: "danger",
   ended: "neutral",
   disabled: "neutral",
+  carried_forward: "primary",
 };
 
 // Keep original map exported for backwards compat
@@ -62,6 +63,7 @@ const STATUS_LABEL: Record<string, string> = {
   overdue: "Quá hạn",
   paid: "Đã thanh toán",
   partial: "Thanh toán một phần",
+  carried_forward: "Đã chuyển sang kỳ sau",
   // Deposit statuses
   holding: "Đã cọc giữ phòng",
   transferred: "Đã chuyển vào HĐ",

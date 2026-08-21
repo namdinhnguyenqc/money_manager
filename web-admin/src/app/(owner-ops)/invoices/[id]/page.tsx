@@ -84,6 +84,7 @@ export default function InvoiceDetailPage() {
   const outstanding = Math.max(0, total - paid);
   const status = normalizeInvoiceStatus(invoice);
   const isPaid = status === "paid";
+  const isCarriedForward = Boolean((invoice as any).carriedForward) && !isPaid;
 
   const channel = invoice.payment_channel;
   const bankId = channel?.bank_id || channel?.bankId || bankConfig?.bank_id || settings.bank_name_1 || "";
@@ -168,8 +169,14 @@ export default function InvoiceDetailPage() {
     }
   };
 
-  const statusLabel = isPaid ? "Đã thanh toán" : status === "partial" ? "Còn thiếu" : "Chưa thanh toán";
-  const statusColor = isPaid ? "text-emerald-700" : status === "partial" ? "text-amber-600" : "text-red-600";
+  const statusLabel = isPaid
+    ? "Đã thanh toán"
+    : isCarriedForward
+      ? "Đã chuyển nợ sang kỳ sau"
+      : status === "partial"
+        ? "Còn thiếu"
+        : "Chưa thanh toán";
+  const statusColor = isPaid ? "text-emerald-700" : isCarriedForward ? "text-blue-600" : status === "partial" ? "text-amber-600" : "text-red-600";
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -311,7 +318,7 @@ export default function InvoiceDetailPage() {
           <Copy size={17} />
           {sharing ? "Đang tạo ảnh..." : "Chia sẻ ảnh hóa đơn (Zalo / Messenger)"}
         </button>
-        {outstanding > 0 && (
+        {outstanding > 0 && !isCarriedForward && (
           <Link
             href={`/payments/new?invoice_id=${invoice.id}`}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white hover:bg-emerald-700 active:scale-95 transition-all"
@@ -319,7 +326,12 @@ export default function InvoiceDetailPage() {
             <Wallet size={17} /> Thu tiền
           </Link>
         )}
-        {!isPaid && (
+        {isCarriedForward && (
+          <p className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-center text-xs font-semibold text-blue-700">
+            Phần còn thiếu của hóa đơn này đã được cộng vào công nợ kỳ sau — thu tiền trên hóa đơn kỳ sau.
+          </p>
+        )}
+        {!isPaid && !isCarriedForward && (
           <button
             onClick={() => setAddFeeOpen(true)}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 py-3 text-sm font-bold text-amber-700 hover:bg-amber-100 active:scale-95 transition-all"

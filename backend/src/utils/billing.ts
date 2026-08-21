@@ -45,6 +45,7 @@ export function resolveInvoiceRoomFee(input: {
 }
 
 export type InvoiceDebtRow = {
+  id?: string | null;
   room_id?: string | null;
   total_amount?: number | string | null;
   paid_amount?: number | string | null;
@@ -65,8 +66,16 @@ export type RoomInvoiceSummary = {
  * of truth, and a denormalized column would drift every time a payment lands via
  * the SePay webhook. A partially paid invoice contributes only its remaining
  * balance, and an overpayment never becomes negative debt.
+ *
+ * `supersededInvoiceIds` are invoices whose unpaid remainder has already been
+ * carried into a later invoice's `previous_debt` (see computeCarryover). Their
+ * own balance must be excluded here, or the same 100k shows up twice: once as
+ * this invoice's leftover, once inside the next invoice's total.
  */
-export function summarizeRoomInvoices(rows: InvoiceDebtRow[]): Map<string, RoomInvoiceSummary> {
+export function summarizeRoomInvoices(
+  rows: InvoiceDebtRow[],
+  supersededInvoiceIds: ReadonlySet<string> = new Set(),
+): Map<string, RoomInvoiceSummary> {
   const byRoom = new Map<string, RoomInvoiceSummary & { latestRank: number }>();
 
   for (const row of rows ?? []) {
@@ -75,7 +84,7 @@ export function summarizeRoomInvoices(rows: InvoiceDebtRow[]): Map<string, RoomI
 
     const entry = byRoom.get(roomId) ?? { outstanding: 0, latestStatus: null, latestRank: -1 };
 
-    if (row.status !== "paid") {
+    if (row.status !== "paid" && !(row.id && supersededInvoiceIds.has(String(row.id)))) {
       const total = Number(row.total_amount || 0);
       const paid = Number(row.paid_amount || 0);
       entry.outstanding += Math.max(0, total - paid);

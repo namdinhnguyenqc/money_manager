@@ -230,6 +230,8 @@ export type Invoice = {
   total_amount: number;
   paid_amount?: number;
   previous_debt?: number;
+  previous_credit?: number;
+  carriedForward?: boolean;
   status?: string;
   room_name?: string;
   tenant_name?: string;
