@@ -318,6 +318,10 @@ export type FacilityRoomSummary = {
 export const formatMoney = (value?: number | null) =>
   `${new Intl.NumberFormat("vi-VN").format(Math.round(Number(value || 0)))} ₫`;
 
+/** A service/room-service priced at 0 is intentionally free, not "forgot to price it" — label it as such. */
+export const formatMoneyOrFree = (value?: number | null) =>
+  Number(value || 0) <= 0 ? "Miễn phí" : formatMoney(value);
+
 export const getInvoiceRemainingAmount = (invoice?: Invoice | null) => {
   if (!invoice) return 0;
   return Math.max(0, Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0));

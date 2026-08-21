@@ -14,6 +14,7 @@ import {
   loadServicePriceHistory,
   describeServiceType,
   formatMoney,
+  formatMoneyOrFree,
   ServiceConfig,
   ServicePriceHistoryEntry,
 } from "@/lib/rentalOps";
@@ -43,6 +44,7 @@ const typeChipColor: Record<string, string> = {
 type ServiceForm = {
   name: string;
   type: "metered" | "per_person" | "per_room" | "fixed";
+  isFree: boolean;
   unit_price: string;
   unit_price_ac: string;
   unit: string;
@@ -53,6 +55,7 @@ type ServiceForm = {
 const defaultForm = (): ServiceForm => ({
   name: "",
   type: "fixed",
+  isFree: false,
   unit_price: "",
   unit_price_ac: "",
   unit: "",
@@ -115,10 +118,12 @@ export default function ServicesPage() {
 
   const openEdit = (svc: ServiceConfig) => {
     setEditingService(svc);
+    const isFree = !svc.unit_price;
     setForm({
       name: svc.name,
       type: (svc.type as ServiceForm["type"]) || "fixed",
-      unit_price: String(svc.unit_price || ""),
+      isFree,
+      unit_price: isFree ? "" : String(svc.unit_price || ""),
       unit_price_ac: String(svc.unit_price_ac || ""),
       unit: svc.unit || "",
       icon: svc.icon || "🔧",
@@ -136,8 +141,8 @@ export default function ServicesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) return showToast("Vui lòng nhập tên dịch vụ.", "error");
-    const unitPrice = Number(form.unit_price);
-    if (!unitPrice || unitPrice <= 0) return showToast("Vui lòng nhập đơn giá hợp lệ.", "error");
+    const unitPrice = form.isFree ? 0 : Number(form.unit_price);
+    if (!form.isFree && (!unitPrice || unitPrice <= 0)) return showToast("Vui lòng nhập đơn giá hợp lệ, hoặc chọn Miễn phí.", "error");
 
     setSaving(true);
     try {
@@ -145,7 +150,7 @@ export default function ServicesPage() {
         name: form.name.trim(),
         type: form.type,
         unit_price: unitPrice,
-        unit_price_ac: form.unit_price_ac ? Number(form.unit_price_ac) : undefined,
+        unit_price_ac: form.isFree ? 0 : form.unit_price_ac ? Number(form.unit_price_ac) : undefined,
         unit: form.unit.trim() || undefined,
         icon: form.icon || undefined,
         note: form.note.trim() || undefined,
@@ -263,27 +268,43 @@ export default function ServicesPage() {
                   ))}
                 </Select>
               </div>
-              <div>
-                <Label>Đơn giá (₫) *</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="3500"
-                  value={form.unit_price}
-                  onChange={(e) => setForm((p) => ({ ...p, unit_price: e.target.value }))}
-                  required
-                />
+              <div className="sm:col-span-2">
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300"
+                    checked={form.isFree}
+                    onChange={(e) => setForm((p) => ({ ...p, isFree: e.target.checked }))}
+                  />
+                  <span className="text-sm font-semibold text-slate-700">Miễn phí (không tính tiền vào hóa đơn)</span>
+                </label>
+                <p className="mt-1 text-xs text-slate-500">Dùng cho tiện ích có sẵn không thu phí, vd: máy giặt — vẫn ghi nhận cho phòng nhưng không cộng vào bill.</p>
               </div>
-              <div>
-                <Label>Đơn giá phòng AC (₫, tuỳ chọn)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="4000"
-                  value={form.unit_price_ac}
-                  onChange={(e) => setForm((p) => ({ ...p, unit_price_ac: e.target.value }))}
-                />
-              </div>
+              {!form.isFree && (
+                <>
+                  <div>
+                    <Label>Đơn giá (₫) *</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="3500"
+                      value={form.unit_price}
+                      onChange={(e) => setForm((p) => ({ ...p, unit_price: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label>Đơn giá phòng AC (₫, tuỳ chọn)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="4000"
+                      value={form.unit_price_ac}
+                      onChange={(e) => setForm((p) => ({ ...p, unit_price_ac: e.target.value }))}
+                    />
+                  </div>
+                </>
+              )}
               <div>
                 <Label>Đơn vị (tuỳ chọn)</Label>
                 <Input
@@ -365,8 +386,8 @@ export default function ServicesPage() {
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
-                  <div className="text-base font-bold text-slate-900 whitespace-nowrap">{formatMoney(svc.unit_price)}</div>
-                  {svc.unit_price_ac && (
+                  <div className={`text-base font-bold whitespace-nowrap ${svc.unit_price ? "text-slate-900" : "text-emerald-600"}`}>{formatMoneyOrFree(svc.unit_price)}</div>
+                  {svc.unit_price && svc.unit_price_ac && (
                     <div className="text-xs text-slate-400 whitespace-nowrap">AC: {formatMoney(svc.unit_price_ac)}</div>
                   )}
                   {svc.active === false ? (
