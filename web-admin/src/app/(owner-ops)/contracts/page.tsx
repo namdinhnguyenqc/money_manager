@@ -6,11 +6,12 @@ import { useQuery } from "@tanstack/react-query";
 import EmptyState from "@/components/ops/EmptyState";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import StatusBadge, { ContractStatus } from "@/components/ops/StatusBadge";
-import { formatMoney, loadContracts } from "@/lib/rentalOps";
+import { formatMoney, loadContracts, loadBoardingHouses } from "@/lib/rentalOps";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
+import { Label, Select } from "@/components/ui/Input";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 
 const filters: Array<{ label: string; value: "all" | ContractStatus }> = [
@@ -22,14 +23,25 @@ const filters: Array<{ label: string; value: "all" | ContractStatus }> = [
 const pageSize = 10;
 
 export default function ContractsPage() {
-  const [filter, setFilter] = useState<"all" | ContractStatus>("active");
+  const [filter, setFilter] = useState<"all" | ContractStatus>("all");
+  const [houseId, setHouseId] = useState("");
   const [page, setPage] = useState(1);
   const contractsQuery = useQuery({ queryKey: ["contracts"], queryFn: loadContracts, staleTime: 30_000 });
+  const housesQuery = useQuery({ queryKey: ["boardinghouses"], queryFn: loadBoardingHouses, staleTime: 60_000 });
   const contracts = contractsQuery.data || [];
-  const filtered = useMemo(() => contracts.filter((contract) => filter === "all" || contract.status === filter), [contracts, filter]);
+  const houses = housesQuery.data || [];
+  const filtered = useMemo(
+    () =>
+      contracts.filter(
+        (contract) =>
+          (filter === "all" || contract.status === filter) &&
+          (!houseId || String(contract.facility_id || "") === houseId),
+      ),
+    [contracts, filter, houseId],
+  );
   const visibleContracts = useMemo(() => filtered.slice((page - 1) * pageSize, page * pageSize), [filtered, page]);
 
-  useEffect(() => setPage(1), [filter]);
+  useEffect(() => setPage(1), [filter, houseId]);
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -39,12 +51,23 @@ export default function ContractsPage() {
         description="Tạo hợp đồng từ phòng trống để giữ đúng context cơ sở và phòng."
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {filters.map((item) => (
-          <button key={item.value} onClick={() => setFilter(item.value)} className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition-all ${filter === item.value ? filterPillActive : filterPillInactive}`}>
-            {item.label}
-          </button>
-        ))}
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap gap-2">
+          {filters.map((item) => (
+            <button key={item.value} onClick={() => setFilter(item.value)} className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition-all ${filter === item.value ? filterPillActive : filterPillInactive}`}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+        {houses.length > 1 && (
+          <div className="w-full sm:w-56">
+            <Label>Cơ sở</Label>
+            <Select value={houseId} onChange={(e) => setHouseId(e.target.value)}>
+              <option value="">Tất cả cơ sở</option>
+              {houses.map((house) => <option key={house.id} value={house.id}>{house.name}</option>)}
+            </Select>
+          </div>
+        )}
       </div>
 
       {contractsQuery.isLoading ? <LoadingSkeleton rows={5} /> : null}

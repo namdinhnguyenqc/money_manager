@@ -282,6 +282,7 @@ export type Transaction = {
   category_id?: string;
   category_name?: string;
   invoice_id?: string | null;
+  contract_id?: string | null;
   source?: string;
   external_ref?: string | null;
   metadata?: Record<string, any>;
