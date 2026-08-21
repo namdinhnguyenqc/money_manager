@@ -262,7 +262,7 @@ rentalRoutes.get("/rooms", async (c) => {
     roomsQuery = roomsQuery.eq("boarding_house_id", buildingId);
   }
 
-  const [roomsRes, contractsRes, tenantsRes, reservationsRes, invoicesRes] = await Promise.all([
+  const [roomsRes, contractsRes, tenantsRes, reservationsRes, invoicesRes, carriedDebtRes] = await Promise.all([
     roomsQuery,
     db.from("contracts").select("*").eq("user_id", user.id).eq("status", "active"),
     db.from("tenants").select("*").eq("user_id", user.id),
@@ -275,11 +275,19 @@ rentalRoutes.get("/rooms", async (c) => {
     // are the source of truth, and a denormalized column would drift every time
     // a payment lands via the SePay webhook.
     db.from("invoices")
-      .select("room_id,total_amount,paid_amount,status,month,year")
+      .select("id,room_id,total_amount,paid_amount,status,month,year")
       .eq("user_id", user.id)
       // Only unsettled invoices are needed, which keeps this query proportional
       // to outstanding debt instead of billing history.
       .neq("status", "paid"),
+    // A later invoice may already carry this one's unpaid remainder into its own
+    // total (see computeCarryover) — regardless of whether that later invoice is
+    // itself paid yet. Those source invoices must not also count as outstanding,
+    // or the same balance is double-counted.
+    db.from("invoices")
+      .select("previous_debt_source_invoice_id")
+      .eq("user_id", user.id)
+      .not("previous_debt_source_invoice_id", "is", null),
   ]);
 
   if (roomsRes.error) return c.json({ error: roomsRes.error.message }, 500);
@@ -287,11 +295,15 @@ rentalRoutes.get("/rooms", async (c) => {
   if (tenantsRes.error) return c.json({ error: tenantsRes.error.message }, 500);
   if (reservationsRes.error) return c.json({ error: reservationsRes.error.message }, 500);
   if (invoicesRes.error) return c.json({ error: invoicesRes.error.message }, 500);
+  if (carriedDebtRes.error) return c.json({ error: carriedDebtRes.error.message }, 500);
 
   const contracts = contractsRes.data ?? [];
   const tenants = tenantsRes.data ?? [];
   const reservations = reservationsRes.data ?? [];
-  const invoiceSummaryByRoom = summarizeRoomInvoices(invoicesRes.data ?? []);
+  const supersededInvoiceIds = new Set(
+    (carriedDebtRes.data ?? []).map((row: any) => String(row.previous_debt_source_invoice_id)),
+  );
+  const invoiceSummaryByRoom = summarizeRoomInvoices(invoicesRes.data ?? [], supersededInvoiceIds);
 
   const data = (roomsRes.data ?? [])
     .map((room) => {

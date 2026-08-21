@@ -284,10 +284,20 @@ invoicesRoutes.get("/", async (c) => {
       ? db.from("invoice_items").select("*").in("invoice_id", invIds).eq("user_id", user.id)
       : Promise.resolve({ data: [], error: null }),
   ]);
+  // Which of these invoices had their unpaid remainder already carried into a
+  // later bill (see computeCarryover) — used to swap the "còn thiếu" badge for
+  // a neutral "đã chuyển sang kỳ sau" one instead of flagging it as owed twice.
+  const carriedRes = await db
+    .from("invoices")
+    .select("previous_debt_source_invoice_id")
+    .eq("user_id", user.id)
+    .in("previous_debt_source_invoice_id", invIds);
 
   if (contractsRes.error) return c.json({ error: contractsRes.error.message }, 500);
   if (roomsRes.error) return c.json({ error: roomsRes.error.message }, 500);
   if (channelsRes.error) return c.json({ error: channelsRes.error.message }, 500);
+  if (carriedRes.error) return c.json({ error: carriedRes.error.message }, 500);
+  const carriedForwardIds = new Set((carriedRes.data ?? []).map((row: any) => String(row.previous_debt_source_invoice_id)));
 
   const contracts = contractsRes.data ?? [];
   const rooms = roomsRes.data ?? [];
@@ -336,6 +346,7 @@ invoicesRoutes.get("/", async (c) => {
         tenant_name: tenant?.name ?? "",
         tenantPhone: tenant?.phone ?? "",
         tenant_phone: tenant?.phone ?? "",
+        carriedForward: carriedForwardIds.has(String(inv.id)),
       }, inv.payment_channel_id ? channelsById.get(String(inv.payment_channel_id)) : null);
 
       if (includeItems) {
@@ -1231,9 +1242,22 @@ invoicesRoutes.get("/:id", async (c) => {
     paymentChannel = channelRes.data;
   }
 
+  // Was this invoice's unpaid remainder already carried into a later bill?
+  // If so, its own "còn thiếu" is redundant — the amount now lives on that
+  // later invoice's previous_debt.
+  const carriedRes = await db
+    .from("invoices")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("previous_debt_source_invoice_id", id)
+    .limit(1)
+    .maybeSingle();
+  if (carriedRes.error) return c.json({ error: carriedRes.error.message }, 500);
+
   return c.json({
     data: enrichPaymentFields({
       ...invoice,
+      carriedForward: Boolean(carriedRes.data),
       roomId: invoice.room_id,
       contractId: invoice.contract_id,
       roomFee: invoice.room_fee,

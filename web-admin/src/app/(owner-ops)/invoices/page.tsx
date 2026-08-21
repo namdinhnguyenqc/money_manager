@@ -69,14 +69,27 @@ const isInvoiceBeforeCurrentMonth = (invoice: Invoice) => {
   return isInvoiceBeforePeriod(invoice, { month: now.getMonth() + 1, year: now.getFullYear() });
 };
 
+const todayInVietnam = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
+
 const isInvoiceUnpaid = (invoice: Invoice) => {
+  // An invoice whose remainder was already carried into a later bill's
+  // previous_debt is settled from the owner's point of view — the same amount
+  // showing up here again would double-flag it as needing collection.
+  if ((invoice as any).carriedForward) return false;
   const total = Math.round(Number(invoice.total_amount || 0));
   const paid = Math.round(Number(invoice.paid_amount || 0));
   return total > 0 && paid < total;
 };
 
 const getDisplayInvoiceStatus = (invoice: Invoice, period: { month: number; year: number }) => {
-  if ((isInvoiceBeforePeriod(invoice, period) || isInvoiceBeforeCurrentMonth(invoice)) && isInvoiceUnpaid(invoice)) return "overdue";
+  // Invoices created after the due-date setting was introduced carry their
+  // exact due date. Only those become overdue after that date. Legacy invoices
+  // do not have a due date and intentionally retain the former month behavior.
+  const isOverdue = invoice.due_date || invoice.dueDate
+    ? todayInVietnam() > String(invoice.due_date || invoice.dueDate)
+    : isInvoiceBeforePeriod(invoice, period) || isInvoiceBeforeCurrentMonth(invoice);
+  if ((invoice as any).carriedForward && normalizeInvoiceStatus(invoice) !== "paid") return "carried_forward";
+  if (isOverdue && isInvoiceUnpaid(invoice)) return "overdue";
   return normalizeInvoiceStatus(invoice);
 };
 
@@ -273,14 +286,15 @@ export default function InvoicesPage() {
     return { month: now.getMonth() + 1, year: now.getFullYear() };
   });
 
-  // This screen used to fetch all three endpoints by hand on every mount, with a
-  // useRef sequence counter so a slow earlier response could not overwrite a
-  // newer one. That meant no cache: returning to this tab always paid three
+  // This screen used to fetch all three endpoints by hand on every mount, with
+  // a useRef sequence counter to stop a slow earlier response from overwriting
+  // a newer one. That meant no cache: returning to this tab always paid three
   // fresh round trips, which is expensive against a cold backend. React Query
-  // caches per (facility, period) and discards out-of-order responses itself.
+  // caches per (facility, period) and drops out-of-order responses itself, so
+  // the guard is no longer needed.
   const houseId = selectedHouse === "all" ? undefined : selectedHouse;
 
-  // Same key the facilities screen uses, so moving between them reuses one
+  // Same key the facilities screen uses, so navigating between them reuses one
   // cached list instead of refetching.
   const housesQuery = useQuery({
     queryKey: ["facilities"],
@@ -289,11 +303,11 @@ export default function InvoicesPage() {
   });
 
   const invoicesQuery = useQuery({
-    queryKey: ["invoices", houseId ?? "all"],
+    queryKey: ["invoices", houseId ?? "all", period.month, period.year],
     queryFn: () => loadInvoices(houseId),
     staleTime: 30_000,
-    // Keep the previous rows on screen while the next period loads instead of
-    // flashing an empty table on every month change.
+    // Keep the previous period's rows on screen while the next one loads rather
+    // than flashing an empty table on every month change.
     placeholderData: (previous) => previous,
   });
 
@@ -307,8 +321,8 @@ export default function InvoicesPage() {
   const houses = housesQuery.data ?? [];
   const pendingRooms = pendingQuery.data ?? [];
 
-  // Period filtering stays here so the cached response is the raw server list
-  // and changing month does not invalidate it.
+  // The period filter stays here rather than in queryFn so the cached response
+  // is the raw server list; only the derived view depends on `period`.
   const invoices = useMemo(() => {
     return (invoicesQuery.data ?? []).filter((invoice) => {
       const isCurrentPeriod = invoice.month === period.month && invoice.year === period.year;
@@ -485,9 +499,6 @@ export default function InvoicesPage() {
               </div>
               <button onClick={() => changePeriod(1)} className="rounded-md p-1.5 hover:bg-slate-100 transition-colors"><ChevronRight size={16} /></button>
             </div>
-            <Button variant="outline" icon={<RefreshCw size={15} />} onClick={load}>
-              Làm mới
-            </Button>
             <Button
               variant="outline"
               icon={<FileSpreadsheet size={15} />}
@@ -516,35 +527,27 @@ export default function InvoicesPage() {
         <MetricCard label="Quá hạn" value={`${overdueCarryCount} hóa đơn`} tone="warning" />
       </div>
 
-      {/* Facility and status shared four rows on a phone before the first
-          invoice was visible. One surface now: facility as a select once there
-          is more than one, status chips beneath it. */}
-      <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-        {houses.length > 1 ? (
-          <select
-            aria-label="Lọc theo cơ sở"
-            value={selectedHouse}
-            onChange={(event) => setSelectedHouse(event.target.value)}
-            className="input !w-auto min-w-[180px]"
-          >
-            <option value="all">Tất cả cơ sở</option>
-            {houses.map((house) => <option key={house.id} value={house.id}>{house.name}</option>)}
-          </select>
-        ) : null}
+      <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        <button onClick={() => setSelectedHouse("all")} className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ${selectedHouse === "all" ? filterPillActive : filterPillInactive}`}>Tất cả cơ sở</button>
+        {houses.map((house) => (
+          <button key={house.id} onClick={() => setSelectedHouse(house.id)} className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ${selectedHouse === house.id ? filterPillActive : filterPillInactive}`}>
+            {house.name}
+          </button>
+        ))}
+      </div>
 
-        <div className={`flex flex-wrap gap-2 ${houses.length > 1 ? "mt-3 border-t border-slate-100 pt-3" : ""}`}>
-          {statusTabs.map((item) => (
-            <button key={item} onClick={() => setFilter(item)} className={`relative rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ${filter === item ? filterPillActive : filterPillInactive}`}>
-              {item}
-              {item === "Chưa lập HĐ" && pendingRooms.length > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">{pendingRooms.length}</span>
-              )}
-              {item === "Quá hạn" && overdueCarryCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] text-white">{overdueCarryCount}</span>
-              )}
-            </button>
-          ))}
-        </div>
+      <div className="mb-4 flex flex-wrap gap-2">
+        {statusTabs.map((item) => (
+          <button key={item} onClick={() => setFilter(item)} className={`relative rounded-full border px-4 py-1.5 text-sm font-semibold transition-all ${filter === item ? filterPillActive : filterPillInactive}`}>
+            {item}
+            {item === "Chưa lập HĐ" && pendingRooms.length > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">{pendingRooms.length}</span>
+            )}
+            {item === "Quá hạn" && overdueCarryCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] text-white">{overdueCarryCount}</span>
+            )}
+          </button>
+        ))}
       </div>
 
       {overdueCarryCount > 0 && (
