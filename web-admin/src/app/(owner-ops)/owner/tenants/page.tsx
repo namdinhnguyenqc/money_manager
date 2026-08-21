@@ -2,205 +2,57 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import RBACGuard from "@/components/RBACGuard";
-import { loadRentalRooms, normalizeRoomStatus, roomStatusLabel, formatMoney, type RentalRoom } from "@/lib/rentalOps";
-import { apiGet, apiPatch } from "@/utils/apiClient";
 import {
-  Users, Phone, ShieldCheck, Search, Home, Calendar,
-  DollarSign, ChevronRight, AlertCircle, UserCheck, UserX, Download
-} from "lucide-react";
-import Input from "@/components/ui/Input";
+  loadRentalRooms,
+  normalizeRoomStatus,
+  formatMoney,
+  loadTenants,
+  updateTenant,
+  deleteTenant,
+  createTenant,
+  RentalValidationError,
+  type RentalRoom,
+  type Tenant,
+} from "@/lib/rentalOps";
+import { Users, Search, Plus, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
+import PageHeader from "@/components/ui/PageHeader";
+import MetricCard from "@/components/ui/MetricCard";
+import Card from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import Input, { Label } from "@/components/ui/Input";
 import Pagination from "@/components/ui/Pagination";
+import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
+import ConfirmDialog from "@/components/ops/ConfirmDialog";
+import { useToast } from "@/components/ui/Toast";
 
-type Tenant = {
-  id: string;
-  name: string;
-  phone?: string;
-  email?: string;
-  id_card?: string;
-  address?: string;
-  created_at?: string;
-};
+type TenantWithRoom = Tenant & { room?: RentalRoom; isActive: boolean };
 
-type TenantWithRoom = Tenant & {
-  room?: RentalRoom;
-  isActive: boolean;
-};
-
-const pageSize = 12;
+const pageSize = 20;
 
 export default function OwnerTenantsPage() {
-  const [tenants, setTenants] = useState<Tenant[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("owner_tenants_cache");
-        return saved ? JSON.parse(saved) : [];
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
-  const [rooms, setRooms] = useState<RentalRoom[]>([]);
-  const [loading, setLoading] = useState(tenants.length === 0);
-  const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
+  const queryClient = useQueryClient();
+
+  const tenantsQuery = useQuery({ queryKey: ["tenants"], queryFn: loadTenants, staleTime: 30_000 });
+  const roomsQuery = useQuery({ queryKey: ["rooms", "all"], queryFn: () => loadRentalRooms(), staleTime: 30_000 });
+  const tenants = tenantsQuery.data ?? [];
+  const rooms = roomsQuery.data ?? [];
+  const loading = tenantsQuery.isLoading || roomsQuery.isLoading;
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [filter, setFilter] = useState<"active" | "all">("active");
+  const [filter, setFilter] = useState<"all" | "active" | "inactive">("all");
   const [page, setPage] = useState(1);
-  
-  const [scanningTenantId, setScanningTenantId] = useState<string | null>(null);
-  const [ocrLoading, setOcrLoading] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-  useEffect(() => {
-    // Dynamic import Tesseract.js script from CDN
-    if (typeof window !== "undefined" && !(window as any).Tesseract) {
-      const script = document.createElement("script");
-      script.src = "https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js";
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  }, []);
+  const [addOpen, setAddOpen] = useState(false);
+  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [deletingTenant, setDeletingTenant] = useState<TenantWithRoom | null>(null);
 
-  const triggerOcrForTenant = (tenantId: string) => {
-    setScanningTenantId(tenantId);
-    setError(null);
-    setToast(null);
-    const input = document.getElementById("ocr-file-input");
-    if (input) {
-      (input as HTMLInputElement).value = ""; // Clear file selector
-      input.click();
-    }
-  };
-
-  const handleOcrFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0 || !scanningTenantId) return;
-
-    setOcrLoading(true);
-    setError(null);
-    setToast(null);
-
-    try {
-      let combinedName = "";
-      let combinedCccd = "";
-      let combinedAddress = "";
-
-      const fileList = Array.from(files).slice(0, 2);
-      for (const file of fileList) {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://money-manager-xdem.onrender.com"}/owner/ocr-cccd`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("accessToken") || ""}`
-          },
-          body: formData
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || `Lỗi máy chủ khi quét ảnh (${res.status})`);
-        }
-
-        const data = await res.json();
-        if (data.name) combinedName = data.name;
-        if (data.cccd) combinedCccd = data.cccd;
-        if (data.address) combinedAddress = data.address;
-      }
-
-      if (!combinedCccd && !combinedName) {
-        throw new Error("Không nhận diện được Họ tên hoặc số CCCD. Hãy đảm bảo ảnh chụp đủ ánh sáng và rõ nét.");
-      }
-
-      const payload: any = {};
-      if (combinedName) payload.name = combinedName;
-      if (combinedCccd) payload.idCard = combinedCccd;
-      if (combinedAddress) payload.address = combinedAddress;
-
-      await apiPatch(`/rental/tenants/${scanningTenantId}`, payload);
-
-      setTenants(prev => prev.map(t => t.id === scanningTenantId ? {
-        ...t,
-        name: combinedName || t.name,
-        id_card: combinedCccd || t.id_card,
-        address: combinedAddress || t.address
-      } : t));
-
-      setToast({
-        message: `Cập nhật thành công: ${combinedName || ""} (${combinedCccd || ""})`,
-        type: "success"
-      });
-
-      setTimeout(() => setToast(null), 4000);
-
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Lỗi xử lý hình ảnh OCR.");
-    } finally {
-      setOcrLoading(false);
-      setScanningTenantId(null);
-    }
-  };
-
-  const load = async () => {
-    if (tenants.length === 0) setLoading(true);
-    setError(null);
-    try {
-      const [tenantRes, roomData] = await Promise.all([
-        apiGet<any>("/rental/tenants"),
-        loadRentalRooms(),
-      ]);
-      const nextTenants = tenantRes?.data ?? [];
-      setTenants(nextTenants);
-      setRooms(roomData);
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.setItem("owner_tenants_cache", JSON.stringify(nextTenants));
-        } catch (e) {
-          // Ignore cache save errors
-        }
-      }
-    } catch (err: any) {
-      setError(err?.message ?? "Không tải được danh sách khách thuê.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const exportToCSV = () => {
-    if (filtered.length === 0) return;
-    
-    const headers = ["Họ và tên", "Số điện thoại", "Số CCCD/CMND", "Địa chỉ thường trú", "Phòng trọ", "Giá thuê phòng", "Trạng thái hoạt động"];
-    
-    const rows = filtered.map(t => [
-      `"${(t.name || "").replace(/"/g, '""')}"`,
-      `"${(t.phone || "").replace(/"/g, '""')}"`,
-      `"${(t.id_card || "").replace(/"/g, '""')}"`,
-      `"${(t.address || "").replace(/"/g, '""')}"`,
-      `"${(t.room?.name || "Chưa xếp phòng").replace(/"/g, '""')}"`,
-      `"${t.room?.price ? formatMoney(t.room.price) : ""}"`,
-      `"${t.isActive ? "Đang ở" : "Đã trả phòng"}"`
-    ]);
-
-    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Danh_sach_khai_bao_tam_tru_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '_')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Merge tenants with their room data
   const enriched = useMemo<TenantWithRoom[]>(() => {
     return tenants.map((t) => {
-      const room = rooms.find((r) => r.tenant_id === t.id);
+      const room = rooms.find((r) => String(r.tenant_id || "") === String(t.id));
       const status = room ? String(normalizeRoomStatus(room)) : null;
       const isActive = status === "occupied" || status === "expiring_soon" || status === "reserved";
       return { ...t, room, isActive };
@@ -208,299 +60,327 @@ export default function OwnerTenantsPage() {
   }, [tenants, rooms]);
 
   const activeCount = useMemo(() => enriched.filter((t) => t.isActive).length, [enriched]);
+  const totalOutstanding = useMemo(
+    () => enriched.reduce((total, tenant) => total + Number(tenant.room?.outstanding_amount || 0), 0),
+    [enriched]
+  );
 
   const filtered = useMemo(() => {
-    let list = filter === "active" ? enriched.filter((t) => t.isActive) : enriched;
+    let list = filter === "active" ? enriched.filter((t) => t.isActive) : filter === "inactive" ? enriched.filter((t) => !t.isActive) : enriched;
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (t) =>
-          t.name.toLowerCase().includes(q) ||
-          t.phone?.includes(q) ||
-          t.id_card?.includes(q)
-      );
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter((t) => t.name.toLowerCase().includes(q) || t.phone?.includes(q) || t.id_card?.includes(q));
     }
     return list;
   }, [enriched, filter, searchQuery]);
 
-  const visible = useMemo(
-    () => filtered.slice((page - 1) * pageSize, page * pageSize),
-    [filtered, page]
-  );
+  const visible = useMemo(() => filtered.slice((page - 1) * pageSize, page * pageSize), [filtered, page]);
 
   useEffect(() => setPage(1), [searchQuery, filter]);
 
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["tenants"] });
+
+  const handleDelete = async () => {
+    if (!deletingTenant) return;
+    try {
+      await deleteTenant(deletingTenant.id);
+      invalidate();
+      showToast("Đã xóa khách thuê.", "success");
+    } catch (err: any) {
+      showToast(err?.message || "Không xóa được khách thuê.", "error");
+    } finally {
+      setDeletingTenant(null);
+    }
+  };
+
   return (
     <RBACGuard allowedRoles={["OWNER", "SUPER_ADMIN"]}>
-      <div className="mx-auto max-w-7xl animate-in fade-in duration-500">
+      <div className="mx-auto max-w-6xl animate-in fade-in duration-500">
+        <PageHeader
+          title="Khách thuê"
+          description={loading ? "Đang tải..." : `${filtered.length} khách thuê`}
+          actions={
+            <Button variant="primary" icon={<Plus size={16} />} onClick={() => setAddOpen(true)}>
+              Thêm khách thuê
+            </Button>
+          }
+        />
 
-        {/* Stats row */}
         <div className="mb-6 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-              <Users size={20} />
-            </div>
-            <div>
-              <div className="text-2xl font-black text-slate-900">{tenants.length}</div>
-              <div className="text-xs font-semibold text-slate-500">Tổng khách hàng</div>
-            </div>
-          </div>
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 shadow-sm flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
-              <UserCheck size={20} />
-            </div>
-            <div>
-              <div className="text-2xl font-black text-emerald-700">{activeCount}</div>
-              <div className="text-xs font-semibold text-emerald-600">Đang thuê phòng</div>
-            </div>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
-              <UserX size={20} />
-            </div>
-            <div>
-              <div className="text-2xl font-black text-slate-700">{tenants.length - activeCount}</div>
-              <div className="text-xs font-semibold text-slate-500">Chưa có phòng</div>
-            </div>
-          </div>
+          <MetricCard label="Tổng khách thuê" value={tenants.length} icon={<Users size={18} />} />
+          <MetricCard label="Đang thuê phòng" value={activeCount} icon={<Users size={18} />} tone="success" />
+          <MetricCard
+            label="Tổng công nợ"
+            value={formatMoney(totalOutstanding)}
+            icon={<Users size={18} />}
+            tone={totalOutstanding > 0 ? "danger" : "default"}
+          />
         </div>
 
-        {/* Search + Filter tabs */}
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm w-fit">
+        <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap gap-2">
             {([
-              { key: "active", label: "Đang thuê", count: activeCount },
-              { key: "all", label: "Tất cả", count: tenants.length },
-            ] as const).map(({ key, label, count }) => (
+              { key: "all", label: "Tất cả" },
+              { key: "active", label: "Đang thuê" },
+              { key: "inactive", label: "Chưa có phòng" },
+            ] as const).map(({ key, label }) => (
               <button
                 key={key}
                 onClick={() => setFilter(key)}
-                className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
-                  filter === key
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-600 hover:bg-slate-50"
-                }`}
+                className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${filter === key ? filterPillActive : filterPillInactive}`}
               >
                 {label}
-                <span className={`text-[11px] rounded-full px-1.5 py-0.5 font-black ${
-                  filter === key ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
-                }`}>
-                  {count}
-                </span>
               </button>
             ))}
           </div>
-          <div className="flex flex-row gap-2 items-center w-full sm:w-auto">
-            <div className="flex-grow sm:w-72">
-              <Input
-                icon={<Search size={16} />}
-                placeholder="Tìm tên, SĐT, CCCD..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <button
-              onClick={exportToCSV}
-              disabled={filtered.length === 0}
-              className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs sm:text-sm font-bold text-slate-700 transition hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shrink-0"
-              title="Xuất danh sách khai báo tạm trú"
-            >
-              <Download size={16} className="text-slate-500" />
-              <span className="hidden xs:inline">Xuất CSV</span>
-              <span className="hidden sm:inline">tạm trú</span>
-            </button>
+          <div className="w-full sm:w-72">
+            <Input icon={<Search size={16} />} placeholder="Tìm tên, SĐT, CCCD..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
         </div>
 
-        {/* Error */}
-        {error && (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
-            <AlertCircle size={16} className="mt-0.5 shrink-0" />
-            <div className="text-sm font-semibold">{error}</div>
+        {tenantsQuery.isError && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            {(tenantsQuery.error as any)?.message || "Không tải được danh sách khách thuê."}
           </div>
         )}
 
-        {/* Content */}
         {loading ? (
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-52 animate-pulse rounded-2xl bg-white shadow-sm border border-slate-100" />
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-16 animate-pulse rounded-xl border border-slate-100 bg-white" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white py-24 text-center">
+          <Card className="flex flex-col items-center justify-center py-20 text-center">
             <div className="mb-4 rounded-full bg-slate-50 p-6 text-slate-300">
-              <Users size={48} />
+              <Users size={40} />
             </div>
-            <h3 className="text-lg font-bold text-slate-900">Không tìm thấy khách thuê</h3>
+            <h3 className="text-base font-bold text-slate-900">Không tìm thấy khách thuê</h3>
             <p className="mt-1 max-w-xs text-sm text-slate-500">
-              {searchQuery
-                ? "Không có kết quả nào khớp với tìm kiếm của bạn."
-                : filter === "active"
-                ? "Chưa có khách thuê nào đang thuê phòng."
-                : "Bắt đầu bằng cách thêm khách thuê vào hệ thống."}
+              {searchQuery ? "Không có kết quả nào khớp với tìm kiếm của bạn." : "Bắt đầu bằng cách thêm khách thuê vào hệ thống."}
             </p>
-          </div>
+          </Card>
         ) : (
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="hidden grid-cols-[minmax(220px,1.5fr)_minmax(120px,0.7fr)_minmax(130px,0.8fr)_minmax(120px,0.7fr)_42px] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 md:grid">
+              <span>Khách thuê</span>
+              <span>Phòng</span>
+              <span>Trạng thái</span>
+              <span className="text-right">Công nợ</span>
+              <span />
+            </div>
             {visible.map((tenant) => {
               const room = tenant.room;
               const status = room ? String(normalizeRoomStatus(room)) : null;
-              const isExpiringSoon = status === "expiring_soon";
-              const isExpired = status === "expired";
+              const outstanding = Number(room?.outstanding_amount || 0);
+              const badgeVariant =
+                status === "expired" ? "danger" : status === "expiring_soon" ? "warning" : tenant.isActive ? "success" : "neutral";
+              const badgeLabel =
+                status === "expired" ? "Hết hạn" : status === "expiring_soon" ? "Sắp hết hạn" : tenant.isActive ? "Đang thuê" : "Chưa có phòng";
 
               return (
-                <Link
-                  key={tenant.id}
-                  href={`/owner/tenants/${tenant.id}`}
-                  className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-200"
-                >
-                  {/* Decorative gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50/0 to-indigo-50/0 group-hover:from-blue-50/60 group-hover:to-indigo-50/40 transition-all duration-300 rounded-2xl" />
-
-                  <div className="relative">
-                    {/* Header */}
-                    <div className="mb-4 flex items-start justify-between">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-200 transition-transform group-hover:scale-105">
-                          <span className="text-lg font-black">{tenant.name.charAt(0).toUpperCase()}</span>
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="truncate text-base font-black text-slate-900 group-hover:text-blue-600 transition-colors">
-                            {tenant.name}
-                          </h3>
-                          {tenant.isActive ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                              Đang thuê
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500">
-                              <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-                              Chưa có phòng
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <ChevronRight size={16} className="shrink-0 text-slate-400 group-hover:text-blue-400 transition-colors mt-1" />
+                <div key={tenant.id} className="grid gap-2 border-b border-slate-100 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(220px,1.5fr)_minmax(120px,0.7fr)_minmax(130px,0.8fr)_minmax(120px,0.7fr)_42px] md:items-center md:gap-4 md:px-5">
+                  <Link href={`/owner/tenants/${tenant.id}`} className="flex min-w-0 items-center gap-3 group">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-sm font-bold text-blue-700">
+                      {tenant.name.charAt(0).toUpperCase()}
                     </div>
-
-                    {/* Contact info */}
-                    <div className="space-y-2 border-t border-slate-100 pt-4">
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
-                          <Phone size={13} />
-                        </div>
-                        <span>{tenant.phone || "Chưa có SĐT"}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors">
-                          <ShieldCheck size={13} />
-                        </div>
-                        <div className="flex-1 flex items-center justify-between min-w-0">
-                          <span className="truncate">{tenant.id_card || "Chưa có CCCD"}</span>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              triggerOcrForTenant(tenant.id);
-                            }}
-                            className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-black text-blue-600 border border-blue-100 bg-blue-50/50 hover:bg-blue-100 transition-colors shrink-0"
-                            title="Quét CCCD để cập nhật hồ sơ khách thuê này"
-                          >
-                            ⚡ Quét CCCD
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Room info if active */}
-                      {room && (
-                        <>
-                          <div className="flex items-center gap-2 text-sm text-slate-600">
-                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-500 transition-colors">
-                              <Home size={13} />
-                            </div>
-                            <span className="font-semibold">{room.name}</span>
-                          </div>
-                          {room.start_date && (
-                            <div className="flex items-center gap-2 text-sm text-slate-500">
-                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400">
-                                <Calendar size={13} />
-                              </div>
-                              <span>Vào ở: {new Date(room.start_date).toLocaleDateString("vi-VN")}</span>
-                            </div>
-                          )}
-                          {(room.deposit ?? 0) > 0 && (
-                            <div className="flex items-center gap-2 text-sm text-slate-500">
-                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400">
-                                <DollarSign size={13} />
-                              </div>
-                              <span>Cọc: <span className="font-bold text-slate-700">{formatMoney(room.deposit!)}</span></span>
-                            </div>
-                          )}
-                        </>
-                      )}
+                    <div className="min-w-0">
+                      <div className="truncate font-bold text-slate-900 group-hover:text-blue-700">{tenant.name}</div>
+                      <div className="mt-0.5 truncate text-xs text-slate-500">{tenant.phone || "Chưa có SĐT"}</div>
                     </div>
+                  </Link>
 
-                    {/* Contract expiry warning */}
-                    {(isExpiringSoon || isExpired) && (
-                      <div className={`mt-3 flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold ${
-                        isExpired ? "bg-red-50 text-red-700 border border-red-100" : "bg-amber-50 text-amber-700 border border-amber-100"
-                      }`}>
-                        <AlertCircle size={12} />
-                        {isExpired ? "Hợp đồng đã hết hạn" : "Hợp đồng sắp hết hạn"}
-                      </div>
-                    )}
-
-                    {/* Outstanding debt warning */}
-                    {(room?.outstanding_amount ?? 0) > 0 && (
-                      <div className="mt-3 flex items-center justify-between rounded-xl bg-red-50 border border-red-100 px-3 py-2">
-                        <span className="text-xs font-bold text-red-700">Đang nợ</span>
-                        <span className="text-xs font-black text-red-700">{formatMoney(room!.outstanding_amount!)}</span>
-                      </div>
-                    )}
+                  <div className="flex items-center justify-between gap-2 md:block">
+                    <span className="text-xs font-medium text-slate-500 md:hidden">Phòng</span>
+                    <span className="text-sm font-semibold text-slate-800">{room?.name || "—"}</span>
                   </div>
-                </Link>
+
+                  <div className="flex items-center justify-between gap-2 md:block">
+                    <span className="text-xs font-medium text-slate-500 md:hidden">Trạng thái</span>
+                    <Badge variant={badgeVariant}>{badgeLabel}</Badge>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 md:block md:text-right">
+                    <span className="text-xs font-medium text-slate-500 md:hidden">Công nợ</span>
+                    <span className={outstanding > 0 ? "text-sm font-bold text-red-700" : "text-sm font-medium text-slate-500"}>
+                      {outstanding > 0 ? formatMoney(outstanding) : "0 đ"}
+                    </span>
+                  </div>
+
+                  <div className="justify-self-end">
+                    <TenantActionMenu tenant={tenant} onEdit={() => setEditingTenant(tenant)} onDelete={() => setDeletingTenant(tenant)} />
+                  </div>
+                </div>
               );
             })}
           </div>
         )}
 
-        <Pagination
-          page={page}
-          pageSize={pageSize}
-          total={filtered.length}
-          onPageChange={setPage}
-        />
+        <Pagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
 
-        {/* Hidden inputs & loading overlays for OCR processing */}
-        <input
-          type="file"
-          multiple
-          accept="image/*"
-          id="ocr-file-input"
-          className="hidden"
-          onChange={handleOcrFileChange}
-        />
-
-        {ocrLoading && (
-          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="rounded-2xl bg-white p-6 shadow-2xl flex flex-col items-center max-w-sm text-center">
-              <svg className="animate-spin h-10 w-10 text-blue-600 mb-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-              <h4 className="text-sm font-bold text-slate-950">Đang quét ảnh CCCD (OCR)</h4>
-              <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">Hệ thống đang trích xuất Họ tên, Số CCCD và Địa chỉ hoàn toàn offline bảo mật trong trình duyệt của bạn...</p>
-            </div>
-          </div>
+        {addOpen && (
+          <TenantFormModal
+            title="Thêm khách thuê"
+            onClose={() => setAddOpen(false)}
+            onSubmit={async (form) => {
+              await createTenant(form);
+            }}
+            onSaved={() => {
+              setAddOpen(false);
+              invalidate();
+              showToast("Đã thêm khách thuê.", "success");
+            }}
+          />
         )}
 
-        {toast && (
-          <div className="fixed bottom-5 right-5 z-50 animate-in slide-in-from-bottom-5 duration-300">
-            <div className={`rounded-xl px-4 py-3 shadow-lg text-xs font-bold border ${toast.type === "success" ? "bg-emerald-50 border-emerald-100 text-emerald-800" : "bg-red-50 border-red-100 text-red-800"}`}>
-              {toast.message}
-            </div>
-          </div>
+        {editingTenant && (
+          <TenantFormModal
+            title="Chỉnh sửa khách thuê"
+            initial={editingTenant}
+            onClose={() => setEditingTenant(null)}
+            onSubmit={async (form) => {
+              await updateTenant(editingTenant.id, form);
+            }}
+            onSaved={() => {
+              setEditingTenant(null);
+              invalidate();
+              showToast("Đã cập nhật khách thuê.", "success");
+            }}
+          />
+        )}
+
+        {deletingTenant && (
+          <ConfirmDialog
+            title={`Xóa khách thuê ${deletingTenant.name}?`}
+            description="Hành động này không thể hoàn tác."
+            isLoading={false}
+            onCancel={() => setDeletingTenant(null)}
+            onConfirm={handleDelete}
+          />
         )}
       </div>
     </RBACGuard>
+  );
+}
+
+function TenantActionMenu({ tenant, onEdit, onDelete }: { tenant: TenantWithRoom; onEdit: () => void; onDelete: () => void }) {
+  const close = (event: React.MouseEvent<HTMLElement>) => event.currentTarget.closest("details")?.removeAttribute("open");
+  return (
+    <details className="relative">
+      <summary
+        aria-label={`Thao tác với ${tenant.name}`}
+        className="list-none cursor-pointer rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600 [&::-webkit-details-marker]:hidden"
+      >
+        <MoreHorizontal size={17} />
+      </summary>
+      <div className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+        <button
+          onClick={(event) => {
+            close(event);
+            onEdit();
+          }}
+          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          <Pencil size={14} />
+          Chỉnh sửa
+        </button>
+        {tenant.isActive ? (
+          <div className="border-t border-slate-100 px-3 py-2 text-xs text-slate-400" title="Trả phòng trước khi xóa khách thuê">
+            Đang có phòng — không thể xóa
+          </div>
+        ) : (
+          <button
+            onClick={(event) => {
+              close(event);
+              onDelete();
+            }}
+            className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+          >
+            <Trash2 size={14} />
+            Xóa
+          </button>
+        )}
+      </div>
+    </details>
+  );
+}
+
+function TenantFormModal({
+  title,
+  initial,
+  onClose,
+  onSubmit,
+  onSaved,
+}: {
+  title: string;
+  initial?: Tenant;
+  onClose: () => void;
+  onSubmit: (form: { name: string; phone: string; idCard: string; address: string }) => Promise<void>;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: initial?.name || "",
+    phone: initial?.phone || "",
+    idCard: initial?.id_card || "",
+    address: initial?.address || "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    setSaving(true);
+    setFieldErrors({});
+    try {
+      await onSubmit(form);
+      onSaved();
+    } catch (err: any) {
+      if (err instanceof RentalValidationError) {
+        setFieldErrors(err.fieldErrors);
+      } else {
+        setFieldErrors({ name: err?.message || "Lỗi khi lưu khách thuê." });
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-in fade-in duration-300"
+      onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose(); }}
+    >
+      <form onSubmit={handleSubmit} className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-300" role="dialog" aria-modal="true">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+          <button type="button" disabled={saving} onClick={onClose} className="rounded-lg bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 transition-colors" aria-label="Đóng">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Label>Họ và tên *</Label>
+            <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required error={fieldErrors.name} />
+          </div>
+          <div>
+            <Label>Số điện thoại</Label>
+            <Input inputMode="tel" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value.replace(/\D/g, "") }))} error={fieldErrors.phone} />
+          </div>
+          <div>
+            <Label>CCCD</Label>
+            <Input inputMode="numeric" value={form.idCard} onChange={(e) => setForm((p) => ({ ...p, idCard: e.target.value.replace(/\D/g, "") }))} error={fieldErrors.idCard} />
+          </div>
+          <div className="sm:col-span-2">
+            <Label>Địa chỉ</Label>
+            <Input value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} error={fieldErrors.address} />
+          </div>
+        </div>
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" disabled={saving} onClick={onClose}>Hủy</Button>
+          <Button type="submit" variant="primary" loading={saving} disabled={saving || !form.name.trim()}>Lưu</Button>
+        </div>
+      </form>
+    </div>
   );
 }

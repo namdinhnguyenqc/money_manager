@@ -733,6 +733,28 @@ export async function createTenant(input: TenantInput) {
   return res?.data;
 }
 
+export type Tenant = {
+  id: string;
+  name: string;
+  phone?: string;
+  id_card?: string;
+  address?: string;
+};
+
+export async function loadTenants() {
+  const res = await apiGet<any>("/rental/tenants");
+  return (res?.data ?? []) as Tenant[];
+}
+
+export async function updateTenant(id: string, input: { name?: string; phone?: string; idCard?: string; address?: string }) {
+  const res = await apiPatch<any>(`/rental/tenants/${id}`, input);
+  return res?.data as Tenant;
+}
+
+export async function deleteTenant(id: string) {
+  return apiDelete<any>(`/rental/tenants/${id}`);
+}
+
 export async function createContract(input: {
   roomId: string;
   tenantId: string;
