@@ -781,13 +781,20 @@ export async function createContract(input: {
   return res?.data;
 }
 
+/** Unpaid balance carried from the previous period for a room, for previewing before a bill is created. */
+export async function loadPreviousDebt(roomId: string, month: number, year: number) {
+  const res = await apiGet<any>(`/invoices/previous-debt?roomId=${roomId}&month=${month}&year=${year}`);
+  return Number(res?.data || 0);
+}
+
 export async function createInvoice(input: {
   roomId: string;
   contractId: string;
   month: number;
   year: number;
   roomFee: number;
-  previousDebt?: number;
+  /** Opt out of rolling last period's unpaid balance into this bill. Defaults to on. */
+  applyPreviousDebt?: boolean;
   items: Array<{ serviceId?: string | null; name: string; detail?: string; amount: number }>;
   elecOld?: number | null;
   elecNew?: number | null;
@@ -808,6 +815,7 @@ export async function createInvoiceForContract(contract: ContractView, input: {
   waterOld: number;
   waterNew: number;
   dueDate?: string;
+  applyPreviousDebt?: boolean;
   items: Array<{ name: string; amount: number }>;
 }) {
   const appliedServices = normalizeAppliedServicesSnapshot(contract.applied_services_snapshot) ?? [];
@@ -864,7 +872,7 @@ export async function createInvoiceForContract(contract: ContractView, input: {
     month: input.month,
     year: input.year,
     roomFee: input.roomFee ?? contract.rent_amount,
-    previousDebt: 0,
+    applyPreviousDebt: input.applyPreviousDebt,
     elecOld: input.electricOld,
     elecNew: input.electricNew,
     waterOld: input.waterOld,

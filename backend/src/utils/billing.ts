@@ -191,7 +191,7 @@ export type CarryoverResult = {
 export async function computeCarryover(
   db: SupabaseLike,
   input: { userId: string; contractId: string; month: number; year: number },
-): Promise<CarryoverResult & { availableCreditAfterDebt: number }> {
+): Promise<CarryoverResult & { availableCreditAfterDebt: number; creditBalance: number }> {
   let prevMonth = input.month - 1;
   let prevYear = input.year;
   if (prevMonth === 0) {
@@ -224,6 +224,10 @@ export async function computeCarryover(
     previousCredit: 0,
     sourceInvoiceId: prior?.id ?? null,
     availableCreditAfterDebt,
+    // The untouched balance, for when the owner declines the carry-over: if last
+    // period's debt is not being settled here, the credit that would have
+    // offset it must stay on the contract rather than being silently spent.
+    creditBalance,
   };
 }
 

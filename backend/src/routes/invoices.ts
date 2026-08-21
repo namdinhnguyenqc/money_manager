@@ -74,6 +74,9 @@ const createInvoiceSchema = z.object({
   year: z.coerce.number().int().min(2000).max(2100),
   roomFee: optionalNumber,
   previousDebt: z.coerce.number().nonnegative().optional(),
+  // Lets the owner decline rolling last period's unpaid balance into this bill,
+  // leaving it to be collected on the original invoice instead. Defaults to on.
+  applyPreviousDebt: z.coerce.boolean().optional(),
   items: z.array(invoiceItemSchema).optional(),
   elecOld: nullableNumber,
   elecNew: nullableNumber,
@@ -931,11 +934,12 @@ invoicesRoutes.post("/", async (c) => {
     month: parsed.data.month,
     year: parsed.data.year,
   });
+  const applyDebt = parsed.data.applyPreviousDebt !== false;
   const { previousCredit, creditBalanceLeftover } = applyCreditToCurrentCharges(
-    carryover.availableCreditAfterDebt,
+    applyDebt ? carryover.availableCreditAfterDebt : carryover.creditBalance,
     roomFee + serviceFees,
   );
-  const previousDebt = carryover.previousDebt;
+  const previousDebt = applyDebt ? carryover.previousDebt : 0;
   const total = Math.max(0, roomFee + serviceFees + previousDebt - previousCredit);
 
   const existingInvoiceRes = await db
@@ -969,7 +973,7 @@ invoicesRoutes.post("/", async (c) => {
       total_amount: total,
       previous_debt: previousDebt,
       previous_credit: previousCredit,
-      previous_debt_source_invoice_id: carryover.sourceInvoiceId,
+      previous_debt_source_invoice_id: applyDebt ? carryover.sourceInvoiceId : null,
       elec_old: elecOld,
       elec_new: parsed.data.elecNew ?? null,
       water_old: waterOld,

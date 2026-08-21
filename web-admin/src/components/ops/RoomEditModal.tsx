@@ -1,19 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Trash2, Home, Layout, Ruler, Users, CircleDollarSign, CheckCircle2, AlertCircle, Plus, X, PauseCircle, PlayCircle } from "lucide-react";
-import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
-import StatusBadge from "@/components/ops/StatusBadge";
+import { X, Trash2, Plus, PauseCircle, PlayCircle } from "lucide-react";
 import {
   formatMoney,
   formatMoneyOrFree,
-  getFloorFromRoomName,
-  getRoomArea,
-  loadRoom,
-  normalizeRoomStatus,
   updateRoom,
   RentalRoom,
   loadFacilityBlocks,
@@ -26,11 +18,9 @@ import {
   deleteRoomAdjustment,
   ServiceConfig,
   RoomService,
-  RoomAdjustment,
 } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import { useToast } from "@/components/ui/Toast";
-import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input, { Label, Select } from "@/components/ui/Input";
 import DataTable from "@/components/ui/DataTable";
@@ -42,53 +32,50 @@ const roomStatuses = [
   { value: "reserved", label: "Đã cọc" },
 ];
 
-export default function EditRoomPage() {
-  const { id } = useParams();
-  const router = useRouter();
+/**
+ * Editing a room used to be a whole separate page, which read as "opening a new
+ * tab" when all the owner wanted was to rename a room or fix its price. It is a
+ * dialog now; the room-level services that lived on that page keep their own tab
+ * rather than being dropped.
+ */
+export default function RoomEditModal({
+  room,
+  facilityId,
+  onClose,
+}: {
+  room: RentalRoom;
+  facilityId?: string;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
-  const searchParams = useSearchParams();
-  const facilityId = searchParams.get("facility_id");
-  
-  const roomQuery = useQuery({ 
-    queryKey: ["room", id], 
-    queryFn: () => loadRoom(String(id)), 
-    staleTime: 60_000 
-  });
+  const [tab, setTab] = useState<"info" | "services">("info");
 
   const [form, setForm] = useState({
-    name: "",
-    price: "",
-    area: "",
-    max_people: "",
-    status: "",
-    blockId: "",
+    name: room.name || "",
+    price: String(room.price || ""),
+    area: String(room.area || ""),
+    max_people: String(room.max_people || "3"),
+    status: String(room.status || "vacant"),
+    blockId: String((room as any).block_id || ""),
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (roomQuery.data) {
-      setForm({
-        name: roomQuery.data.name || "",
-        price: String(roomQuery.data.price || ""),
-        area: String(roomQuery.data.area || ""),
-        max_people: String(roomQuery.data.max_people || "3"),
-        status: roomQuery.data.status || "vacant",
-        blockId: (roomQuery.data as any).block_id || "",
-      });
-    }
-  }, [roomQuery.data]);
-
-  const resolvedFacilityId = facilityId || String((roomQuery.data as any)?.boarding_house_id || "");
-  const blocksQuery = useQuery({ queryKey: ["facility-blocks", resolvedFacilityId], queryFn: () => loadFacilityBlocks(resolvedFacilityId), enabled: Boolean(resolvedFacilityId), staleTime: 30_000 });
+  const resolvedFacilityId = facilityId || String((room as any).boarding_house_id || "");
+  const blocksQuery = useQuery({
+    queryKey: ["facility-blocks", resolvedFacilityId],
+    queryFn: () => loadFacilityBlocks(resolvedFacilityId),
+    enabled: Boolean(resolvedFacilityId),
+    staleTime: 30_000,
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError("");
     try {
-      await updateRoom(String(id), {
+      await updateRoom(String(room.id), {
         name: form.name,
         price: Number(form.price),
         area: Number(form.area),
@@ -97,10 +84,8 @@ export default function EditRoomPage() {
         blockId: form.blockId || null,
       });
       showToast("Đã cập nhật thông tin phòng.", "success");
-      void invalidateOwnerOpsQueries(queryClient, {
-        facilityId,
-        roomId: String(id),
-      });
+      await invalidateOwnerOpsQueries(queryClient, { facilityId: resolvedFacilityId, roomId: String(room.id) });
+      onClose();
     } catch (err: any) {
       const message = err?.message || "Lỗi khi cập nhật phòng. Vui lòng thử lại!";
       setError(message);
@@ -110,162 +95,104 @@ export default function EditRoomPage() {
     }
   };
 
-  if (roomQuery.isLoading) return <div className="p-8"><LoadingSkeleton rows={10} /></div>;
-  if (!roomQuery.data) return <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm font-bold text-red-700 m-8">Không tìm thấy phòng.</div>;
-
   return (
-    <div className="mx-auto max-w-4xl p-4 lg:p-8 animate-in fade-in duration-700">
-      {/* Header */}
-      <div className="mb-8">
-        <Link 
-          href="/rooms"
-          className="group mb-4 inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors"
-        >
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 group-hover:bg-indigo-50 transition-colors">
-            <ArrowLeft size={16} />
-          </div>
-          Quay lại danh sách phòng
-        </Link>
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="mb-1 flex items-center gap-2">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-indigo-100 text-indigo-600">
-                <Layout size={12} />
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Thiết lập phòng</span>
-            </div>
-            <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Chỉnh sửa phòng: {roomQuery.data.name}</h1>
-          </div>
-          <StatusBadge status={normalizeRoomStatus(roomQuery.data)} />
-        </div>
-      </div>
-
-      {error && (
-        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700 animate-in slide-in-from-top-4">
-          <AlertCircle size={18} /> {error}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="grid gap-8 lg:grid-cols-3">
-        {/* Main Info */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-100">
-            <h3 className="mb-6 text-lg font-black text-slate-900 flex items-center gap-2">
-              <Home size={20} className="text-indigo-500" />
-              Thông tin cơ bản
-            </h3>
-            
-            <div className="grid gap-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tên / Số phòng</label>
-                <input 
-                  className="w-full rounded-2xl border-none bg-slate-50 py-4 px-5 text-sm font-bold text-slate-900 outline-none ring-2 ring-transparent transition-all focus:ring-indigo-500"
-                  value={form.name}
-                  onChange={(e) => setForm({...form, name: e.target.value})}
-                  required
-                />
-              </div>
-
-              <div className="grid gap-6 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-                    <CircleDollarSign size={12} /> Giá thuê (₫)
-                  </label>
-                  <input 
-                    type="number"
-                    className="w-full rounded-2xl border-none bg-slate-50 py-4 px-5 text-sm font-black text-indigo-600 outline-none ring-2 ring-transparent transition-all focus:ring-indigo-500"
-                    value={form.price}
-                    onChange={(e) => setForm({...form, price: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-                    <Ruler size={12} /> Diện tích (m²)
-                  </label>
-                  <input 
-                    type="number"
-                    className="w-full rounded-2xl border-none bg-slate-50 py-4 px-5 text-sm font-bold text-slate-900 outline-none ring-2 ring-transparent transition-all focus:ring-indigo-500"
-                    value={form.area}
-                    onChange={(e) => setForm({...form, area: e.target.value})}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dãy trọ <span className="font-normal normal-case tracking-normal">(tùy chọn)</span></label>
-                <select className="w-full rounded-2xl border-none bg-slate-50 px-5 py-4 text-sm font-bold text-slate-900 outline-none ring-2 ring-transparent transition-all focus:ring-indigo-500" value={form.blockId} onChange={(event) => setForm({ ...form, blockId: event.target.value })}>
-                  <option value="">Không phân dãy</option>
-                  {(blocksQuery.data || []).map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}
-                </select>
-              </div>
-
-              <div className="grid gap-6 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-                    <Users size={12} /> Số người tối đa
-                  </label>
-                  <input 
-                    type="number"
-                    className="w-full rounded-2xl border-none bg-slate-50 py-4 px-5 text-sm font-bold text-slate-900 outline-none ring-2 ring-transparent transition-all focus:ring-indigo-500"
-                    value={form.max_people}
-                    onChange={(e) => setForm({...form, max_people: e.target.value})}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-in fade-in duration-300"
+      role="presentation"
+      onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose(); }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="room-edit-title"
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-2xl animate-in zoom-in-95 duration-300"
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <h2 id="room-edit-title" className="text-xl font-bold text-slate-900">Phòng {room.name}</h2>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={onClose}
+            aria-label="Đóng"
+            className="rounded-lg bg-slate-100 p-2 text-slate-500 transition-colors hover:bg-slate-200"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        {/* Sidebar Info */}
-        <div className="space-y-6">
-          <div className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-100">
-            <h3 className="mb-6 text-lg font-black text-slate-900">Trạng thái</h3>
-            <div className="space-y-4">
-              {roomStatuses.map((status) => (
-                <label 
-                  key={status.value} 
-                  className={`flex cursor-pointer items-center justify-between rounded-2xl border-2 p-4 transition-all ${form.status === status.value ? "border-indigo-500 bg-indigo-50" : "border-slate-50 bg-slate-50 hover:border-slate-200"}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`h-2 w-2 rounded-full ${status.value === 'vacant' ? 'bg-emerald-500' : status.value === 'occupied' ? 'bg-blue-500' : status.value === 'maintenance' ? 'bg-rose-500' : 'bg-orange-500'}`}></div>
-                    <span className="text-sm font-bold text-slate-700">{status.label}</span>
-                  </div>
-                  <input 
-                    type="radio" 
-                    name="status" 
-                    className="hidden" 
-                    value={status.value}
-                    checked={form.status === status.value}
-                    onChange={() => setForm({...form, status: status.value})}
-                  />
-                  {form.status === status.value && <CheckCircle2 size={16} className="text-indigo-600" />}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 pt-4">
-            <button 
-              type="submit" 
-              disabled={saving}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-indigo-100 transition-all hover:bg-indigo-700 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+        <div className="flex gap-1 border-b border-slate-200 px-6 pt-3">
+          {([
+            { key: "info", label: "Thông tin" },
+            { key: "services", label: "Dịch vụ" },
+          ] as const).map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setTab(item.key)}
+              className={`rounded-t-lg px-4 py-2 text-sm font-semibold transition-colors ${
+                tab === item.key
+                  ? "border-b-2 border-blue-600 text-blue-700"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
             >
-              <Save size={18} />
-              {saving ? "Đang lưu..." : "Lưu thay đổi"}
+              {item.label}
             </button>
-            <button 
-              type="button" 
-              className="flex items-center justify-center gap-2 rounded-2xl bg-white border border-slate-200 py-4 text-sm font-black uppercase tracking-widest text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100"
-            >
-              <Trash2 size={18} />
-              Xóa phòng
-            </button>
-          </div>
+          ))}
         </div>
-      </form>
 
-      <div className="mt-8">
-        <RoomServicesSection roomId={String(id)} />
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          {tab === "info" ? (
+            <form id="room-edit-form" onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>
+              )}
+              <div>
+                <Label>Tên / Số phòng *</Label>
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label>Giá thuê (₫) *</Label>
+                  <Input type="number" min={0} value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
+                </div>
+                <div>
+                  <Label>Diện tích (m²)</Label>
+                  <Input type="number" min={0} value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Số người tối đa</Label>
+                  <Input type="number" min={1} value={form.max_people} onChange={(e) => setForm({ ...form, max_people: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Trạng thái</Label>
+                  <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                    {roomStatuses.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </Select>
+                </div>
+              </div>
+              {(blocksQuery.data || []).length > 0 && (
+                <div>
+                  <Label>Dãy trọ <span className="font-normal normal-case text-slate-400">(tùy chọn)</span></Label>
+                  <Select value={form.blockId} onChange={(e) => setForm({ ...form, blockId: e.target.value })}>
+                    <option value="">Không phân dãy</option>
+                    {(blocksQuery.data || []).map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}
+                  </Select>
+                </div>
+              )}
+            </form>
+          ) : (
+            <RoomServicesSection roomId={String(room.id)} />
+          )}
+        </div>
+
+        <div className="flex flex-col-reverse gap-2 border-t border-slate-200 px-6 py-4 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>Đóng</Button>
+          {tab === "info" && (
+            <Button type="submit" form="room-edit-form" variant="primary" loading={saving} disabled={saving}>
+              Lưu thay đổi
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -362,7 +289,7 @@ function RoomServicesSection({ roomId }: { roomId: string }) {
 
   return (
     <div className="space-y-6">
-      <Card className="p-6">
+      <section>
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-black text-slate-900">Dịch vụ đang sử dụng</h3>
           <Button type="button" size="sm" icon={<Plus size={14} />} onClick={() => setAddServiceOpen(true)}>Thêm dịch vụ</Button>
@@ -401,9 +328,9 @@ function RoomServicesSection({ roomId }: { roomId: string }) {
             })}
           </DataTable>
         )}
-      </Card>
+      </section>
 
-      <Card className="p-6">
+      <section>
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-black text-slate-900">Phí phát sinh theo kỳ</h3>
           <Button type="button" size="sm" variant="outline" icon={<Plus size={14} />} onClick={() => setAddFeeOpen(true)}>Thêm phí phát sinh</Button>
@@ -429,7 +356,7 @@ function RoomServicesSection({ roomId }: { roomId: string }) {
             ))}
           </DataTable>
         )}
-      </Card>
+      </section>
 
       {addServiceOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setAddServiceOpen(false); }}>

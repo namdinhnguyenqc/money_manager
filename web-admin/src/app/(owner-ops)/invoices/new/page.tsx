@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, X, Zap, Droplets, Package, CalendarDays } from "lucide-react";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
-import { createInvoiceForContract, currentPeriod, describeServiceType, formatMoney, getServiceUnitLabel, loadContract, loadLatestMeterReadings } from "@/lib/rentalOps";
+import { createInvoiceForContract, currentPeriod, describeServiceType, formatMoney, getServiceUnitLabel, loadContract, loadLatestMeterReadings, loadPreviousDebt } from "@/lib/rentalOps";
 import { calculateProratedRent } from "@/utils/rentCalc";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
@@ -27,6 +27,7 @@ export default function NewInvoicePage() {
     note: "",
   });
   const [fees, setFees] = useState<Array<{ label: string; amount: string }>>([]);
+  const [applyPreviousDebt, setApplyPreviousDebt] = useState(true);
 
   useEffect(() => {
     if (!contractId) router.replace("/contracts");
@@ -34,6 +35,16 @@ export default function NewInvoicePage() {
 
   const contractQuery = useQuery({ queryKey: ["contracts", contractId], queryFn: () => loadContract(String(contractId)), enabled: Boolean(contractId), staleTime: 60_000 });
   const contract = contractQuery.data;
+
+  // Preview only. The server recomputes the carry-over when the bill is created,
+  // so this can never be the number that actually gets charged.
+  const previousDebtQuery = useQuery({
+    queryKey: ["previous-debt", contract?.room_id, period.month, period.year],
+    queryFn: () => loadPreviousDebt(String(contract?.room_id), period.month, period.year),
+    enabled: Boolean(contract?.room_id),
+    staleTime: 30_000,
+  });
+  const previousDebt = previousDebtQuery.data || 0;
 
   const appliedServices = contract?.applied_services_snapshot || [];
 
@@ -142,6 +153,7 @@ export default function NewInvoicePage() {
         waterOld: waterIsMetered ? Number(form.waterOld || 0) : 0,
         waterNew: waterIsMetered ? Number(form.waterNew || 0) : 0,
         dueDate: form.dueDate || undefined,
+        applyPreviousDebt,
         items: fees.filter((item) => item.label.trim()).map((item) => ({ name: item.label.trim(), amount: Number(item.amount || 0) })),
       });
     },
@@ -337,11 +349,41 @@ export default function NewInvoicePage() {
           </div>
         </div>
 
+        {previousDebt > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-amber-300"
+                checked={applyPreviousDebt}
+                onChange={(e) => setApplyPreviousDebt(e.target.checked)}
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-amber-900">
+                  Cấn công nợ kỳ trước: {formatMoney(previousDebt)}
+                </span>
+                <span className="mt-0.5 block text-xs text-amber-700">
+                  {applyPreviousDebt
+                    ? "Khoản này được cộng vào hóa đơn tháng này để thu một lần."
+                    : "Bỏ tích: hóa đơn tháng này không cộng nợ, khoản cũ vẫn nằm ở hóa đơn kỳ trước để thu riêng."}
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
+
         {/* Sticky footer */}
         <div className="sticky bottom-0 z-10 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-lg">
           <div>
             <div className="text-xs text-slate-400">Tổng hóa đơn</div>
-            <div className="text-xl font-bold text-blue-700">{formatMoney(computed.total)}</div>
+            <div className="text-xl font-bold text-blue-700">
+              {formatMoney(computed.total + (applyPreviousDebt ? previousDebt : 0))}
+            </div>
+            {applyPreviousDebt && previousDebt > 0 && (
+              <div className="text-xs text-slate-500">
+                {formatMoney(computed.total)} + nợ {formatMoney(previousDebt)}
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
             <Link href={`/contracts/${contract.id}`} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
