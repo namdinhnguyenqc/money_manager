@@ -38,6 +38,7 @@ import { randomUUID } from "crypto";
 import { buildTrustedOrigins, isAllowedCorsOrigin } from "./security/origins.js";
 
 const app = new Hono<AppEnv>();
+export default app;
 const isProduction = process.env.NODE_ENV === "production";
 const trustedOrigins = buildTrustedOrigins([
   ...env.CORS_ORIGINS,
@@ -206,13 +207,18 @@ const preWarmServices = async () => {
 };
 
 
-serve(
-  {
-    fetch: app.fetch,
-    port: env.API_PORT,
-  },
-  (info) => {
-    console.log(`Money Manager backend running at http://localhost:${info.port}`);
-    preWarmServices();
-  }
-);
+// On Vercel the platform owns the listener: importing this module must not bind
+// a port, or the function crashes on cold start. Everywhere else (local, any
+// container host) this still starts a normal long-lived server.
+if (!process.env.VERCEL) {
+  serve(
+    {
+      fetch: app.fetch,
+      port: env.API_PORT,
+    },
+    (info) => {
+      console.log(`Money Manager backend running at http://localhost:${info.port}`);
+      preWarmServices();
+    }
+  );
+}

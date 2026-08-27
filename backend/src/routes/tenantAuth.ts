@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { supabaseAdmin } from "../lib/supabase.js";
 import {
   generateAccessToken,
