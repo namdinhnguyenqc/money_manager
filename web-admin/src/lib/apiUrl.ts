@@ -1,4 +1,5 @@
-export const PRODUCTION_API_URL = "https://money-manager-xdem.onrender.com";
+// Render suspended this account's free tier; the API now runs on Vercel.
+export const PRODUCTION_API_URL = "https://trocare-api.vercel.app";
 export const LOCAL_API_URL = "http://localhost:8787";
 
 const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL;
