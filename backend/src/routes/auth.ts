@@ -632,9 +632,14 @@ authRoutes.post("/login", async (c) => {
     return c.json({ code: "MISSING_CREDENTIALS", message: "Vui lòng nhập email/tên đăng nhập và mật khẩu." }, 400);
   }
 
+  // The password is only ever compared against the configured one. This used to
+  // also accept the literals "admin" and "admin-prod-please-change" whatever
+  // ADMIN_PASSWORD was set to, which handed a SUPER_ADMIN token to anyone who
+  // knew the API URL and defeated the "default password in production" guard in
+  // config/env.ts outright.
   const isBuiltinAdmin =
-    (email === env.ADMIN_USERNAME || email === "admin" || email === "admin@moneymanager.local" || email === "admin@trocare.vn") &&
-    (password === env.ADMIN_PASSWORD || password === "admin" || password === "admin-prod-please-change");
+    (email === env.ADMIN_USERNAME || email === "admin@moneymanager.local" || email === "admin@trocare.vn") &&
+    password === env.ADMIN_PASSWORD;
 
   if (isBuiltinAdmin) {
     const adminUser = {
