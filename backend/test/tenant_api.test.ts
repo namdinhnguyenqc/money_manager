@@ -189,7 +189,7 @@ vi.mock("../src/lib/supabase.js", () => ({
   },
 }));
 
-vi.mock("bcrypt", () => ({
+vi.mock("bcryptjs", () => ({
   default: {
     compare: async () => true,
     hash: async () => "hashed_password",

@@ -1,0 +1,7 @@
+.env
+.mock-db.json
+.mock-owner-state.json
+debug_output.json
+scratch
+test
+*.log
