@@ -1,15 +1,24 @@
 name: Keep backend warm
 
 # Render's free tier spins the service down after ~15 minutes of inactivity,
-# causing a 30–60s cold start on the next request. This pings /health every
-# ~10 minutes so the instance stays awake during the day.
+# causing a 30–60s cold start on the next request.
+#
+# The schedule that used to live here ran every 5 minutes, around the clock. That
+# kept the instance awake ~730 hours a month against a 750-hour free-tier budget
+# shared by every service on the account, and on 2026-08-26 Render suspended the
+# backend for "Free Tier Usage Exceeded" — trading a 30-second cold start for a
+# multi-day total outage. Left on manual until the account is on a paid plan.
+#
+# Run it by hand from the Actions tab after a deploy if you want the first
+# request warm. To bring the schedule back on a paid plan, uncomment the block
+# below; prefer daytime-only (e.g. "*/10 7-22 * * *") over round-the-clock.
 #
 # Override the target by setting a repository variable BACKEND_HEALTH_URL
 # (Settings → Secrets and variables → Actions → Variables).
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"
+  # schedule:
+  #   - cron: "*/10 7-22 * * *"
   workflow_dispatch: {}
 
 jobs:
