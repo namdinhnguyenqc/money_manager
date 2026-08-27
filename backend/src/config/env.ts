@@ -26,8 +26,15 @@ const productionRequired = (name: string, fallback = ""): string => {
   return isProduction ? required(name) : optional(name, fallback);
 };
 
-if (isProduction && process.env.ADMIN_PASSWORD === "admin") {
-  throw new Error(`âŒ FATAL: Default ADMIN_PASSWORD is not allowed in production!`);
+// Every value that ships in this repo counts as a default, not just "admin" —
+// leaving the fallback below in place was enough to keep the built-in
+// SUPER_ADMIN login open on a real deployment.
+const WEAK_ADMIN_PASSWORDS = new Set(["admin", "admin-prod-please-change", "password", "123456", ""]);
+
+if (isProduction && WEAK_ADMIN_PASSWORDS.has(String(process.env.ADMIN_PASSWORD ?? "").trim())) {
+  throw new Error(
+    "FATAL: ADMIN_PASSWORD is unset or still a default value. Set a strong one before starting in production.",
+  );
 }
 
 const jwtSecret = productionRequired("JWT_SECRET", "dev-secret-ONLY-for-local-dev-do-not-use-in-prod");
