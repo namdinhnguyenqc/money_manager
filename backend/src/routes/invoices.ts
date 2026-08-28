@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import crypto from "crypto";
-import ExcelJS from "exceljs";
+import type ExcelJS from "exceljs";
 import { requireAuth } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
 import { parseJson, toId } from "../utils/validation.js";
@@ -459,7 +459,10 @@ invoicesRoutes.get("/export-excel", async (c) => {
     groupedInvoices[key].push(inv);
   });
 
-  const workbook = new ExcelJS.Workbook();
+  // exceljs is ~22MB and was loaded at module scope, so every cold start paid
+  // for it even on requests that never export anything. Pulled in on demand.
+  const { default: ExcelJSRuntime } = await import("exceljs");
+  const workbook = new ExcelJSRuntime.Workbook();
 
   for (const period of periods) {
     const sheetName = `Tháng ${period.month}-${period.year}`;

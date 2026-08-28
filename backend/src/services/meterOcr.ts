@@ -1,5 +1,3 @@
-import sharp from "sharp";
-import { createWorker } from "tesseract.js";
 
 // Free, self-hosted OCR (no external API/cost) for reading digital electricity/
 // water meter displays from a photo. Accuracy is materially lower than a vision
@@ -7,14 +5,18 @@ import { createWorker } from "tesseract.js";
 // must treat the result as a suggestion the owner confirms/edits, never as a
 // trusted final value for billing.
 
-let workerPromise: ReturnType<typeof createWorker> | null = null;
+let workerPromise: Promise<any> | null = null;
 let recognitionQueue: Promise<unknown> = Promise.resolve();
 
 // Tesseract worker init (~1-2s, downloads/caches language data) is expensive —
 // reuse a single worker across requests instead of spinning one up per image.
 async function getWorker() {
   if (!workerPromise) {
-    workerPromise = createWorker("eng").then(async (worker) => {
+    // Imported here rather than at module scope: this service is reachable from
+    // routes that never OCR anything, and on a cold start the unused import was
+    // still parsed.
+    const { createWorker } = await import("tesseract.js");
+    workerPromise = createWorker("eng").then(async (worker: any) => {
       await worker.setParameters({
         tessedit_char_whitelist: "0123456789.",
         tessedit_pageseg_mode: "7" as any, // PSM_SINGLE_LINE — meter displays are one line of digits
@@ -29,6 +31,7 @@ async function getWorker() {
 // display colour and glare. Generate complementary variants and keep the best
 // OCR candidate instead of assuming every meter photo has the same contrast.
 async function preprocessVariants(buffer: Buffer): Promise<Buffer[]> {
+  const { default: sharp } = await import("sharp");
   const base = sharp(buffer)
     .rotate() // respect EXIF orientation from phone cameras
     .resize({ width: 1200, withoutEnlargement: false })
