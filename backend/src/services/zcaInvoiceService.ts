@@ -3,9 +3,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
-import sharp from "sharp";
 import { supabaseAdmin } from "../lib/supabase.js";
 import { decryptToken, encryptToken } from "../utils/crypto.js";
+import {
+  DEFAULT_ZALO_PAYMENT_RECEIVED_MESSAGE,
+  renderZaloPaymentReceivedMessage,
+} from "./zaloPaymentTemplates.js";
 
 const require = createRequire(import.meta.url);
 const TextToSVG = require("text-to-svg");
@@ -119,6 +122,9 @@ async function loadZcaModule() {
 
 const imageMetadataGetter = async (filePath: string) => {
   const data = await readFile(filePath);
+  // Loaded on demand: this module is imported by routes that never render an
+  // invoice image, and at module scope it cost every cold start.
+  const { default: sharp } = await import("sharp");
   const metadata = await sharp(data).metadata();
   return {
     height: metadata.height || 0,
@@ -193,6 +199,19 @@ async function getOwnerSettingValue(ownerId: string, key: string) {
     .maybeSingle();
   if (error && !isMissingSchemaError(error)) console.warn(`[settings] Unable to load ${key}:`, error.message);
   return typeof data?.value === "string" && data.value.trim() ? data.value : null;
+}
+
+async function getOwnerSettingBoolean(ownerId: string, key: string, fallback: boolean) {
+  const { data, error } = await supabaseAdmin
+    .from("system_settings")
+    .select("value")
+    .eq("user_id", ownerId)
+    .eq("key", key)
+    .maybeSingle();
+  if (error && !isMissingSchemaError(error)) console.warn(`[settings] Unable to load ${key}:`, error.message);
+  if (data?.value === undefined || data?.value === null || data?.value === "") return fallback;
+  if (typeof data.value === "boolean") return data.value;
+  return String(data.value).trim().toLowerCase() === "true";
 }
 
 const textLines = (value: unknown, max = 36) => {
@@ -745,7 +764,8 @@ async function renderInvoicePng(bundle: InvoiceBundle, outputPath: string) {
     </svg>
   `;
 
-  await sharp(Buffer.from(svg)).png().toFile(outputPath);
+  const { default: sharpRender } = await import("sharp");
+  await sharpRender(Buffer.from(svg)).png().toFile(outputPath);
 }
 
 async function buildMessage(bundle: InvoiceBundle) {
@@ -991,6 +1011,126 @@ export async function sendPaymentReminderViaZca(ownerId: string, invoiceId: stri
       if (updateError && !isMissingSchemaError(updateError)) console.warn("[zca] Could not update failed Zalo reminder log:", updateError.message);
     }
     throw error;
+  }
+}
+
+export type ZcaPaymentReceiptResult = {
+  status: "sent" | "skipped" | "failed";
+  reason?: string;
+};
+
+/**
+ * Sends a text-only receipt after an invoice payment has been committed.
+ * `externalRef` is persisted as a unique key so webhook retries and manual
+ * reprocessing cannot notify the tenant twice for the same bank transaction.
+ */
+export async function sendPaymentReceivedViaZca(input: {
+  ownerId: string;
+  invoiceId: string;
+  externalRef: string;
+  receivedAmount: number;
+  allocatedAmount: number;
+  overpaidAmount?: number;
+}): Promise<ZcaPaymentReceiptResult> {
+  const enabled = await getOwnerSettingBoolean(input.ownerId, "zalo_payment_received_enabled", true);
+  if (!enabled) return { status: "skipped", reason: "disabled" };
+
+  const bundle = await loadInvoiceBundle(input.ownerId, input.invoiceId);
+  const phone = cleanPhone(bundle.tenant.phone || "");
+  if (!/^0\d{9}$/.test(phone)) return { status: "skipped", reason: "missing_phone" };
+
+  const externalKey = `zca-payment-received:${input.ownerId}:${input.externalRef}`;
+  const remainingAmount = getInvoiceOutstanding(bundle.invoice);
+  const template = await getOwnerSettingValue(input.ownerId, "zalo_payment_received_template") || DEFAULT_ZALO_PAYMENT_RECEIVED_MESSAGE;
+  const paymentStatus = remainingAmount <= 0 ? "Đã thanh toán đủ" : "Đã thanh toán một phần";
+  const message = renderZaloPaymentReceivedMessage(template, {
+    tenant_name: bundle.tenant.name || bundle.invoice.tenant_name || "anh/chị",
+    room_name: bundle.room?.name || bundle.invoice.room_name || "phòng thuê",
+    month: bundle.invoice.month || "",
+    year: bundle.invoice.year || "",
+    received_amount: money(input.receivedAmount),
+    allocated_amount: money(input.allocatedAmount),
+    overpaid_amount: money(input.overpaidAmount || 0),
+    remaining_amount: money(remainingAmount),
+    total_amount: money(bundle.invoice.total_amount || 0),
+    payment_status: paymentStatus,
+    payment_code: bundle.invoice.payment_code || "Chưa có",
+    payment_date: formatDateVi(new Date().toISOString().slice(0, 10)),
+  });
+
+  const logBase = {
+    invoice_id: input.invoiceId,
+    tenant_id: input.ownerId,
+    recipient_tenant_id: bundle.tenant.id,
+    phone_number: phone,
+    template_id: "zca_payment_received_v1",
+    message_payload: {
+      message,
+      receivedAmount: input.receivedAmount,
+      allocatedAmount: input.allocatedAmount,
+      overpaidAmount: input.overpaidAmount || 0,
+      remainingAmount,
+      externalRef: input.externalRef,
+    },
+    send_status: "PENDING",
+    retry_count: 0,
+    message_type: "payment_received",
+    external_key: externalKey,
+  };
+
+  let { data: log, error: logError } = await supabaseAdmin
+    .from("invoice_zalo_notifications")
+    .insert(logBase)
+    .select("id")
+    .maybeSingle();
+  if (logError?.code === "23505") {
+    const { data: existing } = await supabaseAdmin
+      .from("invoice_zalo_notifications")
+      .select("id,send_status")
+      .eq("external_key", externalKey)
+      .maybeSingle();
+    if (!existing || existing.send_status !== "FAILED") {
+      return { status: "skipped", reason: "already_sent_or_queued" };
+    }
+    const { data: claimed } = await supabaseAdmin.from("invoice_zalo_notifications").update({
+      send_status: "PENDING",
+      error_message: null,
+      retry_count: 1,
+      updated_at: new Date().toISOString(),
+    }).eq("id", existing.id).eq("send_status", "FAILED").select("id").maybeSingle();
+    if (!claimed) return { status: "skipped", reason: "already_sent_or_queued" };
+    log = claimed;
+    logError = null;
+  }
+  if (logError) {
+    if (isMissingSchemaError(logError)) return { status: "failed", reason: "notification_log_schema_missing" };
+    return { status: "failed", reason: logError.message };
+  }
+
+  try {
+    const api = await getApi(input.ownerId);
+    const user = await api.findUser(phone);
+    if (!user?.uid) throw new Error("Không tìm thấy tài khoản Zalo tương ứng với số điện thoại khách thuê.");
+    const result = await api.sendMessage({ msg: message }, user.uid, 0);
+    if (log?.id) {
+      await supabaseAdmin.from("invoice_zalo_notifications").update({
+        send_status: "SENT",
+        zalo_message_id: String(result.message?.msgId || ""),
+        sent_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq("id", log.id);
+    }
+    return { status: "sent" };
+  } catch (error: any) {
+    const reason = error?.message || "Không gửi được xác nhận thanh toán qua Zalo.";
+    if (log?.id) {
+      await supabaseAdmin.from("invoice_zalo_notifications").update({
+        send_status: "FAILED",
+        error_message: reason,
+        updated_at: new Date().toISOString(),
+      }).eq("id", log.id);
+    }
+    return { status: "failed", reason };
   }
 }
 
