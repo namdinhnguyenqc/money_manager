@@ -9,5 +9,8 @@
       "destination": "/api"
     }
   ],
-  "outputDirectory": "public"
+  "outputDirectory": "public",
+  "regions": [
+    "sin1"
+  ]
 }
