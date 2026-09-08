@@ -247,9 +247,7 @@ export default function ServicesPage() {
             <h2 id="service-form-title" className="text-xl font-bold text-slate-900">
               {editingService ? "Chỉnh sửa dịch vụ" : "Thêm dịch vụ mới"}
             </h2>
-            <button type="button" disabled={saving} onClick={closeForm} className="rounded-lg bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 transition-colors" aria-label="Đóng">
-              <X size={18} />
-            </button>
+            <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={closeForm} aria-label="Đóng" icon={<X size={18} />} />
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -406,65 +404,52 @@ export default function ServicesPage() {
 
               <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
                 <div className="flex gap-2">
-                  <button
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handleToggle(svc)}
-                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                      svc.active === false
-                        ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
                     title={svc.active === false ? "Bật dịch vụ" : "Tắt dịch vụ"}
+                    icon={svc.active === false ? <ToggleLeft size={14} /> : <ToggleRight size={14} />}
                   >
-                    {svc.active === false ? <ToggleLeft size={14} /> : <ToggleRight size={14} />}
                     {svc.active === false ? "Bật" : "Tắt"}
-                  </button>
-                  <button
-                    onClick={() => openEdit(svc)}
-                    className="flex items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
-                  >
-                    <Pencil size={13} /> Sửa
-                  </button>
-                  <button
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => openEdit(svc)} icon={<Pencil size={13} />}>
+                    Sửa
+                  </Button>
+                  <Button
                     onClick={() => {
                       setPriceServiceId(svc.id);
                       setPriceForm({ newUnitPrice: String(svc.unit_price || ""), newUnitPriceAc: String(svc.unit_price_ac || ""), effectiveDate: todayStr() });
                     }}
-                    className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
+                    variant="warning"
+                    size="sm"
+                    icon={<Tag size={13} />}
                   >
-                    <Tag size={13} /> Cập nhật giá
-                  </button>
-                  <button
-                    onClick={() => setHistoryServiceId(svc.id)}
-                    className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
-                  >
-                    <History size={13} /> Lịch sử giá
-                  </button>
+                    Cập nhật giá
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setHistoryServiceId(svc.id)} icon={<History size={13} />}>
+                    Lịch sử giá
+                  </Button>
                 </div>
                 <div>
                   {confirmDeleteId === svc.id ? (
                     <div className="flex items-center gap-2 animate-in slide-in-from-right-2">
-                      <button
-                        onClick={() => handleDelete(svc.id)}
-                        disabled={deletingId === svc.id}
-                        className="rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
-                      >
-                        {deletingId === svc.id ? "Đang xóa..." : "Xác nhận"}
-                      </button>
-                      <button
-                        onClick={() => setConfirmDeleteId(null)}
-                        className="text-xs font-semibold text-slate-400 hover:text-slate-700"
-                      >
+                      <Button variant="danger" size="sm" onClick={() => handleDelete(svc.id)} loading={deletingId === svc.id}>
+                        Xác nhận
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>
                         Hủy
-                      </button>
+                      </Button>
                     </div>
                   ) : (
-                    <button
+                    <Button
+                      variant="danger-ghost"
+                      size="sm"
                       onClick={() => setConfirmDeleteId(svc.id)}
-                      className="rounded-lg p-1.5 text-slate-300 hover:bg-red-50 hover:text-red-600 transition-colors"
                       title="Xóa dịch vụ"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                      aria-label="Xóa dịch vụ"
+                      icon={<Trash2 size={15} />}
+                    />
                   )}
                 </div>
               </div>

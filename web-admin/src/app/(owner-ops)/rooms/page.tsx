@@ -377,9 +377,7 @@ function AddRoomModal({ houses, defaultFacilityId, onClose, onSaved }: { houses:
       <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-300">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-bold text-slate-900">Thêm phòng mới</h2>
-          <button onClick={onClose} className="rounded-lg bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 transition-colors">
-            <X size={18} />
-          </button>
+          <Button type="button" variant="ghost" size="sm" onClick={onClose} aria-label="Đóng" icon={<X size={18} />} />
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
