@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { AppState, View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackHeaderProps } from '@react-navigation/native-stack';
 import {
@@ -25,10 +25,11 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/store/authStore';
-import { clearApiMemoryCache, setAuthEventListener } from '@/lib/api';
+import { setAuthEventListener } from '@/lib/api';
 import { logPerfEvent, markAppStart } from '@/lib/telemetry/appPerformance';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
+import { ToastProvider } from '@/components/ui/ToastProvider';
 import {
   consumeNotificationResponseOnce,
   getNotificationRoute,
@@ -107,17 +108,6 @@ export default function RootLayout() {
   }, [hydrate]);
 
   useEffect(() => {
-    let previousState = AppState.currentState;
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      if (previousState !== 'active' && nextState === 'active') {
-        clearApiMemoryCache('app_foreground');
-      }
-      previousState = nextState;
-    });
-    return () => subscription.remove();
-  }, []);
-
-  useEffect(() => {
     if (!isAuthenticated || !canEnterApp) return;
     registerPushIfAlreadyAllowed().catch((error) => {
       console.warn('Unable to refresh push token:', error?.message || error);
@@ -193,11 +183,13 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right', header: AppStackHeader }}>
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
+      <ToastProvider>
+        <StatusBar style="dark" />
+        <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right', header: AppStackHeader }}>
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+      </ToastProvider>
     </SafeAreaProvider>
   );
 }

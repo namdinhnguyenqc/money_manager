@@ -139,6 +139,12 @@ export type RentalRoom = {
   outstanding_amount?: number;
   is_expired?: boolean;
   boarding_house_id?: string;
+  reservation_deposit_id?: string | null;
+  reservation_tenant_name?: string | null;
+  reservation_tenant_phone?: string | null;
+  reservation_amount?: number | null;
+  reservation_date?: string | null;
+  reservation_note?: string | null;
 };
 
 export type ContractView = {
@@ -878,14 +884,17 @@ export async function loadPendingBilling(
   
   const existingRoomIds = new Set(
     invoices
-      .filter(i => i.month === month && i.year === year)
-      .map(i => i.room_id)
+      // API/database values may arrive as strings while the picker supplies
+      // numbers. Normalize both sides so an invoice in the selected period
+      // always removes its room from the bulk-creation candidates.
+      .filter(i => Number(i.month) === Number(month) && Number(i.year) === Number(year))
+      .map(i => String(i.room_id))
   );
 
   return rooms.filter(room => {
     const status = String(room.status || "").toLowerCase();
     if (status !== 'occupied' || !room.contract_id) return false;
-    if (existingRoomIds.has(room.id)) return false;
+    if (existingRoomIds.has(String(room.id))) return false;
 
     if (room.start_date) {
       const startDate = new Date(room.start_date);
@@ -961,6 +970,12 @@ export async function updateDepositStatus(id: string, status: DepositStatus, not
 
 export async function cancelDeposit(id: string, note?: string) {
   return updateDepositStatus(id, 'cancelled', note);
+}
+
+/** End a reservation and return its room to vacant without duplicating the receipt transaction. */
+export async function forfeitReservationDeposit(id: string) {
+  const res = await apiPost<any>(`/rental/deposits/${id}/forfeit`, {});
+  return res?.data;
 }
 
 export async function loadTenants() {

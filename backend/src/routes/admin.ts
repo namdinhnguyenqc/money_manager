@@ -200,7 +200,7 @@ const getActor = (c: any) => c.get("user");
 // rows; a real UUID actor (Google-authenticated admins) passes through as-is.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const actorIdForFk = (actor: any): string | null =>
-  typeof actor?.id === "string" && UUID_RE.test(actor.id) ? actor.id : null;
+  typeof actor?.id === "string" && (UUID_RE.test(actor.id) || actor.id !== "admin-builtin") ? actor.id : null;
 
 const writeAudit = async (
   c: any,
@@ -1434,7 +1434,7 @@ adminRoutes.post("/accounts/:id/lock", ...adminWithPermission("account.lock"), a
   const payload = {
     status: "BLOCKED",
     locked_at: new Date().toISOString(),
-    locked_by: actor.id,
+    locked_by: actorIdForFk(actor),
     locked_reason: parsed.data.reason,
     updated_at: new Date().toISOString(),
   };
@@ -1465,7 +1465,7 @@ adminRoutes.post("/accounts/:id/unlock", ...adminWithPermission("account.unlock"
   const payload = {
     status: "ACTIVE",
     unlocked_at: new Date().toISOString(),
-    unlocked_by: actor.id,
+    unlocked_by: actorIdForFk(actor),
     unlocked_reason: parsed.data.reason,
     updated_at: new Date().toISOString(),
   };
@@ -1641,8 +1641,8 @@ const lockableUserAction = async (c: any, role: "OWNER" | "USER", action: "lock"
   const before = await supabaseAdmin.from("users").select("*").eq("id", id).single();
   if (before.error || !before.data) return c.json({ error: `${role} not found` }, 404);
   const payload: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
-  if (action === "lock") Object.assign(payload, { locked_at: new Date().toISOString(), locked_by: actor.id, locked_reason: parsed.data.reason });
-  else Object.assign(payload, { unlocked_at: new Date().toISOString(), unlocked_by: actor.id, unlocked_reason: parsed.data.reason });
+  if (action === "lock") Object.assign(payload, { locked_at: new Date().toISOString(), locked_by: actorIdForFk(actor), locked_reason: parsed.data.reason });
+  else Object.assign(payload, { unlocked_at: new Date().toISOString(), unlocked_by: actorIdForFk(actor), unlocked_reason: parsed.data.reason });
   const { data, error } = await supabaseAdmin.from("users").update(payload).eq("id", id).select("*").single();
   if (error) return jsonDbError(c, error, `Failed to ${action} ${role}`, 400);
   await writeAudit(c, {
@@ -1716,7 +1716,7 @@ const lockTableRow = async (c: any, table: string, resourceType: string, action:
   if (before.error || !before.data) return c.json({ error: `${resourceType} not found` }, 404);
   const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (status) payload.status = status;
-  if (action === "lock") Object.assign(payload, { locked_at: new Date().toISOString(), locked_by: actor.id, locked_reason: parsed.data.reason });
+  if (action === "lock") Object.assign(payload, { locked_at: new Date().toISOString(), locked_by: actorIdForFk(actor), locked_reason: parsed.data.reason });
   if (action === "unlock") Object.assign(payload, { locked_reason: null });
   const { data, error, omitted, appliedKeys } = await updateRowWithSchemaFallback(table, id, payload);
   if (error) return jsonDbError(c, error, `Failed to ${action} ${resourceType}`, 400);
@@ -2069,16 +2069,16 @@ adminRoutes.patch("/system-config", ...adminWithPermission("system_config.update
   const before = await supabaseAdmin.from("admin_system_configs").select("*").eq("key", parsed.data.key).maybeSingle();
   if (before.error && isMissingSchemaTable(before.error, "admin_system_configs")) {
     const actor = getActor(c);
+    const actorId = actorIdForFk(actor);
     const fallbackBefore = await supabaseAdmin
       .from("system_settings")
       .select("*")
-      .eq("user_id", actor.id)
       .eq("category", "admin")
       .eq("key", parsed.data.key)
       .maybeSingle();
 
     const fallback = await supabaseAdmin.from("system_settings").upsert({
-      user_id: actor.id,
+      user_id: actorId,
       category: "admin",
       key: parsed.data.key,
       value: parsed.data.value,

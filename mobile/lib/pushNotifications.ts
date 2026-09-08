@@ -58,9 +58,15 @@ export async function registerPushNotifications(requestPermission: boolean): Pro
 }
 
 export async function registerPushIfAlreadyAllowed(): Promise<void> {
-  const permission = (await Notifications.getPermissionsAsync()).status;
-  if (permission === Notifications.PermissionStatus.GRANTED) {
+  const permission = await Notifications.getPermissionsAsync();
+  if (permission.status === Notifications.PermissionStatus.GRANTED) {
     await registerPushNotifications(false);
+    return;
+  }
+  // A fresh install otherwise never asks for permission, so it can never
+  // receive a payment notification while backgrounded or killed.
+  if (permission.status === Notifications.PermissionStatus.UNDETERMINED && permission.canAskAgain) {
+    await registerPushNotifications(true);
   }
 }
 

@@ -5,7 +5,7 @@ import React from "react";
 type PageHeaderProps = {
   /** Deprecated: kept for compatibility, no longer rendered as an eyebrow above the title. */
   subtitle?: string;
-  /** Main page title */
+  /** Primary page title rendered inside the page content. */
   title: string;
   /** Description paragraph below title */
   description?: string;
@@ -29,15 +29,15 @@ export default function PageHeader({
   icon: _icon,
 }: PageHeaderProps) {
   return (
-    <div className="mb-4 sm:mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between h-auto">
+    <header className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 flex-1">
-        {breadcrumb && <div className="mb-1">{breadcrumb}</div>}
-        {title && <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-tight">{title}</h1>}
-        {description && <p className="mt-1 text-xs sm:text-sm font-medium text-slate-500 leading-normal">{description}</p>}
+        {breadcrumb && <div className="mb-2 text-sm text-slate-500">{breadcrumb}</div>}
+        <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">{title}</h1>
+        {description && <p className="mt-1 max-w-2xl text-sm leading-5 text-slate-600">{description}</p>}
       </div>
       {actions && (
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">{actions}</div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
       )}
-    </div>
+    </header>
   );
 }
