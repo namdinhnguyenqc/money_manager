@@ -31,6 +31,7 @@ import { filterPillActive, filterPillInactive } from "@/components/ui/design-tok
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import { useToast } from "@/components/ui/Toast";
 import PageContainer from "@/components/ui/PageContainer";
+import FilterBar from "@/components/ui/FilterBar";
 import ConfirmDialog from "@/components/ops/ConfirmDialog";
 import RoomEditModal from "@/components/ops/RoomEditModal";
 
@@ -162,6 +163,7 @@ export default function AllRoomsPage() {
             {facilityIdFilter && (
               <Link href="/rooms" className="text-sm font-semibold text-slate-500 hover:text-blue-600 transition-colors">← Tất cả phòng</Link>
             )}
+            <div className="inline-flex w-fit rounded-lg border border-slate-200 bg-white p-1" role="group" aria-label="Chế độ hiển thị"><button aria-pressed={view === "map"} onClick={() => setView("map")} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold ${view === "map" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}><LayoutGrid size={16} />Sơ đồ phòng</button><button aria-pressed={view === "list"} onClick={() => setView("list")} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold ${view === "list" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}><List size={16} />Danh sách</button></div>
             <Button
               variant="primary"
               icon={<Plus size={16} />}
@@ -176,23 +178,19 @@ export default function AllRoomsPage() {
       {toast && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 animate-in slide-in-from-top-2">{toast}</div>}
       {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 animate-in slide-in-from-top-2">{error}</div>}
 
-      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
-        {/* Status Filters */}
-        <div className="flex flex-wrap gap-2">
-          {roomFilters.map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setRoomFilter(filter)}
-              className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${roomFilter === filter ? filterPillActive : filterPillInactive}`}
-            >
-              {filter}
-            </button>
-          ))}
-        </div>
-
-        {/* Facility Filter Dropdown */}
-        <div className="flex items-center gap-2 min-w-[240px] md:max-w-[320px] w-full md:w-auto">
-          <span className="text-xs font-black uppercase text-slate-400 whitespace-nowrap">Cơ sở:</span>
+      <FilterBar
+        layout="stack"
+        actions={
+          <>
+            <div className="relative w-full sm:w-56">
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />{/* `.input` in globals.css sets the `padding` shorthand, which is emitted after
+              Tailwind's utilities and resets `pl-9` to 12px — putting the placeholder
+              underneath the search icon. `!pl-9` wins that tie. Fixed here rather than by
+              moving `.input` into @layer components, which would also let w-28/flex-1/
+              text-xs start overriding it and shift unrelated inputs across the app. */}
+              <input className="input w-full !pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm phòng hoặc khách thuê" />
+            </div>
+            {facilityIdFilter && facilityBlocks.length > 1 ? <select aria-label="Lọc theo dãy" value={blockFilter} onChange={(event) => setBlockFilter(event.target.value)} className="input w-auto min-w-[180px]"><option value="">Tất cả dãy</option><option value="unassigned">Chưa phân dãy</option>{facilityBlocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}</select> : null}
           <select
             value={facilityIdFilter}
             onChange={(e) => {
@@ -204,7 +202,7 @@ export default function AllRoomsPage() {
                 router.push(`/rooms`);
               }
             }}
-            className="input cursor-pointer font-bold"
+            className="input w-full cursor-pointer sm:w-48"
           >
             <option value="">— Tất cả cơ sở —</option>
             {houses.map((h) => (
@@ -213,21 +211,21 @@ export default function AllRoomsPage() {
               </option>
             ))}
           </select>
+                  </>
+        }
+      >
+        <div className="flex flex-wrap gap-2">
+          {roomFilters.map((filter) => (
+            <button
+              key={filter}
+              onClick={() => setRoomFilter(filter)}
+              className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${roomFilter === filter ? filterPillActive : filterPillInactive}`}
+            >
+              {filter}
+            </button>
+          ))}
         </div>
-      </div>
-
-      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-1 flex-wrap gap-2">
-          <div className="relative min-w-[220px] flex-1 sm:max-w-sm"><Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />{/* `.input` in globals.css sets the `padding` shorthand, which is emitted after
-              Tailwind's utilities and resets `pl-9` to 12px — putting the placeholder
-              underneath the search icon. `!pl-9` wins that tie. Fixed here rather than by
-              moving `.input` into @layer components, which would also let w-28/flex-1/
-              text-xs start overriding it and shift unrelated inputs across the app. */}
-          <input className="input w-full !pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm phòng hoặc khách thuê" /></div>
-          {facilityIdFilter && facilityBlocks.length > 1 ? <select aria-label="Lọc theo dãy" value={blockFilter} onChange={(event) => setBlockFilter(event.target.value)} className="input w-auto min-w-[180px]"><option value="">Tất cả dãy</option><option value="unassigned">Chưa phân dãy</option>{facilityBlocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}</select> : null}
-        </div>
-        <div className="inline-flex w-fit rounded-lg border border-slate-200 bg-white p-1" role="group" aria-label="Chế độ hiển thị"><button aria-pressed={view === "map"} onClick={() => setView("map")} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold ${view === "map" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}><LayoutGrid size={16} />Sơ đồ phòng</button><button aria-pressed={view === "list"} onClick={() => setView("list")} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold ${view === "list" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}><List size={16} />Danh sách</button></div>
-      </div>
+      </FilterBar>
 
       {roomsQuery.isLoading && (
         <div className="grid gap-4 lg:grid-cols-2">

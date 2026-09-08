@@ -31,6 +31,7 @@ import { useToast } from "@/components/ui/Toast";
 
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 import PageContainer from "@/components/ui/PageContainer";
+import FilterBar from "@/components/ui/FilterBar";
 
 const pageSize = 10;
 const statusFilters = [
@@ -130,8 +131,18 @@ export default function DepositsPage() {
         />
       </div>
 
-      {/* Filter pills */}
-      <div className="mb-6 flex flex-wrap gap-2">
+      <FilterBar
+        actions={
+          <div className="w-full sm:w-80">
+            <Input
+              icon={<Search size={16} />}
+              placeholder="Tìm theo tên khách, phòng, số điện thoại..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        }
+      >
         {statusFilters.map((item) => (
           <button
             key={item.value}
@@ -143,19 +154,7 @@ export default function DepositsPage() {
             {item.label}
           </button>
         ))}
-      </div>
-
-      {/* Control Bar */}
-      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex-1 max-w-md">
-          <Input
-            icon={<Search size={16} />}
-            placeholder="Tìm theo tên khách, phòng, số điện thoại..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-      </div>
+      </FilterBar>
 
       {/* Deposits Table */}
       <DataTable className="hidden lg:block" headers={["Thông tin phòng", "Khách hàng", "Số tiền", "Thời gian", "Trạng thái", "Thao tác"]}>

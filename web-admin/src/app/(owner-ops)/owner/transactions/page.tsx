@@ -29,7 +29,8 @@ import EmptyState from "@/components/ops/EmptyState";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import Input from "@/components/ui/Input";
+import Input, { Label, Select } from "@/components/ui/Input";
+import { surfacePadding } from "@/components/ui/design-tokens";
 import PageHeader from "@/components/ui/PageHeader";
 import MetricCard from "@/components/ui/MetricCard";
 import Pagination from "@/components/ui/Pagination";
@@ -142,54 +143,36 @@ export default function OwnerTransactionsPage() {
         <MetricCard label="Số dư hiện tại" value={formatMoney(summary.income - summary.expense)} description="Thặng dư khả dụng" icon={<WalletIcon size={20} />} tone="primary" />
       </div>
 
-      {/* Filter & Search */}
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end">
-        <div className="w-full lg:w-80">
-          <label className="text-xs font-semibold text-slate-500">
-            Tìm kiếm
-            <div className="relative mt-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
-              <Input
-                className="pl-10 h-[42px]"
-                placeholder="Mô tả, ví, hạng mục..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </label>
+      <Card className={`mb-6 ${surfacePadding}`}>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <Label>Tìm kiếm</Label>
+            <Input
+              icon={<Search size={16} />}
+              placeholder="Mô tả, ví, hạng mục..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Từ ngày</Label>
+            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div>
+            <Label>Đến ngày</Label>
+            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
+          <div>
+            <Label>Tài khoản ví</Label>
+            <Select value={selectedWalletId} onChange={(e) => setSelectedWalletId(e.target.value)}>
+              <option value="all">Tất cả ví ({wallets.length})</option>
+              {wallets.map((w) => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </Select>
+          </div>
         </div>
-        <div className="grid w-full gap-2 sm:grid-cols-2 lg:w-auto">
-          <label className="text-xs font-semibold text-slate-500">
-            Từ ngày
-            <Input className="mt-1 h-[42px]" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </label>
-          <label className="text-xs font-semibold text-slate-500">
-            Đến ngày
-            <Input className="mt-1 h-[42px]" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-          </label>
-        </div>
-        <div className="w-full sm:w-64">
-          <label className="text-xs font-semibold text-slate-500">
-            Tài khoản ví
-            <div className="relative mt-1">
-              <WalletIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
-              <select
-                value={selectedWalletId}
-                onChange={(e) => setSelectedWalletId(e.target.value)}
-                className="input cursor-pointer appearance-none pl-9 pr-10 font-semibold"
-              >
-                <option value="all">Tất cả ví ({wallets.length})</option>
-                {wallets.map(w => (
-                  <option key={w.id} value={w.id}>{w.name}</option>
-                ))}
-              </select>
-              <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-              </div>
-            </div>
-          </label>
-        </div>
-      </div>
+      </Card>
 
       {/* Transaction List */}
       <div className="space-y-4">

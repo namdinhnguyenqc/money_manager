@@ -24,6 +24,8 @@ import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 import PageContainer from "@/components/ui/PageContainer";
+import FilterBar from "@/components/ui/FilterBar";
+import { Select } from "@/components/ui/Input";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 const BulkInvoiceModal = dynamic(() => import("@/components/ops/BulkInvoiceModal"), { ssr: false });
@@ -526,16 +528,21 @@ export default function InvoicesPage() {
         <MetricCard label="Quá hạn" value={`${overdueCarryCount} hóa đơn`} tone="warning" />
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-        <button aria-pressed={selectedHouse === "all"} onClick={() => setSelectedHouse("all")} className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ${selectedHouse === "all" ? filterPillActive : filterPillInactive}`}>Tất cả cơ sở</button>
-        {houses.map((house) => (
-          <button key={house.id} onClick={() => setSelectedHouse(house.id)} className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ${selectedHouse === house.id ? filterPillActive : filterPillInactive}`}>
-            {house.name}
-          </button>
-        ))}
-      </div>
-
-      <div className="mb-4 flex flex-wrap gap-2">
+      <FilterBar
+        actions={
+          <Select
+            aria-label="Lọc theo cơ sở"
+            className="w-full sm:w-56"
+            value={selectedHouse}
+            onChange={(e) => setSelectedHouse(e.target.value)}
+          >
+            <option value="all">Tất cả cơ sở</option>
+            {houses.map((house) => (
+              <option key={house.id} value={house.id}>{house.name}</option>
+            ))}
+          </Select>
+        }
+      >
         {statusTabs.map((item) => (
           <button key={item} onClick={() => setFilter(item)} className={`relative rounded-full border px-4 py-1.5 text-sm font-semibold transition-all ${filter === item ? filterPillActive : filterPillInactive}`}>
             {item}
@@ -547,7 +554,7 @@ export default function InvoicesPage() {
             )}
           </button>
         ))}
-      </div>
+      </FilterBar>
 
       {overdueCarryCount > 0 && (
         <button

@@ -28,6 +28,7 @@ import { filterPillActive, filterPillInactive } from "@/components/ui/design-tok
 import ConfirmDialog from "@/components/ops/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
 import PageContainer from "@/components/ui/PageContainer";
+import FilterBar from "@/components/ui/FilterBar";
 
 type TenantWithRoom = Tenant & { room?: RentalRoom; isActive: boolean };
 
@@ -118,7 +119,13 @@ export default function OwnerTenantsPage() {
           />
         </div>
 
-        <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <FilterBar
+          actions={
+            <div className="w-full sm:w-72">
+              <Input icon={<Search size={16} />} placeholder="Tìm tên, SĐT, CCCD..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            </div>
+          }
+        >
           <div className="flex flex-wrap gap-2">
             {([
               { key: "all", label: "Tất cả" },
@@ -134,10 +141,7 @@ export default function OwnerTenantsPage() {
               </button>
             ))}
           </div>
-          <div className="w-full sm:w-72">
-            <Input icon={<Search size={16} />} placeholder="Tìm tên, SĐT, CCCD..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-          </div>
-        </div>
+        </FilterBar>
 
         {tenantsQuery.isError && (
           <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">

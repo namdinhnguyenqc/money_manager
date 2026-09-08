@@ -7,6 +7,7 @@ import ConfirmDialog from "@/components/ops/ConfirmDialog";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
 import PageContainer from "@/components/ui/PageContainer";
+import FilterBar from "@/components/ui/FilterBar";
 import {
   RentalRoom,
   ServiceConfig,
@@ -96,9 +97,9 @@ export default function OwnerContractsPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <FilterBar>
         {filters.map((item) => <button key={item} onClick={() => setFilter(item)} className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${filter === item ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-600"}`}>{item}</button>)}
-      </div>
+      </FilterBar>
 
       {toast && <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{toast}</div>}
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
