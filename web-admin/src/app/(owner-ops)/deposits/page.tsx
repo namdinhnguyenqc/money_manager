@@ -309,12 +309,12 @@ function DepositRow({ deposit, onCancelled }: { deposit: Deposit; onCancelled: (
               >
                 Xác nhận
               </Button>
-              <button onClick={() => setConfirming(false)} className="text-xs font-semibold text-slate-400 hover:text-slate-600">
+              <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>
                 Hủy
-              </button>
+              </Button>
             </div>
           )}
-          <button className="rounded-lg p-1 text-slate-300 hover:bg-slate-100 hover:text-slate-500 transition-colors">
+          <button type="button" className="rounded-lg p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-500">
             <MoreVertical size={16} />
           </button>
         </div>
@@ -381,9 +381,7 @@ function NewDepositModal({ defaultRoomId = "", onClose, onCreated }: { defaultRo
             <h2 className="text-xl font-bold text-slate-900">Ghi nhận cọc</h2>
             <p className="mt-1 text-sm text-slate-500">Lập phiếu giữ chỗ và thay đổi trạng thái phòng.</p>
           </div>
-          <button onClick={onClose} className="shrink-0 rounded-lg bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 transition-colors">
-            <X size={18} />
-          </button>
+          <Button variant="ghost" size="sm" className="shrink-0" onClick={onClose} aria-label="Đóng" icon={<X size={18} />} />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
