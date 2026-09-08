@@ -28,6 +28,7 @@ import {
 } from "@/lib/rentalOps";
 import { calculateProratedRent } from "@/utils/rentCalc";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+import Button from "@/components/ui/Button";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "").slice(0, 10);
 
@@ -69,14 +70,15 @@ export default function ContractDetailPage() {
         <section className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-slate-950">Thông tin khách thuê</h2>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               disabled={contract.status !== "active"}
               onClick={() => setEditOpen(true)}
-              className="rounded-[8px] border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Sửa
-            </button>
+            </Button>
           </div>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <Info label="Họ tên" value={contract.tenant_name} />
@@ -207,33 +209,34 @@ export default function ContractDetailPage() {
       </section>
 
       <div className="mt-5 flex flex-wrap gap-2">
-        <button
+        <Button
+          variant="primary"
           disabled={contract.status !== "active"}
           onClick={() => setRenewOpen(true)}
-          className="inline-flex items-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          icon={<CalendarPlus size={16} />}
         >
-          <CalendarPlus size={16} />
           Gia hạn
-        </button>
-        <button 
-          disabled={contract.status !== "active"} 
+        </Button>
+        <Button
+          variant="outline"
+          disabled={contract.status !== "active"}
           onClick={() => setEditOpen(true)}
-          className="inline-flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+          icon={<Settings size={16} />}
         >
-          <Settings size={16} />
           Sửa hợp đồng
-        </button>
-        <Link 
-          href={`/contracts/${id}/print`}
-          className="inline-flex items-center gap-2 rounded-[8px] border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100"
-        >
-          <Printer size={16} />
+        </Button>
+        <Button href={`/contracts/${id}/print`} variant="outline" icon={<Printer size={16} />}>
           Xem bản in
-        </Link>
-        <button disabled={contract.status === "ended"} onClick={() => setConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-[8px] border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50">
-          <XCircle size={16} />
+        </Button>
+        <Button
+          variant="danger-ghost"
+          className="border border-red-200 bg-red-50"
+          disabled={contract.status === "ended"}
+          onClick={() => setConfirmOpen(true)}
+          icon={<XCircle size={16} />}
+        >
           Kết thúc hợp đồng
-        </button>
+        </Button>
       </div>
 
       {confirmOpen ? (
@@ -400,9 +403,9 @@ function RenewContractPanel({ contract, onClose, onRenewed }: { contract: any; o
 
         {error ? <p className="text-sm font-semibold text-red-600">{error}</p> : null}
 
-        <button disabled={saving} className="w-full rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+        <Button type="submit" variant="primary" className="w-full" loading={saving}>
           {saving ? "Đang gia hạn..." : "Xác nhận gia hạn"}
-        </button>
+        </Button>
       </form>
     </SidePanel>
   );
@@ -551,10 +554,10 @@ function EditContractPanel({ contract, onClose, onSaved }: { contract: any; onCl
         <Field label="Ghi chú"><textarea className="input min-h-24" value={form.note} onChange={(e) => setForm(p => ({ ...p, note: e.target.value }))} /></Field>
         
         <div className="flex gap-3 pt-2">
-          <button type="button" onClick={onClose} className="flex-1 rounded-[8px] border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Hủy</button>
-          <button disabled={saving} className="flex-[2] rounded-[8px] bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-blue-700 disabled:opacity-50">
+          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Hủy</Button>
+          <Button type="submit" variant="primary" className="flex-[2]" loading={saving}>
             {saving ? "Đang lưu..." : "Lưu thay đổi"}
-          </button>
+          </Button>
         </div>
       </form>
     </SidePanel>
@@ -567,7 +570,7 @@ function SidePanel({ title, onClose, children }: { title: string; onClose: () =>
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl relative" onClick={(event) => event.stopPropagation()}>
         <div className="mb-6 flex items-center justify-between gap-4">
           <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
-          <button onClick={onClose} className="rounded-[8px] p-2 text-slate-500 hover:bg-slate-100" aria-label="Đóng"><X size={18} /></button>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Đóng" icon={<X size={18} />} />
         </div>
         {children}
       </div>
@@ -761,13 +764,17 @@ function RefundModal({ contract, invoices, onClose, onConfirm }: { contract: any
         </Field>
 
         <div className="flex gap-3 pt-2">
-          <button type="button" onClick={onClose} className="flex-1 rounded-[8px] border border-slate-200 py-3 text-sm font-semibold text-slate-700">Hủy</button>
-          <button 
-            disabled={loading || !isSettled} 
-            className={`flex-[2] rounded-[8px] py-3 text-sm font-bold text-white shadow-lg transition-all ${isSettled ? 'bg-red-600 hover:bg-red-700' : 'bg-slate-300 cursor-not-allowed'}`}
+          <Button type="button" variant="outline" size="lg" className="flex-1" onClick={onClose}>Hủy</Button>
+          <Button
+            type="submit"
+            variant="danger"
+            size="lg"
+            className="flex-[2]"
+            disabled={!isSettled}
+            loading={loading}
           >
             {loading ? "Đang xử lý..." : "Hoàn tất Trả phòng"}
-          </button>
+          </Button>
         </div>
       </form>
     </SidePanel>
