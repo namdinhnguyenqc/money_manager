@@ -646,7 +646,7 @@ export default function OwnerSettingsPage() {
   return (
     <div className="w-full animate-in fade-in duration-500 pb-16">
       {(error || success) && (
-        <div className={`mb-6 rounded-2xl p-4 text-sm font-semibold flex items-center gap-3 border shadow-sm transition-all animate-in slide-in-from-top-2 ${
+        <div className={`mb-6 rounded-xl p-4 text-sm font-semibold flex items-center gap-3 border shadow-sm transition-all animate-in slide-in-from-top-2 ${
           error 
             ? "border-red-100 bg-red-50/70 text-red-700" 
             : "border-emerald-100 bg-emerald-50/70 text-emerald-700"
@@ -664,7 +664,7 @@ export default function OwnerSettingsPage() {
       ) : (
         <div className="w-full animate-in fade-in duration-300">
           {/* Premium Content Panel */}
-          <Card className="flex-1 w-full lg:w-auto min-w-0 p-6 sm:p-8 rounded-[2rem] border border-slate-200/70 shadow-sm bg-white relative overflow-hidden transition-all duration-300">
+          <Card className="flex-1 w-full lg:w-auto min-w-0 p-6 sm:p-8 rounded-xl border border-slate-200/70 shadow-sm bg-white relative overflow-hidden transition-all duration-300">
             {/* Visual background sparkles for modern feel */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-slate-100/30 rounded-full -mr-32 -mt-32 pointer-events-none blur-3xl"></div>
 
@@ -694,13 +694,13 @@ export default function OwnerSettingsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
                   <label className="block max-w-sm space-y-2">
                     <span className="text-sm font-bold text-slate-800">Ngày đến hạn thanh toán mỗi tháng</span>
                     <select
                       value={String(getValue("invoice_due_day", 5))}
                       onChange={(event) => handleChange("invoice_due_day", Number(event.target.value), "number", "overdue")}
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      className="input"
                     >
                       {Array.from({ length: 28 }, (_, index) => index + 1).map((day) => <option key={day} value={day}>Ngày {day} hằng tháng</option>)}
                     </select>
@@ -733,7 +733,7 @@ export default function OwnerSettingsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                   <div className="flex items-center justify-between gap-4">
                     <div className="space-y-1">
                       <span className="text-sm font-bold text-slate-800 flex items-center gap-2">
@@ -785,7 +785,7 @@ export default function OwnerSettingsPage() {
 
                 <div className="space-y-5">
                   {/* Message Template Editor */}
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <span className="text-sm font-bold text-slate-900">Nội dung mẫu tin nhắn hóa đơn Zalo</span>
@@ -811,7 +811,7 @@ export default function OwnerSettingsPage() {
 
                     <textarea
                       rows={6}
-                      className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium leading-6 text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      className="input min-h-24 leading-6"
                       value={getValue(
                         "zalo_invoice_template",
                         DEFAULT_ZALO_INVOICE_TEMPLATE
@@ -864,7 +864,7 @@ export default function OwnerSettingsPage() {
                       <span className="text-xs font-bold text-slate-700">Nội dung tin xác nhận thanh toán</span>
                       <textarea
                         rows={6}
-                        className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium leading-6 text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
+                        className="input min-h-24 leading-6"
                         value={getValue("zalo_payment_received_template", DEFAULT_ZALO_PAYMENT_RECEIVED_TEMPLATE)}
                         onChange={(e) => handleChange("zalo_payment_received_template", e.target.value, "string", "zalo")}
                       />
@@ -891,7 +891,7 @@ export default function OwnerSettingsPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <span className="text-sm font-bold text-slate-900">Nhắc nợ thủ công qua Zalo</span>
@@ -914,7 +914,7 @@ export default function OwnerSettingsPage() {
                       <span className="text-xs font-bold text-slate-700">Nội dung mẫu tin nhắn nhắc nợ</span>
                       <textarea
                         rows={6}
-                        className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium leading-6 text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                        className="input min-h-24 leading-6"
                         value={getValue("zalo_reminder_template", DEFAULT_ZALO_REMINDER_TEMPLATE)}
                         onChange={(e) => handleChange("zalo_reminder_template", e.target.value, "string", "zalo")}
                       />
@@ -967,7 +967,7 @@ export default function OwnerSettingsPage() {
                 <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
                   <button
                     onClick={() => setSepaySubTab("sepay")}
-                    className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-[10px] transition-all ${
+                    className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
                       sepaySubTab === "sepay"
                         ? "bg-white text-slate-900 shadow-sm"
                         : "text-slate-500 hover:text-slate-700"
@@ -978,7 +978,7 @@ export default function OwnerSettingsPage() {
                   </button>
                   <button
                     onClick={() => setSepaySubTab("static")}
-                    className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-[10px] transition-all ${
+                    className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
                       sepaySubTab === "static"
                         ? "bg-white text-slate-900 shadow-sm"
                         : "text-slate-500 hover:text-slate-700"
@@ -991,7 +991,7 @@ export default function OwnerSettingsPage() {
 
                 {sepaySubTab === "sepay" && (<>
                 {/* 1. Kênh thanh toán & đối soát SePay */}
-                <section className="space-y-4 bg-slate-50/40 rounded-3xl border border-slate-200/50 p-5">
+                <section className="space-y-4 bg-slate-50/40 rounded-xl border border-slate-200/50 p-5">
                   <div className="flex items-center gap-2">
                     <Wallet size={16} className="text-blue-600" />
                     <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Kênh ngân hàng SePay hoạt động</span>
@@ -999,7 +999,7 @@ export default function OwnerSettingsPage() {
 
                   <div className="grid gap-3">
                     {sepayChannels.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-slate-500 text-xs font-medium">
+                      <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center text-slate-500 text-xs font-medium">
                         Chưa có kênh đối soát SePay nào. Vui lòng thêm tài khoản đối soát phía dưới.
                       </div>
                     ) : sepayChannels.map((channel) => {
@@ -1065,7 +1065,7 @@ export default function OwnerSettingsPage() {
                   </div>
 
                   {/* Form Create payment channel */}
-                  <div className="grid gap-4 p-5 bg-white border border-slate-200 rounded-2xl">
+                  <div className="grid gap-4 p-5 bg-white border border-slate-200 rounded-xl">
                     <span className="text-xs font-bold text-slate-600">Thêm tài khoản ngân hàng đối soát SePay</span>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
@@ -1123,11 +1123,11 @@ export default function OwnerSettingsPage() {
                     <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Thông số kỹ thuật SePay.vn</span>
                   </div>
 
-                  <Card className="grid gap-5 p-5 bg-slate-50/50 border border-slate-200/50 rounded-[8px]">
+                  <Card className="grid gap-5 p-5 bg-slate-50/50 border border-slate-200/50 rounded-lg">
 
 
                     {/* Step-by-step guide */}
-                    <div className="rounded-2xl bg-blue-50/60 p-4 space-y-2">
+                    <div className="rounded-xl bg-blue-50/60 p-4 space-y-2">
                       <p className="text-xs font-black text-blue-800">Hướng dẫn cấu hình SePay của bạn</p>
                       <ol className="space-y-1.5 text-xs text-blue-700 font-medium list-decimal list-inside leading-relaxed">
                         <li>Đăng nhập <span className="font-mono font-bold">SePay.vn</span> → Webhook → Thêm webhook mới</li>
@@ -1174,7 +1174,7 @@ export default function OwnerSettingsPage() {
                           <input
                             type={showApiKey ? "text" : "password"}
                             placeholder="Nhập API Token từ SePay.vn..."
-                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all bg-white font-mono text-slate-800 pr-10"
+                            className="input pr-10 font-mono text-xs"
                             value={getValue("sepay_api_key", "")}
                             onChange={(e) => handleChange("sepay_api_key", e.target.value, "string", "payment")}
                           />
@@ -1194,7 +1194,7 @@ export default function OwnerSettingsPage() {
                           <input
                             type={showWebhookSecret ? "text" : "password"}
                             placeholder="Nhập Webhook Secret từ SePay.vn..."
-                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all bg-white font-mono text-slate-800 pr-10"
+                            className="input pr-10 font-mono text-xs"
                             value={getValue("sepay_webhook_secret", "")}
                             onChange={(e) => handleChange("sepay_webhook_secret", e.target.value, "string", "payment")}
                           />
@@ -1244,7 +1244,7 @@ export default function OwnerSettingsPage() {
                       <span className="text-xs">Đang tải nhật ký webhook mới...</span>
                     </div>
                   ) : sepayEvents.length === 0 ? (
-                    <Card className="p-8 text-center text-slate-500 border border-dashed border-slate-200 bg-slate-50/20 rounded-2xl">
+                    <Card className="p-8 text-center text-slate-500 border border-dashed border-slate-200 bg-slate-50/20 rounded-xl">
                       <Layers size={36} className="mx-auto text-slate-300 mb-3" />
                       <p className="font-bold text-slate-600 text-xs">Chưa nhận giao dịch nào qua Webhook</p>
                       <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
@@ -1252,7 +1252,7 @@ export default function OwnerSettingsPage() {
                       </p>
                     </Card>
                   ) : (
-                    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
                       <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
                         <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500 select-none">
                           <tr>
@@ -1336,7 +1336,7 @@ export default function OwnerSettingsPage() {
                                     <td colSpan={5} className="bg-slate-950 text-slate-300 p-6 border-t border-b border-slate-900 select-all rounded-b-2xl">
                                       <div className="space-y-5">
                                         {/* Visual Reconcile Timeline */}
-                                        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4">
+                                        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 space-y-4">
                                           <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block">QUY TRÌNH ĐỐI SOÁT TỰ ĐỘNG</span>
                                           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-2 relative">
                                             {/* Connecting line */}
@@ -1406,7 +1406,7 @@ export default function OwnerSettingsPage() {
 
                                         <div className="space-y-2">
                                           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">PAYLOAD JSON GỐC</span>
-                                          <pre className="text-[10px] font-mono text-emerald-400 leading-relaxed overflow-x-auto max-h-[250px] scrollbar-thin bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                                          <pre className="text-[10px] font-mono text-emerald-400 leading-relaxed overflow-x-auto max-h-[250px] scrollbar-thin bg-slate-900 border border-slate-800 rounded-xl p-4">
                                             {JSON.stringify(event.raw_payload, null, 2)}
                                           </pre>
                                           {event.error_message && (
@@ -1432,14 +1432,14 @@ export default function OwnerSettingsPage() {
 
                 {sepaySubTab === "static" && (
                 <div className="space-y-6 animate-in fade-in duration-300">
-                  <div className="rounded-2xl bg-amber-50/60 border border-amber-100 p-4 space-y-1.5">
+                  <div className="rounded-xl bg-amber-50/60 border border-amber-100 p-4 space-y-1.5">
                     <p className="text-[11px] font-black text-amber-800 uppercase tracking-wider">Thanh toán tĩnh là gì?</p>
                     <p className="text-[11px] text-amber-700 font-medium leading-relaxed">
                       Thanh toán tĩnh cho phép khách thuê chuyển khoản qua số tài khoản ngân hàng hoặc quét mã QR cố định của bạn. Không cần tích hợp API — bạn tự kiểm tra và xác nhận thanh toán thủ công.
                     </p>
                   </div>
 
-                  <Card className="grid gap-5 p-5 bg-slate-50/50 border border-slate-200/50 rounded-[8px]">
+                  <Card className="grid gap-5 p-5 bg-slate-50/50 border border-slate-200/50 rounded-lg">
                     <div className="flex items-center gap-2">
                       <CreditCard size={16} className="text-slate-600" />
                       <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Thông tin tài khoản ngân hàng</span>
@@ -1489,7 +1489,7 @@ export default function OwnerSettingsPage() {
                     </div>
                   </Card>
 
-                  <Card className="grid gap-5 p-5 bg-slate-50/50 border border-slate-200/50 rounded-[8px]">
+                  <Card className="grid gap-5 p-5 bg-slate-50/50 border border-slate-200/50 rounded-lg">
                     <div className="flex items-center gap-2">
                       <QrCode size={16} className="text-slate-600" />
                       <span className="text-xs font-black uppercase text-slate-700 tracking-wider">Mã QR thanh toán (tùy chọn)</span>
@@ -1559,16 +1559,16 @@ export default function OwnerSettingsPage() {
                 </div>
 
                 {showAddService && (
-                  <div className="rounded-2xl border border-blue-100 bg-blue-50/30 p-5 shadow-inner space-y-4 animate-in slide-in-from-top-3">
+                  <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-5 shadow-inner space-y-4 animate-in slide-in-from-top-3">
                     <span className="text-xs font-extrabold text-blue-900 uppercase tracking-wider block">Thêm dịch vụ phòng trọ mới</span>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                       <div>
                         <label className="mb-1 block text-xs font-bold text-slate-700">Tên dịch vụ *</label>
-                        <input type="text" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-blue-500" value={newService.name} onChange={(e) => setNewService({ ...newService, name: e.target.value })} placeholder="VD: Rác sinh hoạt..." />
+                        <input type="text" className="input text-xs" value={newService.name} onChange={(e) => setNewService({ ...newService, name: e.target.value })} placeholder="VD: Rác sinh hoạt..." />
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-bold text-slate-700">Loại tính phí</label>
-                        <select className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-blue-500 appearance-none pr-8 relative" value={newService.type} onChange={(e) => setNewService({ ...newService, type: e.target.value })}>
+                        <select className="input text-xs appearance-none pr-8" value={newService.type} onChange={(e) => setNewService({ ...newService, type: e.target.value })}>
                           <option value="metered">Theo số đo (Điện, Nước)</option>
                           <option value="per_person">Theo người (Người/Tháng)</option>
                           <option value="per_room">Theo phòng (Phòng/Tháng)</option>
@@ -1577,15 +1577,15 @@ export default function OwnerSettingsPage() {
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-bold text-slate-700">Đơn giá chuẩn *</label>
-                        <input type="number" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-blue-500" value={newService.unitPrice} onChange={(e) => setNewService({ ...newService, unitPrice: Number(e.target.value) })} />
+                        <input type="number" className="input text-xs" value={newService.unitPrice} onChange={(e) => setNewService({ ...newService, unitPrice: Number(e.target.value) })} />
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-bold text-slate-700">Đơn giá máy lạnh (nếu có)</label>
-                        <input type="number" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-blue-500" value={newService.unitPriceAc} onChange={(e) => setNewService({ ...newService, unitPriceAc: Number(e.target.value) })} />
+                        <input type="number" className="input text-xs" value={newService.unitPriceAc} onChange={(e) => setNewService({ ...newService, unitPriceAc: Number(e.target.value) })} />
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-bold text-slate-700">Đơn vị tính</label>
-                        <input type="text" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-blue-500" value={newService.unit} onChange={(e) => setNewService({ ...newService, unit: e.target.value })} placeholder="VD: kWh, khối, người..." />
+                        <input type="text" className="input text-xs" value={newService.unit} onChange={(e) => setNewService({ ...newService, unit: e.target.value })} placeholder="VD: kWh, khối, người..." />
                       </div>
                     </div>
                     <div className="flex justify-end gap-2 pt-2">
@@ -1597,16 +1597,16 @@ export default function OwnerSettingsPage() {
 
                 {/* Edit Service Form */}
                 {editingServiceId && (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50/30 p-5 shadow-inner space-y-4 animate-in slide-in-from-top-3">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-5 shadow-inner space-y-4 animate-in slide-in-from-top-3">
                     <span className="text-xs font-extrabold text-amber-900 uppercase tracking-wider block">Sửa cấu hình dịch vụ</span>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                       <div>
                         <label className="mb-1 block text-xs font-bold text-slate-700">Tên dịch vụ *</label>
-                        <input type="text" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-amber-500" value={editingService.name || ""} onChange={(e) => setEditingService({ ...editingService, name: e.target.value })} />
+                        <input type="text" className="input text-xs" value={editingService.name || ""} onChange={(e) => setEditingService({ ...editingService, name: e.target.value })} />
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-bold text-slate-700">Loại tính phí</label>
-                        <select className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-amber-500 appearance-none bg-white pr-8" value={editingService.type || "metered"} onChange={(e) => setEditingService({ ...editingService, type: e.target.value })}>
+                        <select className="input text-xs appearance-none pr-8" value={editingService.type || "metered"} onChange={(e) => setEditingService({ ...editingService, type: e.target.value })}>
                           <option value="metered">Theo số đo (Điện, Nước)</option>
                           <option value="per_person">Theo người (Người/Tháng)</option>
                           <option value="per_room">Theo phòng (Phòng/Tháng)</option>
@@ -1615,15 +1615,15 @@ export default function OwnerSettingsPage() {
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-bold text-slate-700">Đơn giá chuẩn *</label>
-                        <input type="number" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-amber-500" value={editingService.unit_price ?? 0} onChange={(e) => setEditingService({ ...editingService, unit_price: Number(e.target.value) })} />
+                        <input type="number" className="input text-xs" value={editingService.unit_price ?? 0} onChange={(e) => setEditingService({ ...editingService, unit_price: Number(e.target.value) })} />
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-bold text-slate-700">Đơn giá máy lạnh (nếu có)</label>
-                        <input type="number" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-amber-500" value={editingService.unit_price_ac ?? 0} onChange={(e) => setEditingService({ ...editingService, unit_price_ac: Number(e.target.value) })} />
+                        <input type="number" className="input text-xs" value={editingService.unit_price_ac ?? 0} onChange={(e) => setEditingService({ ...editingService, unit_price_ac: Number(e.target.value) })} />
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-bold text-slate-700">Đơn vị tính</label>
-                        <input type="text" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-amber-500" value={editingService.unit || ""} onChange={(e) => setEditingService({ ...editingService, unit: e.target.value })} />
+                        <input type="text" className="input text-xs" value={editingService.unit || ""} onChange={(e) => setEditingService({ ...editingService, unit: e.target.value })} />
                       </div>
                     </div>
                     <div className="flex justify-end gap-2 pt-2">
@@ -1666,7 +1666,7 @@ export default function OwnerSettingsPage() {
                     return (
                       <div 
                         key={service.id} 
-                        className={`group relative rounded-3xl border p-5 transition-all duration-300 bg-white ${
+                        className={`group relative rounded-xl border p-5 transition-all duration-300 bg-white ${
                           service.active 
                             ? "border-slate-200/80 shadow-sm hover:shadow-md hover:border-slate-300" 
                             : "border-slate-200/50 bg-slate-50/50 opacity-75"
@@ -1770,11 +1770,11 @@ export default function OwnerSettingsPage() {
 
                     <div className="grid gap-3 sm:grid-cols-2">
                       {wallets.length === 0 ? (
-                        <div className="sm:col-span-2 rounded-2xl border border-dashed border-slate-200 p-6 text-center text-slate-500 text-xs font-medium bg-slate-50/50">
+                        <div className="sm:col-span-2 rounded-xl border border-dashed border-slate-200 p-6 text-center text-slate-500 text-xs font-medium bg-slate-50/50">
                           Chưa cấu hình ví nhận tiền nào. Hãy khởi tạo mặc định hoặc thêm thủ công.
                         </div>
                       ) : wallets.map((wallet) => (
-                        <div key={wallet.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex items-center justify-between hover:shadow-md transition-all">
+                        <div key={wallet.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex items-center justify-between hover:shadow-md transition-all">
                           <div>
                             <span className="font-bold text-slate-900 text-sm block">{wallet.name}</span>
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-black uppercase mt-1.5 ${
@@ -1797,7 +1797,7 @@ export default function OwnerSettingsPage() {
                   </div>
 
                   {/* Right panel: Add new wallet Form */}
-                  <div className="bg-slate-50/50 border border-slate-200/50 rounded-3xl p-5 space-y-4">
+                  <div className="bg-slate-50/50 border border-slate-200/50 rounded-xl p-5 space-y-4">
                     <span className="text-xs font-extrabold uppercase text-slate-400 tracking-wider block">Thêm ví nhận tiền mới</span>
                     <form onSubmit={handleCreateWallet} className="space-y-4">
                       <div>
@@ -1814,7 +1814,7 @@ export default function OwnerSettingsPage() {
                         <Label className="font-semibold text-slate-600 text-xs">Phân loại ví</Label>
                         <div className="relative mt-1.5">
                           <select 
-                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all appearance-none pr-8 bg-white"
+                            className="input text-xs appearance-none pr-8"
                             value={newWallet.type} 
                             onChange={(e) => setNewWallet({ ...newWallet, type: e.target.value })}
                           >
@@ -1866,7 +1866,7 @@ export default function OwnerSettingsPage() {
                 </div>
 
                 {/* Tab selector for Income/Expense */}
-                <div className="flex gap-2 p-1 bg-slate-100/80 rounded-2xl border border-slate-200/40">
+                <div className="flex gap-2 p-1 bg-slate-100/80 rounded-xl border border-slate-200/40">
                   {(["income", "expense"] as const).map((t) => (
                     <button
                       key={t}
@@ -1893,7 +1893,7 @@ export default function OwnerSettingsPage() {
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      <Card className="p-5 border border-slate-200/80 bg-white rounded-3xl space-y-4 shadow-sm">
+                      <Card className="p-5 border border-slate-200/80 bg-white rounded-xl space-y-4 shadow-sm">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-black uppercase text-slate-700 tracking-wider">
                             Tạo danh mục {activeCategoryTab === "income" ? "thu" : "chi"} mới
@@ -1924,7 +1924,7 @@ export default function OwnerSettingsPage() {
                             <select
                               value={categoryForm.walletId} 
                               onChange={(e) => setCategoryForm({ ...categoryForm, walletId: e.target.value })}
-                              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-slate-900"
+                              className="input text-xs"
                             >
                               {wallets.length === 0 && <option value="">Chưa có ví</option>}
                               {wallets.map((w: any) => (
@@ -1993,7 +1993,7 @@ export default function OwnerSettingsPage() {
 
                 {/* Categories List */}
                 {visibleCategories.length === 0 ? (
-                  <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/40 p-12 text-center text-slate-500 text-xs font-semibold">
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/40 p-12 text-center text-slate-500 text-xs font-semibold">
                     Chưa có danh mục {activeCategoryTab === "income" ? "thu" : "chi"} nào được cấu hình.
                   </div>
                 ) : (
@@ -2003,11 +2003,11 @@ export default function OwnerSettingsPage() {
                       return (
                         <div 
                           key={c.id} 
-                          className="group rounded-3xl border border-slate-200/70 bg-white p-4.5 flex items-center justify-between shadow-sm hover:shadow-md transition-all duration-300"
+                          className="group rounded-xl border border-slate-200/70 bg-white p-4.5 flex items-center justify-between shadow-sm hover:shadow-md transition-all duration-300"
                         >
                           <div className="flex items-center gap-3.5 min-w-0">
                             <div 
-                              className="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shadow-inner shrink-0 border"
+                              className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-inner shrink-0 border"
                               style={{ backgroundColor: `${c.color}15`, borderColor: `${c.color}35` }}
                             >
                               {c.icon || "💰"}
@@ -2082,8 +2082,8 @@ function SepayMetric({ icon, label, value, tone }: { icon: React.ReactNode; labe
   }[tone];
 
   return (
-    <div className="rounded-[8px] border border-slate-200 bg-white p-4 shadow-sm">
-      <div className={`inline-flex h-8 w-8 items-center justify-center rounded-[8px] border ${toneClass}`}>
+    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <div className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border ${toneClass}`}>
         {icon}
       </div>
       <div className="mt-3 text-2xl font-semibold text-slate-950">{value}</div>

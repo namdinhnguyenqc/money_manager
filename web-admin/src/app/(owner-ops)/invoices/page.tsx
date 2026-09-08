@@ -164,7 +164,7 @@ function ZaloSendResultDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="zalo-result-title">
-      <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-2xl">
         <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
           <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${hasSent ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
             {hasSent ? <CheckCircle2 size={22} /> : <AlertTriangle size={21} />}
@@ -226,7 +226,7 @@ function ZaloSendProgressDialog({ job }: { job: ZaloBulkJob }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="zalo-progress-title">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl">
         <div className="px-5 py-5">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
@@ -490,12 +490,12 @@ export default function InvoicesPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
-              <button onClick={() => changePeriod(-1)} className="rounded-md p-1.5 hover:bg-slate-100 transition-colors"><ChevronLeft size={16} /></button>
+              <button onClick={() => changePeriod(-1)} className="rounded-lg p-1.5 hover:bg-slate-100 transition-colors"><ChevronLeft size={16} /></button>
               <div className="flex items-center gap-2 px-2 text-sm font-semibold text-slate-700 whitespace-nowrap">
                 <Calendar size={14} className="text-slate-400" />
                 T{period.month}/{period.year}
               </div>
-              <button onClick={() => changePeriod(1)} className="rounded-md p-1.5 hover:bg-slate-100 transition-colors"><ChevronRight size={16} /></button>
+              <button onClick={() => changePeriod(1)} className="rounded-lg p-1.5 hover:bg-slate-100 transition-colors"><ChevronRight size={16} /></button>
             </div>
             <Button
               variant="outline"

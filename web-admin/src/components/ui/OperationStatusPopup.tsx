@@ -25,7 +25,7 @@ export default function OperationStatusPopup({
 
   return (
     <div className="fixed inset-0 z-[10000] grid place-items-center bg-slate-950/25 px-4 backdrop-blur-[2px]" role="status" aria-live="polite" aria-busy={status === "loading"}>
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-2xl animate-in zoom-in-95 fade-in duration-200">
+      <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 text-center shadow-2xl animate-in zoom-in-95 fade-in duration-200">
         <div className={`mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full ${status === "loading" ? "bg-blue-50" : status === "success" ? "bg-emerald-50" : "bg-red-50"}`}>
           {icon}
         </div>

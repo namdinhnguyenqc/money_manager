@@ -41,7 +41,7 @@ export default function FacilityBlocksField({ value, onChange, dense = false }: 
         <button
           type="button"
           onClick={add}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-[8px] border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"
         >
           <Plus size={16} />
           Thêm dãy
@@ -63,7 +63,7 @@ export default function FacilityBlocksField({ value, onChange, dense = false }: 
                 type="button"
                 aria-label="Xóa dãy"
                 onClick={() => remove(index)}
-                className="rounded-[8px] p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
               >
                 <Trash2 size={17} />
               </button>

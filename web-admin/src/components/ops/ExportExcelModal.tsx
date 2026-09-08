@@ -121,7 +121,7 @@ export default function ExportExcelModal({ isOpen, onClose, selectedHouseId }: E
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
           transition={{ type: "spring", duration: 0.4 }}
-          className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl"
+          className="relative z-10 w-full max-w-lg overflow-hidden rounded-xl border border-slate-100 bg-white shadow-2xl"
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-4">
@@ -163,7 +163,7 @@ export default function ExportExcelModal({ isOpen, onClose, selectedHouseId }: E
               <button
                 type="button"
                 onClick={() => setExportMode("current")}
-                className={`flex-1 rounded-md py-2 text-center text-sm font-bold transition-all ${
+                className={`flex-1 rounded-lg py-2 text-center text-sm font-bold transition-all ${
                   exportMode === "current"
                     ? "bg-white text-blue-700 shadow-sm"
                     : "text-slate-500 hover:text-slate-800"
@@ -174,7 +174,7 @@ export default function ExportExcelModal({ isOpen, onClose, selectedHouseId }: E
               <button
                 type="button"
                 onClick={() => setExportMode("multi")}
-                className={`flex-1 rounded-md py-2 text-center text-sm font-bold transition-all ${
+                className={`flex-1 rounded-lg py-2 text-center text-sm font-bold transition-all ${
                   exportMode === "multi"
                     ? "bg-white text-blue-700 shadow-sm"
                     : "text-slate-500 hover:text-slate-800"

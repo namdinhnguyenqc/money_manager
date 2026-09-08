@@ -237,7 +237,7 @@ export default function NewContractPage() {
   if (showWizard) {
     return (
       <div className="mx-auto max-w-2xl mt-8">
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-md">
+        <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-md">
           <div className="text-center mb-8">
             <span className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-blue-600 text-3xl mb-4">🚀</span>
             <h1 className="text-2xl font-black text-slate-900">Thiết lập hệ thống ban đầu</h1>
@@ -326,7 +326,7 @@ export default function NewContractPage() {
         <p className="mt-1 text-sm leading-5 text-slate-600">Nhập thông tin khách thuê và điều khoản hợp đồng.</p>
       </div>
 
-      {error && <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
       <OperationStatusPopup
         open={submissionStage !== "idle"}
         status={submissionStage === "redirecting" ? "success" : "loading"}

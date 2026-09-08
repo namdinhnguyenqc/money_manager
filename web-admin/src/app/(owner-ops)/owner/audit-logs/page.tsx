@@ -3,6 +3,12 @@
 import { useEffect, useState } from 'react'
 import RBACGuard from '@/components/RBACGuard'
 import { apiGet } from '@/utils/apiClient'
+import PageContainer from '@/components/ui/PageContainer'
+import PageHeader from '@/components/ui/PageHeader'
+import DataTable from '@/components/ui/DataTable'
+import LoadingSkeleton from '@/components/ops/LoadingSkeleton'
+import EmptyState from '@/components/ops/EmptyState'
+import { tableCell, tableRow } from '@/components/ui/design-tokens'
 
 type AuditLog = {
   id: string
@@ -36,37 +42,30 @@ export default function OwnerAuditLogsPage() {
 
   return (
     <RBACGuard allowedRoles={["OWNER", "SUPER_ADMIN"]}>
-      <div className="p-6">
-        <div className="mb-4">
-          <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Nhật ký thao tác</h1>
-          <p className="text-sm text-slate-500">Theo dõi các hành động booking quan trọng.</p>
-        </div>
-        {loading && <div className="rounded border border-slate-200 bg-white p-4 text-sm text-slate-600">Đang tải audit log...</div>}
-        {error && <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-        {!loading && items.length === 0 && <div className="rounded border border-slate-200 bg-white p-4 text-sm text-slate-600">Chưa có audit log.</div>}
-        <div className="overflow-x-auto rounded border border-slate-200 bg-white">
-          <table className="min-w-full border-collapse text-sm">
-            <thead>
-              <tr className="bg-slate-50 text-left text-slate-600">
-                <th className="border-b border-slate-200 px-4 py-2">Actor</th>
-                <th className="border-b border-slate-200 px-4 py-2">Thao tác</th>
-                <th className="border-b border-slate-200 px-4 py-2">Resource</th>
-                <th className="border-b border-slate-200 px-4 py-2">Time</th>
+      <PageContainer width="wide">
+        <PageHeader
+          subtitle="Quản lý vận hành"
+          title="Nhật ký thao tác"
+          description="Theo dõi các hành động booking quan trọng."
+        />
+        {loading ? <LoadingSkeleton rows={5} /> : null}
+        {error ? (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        ) : null}
+        {!loading && items.length === 0 ? <EmptyState message="Chưa có audit log." /> : null}
+        {items.length > 0 ? (
+          <DataTable headers={["Actor", "Thao tác", "Resource", "Thời gian"]}>
+            {items.map((item) => (
+              <tr key={item.id} className={tableRow}>
+                <td className={`${tableCell} font-medium text-slate-900`}>{item.actor}</td>
+                <td className={tableCell}>{item.action}</td>
+                <td className={tableCell}>{item.resourceType}:{item.resourceId ?? '-'}</td>
+                <td className={`${tableCell} whitespace-nowrap`}>{item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : '-'}</td>
               </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.id}>
-                  <td className="border-b border-slate-100 px-4 py-2">{item.actor}</td>
-                  <td className="border-b border-slate-100 px-4 py-2">{item.action}</td>
-                  <td className="border-b border-slate-100 px-4 py-2">{item.resourceType}:{item.resourceId ?? '-'}</td>
-                  <td className="border-b border-slate-100 px-4 py-2">{item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            ))}
+          </DataTable>
+        ) : null}
+      </PageContainer>
     </RBACGuard>
   )
 }

@@ -90,20 +90,20 @@ export default function OwnerNotificationsPage() {
         />
 
         {loading && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-medium text-slate-500 shadow-2xs">
+          <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm font-medium text-slate-500 shadow-2xs">
             Đang tải danh sách thông báo...
           </div>
         )}
 
         {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
             {error}
           </div>
         )}
 
         {!loading && items.length === 0 && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 mb-3">
+          <div className="rounded-xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-blue-50 text-blue-600 mb-3">
               <Bell size={26} />
             </div>
             <h3 className="text-base font-bold text-slate-900">Bạn chưa có thông báo mới</h3>
@@ -138,7 +138,7 @@ export default function OwnerNotificationsPage() {
                   key={item.id}
                   href={targetHref}
                   onClick={() => handleItemClick(item)}
-                  className={`flex items-start justify-between gap-4 rounded-2xl border p-4 transition-all ${
+                  className={`flex items-start justify-between gap-4 rounded-xl border p-4 transition-all ${
                     isUnread
                       ? "border-blue-200 bg-blue-50/40 text-slate-900 shadow-2xs"
                       : "border-slate-200 bg-white text-slate-800 hover:border-slate-300"

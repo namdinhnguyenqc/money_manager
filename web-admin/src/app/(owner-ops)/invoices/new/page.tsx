@@ -171,7 +171,7 @@ export default function NewInvoicePage() {
   });
 
   if (contractQuery.isLoading) return <LoadingSkeleton rows={5} />;
-  if (!contract) return <div className="rounded-[8px] border border-red-200 bg-red-50 p-4 text-sm text-red-700">Không tìm thấy hợp đồng.</div>;
+  if (!contract) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">Không tìm thấy hợp đồng.</div>;
 
   const occupantCount = Number(contract.occupant_count || 1);
 

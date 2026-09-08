@@ -213,7 +213,7 @@ export default function OwnerDashboard() {
   // Error page: Only trigger if no cached data is available to fall back to
   if (dashboardQuery.isError && !activeData) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-5 text-center px-6">
-      <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500">
+      <div className="w-16 h-16 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500">
         <AlertCircle size={28} />
       </div>
       <div>
@@ -233,7 +233,7 @@ export default function OwnerDashboard() {
   if ((dashboardQuery.isLoading || (cashflowQuery.isLoading && !cashflowQuery.data)) && !activeData) return (
     <div className="space-y-4 p-1">
       {slowLoad && (
-        <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
           <svg className="h-5 w-5 text-amber-500 animate-spin shrink-0" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
           <div>
             <div className="text-sm font-bold text-amber-800">Backend đang khởi động...</div>
@@ -242,10 +242,10 @@ export default function OwnerDashboard() {
         </div>
       )}
       <div className="grid grid-cols-2 gap-3">
-        {[1,2,3,4].map(i => <div key={i} className="h-24 rounded-2xl bg-slate-100 animate-pulse"/>)}
+        {[1,2,3,4].map(i => <div key={i} className="h-24 rounded-xl bg-slate-100 animate-pulse"/>)}
       </div>
-      <div className="h-56 rounded-2xl bg-slate-100 animate-pulse"/>
-      <div className="h-40 rounded-2xl bg-slate-100 animate-pulse"/>
+      <div className="h-56 rounded-xl bg-slate-100 animate-pulse"/>
+      <div className="h-40 rounded-xl bg-slate-100 animate-pulse"/>
     </div>
   );
 
@@ -313,7 +313,7 @@ export default function OwnerDashboard() {
 
         {/* ── OVERDUE ALERT BANNER ── */}
         {summary?.totals?.overdueCount ? (
-          <Link href="/invoices?filter=Quá+hạn" className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 transition hover:bg-amber-100/80 active:scale-[0.99] shadow-xs">
+          <Link href="/invoices?filter=Quá+hạn" className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 transition hover:bg-amber-100/80 active:scale-[0.99] shadow-xs">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-xs">
               <AlertCircle size={18} />
             </div>
@@ -330,7 +330,7 @@ export default function OwnerDashboard() {
         {/* ── SECTION A: KPI OVERVIEW (4 CARDS) ── */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 sm:gap-4">
           
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-slate-300">
+          <div className="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-slate-300">
             <div className="flex items-center justify-between gap-2 mb-2">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Doanh thu phát sinh</span>
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shrink-0">
@@ -345,7 +345,7 @@ export default function OwnerDashboard() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-slate-300">
+          <div className="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-slate-300">
             <div className="flex items-center justify-between gap-2 mb-2">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Đã thực thu</span>
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
@@ -360,7 +360,7 @@ export default function OwnerDashboard() {
             </div>
           </div>
 
-          <Link href="/invoices?filter=Chưa+thu" className="rounded-2xl border border-amber-200/90 bg-amber-50/40 p-4 sm:p-5 shadow-xs transition-all hover:bg-amber-50/70">
+          <Link href="/invoices?filter=Chưa+thu" className="rounded-xl border border-amber-200/90 bg-amber-50/40 p-4 sm:p-5 shadow-xs transition-all hover:bg-amber-50/70">
             <div className="flex items-center justify-between gap-2 mb-2">
               <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">Còn phải thu</span>
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-700 shrink-0">
@@ -375,7 +375,7 @@ export default function OwnerDashboard() {
             </div>
           </Link>
 
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-slate-300">
+          <div className="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-slate-300">
             <div className="flex items-center justify-between gap-2 mb-2">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Lợi nhuận</span>
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
@@ -397,7 +397,7 @@ export default function OwnerDashboard() {
         <div className="grid gap-5 lg:grid-cols-12 items-stretch">
 
           {/* Left Column (65% - 8 cols on desktop): Dòng tiền Cashflow Bar Chart */}
-          <div className="lg:col-span-8 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex flex-col justify-between">
+          <div className="lg:col-span-8 rounded-xl border border-slate-200/80 bg-white p-5 shadow-xs flex flex-col justify-between">
             <div>
               {/* Header & Filter */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-4">
@@ -485,7 +485,7 @@ export default function OwnerDashboard() {
           </div>
 
           {/* Right Column (35% - 4 cols on desktop): Tình trạng thu tiền & Actionable Center */}
-          <div className="lg:col-span-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex flex-col justify-between space-y-4">
+          <div className="lg:col-span-4 rounded-xl border border-slate-200/80 bg-white p-5 shadow-xs flex flex-col justify-between space-y-4">
             
             {/* Header & Total Billed */}
             <div>
@@ -570,7 +570,7 @@ export default function OwnerDashboard() {
         <div className="grid gap-5 sm:grid-cols-3">
 
           {/* Module 1: P&L */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
+          <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">P&L · T{selectedPeriod.month}/{selectedPeriod.year}</h4>
               <Link href="/owner/transactions" className="text-[11px] font-bold text-blue-600">Chi tiết →</Link>
@@ -584,10 +584,10 @@ export default function OwnerDashboard() {
           </div>
 
           {/* Module 2: Chi phí vận hành */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
+          <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Cơ cấu chi phí</h4>
-              <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+              <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg">
                 {formatMoney(summary?.totals?.expense || 0)}
               </span>
             </div>
@@ -608,7 +608,7 @@ export default function OwnerDashboard() {
           </div>
 
           {/* Module 3: Tình trạng phòng */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
+          <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Tình trạng phòng</h4>
               <span className="text-[11px] font-bold text-blue-600">
@@ -626,7 +626,7 @@ export default function OwnerDashboard() {
         </div>
 
         {!facilityId && (summary?.facilitiesPerformance || []).length > 0 && (
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+          <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-xs">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div><h3 className="text-sm font-extrabold text-slate-900">Hiệu suất theo cơ sở</h3><p className="mt-0.5 text-xs text-slate-500">Ưu tiên cơ sở có công nợ hoặc tỷ lệ thu thấp.</p></div>
               <Link href="/owner/boarding-houses" className="text-xs font-bold text-blue-600">Xem cơ sở →</Link>
@@ -647,7 +647,7 @@ export default function OwnerDashboard() {
         <div className="grid gap-5 lg:grid-cols-12">
           
           {/* Quick Actions (5 cols) */}
-          <div className="lg:col-span-5 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+          <div className="lg:col-span-5 rounded-xl border border-slate-200/80 bg-white p-5 shadow-xs">
             <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-3">Thao tác nhanh</h4>
             <div className="grid grid-cols-2 gap-2.5">
               <Link href="/rooms/new" className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all text-xs font-bold text-slate-700">
@@ -666,7 +666,7 @@ export default function OwnerDashboard() {
           </div>
 
           {/* Recent Transactions (7 cols) */}
-          <div className="lg:col-span-7 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+          <div className="lg:col-span-7 rounded-xl border border-slate-200/80 bg-white p-5 shadow-xs">
             <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
               <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Giao dịch gần đây</h4>
               <Link href="/owner/transactions" className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-0.5">

@@ -107,7 +107,7 @@ export default function MeterOcrImportModal({ isOpen, onClose, rooms, onApply }:
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
             <h3 className="text-xl font-bold text-slate-800">Nhập số từ ảnh đồng hồ (OCR miễn phí)</h3>
@@ -124,13 +124,13 @@ export default function MeterOcrImportModal({ isOpen, onClose, rooms, onApply }:
           <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
             <button
               onClick={() => setMeterType("elec")}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold transition-colors ${meterType === "elec" ? "bg-amber-100 text-amber-700" : "text-slate-500 hover:bg-slate-50"}`}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${meterType === "elec" ? "bg-amber-100 text-amber-700" : "text-slate-500 hover:bg-slate-50"}`}
             >
               <Zap size={14} /> Điện
             </button>
             <button
               onClick={() => setMeterType("water")}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold transition-colors ${meterType === "water" ? "bg-blue-100 text-blue-700" : "text-slate-500 hover:bg-slate-50"}`}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${meterType === "water" ? "bg-blue-100 text-blue-700" : "text-slate-500 hover:bg-slate-50"}`}
             >
               <Droplets size={14} /> Nước
             </button>
