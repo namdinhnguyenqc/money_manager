@@ -14,6 +14,7 @@ import { useOwnerDashboardInit, useOwnerCashflowSummary, useOwnerDashboardSummar
 import OwnerOnboardingGuide from '@/components/owner/OwnerOnboardingGuide';
 import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
+import PageContainer from "@/components/ui/PageContainer";
 import { getStoredSessionUser } from '@/utils/session';
 
 const MONTH_NAMES = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
@@ -251,7 +252,7 @@ export default function OwnerDashboard() {
 
   return (
     <RBACGuard allowedRoles={["OWNER", "SUPER_ADMIN"]}>
-      <div className="mx-auto max-w-7xl space-y-5 pb-20 animate-in fade-in duration-300">
+      <PageContainer width="wide" className="space-y-5 pb-20 animate-in fade-in duration-300">
 
         {/* ── HEADER ── */}
         <PageHeader
@@ -265,43 +266,18 @@ export default function OwnerDashboard() {
                 id="dashboard-facility"
                 value={facilityId || ""}
                 onChange={(event) => setFacilityId(event.target.value || null)}
-                className="h-9 max-w-[190px] rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="input max-w-[190px] text-xs font-bold"
               >
                 <option value="">Toàn bộ nhà trọ</option>
                 {(summary?.facilities || []).map((facility) => <option key={facility.id} value={facility.id}>{facility.name}</option>)}
               </select>
               <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-xs">
-                <button
-                  type="button"
-                  onClick={() => {
-                    let m = selectedPeriod.month - 1;
-                    let y = selectedPeriod.year;
-                    if (m < 1) { m = 12; y--; }
-                    setSelectedPeriod({ month: m, year: y });
-                  }}
-                  className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors"
-                  title="Tháng trước"
-                >
-                  <ChevronLeft size={16} />
-                </button>
+                <Button type="button" variant="ghost" size="sm" aria-label="Tháng trước" onClick={() => { let m = selectedPeriod.month - 1; let y = selectedPeriod.year; if (m < 1) { m = 12; y--; } setSelectedPeriod({ month: m, year: y }); }}><ChevronLeft size={16} /></Button>
                 <div className="flex items-center gap-1.5 px-2 text-xs font-bold text-slate-800 whitespace-nowrap">
                   <CalendarDays size={14} className="text-blue-600" />
                   Tháng {selectedPeriod.month}/{selectedPeriod.year}
                 </div>
-                <button
-                  type="button"
-                  disabled={isCurrentPeriod}
-                  onClick={() => {
-                    let m = selectedPeriod.month + 1;
-                    let y = selectedPeriod.year;
-                    if (m > 12) { m = 1; y++; }
-                    setSelectedPeriod({ month: m, year: y });
-                  }}
-                  className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors disabled:cursor-not-allowed disabled:opacity-30"
-                  title="Tháng sau"
-                >
-                  <ChevronRight size={16} />
-                </button>
+                <Button type="button" variant="ghost" size="sm" disabled={isCurrentPeriod} aria-label="Tháng sau" onClick={() => { let m = selectedPeriod.month + 1; let y = selectedPeriod.year; if (m > 12) { m = 1; y++; } setSelectedPeriod({ month: m, year: y }); }}><ChevronRight size={16} /></Button>
               </div>
 
             </div>
@@ -636,7 +612,7 @@ export default function OwnerDashboard() {
                 <thead className="border-b border-slate-100 text-slate-500"><tr><th className="pb-2 font-bold">Cơ sở</th><th className="pb-2 text-right font-bold">Lấp đầy</th><th className="pb-2 text-right font-bold">Đã thu</th><th className="pb-2 text-right font-bold">Quá hạn</th><th className="pb-2 text-right font-bold">Trạng thái</th></tr></thead>
                 <tbody>{(summary?.facilitiesPerformance || []).slice(0, 5).map((facility) => {
                   const needsAttention = facility.overdue > 0 || facility.collectedRate < 80 || facility.occupancyRate < 80;
-                  return <tr key={facility.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50"><td className="py-3 font-bold text-slate-800">{facility.name}</td><td className="py-3 text-right">{facility.occupancyRate}%</td><td className="py-3 text-right">{facility.collectedRate}%</td><td className="py-3 text-right font-bold text-amber-700">{formatMoney(facility.overdue)}</td><td className="py-3 text-right"><button type="button" onClick={() => setFacilityId(facility.id)} className={needsAttention ? "font-bold text-amber-700" : "font-bold text-emerald-700"}>{needsAttention ? "Cần chú ý" : "Tốt"}</button></td></tr>;
+                  return <tr key={facility.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50"><td className="py-3 font-bold text-slate-800">{facility.name}</td><td className="py-3 text-right">{facility.occupancyRate}%</td><td className="py-3 text-right">{facility.collectedRate}%</td><td className="py-3 text-right font-bold text-amber-700">{formatMoney(facility.overdue)}</td><td className="py-3 text-right"><button aria-pressed={facilityId === facility.id} type="button" onClick={() => setFacilityId(facility.id)} className={needsAttention ? "font-bold text-amber-700" : "font-bold text-emerald-700"}>{needsAttention ? "Cần chú ý" : "Tốt"}</button></td></tr>;
                 })}</tbody>
               </table>
             </div>
@@ -700,7 +676,7 @@ export default function OwnerDashboard() {
 
         </div>
 
-      </div>
+      </PageContainer>
     </RBACGuard>
   );
 }

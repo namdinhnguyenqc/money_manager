@@ -30,6 +30,7 @@ import { useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
+import PageContainer from "@/components/ui/PageContainer";
 
 const pageSize = 10;
 const statusFilters = [
@@ -91,7 +92,7 @@ export default function DepositsPage() {
     .reduce((sum, d) => sum + Number(d.amount || 0), 0);
 
   return (
-    <div className="mx-auto max-w-7xl animate-in fade-in duration-500">
+    <PageContainer width="wide" className="animate-in fade-in duration-500">
       <PageHeader
         subtitle="Quản lý tài chính"
         icon={<History size={14} />}
@@ -236,7 +237,7 @@ export default function DepositsPage() {
           }}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -314,9 +315,7 @@ function DepositRow({ deposit, onCancelled }: { deposit: Deposit; onCancelled: (
               </Button>
             </div>
           )}
-          <button type="button" className="rounded-lg p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-500">
-            <MoreVertical size={16} />
-          </button>
+          <Button type="button" variant="ghost" size="sm" aria-label="Thao tác"><MoreVertical size={16} /></Button>
         </div>
       </td>
     </tr>

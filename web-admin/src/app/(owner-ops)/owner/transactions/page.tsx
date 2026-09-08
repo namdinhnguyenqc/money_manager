@@ -36,6 +36,7 @@ import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import { useToast } from "@/components/ui/Toast";
+import PageContainer from "@/components/ui/PageContainer";
 import ConfirmDialog from "@/components/ops/ConfirmDialog";
 
 const pageSize = 10;
@@ -120,7 +121,7 @@ export default function OwnerTransactionsPage() {
   if (txQuery.isLoading || walletsQuery.isLoading || categoriesQuery.isLoading) return <div className="p-8"><LoadingSkeleton rows={12} /></div>;
 
   return (
-    <div className="mx-auto max-w-7xl animate-in fade-in duration-500">
+    <PageContainer width="wide" className="animate-in fade-in duration-500">
       <PageHeader
         subtitle="Lịch sử tài chính"
         title="Giao dịch"
@@ -175,7 +176,7 @@ export default function OwnerTransactionsPage() {
               <select
                 value={selectedWalletId}
                 onChange={(e) => setSelectedWalletId(e.target.value)}
-                className="w-full pl-9 pr-10 h-[42px] text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl focus:border-slate-900 focus:outline-none transition-all appearance-none cursor-pointer shadow-sm hover:border-slate-300"
+                className="input cursor-pointer appearance-none pl-9 pr-10 font-semibold"
               >
                 <option value="all">Tất cả ví ({wallets.length})</option>
                 {wallets.map(w => (
@@ -234,13 +235,9 @@ export default function OwnerTransactionsPage() {
                     </div>
                     <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Số tiền {tx.type === 'income' ? 'thu' : 'chi'}</div>
                   </div>
-                  <button 
-                    onClick={() => handleDelete(tx.id)}
-                    disabled={deletingId === tx.id}
-                    className="rounded-lg p-2.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
-                  >
+                  <Button type="button" variant="danger-ghost" size="sm" onClick={() => handleDelete(tx.id)}>
                     <Trash2 size={18} />
-                  </button>
+                  </Button>
                 </div>
               </div>
             </Card>
@@ -268,7 +265,7 @@ export default function OwnerTransactionsPage() {
           onCancel={() => setConfirmDeleteId(null)}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }
 

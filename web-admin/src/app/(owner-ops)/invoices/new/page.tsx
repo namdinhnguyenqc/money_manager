@@ -10,6 +10,7 @@ import { createInvoiceForContract, currentPeriod, describeServiceType, formatMon
 import { calculateProratedRent } from "@/utils/rentCalc";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import Button from "@/components/ui/Button";
+import PageContainer from "@/components/ui/PageContainer";
 
 const period = currentPeriod();
 
@@ -176,7 +177,7 @@ export default function NewInvoicePage() {
   const occupantCount = Number(contract.occupant_count || 1);
 
   return (
-    <div className="mx-auto max-w-xl">
+    <PageContainer width="narrow">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <Link href={`/contracts/${contract.id}`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors">
@@ -396,7 +397,7 @@ export default function NewInvoicePage() {
           </div>
         </div>
       </form>
-    </div>
+    </PageContainer>
   );
 }
 

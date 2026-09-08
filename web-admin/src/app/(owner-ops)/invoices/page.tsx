@@ -23,6 +23,7 @@ import MetricCard from "@/components/ui/MetricCard";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
+import PageContainer from "@/components/ui/PageContainer";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 
 const BulkInvoiceModal = dynamic(() => import("@/components/ops/BulkInvoiceModal"), { ssr: false });
@@ -482,7 +483,7 @@ export default function InvoicesPage() {
   useEffect(() => setPage(1), [filter, selectedHouse, period]);
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <PageContainer width="wide">
       <PageHeader
         subtitle="Quản lý hóa đơn"
         title="Hóa đơn & Kỳ thanh toán"
@@ -490,12 +491,12 @@ export default function InvoicesPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
-              <button onClick={() => changePeriod(-1)} className="rounded-lg p-1.5 hover:bg-slate-100 transition-colors"><ChevronLeft size={16} /></button>
+              <Button type="button" variant="ghost" size="sm" aria-label="Tháng trước" onClick={() => changePeriod(-1)}><ChevronLeft size={16} /></Button>
               <div className="flex items-center gap-2 px-2 text-sm font-semibold text-slate-700 whitespace-nowrap">
                 <Calendar size={14} className="text-slate-400" />
                 T{period.month}/{period.year}
               </div>
-              <button onClick={() => changePeriod(1)} className="rounded-lg p-1.5 hover:bg-slate-100 transition-colors"><ChevronRight size={16} /></button>
+              <Button type="button" variant="ghost" size="sm" aria-label="Tháng sau" onClick={() => changePeriod(1)}><ChevronRight size={16} /></Button>
             </div>
             <Button
               variant="outline"
@@ -526,7 +527,7 @@ export default function InvoicesPage() {
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-        <button onClick={() => setSelectedHouse("all")} className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ${selectedHouse === "all" ? filterPillActive : filterPillInactive}`}>Tất cả cơ sở</button>
+        <button aria-pressed={selectedHouse === "all"} onClick={() => setSelectedHouse("all")} className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ${selectedHouse === "all" ? filterPillActive : filterPillInactive}`}>Tất cả cơ sở</button>
         {houses.map((house) => (
           <button key={house.id} onClick={() => setSelectedHouse(house.id)} className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ${selectedHouse === house.id ? filterPillActive : filterPillInactive}`}>
             {house.name}
@@ -748,7 +749,7 @@ export default function InvoicesPage() {
                   <Link href={`/payments/new?invoice_id=${invoice.id}`} className="font-semibold text-blue-700">Thu tiền</Link>
                 )}
                 {status !== "paid" && (
-                  <button onClick={() => handleDeleteSingle(invoice.id)} className="ml-auto font-semibold text-red-600">Xóa</button>
+                  <Button type="button" variant="danger-ghost" size="sm" className="ml-auto" onClick={() => handleDeleteSingle(invoice.id)}>Xóa</Button>
                 )}
               </div>
             </div>
@@ -776,6 +777,6 @@ export default function InvoicesPage() {
         onClose={() => setIsExportModalOpen(false)}
         selectedHouseId={selectedHouse}
       />
-    </div>
+    </PageContainer>
   );
 }

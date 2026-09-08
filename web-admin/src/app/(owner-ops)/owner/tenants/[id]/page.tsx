@@ -136,7 +136,7 @@ export default function TenantDetailPage() {
             <div className="min-w-0 flex-1">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h1 className="text-xl font-black text-slate-900">{tenantName}</h1>
+                  <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">{tenantName}</h1>
                   <div className="mt-1.5">
                     <Badge variant={isActive ? "success" : "neutral"}>{isActive ? "Đang thuê" : roomStatus ? roomStatusLabel(roomStatus) : "Chưa có phòng"}</Badge>
                   </div>

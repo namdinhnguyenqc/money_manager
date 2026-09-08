@@ -214,7 +214,7 @@ export default function NewDepositPage() {
               placeholder="Ghi chú thêm về khoản cọc..."
               value={form.note}
               onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
+              className="input resize-none"
             />
           </div>
 

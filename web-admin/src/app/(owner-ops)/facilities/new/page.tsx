@@ -9,6 +9,8 @@ import { createBoardingHouse, createFacilityBlock } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import FacilityBlocksField, { createFacilityBlocks } from "@/components/ops/FacilityBlocksField";
 import Button from "@/components/ui/Button";
+import PageHeader from "@/components/ui/PageHeader";
+import PageContainer from "@/components/ui/PageContainer";
 
 export default function NewFacilityPage() {
   const router = useRouter();
@@ -42,15 +44,16 @@ export default function NewFacilityPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <Link href="/facilities" className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-700">
-        <ArrowLeft size={15} />
-        Quay lại cơ sở
-      </Link>
-      <div className="mb-6">
-        <p className="text-sm font-medium text-blue-700">Cơ sở & Phòng</p>
-        <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Thêm cơ sở</h1>
-      </div>
+    <PageContainer width="narrow">
+      <PageHeader
+        title="Thêm cơ sở"
+        breadcrumb={
+          <Link href="/facilities" className="inline-flex items-center gap-2 font-medium text-slate-500 hover:text-blue-700">
+            <ArrowLeft size={15} />
+            Quay lại cơ sở
+          </Link>
+        }
+      />
 
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
@@ -80,6 +83,6 @@ export default function NewFacilityPage() {
           </Button>
         </div>
       </form>
-    </div>
+    </PageContainer>
   );
 }

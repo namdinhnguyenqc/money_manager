@@ -16,6 +16,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input, { Label, Select } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
+import PageContainer from "@/components/ui/PageContainer";
 
 const WALLET_TYPES = [
   { value: "personal", label: "Cá nhân", icon: User, color: "bg-blue-100 text-blue-600" },
@@ -99,7 +100,7 @@ export default function WalletsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl animate-in fade-in duration-500">
+    <PageContainer width="default" className="animate-in fade-in duration-500">
       <PageHeader
         subtitle="Tài chính"
         title="Ví & Tài khoản"
@@ -251,6 +252,6 @@ export default function WalletsPage() {
           })}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -23,6 +23,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input, { Label, Select } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
+import PageContainer from "@/components/ui/PageContainer";
 
 const SERVICE_TYPES = [
   { value: "metered", label: "Theo số đo" },
@@ -222,7 +223,7 @@ export default function ServicesPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl animate-in fade-in duration-500">
+    <PageContainer width="default" className="animate-in fade-in duration-500">
       <PageHeader
         subtitle="Cấu hình"
         title="Dịch vụ & Phụ phí"
@@ -472,9 +473,9 @@ export default function ServicesPage() {
                   Giá hiện tại: {formatMoney(priceService.unit_price)}. Bill cũ giữ nguyên giá cũ, chỉ bill từ kỳ áp dụng mới trở đi dùng giá mới.
                 </p>
               </div>
-              <button type="button" onClick={() => setPriceServiceId(null)} aria-label="Đóng form" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
+              <Button type="button" variant="ghost" size="sm" aria-label="Đóng form" onClick={() => setPriceServiceId(null)}>
                 <X size={18} />
-              </button>
+              </Button>
             </div>
             <form onSubmit={handleSavePrice} className="space-y-4">
               <div>
@@ -517,7 +518,7 @@ export default function ServicesPage() {
       {historyServiceId && (
         <PriceHistoryModal serviceId={historyServiceId} onClose={() => setHistoryServiceId(null)} />
       )}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -537,9 +538,9 @@ function PriceHistoryModal({ serviceId, onClose }: { serviceId: string; onClose:
       <div role="dialog" aria-modal="true" aria-labelledby="price-history-title" className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl sm:p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <h2 id="price-history-title" className="text-xl font-bold text-slate-950">Lịch sử giá</h2>
-          <button type="button" onClick={onClose} aria-label="Đóng" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
+          <Button type="button" variant="ghost" size="sm" aria-label="Đóng" onClick={onClose}>
             <X size={18} />
-          </button>
+          </Button>
         </div>
         {historyQuery.isLoading ? (
           <div className="py-8 text-center text-sm text-slate-400">Đang tải...</div>
