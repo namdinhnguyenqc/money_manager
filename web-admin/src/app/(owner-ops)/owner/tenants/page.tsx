@@ -354,9 +354,7 @@ function TenantFormModal({
       <form onSubmit={handleSubmit} className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-300" role="dialog" aria-modal="true">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-          <button type="button" disabled={saving} onClick={onClose} className="rounded-lg bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 transition-colors" aria-label="Đóng">
-            <X size={18} />
-          </button>
+          <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={onClose} aria-label="Đóng" icon={<X size={18} />} />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">

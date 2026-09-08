@@ -141,9 +141,7 @@ export default function WalletsPage() {
         <Card className="mb-6 p-5 border-blue-200 bg-blue-50/40 animate-in slide-in-from-top-2 duration-300">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-base font-bold text-slate-900">Thêm ví mới</h3>
-            <button onClick={() => setFormOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 transition-colors">
-              <X size={18} />
-            </button>
+            <Button variant="ghost" size="sm" onClick={() => setFormOpen(false)} aria-label="Đóng" icon={<X size={18} />} />
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -210,28 +208,28 @@ export default function WalletsPage() {
                   <div>
                     {confirmDeleteId === wallet.id ? (
                       <div className="flex items-center gap-2 animate-in slide-in-from-right-2" onClick={(e) => e.stopPropagation()}>
-                        <button
+                        <Button
+                          variant="danger"
+                          size="sm"
                           onClick={() => handleDelete(wallet.id)}
-                          disabled={deletingId === wallet.id}
-                          className="rounded-lg bg-red-600 px-2 py-1 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                          loading={deletingId === wallet.id}
                         >
-                          {deletingId === wallet.id ? "..." : "Xóa"}
-                        </button>
-                        <button
-                          onClick={() => setConfirmDeleteId(null)}
-                          className="text-xs font-semibold text-slate-400 hover:text-slate-600"
-                        >
+                          Xóa
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>
                           Hủy
-                        </button>
+                        </Button>
                       </div>
                     ) : (
-                      <button
+                      <Button
+                        variant="danger-ghost"
+                        size="sm"
                         onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(wallet.id); }}
-                        className="rounded-lg p-1.5 text-slate-200 hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                        className="opacity-0 transition-opacity group-hover:opacity-100"
                         title="Xóa ví"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                        aria-label="Xóa ví"
+                        icon={<Trash2 size={15} />}
+                      />
                     )}
                   </div>
                 </div>

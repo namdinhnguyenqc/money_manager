@@ -10,6 +10,7 @@ import EmptyState from "@/components/ops/EmptyState";
 import { ApiClientError } from "@/utils/apiClient";
 import { setClientSession } from "@/utils/session";
 import { getMyProfile, ProfileFormErrors, ProfileFormValues, ProfileResponse, profileToForm, updateProfile } from "@/lib/profile";
+import Button from "@/components/ui/Button";
 
 export default function OwnerProfileSettingsPage() {
   const router = useRouter();
@@ -91,7 +92,7 @@ export default function OwnerProfileSettingsPage() {
         <EmptyState
           icon={<RefreshCw size={18} />}
           message={error}
-          action={<button onClick={load} className="rounded-[8px] bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Thử lại</button>}
+          action={<Button variant="primary" onClick={load}>Thử lại</Button>}
         />
       ) : data ? (
         <>
