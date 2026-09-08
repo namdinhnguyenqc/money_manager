@@ -10,6 +10,7 @@ import { createBoardingHouse, createFacilityBlock, deleteBoardingHouse, loadBoar
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import FacilityBlocksField, { createFacilityBlocks } from "@/components/ops/FacilityBlocksField";
 import { useToast } from "@/components/ui/Toast";
+import Button from "@/components/ui/Button";
 
 export default function FacilitiesPage() {
   const queryClient = useQueryClient();
@@ -86,15 +87,15 @@ export default function FacilitiesPage() {
           <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Cơ sở của tôi</h1>
           <p className="mt-1 text-sm leading-5 text-slate-600">Quản lý cơ sở, phòng và tình trạng vận hành.</p>
         </div>
-        <button type="button" onClick={() => setShowCreateForm(true)} className="inline-flex items-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
+        <Button type="button" variant="primary" onClick={() => setShowCreateForm(true)}>
           <Plus size={16} />
           Thêm cơ sở
-        </button>
+        </Button>
       </div>
 
       {housesQuery.isLoading ? <LoadingSkeleton rows={3} /> : null}
       {!housesQuery.isLoading && houses.length === 0 ? (
-        <EmptyState icon={<Building2 size={20} />} message="Chưa có cơ sở nào. Bắt đầu bằng cách thêm cơ sở đầu tiên." action={<button type="button" onClick={() => setShowCreateForm(true)} className="rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">Thêm cơ sở</button>} />
+        <EmptyState icon={<Building2 size={20} />} message="Chưa có cơ sở nào. Bắt đầu bằng cách thêm cơ sở đầu tiên." action={<Button type="button" variant="primary" onClick={() => setShowCreateForm(true)}>Thêm cơ sở</Button>} />
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -116,12 +117,12 @@ export default function FacilitiesPage() {
                 </div>
               </Link>
               <div className="flex items-center gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-3">
-                <button type="button" onClick={() => setEditingFacility(facility)} className="inline-flex flex-1 items-center justify-center gap-2 rounded-[7px] border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700">
+                <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => setEditingFacility(facility)}>
                   <Pencil size={14} /> Chỉnh sửa
-                </button>
-                <button type="button" disabled={deletingId === facility.id} onClick={() => handleDelete(facility)} className="inline-flex items-center justify-center gap-2 rounded-[7px] border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50">
+                </Button>
+                <Button type="button" variant="danger-ghost" size="sm" className="border border-red-200" loading={deletingId === facility.id} onClick={() => handleDelete(facility)}>
                   <Trash2 size={14} /> {deletingId === facility.id ? "Đang xóa..." : "Xóa"}
-                </button>
+                </Button>
               </div>
             </article>
           );
@@ -207,7 +208,7 @@ function FacilityFormModal({ queryClient, facility, onClose, onCreated, onSaved 
             <h2 id="create-facility-title" className="text-xl font-bold text-slate-950">{isEditing ? "Chỉnh sửa cơ sở" : "Thêm cơ sở"}</h2>
             <p className="mt-1 text-sm text-slate-600">{isEditing ? "Cập nhật tên, địa chỉ hoặc ghi chú của cơ sở." : "Nhập thông tin cơ sở để bắt đầu quản lý phòng."}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Đóng form" className="rounded-[8px] p-2 text-slate-500 hover:bg-slate-100"><X size={18} /></button>
+          <Button type="button" variant="ghost" size="sm" onClick={onClose} aria-label="Đóng form" icon={<X size={18} />} />
         </div>
 
         {error ? <div role="alert" className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div> : null}
@@ -230,8 +231,8 @@ function FacilityFormModal({ queryClient, facility, onClose, onCreated, onSaved 
             <FacilityBlocksField value={blockNames} onChange={setBlockNames} dense />
           ) : null}
           <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
-            <button type="button" onClick={onClose} className="rounded-[8px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Hủy</button>
-            <button disabled={mutation.isPending} className="rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">{mutation.isPending ? "Đang lưu..." : isEditing ? "Lưu thay đổi" : "Tạo cơ sở"}</button>
+            <Button type="button" variant="outline" onClick={onClose}>Hủy</Button>
+            <Button type="submit" variant="primary" loading={mutation.isPending}>{mutation.isPending ? "Đang lưu..." : isEditing ? "Lưu thay đổi" : "Tạo cơ sở"}</Button>
           </div>
         </form>
       </div>
