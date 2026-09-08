@@ -347,7 +347,7 @@ function TransactionForm({
             <h2 className="text-xl font-semibold text-slate-950">Thêm thu chi</h2>
             <p className="mt-1 text-sm text-slate-500">Ghi một khoản thu hoặc chi vào ví.</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-[8px] border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600">Đóng</button>
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>Đóng</Button>
         </div>
         {error ? <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
         <div className="mb-4 grid grid-cols-2 gap-2">
@@ -364,9 +364,9 @@ function TransactionForm({
           <div className="sm:col-span-2">
             <div className="mb-1 flex items-center justify-between gap-3">
               <span className="block text-sm font-medium text-slate-700">Danh mục</span>
-              <button type="button" onClick={() => setCategoryFormOpen((open) => !open)} className="text-sm font-semibold text-blue-700 hover:text-blue-800">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setCategoryFormOpen((open) => !open)}>
                 + Thêm danh mục
-              </button>
+              </Button>
             </div>
             <select className="input" value={form.categoryId} onChange={(e) => setForm((prev) => ({ ...prev, categoryId: e.target.value }))}>
               <option value="">— Không chọn —</option>
