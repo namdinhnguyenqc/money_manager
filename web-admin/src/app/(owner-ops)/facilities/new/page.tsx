@@ -8,6 +8,7 @@ import { ArrowLeft, Building2 } from "lucide-react";
 import { createBoardingHouse, createFacilityBlock } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import FacilityBlocksField, { createFacilityBlocks } from "@/components/ops/FacilityBlocksField";
+import Button from "@/components/ui/Button";
 
 export default function NewFacilityPage() {
   const router = useRouter();
@@ -73,10 +74,10 @@ export default function NewFacilityPage() {
           </label>
         </div>
         <div className="mt-5 flex justify-end gap-2">
-          <Link href="/facilities" className="rounded-[8px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700">Hủy</Link>
-          <button disabled={mutation.isPending} className="rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+          <Button href="/facilities" variant="outline">Hủy</Button>
+          <Button type="submit" variant="primary" loading={mutation.isPending}>
             {mutation.isPending ? "Đang tạo..." : "Tạo cơ sở"}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

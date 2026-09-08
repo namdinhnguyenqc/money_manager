@@ -91,10 +91,10 @@ export default function OwnerContractsPage() {
           <p className="mt-1 text-sm text-slate-500">Tạo hợp đồng cho phòng trống và theo dõi trạng thái hợp đồng đang hiệu lực.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => setFormOpen(true)} className="inline-flex items-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">
+          <Button variant="primary" onClick={() => setFormOpen(true)}>
             <Plus size={16} />
             Tạo hợp đồng
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -124,9 +124,9 @@ export default function OwnerContractsPage() {
                     <td className="px-4 py-3"><span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${meta.className}`}>{meta.label === "Đang thuê" ? "Hiệu lực" : meta.label}</span></td>
                     <td className="px-4 py-3 flex items-center gap-4">
                       <Button href={`/contracts/${room.contract_id}`} variant="ghost" size="sm">Xem</Button>
-                      <button onClick={() => removeContract(room.contract_id!)} className="text-slate-400 hover:text-red-600 transition-colors" title="Xóa hợp đồng">
+                      <Button variant="danger-ghost" size="sm" onClick={() => removeContract(room.contract_id!)} title="Xóa hợp đồng" aria-label="Xóa hợp đồng">
                         <Trash2 size={16} />
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 );
@@ -238,7 +238,7 @@ function ContractDrawer({ rooms, onClose, onSaved }: { rooms: RentalRoom[]; onCl
       <aside className="absolute right-0 top-0 h-full w-full max-w-2xl overflow-y-auto bg-white p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
         <div className="mb-6 flex items-center justify-between gap-4">
           <h2 className="text-xl font-semibold text-slate-950">Tạo hợp đồng</h2>
-          <button onClick={onClose} className="rounded-[8px] p-2 text-slate-500 hover:bg-slate-100">Đóng</button>
+          <Button variant="ghost" size="sm" onClick={onClose}>Đóng</Button>
         </div>
         <form onSubmit={submit} className="space-y-4">
           {error ? <div className="rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}

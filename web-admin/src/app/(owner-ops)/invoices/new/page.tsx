@@ -9,6 +9,7 @@ import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import { createInvoiceForContract, currentPeriod, describeServiceType, formatMoney, getServiceUnitLabel, loadContract, loadLatestMeterReadings, loadPreviousDebt } from "@/lib/rentalOps";
 import { calculateProratedRent } from "@/utils/rentCalc";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+import Button from "@/components/ui/Button";
 
 const period = currentPeriod();
 
@@ -322,14 +323,14 @@ export default function NewInvoicePage() {
               <div key={index} className="flex gap-2">
                 <input className="input flex-1 text-sm" placeholder="Tên phí" value={fee.label} onChange={(e) => setFees((prev) => prev.map((item, i) => i === index ? { ...item, label: e.target.value } : item))} />
                 <input className="input w-28 text-sm" type="number" placeholder="Số tiền" value={fee.amount} onChange={(e) => setFees((prev) => prev.map((item, i) => i === index ? { ...item, amount: e.target.value } : item))} />
-                <button type="button" onClick={() => setFees((prev) => prev.filter((_, i) => i !== index))} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 transition-colors">
+                <Button type="button" variant="outline" className="shrink-0" onClick={() => setFees((prev) => prev.filter((_, i) => i !== index))} aria-label="Xóa khoản phí">
                   <X size={14} />
-                </button>
+                </Button>
               </div>
             ))}
-            <button type="button" onClick={() => setFees((prev) => [...prev, { label: "", amount: "" }])} className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setFees((prev) => [...prev, { label: "", amount: "" }])}>
               <Plus size={13} /> Thêm phí
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -389,9 +390,9 @@ export default function NewInvoicePage() {
             <Link href={`/contracts/${contract.id}`} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
               Hủy
             </Link>
-            <button type="submit" disabled={mutation.isPending} className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors">
+            <Button type="submit" variant="primary" loading={mutation.isPending}>
               {mutation.isPending ? "Đang tạo..." : "Tạo hóa đơn"}
-            </button>
+            </Button>
           </div>
         </div>
       </form>

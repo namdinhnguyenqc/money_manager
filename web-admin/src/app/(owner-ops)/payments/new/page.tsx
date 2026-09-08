@@ -9,6 +9,7 @@ import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import StatusBadge from "@/components/ops/StatusBadge";
 import { Invoice, formatMoney, loadInvoice, loadWallets, normalizeInvoiceStatus, recordPayment } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
+import Button from "@/components/ui/Button";
 
 const today = new Date().toISOString().slice(0, 10);
 const methods = ["Tiền mặt", "Chuyển khoản", "Ví điện tử"] as const;
@@ -148,7 +149,7 @@ export default function NewPaymentPage() {
 
         <div className="mt-5 flex gap-2">
           <Link href={`/invoices/${invoice.id}`} className="flex-1 rounded-[8px] border border-slate-200 bg-white px-4 py-2.5 text-center text-sm font-semibold text-slate-700">Hủy</Link>
-          <button disabled={mutation.isPending} className="flex-[2] rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{mutation.isPending ? "Đang xác nhận..." : "Xác nhận thu tiền"}</button>
+          <Button type="submit" variant="primary" className="flex-[2]" loading={mutation.isPending}>{mutation.isPending ? "Đang xác nhận..." : "Xác nhận thu tiền"}</Button>
         </div>
       </form>
     </div>
