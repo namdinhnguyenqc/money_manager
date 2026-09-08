@@ -124,9 +124,18 @@ export const spacing = {
 } as const;
 
 /* ── Page layout ────────────────────────────────────────────────────
-   One container width and padding for every owner screen, so pages stop
-   drifting between max-w-4xl / 6xl / 7xl and p-4 / p-6 / p-8. */
-export const pageContainer = "mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8";
+   Width only — no padding. OwnerWorkspaceShell's <main> already applies
+   px-4 py-4 sm:px-6 sm:py-5, so adding padding here would inset the content
+   twice. Screens differ deliberately in width (a form should not stretch to
+   1280px), so PageContainer takes a width rather than forcing one. */
+export const pageWidth = {
+  /** Lists and dashboards. */
+  wide: "mx-auto w-full max-w-7xl",
+  /** Detail screens. */
+  default: "mx-auto w-full max-w-5xl",
+  /** Forms and settings, kept readable. */
+  narrow: "mx-auto w-full max-w-3xl",
+} as const;
 
 /** Padding inside a card or panel. */
 export const surfacePadding = "p-4 sm:p-5";
