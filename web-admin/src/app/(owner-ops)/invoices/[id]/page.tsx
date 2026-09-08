@@ -310,14 +310,16 @@ export default function InvoiceDetailPage() {
 
       {/* Actions */}
       <div className="mt-4 flex flex-col gap-3">
-        <button
+        <Button
+          variant="outline"
+          size="lg"
+          className="w-full"
           onClick={handleShare}
-          disabled={sharing}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition-all"
+          loading={sharing}
+          icon={<Copy size={17} />}
         >
-          <Copy size={17} />
           {sharing ? "Đang tạo ảnh..." : "Chia sẻ ảnh hóa đơn (Zalo / Messenger)"}
-        </button>
+        </Button>
         {outstanding > 0 && !isCarriedForward && (
           <Link
             href={`/payments/new?invoice_id=${invoice.id}`}
@@ -332,21 +334,27 @@ export default function InvoiceDetailPage() {
           </p>
         )}
         {!isPaid && !isCarriedForward && (
-          <button
+          <Button
+            variant="warning"
+            size="lg"
+            className="w-full"
             onClick={() => setAddFeeOpen(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 py-3 text-sm font-bold text-amber-700 hover:bg-amber-100 active:scale-95 transition-all"
+            icon={<PlusCircle size={17} />}
           >
-            <PlusCircle size={17} /> Thêm khoản phí phát sinh
-          </button>
+            Thêm khoản phí phát sinh
+          </Button>
         )}
         {!isPaid && (
-          <button
+          <Button
+            variant="danger-ghost"
+            size="lg"
+            className="w-full border border-red-200 bg-red-50"
             onClick={handleDelete}
-            disabled={deleting}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-3 text-sm font-bold text-red-600 hover:bg-red-100 active:scale-95 transition-all"
+            loading={deleting}
+            icon={<Trash2 size={17} />}
           >
-            <Trash2 size={17} /> {deleting ? "Đang xóa..." : "Xóa hóa đơn"}
-          </button>
+            {deleting ? "Đang xóa..." : "Xóa hóa đơn"}
+          </Button>
         )}
       </div>
 
@@ -359,9 +367,7 @@ export default function InvoiceDetailPage() {
           <div role="dialog" aria-modal="true" aria-labelledby="add-fee-title" className="w-full max-w-md rounded-[12px] bg-white p-5 shadow-xl sm:p-6">
             <div className="mb-5 flex items-start justify-between gap-4">
               <h2 id="add-fee-title" className="text-xl font-bold text-slate-950">Thêm khoản phí phát sinh</h2>
-              <button type="button" onClick={() => setAddFeeOpen(false)} aria-label="Đóng" className="rounded-[8px] p-2 text-slate-500 hover:bg-slate-100">
-                <X size={18} />
-              </button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setAddFeeOpen(false)} aria-label="Đóng" icon={<X size={18} />} />
             </div>
             <form
               onSubmit={async (e) => {

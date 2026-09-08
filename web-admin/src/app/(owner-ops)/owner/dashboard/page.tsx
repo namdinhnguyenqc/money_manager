@@ -220,9 +220,9 @@ export default function OwnerDashboard() {
         <div className="font-bold text-slate-800 text-lg">Không tải được dữ liệu</div>
         <div className="text-sm text-slate-500 mt-1 max-w-xs">Server đang khởi động lại. Vui lòng thử lại sau vài giây.</div>
       </div>
-      <button onClick={() => dashboardQuery.refetch()} className="px-6 py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors">
+      <Button variant="primary" size="lg" onClick={() => dashboardQuery.refetch()}>
         Thử lại
-      </button>
+      </Button>
     </div>
   );
 
