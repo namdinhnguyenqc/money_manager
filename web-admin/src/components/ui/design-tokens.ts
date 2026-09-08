@@ -94,3 +94,46 @@ export const filterPillActive =
   "border-blue-600 bg-blue-600 text-white shadow-sm font-bold";
 export const filterPillInactive =
   "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 font-semibold";
+
+/* ── Radius scale ───────────────────────────────────────────────────
+   The audit counted ten different radii in use (rounded-xl, rounded-lg,
+   rounded-[8px], rounded-2xl, rounded-3xl, rounded-[10px], rounded-[2rem]…).
+   Three steps cover every real case; reach for these instead of picking one
+   per screen. `pill` stays separate because it is a shape, not a step. */
+export const radius = {
+  /** Controls: button, input, select, badge-like chips. */
+  control: "rounded-lg",
+  /** Surfaces: card, panel, table wrapper, dialog. */
+  surface: "rounded-xl",
+  /** Fully round: avatars, status dots, filter pills. */
+  pill: "rounded-full",
+} as const;
+
+/* ── Spacing scale ──────────────────────────────────────────────────
+   4 / 8 / 12 / 16 / 20 / 24 / 32 — the Tailwind steps that map onto it are
+   1 / 2 / 3 / 4 / 5 / 6 / 8. Anything outside this set should be deliberate. */
+export const spacing = {
+  /** Between a label and its control, or icon and text. */
+  tight: "gap-2",
+  /** Between fields in a form, or items in a list. */
+  field: "gap-4",
+  /** Between sections inside a page. */
+  section: "space-y-6",
+  /** Between cards in a grid. */
+  grid: "gap-4",
+} as const;
+
+/* ── Page layout ────────────────────────────────────────────────────
+   One container width and padding for every owner screen, so pages stop
+   drifting between max-w-4xl / 6xl / 7xl and p-4 / p-6 / p-8. */
+export const pageContainer = "mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8";
+
+/** Padding inside a card or panel. */
+export const surfacePadding = "p-4 sm:p-5";
+
+/* ── Table classes ──────────────────────────────────────────────────
+   Shared so header height, row height and alignment match across screens. */
+export const tableHeaderCell =
+  "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500";
+export const tableCell = "px-4 py-3 text-sm text-slate-700";
+export const tableRow = "border-t border-slate-100 transition-colors hover:bg-slate-50";
