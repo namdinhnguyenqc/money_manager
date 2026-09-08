@@ -94,7 +94,7 @@ export default function CategoriesPage() {
   };
 
   return (
-    <PageContainer className="max-w-3xl">
+    <PageContainer width="narrow">
       <PageHeader
         subtitle="Cấu hình"
         title="Danh mục thu chi"
