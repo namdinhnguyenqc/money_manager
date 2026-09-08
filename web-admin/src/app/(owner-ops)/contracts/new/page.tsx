@@ -12,6 +12,7 @@ import StatusBadge from "@/components/ops/StatusBadge";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import OperationStatusPopup from "@/components/ui/OperationStatusPopup";
 import { useToast } from "@/components/ui/Toast";
+import Button from "@/components/ui/Button";
 
 const tenantSchema = z.object({
   full_name: z.string().min(1, "Vui lòng nhập họ tên."),
@@ -297,9 +298,9 @@ export default function NewContractPage() {
                 </div>
               </div>
               {!hasBasicServices && <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row">
-                <button type="button" onClick={handleSeedServices} disabled={seedingServices} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-black text-white hover:bg-blue-700 disabled:opacity-60">
+                <Button type="button" variant="primary" size="sm" onClick={handleSeedServices} loading={seedingServices}>
                   {seedingServices ? "Đang tạo..." : "Tạo bộ mẫu"}
-                </button>
+                </Button>
                 <Link href="/owner/services" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-blue-600 hover:bg-slate-50">
                   Tự cấu hình →
                 </Link>
@@ -419,9 +420,9 @@ export default function NewContractPage() {
             <SummaryRow label="Tiền thuê" value={formatMoney(Number(contract.rent_amount || 0))} />
             <SummaryRow label="Tiền cọc" value={formatMoney(roomDeposit ? Number(roomDeposit.amount || 0) + Number(contract.supplementary_deposit || 0) : Number(contract.deposit_amount || 0))} />
           </dl>
-          <button form="new-contract-form" type="submit" disabled={isSubmitting || success || !room} className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
+          <Button form="new-contract-form" type="submit" variant="primary" size="lg" className="mt-5 w-full" disabled={isSubmitting || success || !room}>
             {isSubmitting ? "Đang tạo hợp đồng..." : success ? "Đã tạo hợp đồng" : "Tạo hợp đồng"}
-          </button>
+          </Button>
           <p className="mt-3 text-center text-xs leading-5 text-slate-500">Kiểm tra thông tin trước khi tạo. Bạn có thể chỉnh sửa hợp đồng sau.</p>
         </aside>
       </div>
