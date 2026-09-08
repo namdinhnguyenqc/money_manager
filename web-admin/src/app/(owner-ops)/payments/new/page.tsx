@@ -10,6 +10,8 @@ import StatusBadge from "@/components/ops/StatusBadge";
 import { Invoice, formatMoney, loadInvoice, loadWallets, normalizeInvoiceStatus, recordPayment } from "@/lib/rentalOps";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import Button from "@/components/ui/Button";
+import PageHeader from "@/components/ui/PageHeader";
+import PageContainer from "@/components/ui/PageContainer";
 
 const today = new Date().toISOString().slice(0, 10);
 const methods = ["Tiền mặt", "Chuyển khoản", "Ví điện tử"] as const;
@@ -85,15 +87,16 @@ export default function NewPaymentPage() {
   if (!invoice) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">Không tìm thấy hóa đơn.</div>;
 
   return (
-    <div className="mx-auto max-w-lg">
-      <Link href={`/invoices/${invoice.id}`} className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-700">
-        <ArrowLeft size={15} />
-        Quay lại hóa đơn
-      </Link>
-      <div className="mb-6">
-        <p className="text-sm font-medium text-blue-700">Thu tiền</p>
-        <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Ghi nhận thu tiền</h1>
-      </div>
+    <PageContainer width="narrow">
+      <PageHeader
+        title="Ghi nhận thu tiền"
+        breadcrumb={
+          <Link href={`/invoices/${invoice.id}`} className="inline-flex items-center gap-2 font-medium text-slate-500 hover:text-blue-700">
+            <ArrowLeft size={15} />
+            Quay lại hóa đơn
+          </Link>
+        }
+      />
 
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
       {success && <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"><CheckCircle2 size={16} /> {success}</div>}
@@ -152,7 +155,7 @@ export default function NewPaymentPage() {
           <Button type="submit" variant="primary" className="flex-[2]" loading={mutation.isPending}>{mutation.isPending ? "Đang xác nhận..." : "Xác nhận thu tiền"}</Button>
         </div>
       </form>
-    </div>
+    </PageContainer>
   );
 }
 

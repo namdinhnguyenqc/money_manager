@@ -480,13 +480,7 @@ export default function OwnerFeedbackPage() {
                     {attachments.map((att, idx) => (
                       <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200">
                         <img src={att.fileUrl} alt="Preview" className="w-full h-full object-cover" />
-                        <button 
-                          type="button" 
-                          onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
-                          className="absolute top-0 right-0 bg-red-500 text-white rounded-bl-lg w-5 h-5 flex items-center justify-center text-[10px] font-bold"
-                        >
-                          &times;
-                        </button>
+                        <Button type="button" variant="danger-ghost" size="sm" aria-label="Gỡ ảnh" className="absolute right-0 top-0 h-5 w-5 min-h-0 rounded-bl-lg p-0" onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}><X size={11} /></Button>
                       </div>
                     ))}
                     {attachments.length < 5 && (

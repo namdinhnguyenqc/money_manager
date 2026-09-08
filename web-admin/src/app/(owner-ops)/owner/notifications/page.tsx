@@ -7,6 +7,7 @@ import RBACGuard from "@/components/RBACGuard";
 import { apiGet, apiPost } from "@/utils/apiClient";
 import PageHeader from "@/components/ui/PageHeader";
 import Button from "@/components/ui/Button";
+import PageContainer from "@/components/ui/PageContainer";
 
 type NotificationItem = {
   id: string;
@@ -69,7 +70,7 @@ export default function OwnerNotificationsPage() {
 
   return (
     <RBACGuard allowedRoles={["OWNER", "SUPER_ADMIN"]}>
-      <div className="mx-auto max-w-5xl font-sans">
+      <PageContainer width="default" className="font-sans">
         <PageHeader
           title="Thông báo hệ thống"
           subtitle="Hộp thư thông báo"
@@ -184,7 +185,7 @@ export default function OwnerNotificationsPage() {
             })}
           </div>
         )}
-      </div>
+      </PageContainer>
     </RBACGuard>
   );
 }

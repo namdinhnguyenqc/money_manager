@@ -27,6 +27,7 @@ import Pagination from "@/components/ui/Pagination";
 import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
 import ConfirmDialog from "@/components/ops/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
+import PageContainer from "@/components/ui/PageContainer";
 
 type TenantWithRoom = Tenant & { room?: RentalRoom; isActive: boolean };
 
@@ -95,7 +96,7 @@ export default function OwnerTenantsPage() {
 
   return (
     <RBACGuard allowedRoles={["OWNER", "SUPER_ADMIN"]}>
-      <div className="mx-auto max-w-6xl animate-in fade-in duration-500">
+      <PageContainer width="wide" className="animate-in fade-in duration-500">
         <PageHeader
           title="Khách thuê"
           description={loading ? "Đang tải..." : `${filtered.length} khách thuê`}
@@ -258,7 +259,7 @@ export default function OwnerTenantsPage() {
             onConfirm={handleDelete}
           />
         )}
-      </div>
+      </PageContainer>
     </RBACGuard>
   );
 }
@@ -274,7 +275,7 @@ function TenantActionMenu({ tenant, onEdit, onDelete }: { tenant: TenantWithRoom
         <MoreHorizontal size={17} />
       </summary>
       <div className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-        <button
+        <button role="menuitem"
           onClick={(event) => {
             close(event);
             onEdit();
@@ -289,7 +290,7 @@ function TenantActionMenu({ tenant, onEdit, onDelete }: { tenant: TenantWithRoom
             Đang có phòng — không thể xóa
           </div>
         ) : (
-          <button
+          <button role="menuitem"
             onClick={(event) => {
               close(event);
               onDelete();

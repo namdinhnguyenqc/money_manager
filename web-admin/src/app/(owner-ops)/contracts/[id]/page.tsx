@@ -29,6 +29,8 @@ import {
 import { calculateProratedRent } from "@/utils/rentCalc";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import Button from "@/components/ui/Button";
+import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "").slice(0, 10);
 
@@ -51,19 +53,18 @@ export default function ContractDetailPage() {
   if (!contract) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">Không tìm thấy hợp đồng.</div>;
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <Link href={contract.facility_id ? `/facilities/${contract.facility_id}?tab=contracts` : "/contracts"} className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-700">
-        <ArrowLeft size={15} />
-        Cơ sở &gt; {contract.facility_id || "Cơ sở"} &gt; Phòng {contract.room_name} &gt; Hợp đồng
-      </Link>
-
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-950">Hợp đồng #{String(contract.id).slice(-6)}</h1>
-          <p className="mt-1 text-sm text-slate-500">Phòng {contract.room_name} · Khách thuê {contract.tenant_name}</p>
-        </div>
-        <StatusBadge status={contract.status} />
-      </div>
+    <PageContainer width="wide">
+      <PageHeader
+        title={`Hợp đồng #${String(contract.id).slice(-6)}`}
+        description={`Phòng ${contract.room_name} · Khách thuê ${contract.tenant_name}`}
+        breadcrumb={
+          <Link href={contract.facility_id ? `/facilities/${contract.facility_id}?tab=contracts` : "/contracts"} className="inline-flex items-center gap-2 font-medium text-slate-500 hover:text-blue-700">
+            <ArrowLeft size={15} />
+            Cơ sở &gt; {contract.facility_id || "Cơ sở"} &gt; Phòng {contract.room_name} &gt; Hợp đồng
+          </Link>
+        }
+        actions={<StatusBadge status={contract.status} />}
+      />
 
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -297,7 +298,7 @@ export default function ContractDetailPage() {
           }}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }
 

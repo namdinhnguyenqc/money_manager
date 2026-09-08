@@ -13,6 +13,7 @@ import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import OperationStatusPopup from "@/components/ui/OperationStatusPopup";
 import { useToast } from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
+import PageContainer from "@/components/ui/PageContainer";
 
 const tenantSchema = z.object({
   full_name: z.string().min(1, "Vui lòng nhập họ tên."),
@@ -236,7 +237,7 @@ export default function NewContractPage() {
 
   if (showWizard) {
     return (
-      <div className="mx-auto max-w-2xl mt-8">
+      <PageContainer width="narrow" className="mt-8">
         <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-md">
           <div className="text-center mb-8">
             <span className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-blue-600 text-3xl mb-4">🚀</span>
@@ -309,14 +310,14 @@ export default function NewContractPage() {
           </div>
 
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   if (roomQuery.isLoading) return <LoadingSkeleton rows={4} />;
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <PageContainer width="wide">
       <Link href="/rooms" className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-700">
         <ArrowLeft size={15} />
         Quay lại danh sách phòng
@@ -426,7 +427,7 @@ export default function NewContractPage() {
           <p className="mt-3 text-center text-xs leading-5 text-slate-500">Kiểm tra thông tin trước khi tạo. Bạn có thể chỉnh sửa hợp đồng sau.</p>
         </aside>
       </div>
-    </div>
+    </PageContainer>
   );
 }
 

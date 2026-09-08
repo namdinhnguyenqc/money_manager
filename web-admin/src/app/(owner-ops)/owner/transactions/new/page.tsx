@@ -117,7 +117,7 @@ export default function NewTransactionPage() {
           <div>
             <Label>Loại giao dịch</Label>
             <div className="mt-1 grid grid-cols-2 gap-3">
-              <button
+              <button aria-pressed={form.type === "income"}
                 type="button"
                 onClick={() => handleTypeChange("income")}
                 className={`flex items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-bold transition-all ${
@@ -129,7 +129,7 @@ export default function NewTransactionPage() {
                 <ArrowDownLeft size={16} />
                 Thu nhập
               </button>
-              <button
+              <button aria-pressed={form.type === "expense"}
                 type="button"
                 onClick={() => handleTypeChange("expense")}
                 className={`flex items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-bold transition-all ${

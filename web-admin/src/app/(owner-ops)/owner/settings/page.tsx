@@ -67,6 +67,7 @@ import {
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input, { Label, Select as UISelect } from "@/components/ui/Input";
+import PageContainer from "@/components/ui/PageContainer";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import ZcaQrLoginPanel from "@/components/ZcaQrLoginPanel";
 
@@ -644,7 +645,7 @@ export default function OwnerSettingsPage() {
   };
 
   return (
-    <div className="w-full animate-in fade-in duration-500 pb-16">
+    <PageContainer width="wide" className="animate-in fade-in duration-500 pb-16">
       {(error || success) && (
         <div className={`mb-6 rounded-xl p-4 text-sm font-semibold flex items-center gap-3 border shadow-sm transition-all animate-in slide-in-from-top-2 ${
           error 
@@ -745,7 +746,7 @@ export default function OwnerSettingsPage() {
                     </div>
 
                     {pushSupported ? (
-                      <button
+                      <button role="switch" aria-checked={subscribed}
                         onClick={subscribed ? unsubscribePush : subscribePush}
                         disabled={pushLoading}
                         aria-label="Toggle push notifications"
@@ -793,20 +794,7 @@ export default function OwnerSettingsPage() {
                           Tin nhắn đi kèm ảnh hóa đơn PNG. Nội dung nên ngắn để khách đọc nhanh, QR nằm trong ảnh hóa đơn.
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleChange(
-                            "zalo_invoice_template",
-                            DEFAULT_ZALO_INVOICE_TEMPLATE,
-                            "string",
-                            "zalo"
-                          )
-                        }
-                        className="shrink-0 text-xs font-bold text-blue-600 hover:underline"
-                      >
-                        Khôi phục mẫu mặc định
-                      </button>
+                      <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => handleChange("zalo_invoice_template", DEFAULT_ZALO_INVOICE_TEMPLATE, "string", "zalo")}>Khôi phục mẫu mặc định</Button>
                     </div>
 
                     <textarea
@@ -881,13 +869,7 @@ export default function OwnerSettingsPage() {
                           ))}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleChange("zalo_payment_received_template", DEFAULT_ZALO_PAYMENT_RECEIVED_TEMPLATE, "string", "zalo")}
-                        className="shrink-0 text-xs font-bold text-blue-700 hover:underline"
-                      >
-                        Khôi phục mẫu mặc định
-                      </button>
+                      <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => handleChange("zalo_payment_received_template", DEFAULT_ZALO_PAYMENT_RECEIVED_TEMPLATE, "string", "zalo")}>Khôi phục mẫu mặc định</Button>
                     </div>
                   </div>
 
@@ -899,15 +881,7 @@ export default function OwnerSettingsPage() {
                           Khi cần, mở hóa đơn chưa thanh toán và bấm <strong>Nhắc nợ</strong>. Hệ thống dùng SĐT hiện tại của khách để tìm Zalo và gửi tin nhắn, không kèm ảnh hóa đơn.
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleChange("zalo_reminder_template", DEFAULT_ZALO_REMINDER_TEMPLATE, "string", "zalo");
-                        }}
-                        className="shrink-0 text-xs font-bold text-blue-600 hover:underline"
-                      >
-                        Khôi phục cấu hình mặc định
-                      </button>
+                      <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => handleChange("zalo_reminder_template", DEFAULT_ZALO_REMINDER_TEMPLATE, "string", "zalo")}>Khôi phục mẫu mặc định</Button>
                     </div>
 
                     <label className="block space-y-2">
@@ -965,7 +939,7 @@ export default function OwnerSettingsPage() {
 
                 {/* Sub-tab switcher */}
                 <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
-                  <button
+                  <button aria-pressed={sepaySubTab === "sepay"}
                     onClick={() => setSepaySubTab("sepay")}
                     className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
                       sepaySubTab === "sepay"
@@ -976,7 +950,7 @@ export default function OwnerSettingsPage() {
                     <Webhook size={13} />
                     Cấu hình SePay
                   </button>
-                  <button
+                  <button aria-pressed={sepaySubTab === "static"}
                     onClick={() => setSepaySubTab("static")}
                     className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
                       sepaySubTab === "static"
@@ -1144,23 +1118,13 @@ export default function OwnerSettingsPage() {
                         <input
                           type="text"
                           readOnly
-                          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 font-mono text-xs font-semibold text-slate-600 outline-none"
+                          className="input min-w-0 flex-1 font-mono text-xs"
                           value={sepayWebhookUrl}
                         />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            try {
-                              navigator.clipboard.writeText(sepayWebhookUrl);
-                              setCopiedWebhook(true);
-                              setTimeout(() => setCopiedWebhook(false), 2000);
-                            } catch {}
-                          }}
-                          className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-white transition-colors ${copiedWebhook ? "bg-emerald-600" : "bg-slate-900 hover:bg-slate-800"}`}
-                        >
+                        <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => { try { navigator.clipboard.writeText(sepayWebhookUrl); setCopiedWebhook(true); setTimeout(() => setCopiedWebhook(false), 2000); } catch {} }}>
                           {copiedWebhook ? <Check size={14} /> : <Copy size={14} />}
                           {copiedWebhook ? "Đã chép!" : "Sao chép"}
-                        </button>
+                        </Button>
                       </div>
                       <p className="text-xs text-slate-500 mt-1 font-medium">
                         URL riêng của tài khoản bạn. SePay sẽ gửi thông báo thanh toán đến địa chỉ này.
@@ -1178,7 +1142,7 @@ export default function OwnerSettingsPage() {
                             value={getValue("sepay_api_key", "")}
                             onChange={(e) => handleChange("sepay_api_key", e.target.value, "string", "payment")}
                           />
-                          <button
+                          <button aria-pressed={showApiKey}
                             type="button"
                             onClick={() => setShowApiKey(!showApiKey)}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
@@ -1198,7 +1162,7 @@ export default function OwnerSettingsPage() {
                             value={getValue("sepay_webhook_secret", "")}
                             onChange={(e) => handleChange("sepay_webhook_secret", e.target.value, "string", "payment")}
                           />
-                          <button
+                          <button aria-pressed={showWebhookSecret}
                             type="button"
                             onClick={() => setShowWebhookSecret(!showWebhookSecret)}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
@@ -1313,20 +1277,13 @@ export default function OwnerSettingsPage() {
                                   </td>
                                   <td className="px-4 py-3 text-center whitespace-nowrap">
                                     <div className="flex items-center justify-center gap-3">
-                                      <button
-                                        onClick={() => setExpandedEventId(isExpanded ? null : event.id)}
-                                        className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline font-extrabold"
-                                      >
+                                      <Button variant="ghost" size="sm" onClick={() => setExpandedEventId(isExpanded ? null : event.id)}>
                                         {isExpanded ? "Đóng lại" : "Dữ liệu JSON"}
-                                      </button>
+                                      </Button>
                                       {["pending_wallet", "unmatched", "error"].includes(event.status) && (
-                                        <button
-                                          onClick={() => handleReprocessEvent(event.id)}
-                                          disabled={reprocessingId === event.id}
-                                          className="text-[10px] text-emerald-600 hover:text-emerald-800 hover:underline font-extrabold disabled:opacity-50"
-                                        >
+                                        <Button variant="ghost" size="sm" loading={reprocessingId === event.id} onClick={() => handleReprocessEvent(event.id)}>
                                           {reprocessingId === event.id ? "Đang xử lý..." : "Thử lại đối soát"}
-                                        </button>
+                                        </Button>
                                       )}
                                     </div>
                                   </td>
@@ -1727,7 +1684,7 @@ export default function OwnerSettingsPage() {
                             {service.active ? "Đang kích hoạt" : "Tạm dừng"}
                           </span>
                           
-                          <button 
+                          <button role="switch" aria-checked={Boolean(service.active)} 
                             onClick={() => handleToggleServiceStatus(service)} 
                             className={`transition-colors rounded-full p-0.5 focus:outline-none ${
                               service.active ? "text-emerald-500 hover:text-emerald-600" : "text-slate-300 hover:text-slate-400"
@@ -1762,9 +1719,7 @@ export default function OwnerSettingsPage() {
                     <div className="flex justify-between items-center pb-2">
                       <span className="text-xs font-extrabold uppercase text-slate-400 tracking-wider">Danh sách ví tiền đang hoạt động</span>
                       {wallets.length === 0 && (
-                        <button onClick={bootstrapWallets} className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1">
-                          <Plus size={10} /> Khởi tạo bộ ví mặc định
-                        </button>
+                        <Button variant="ghost" size="sm" icon={<Plus size={12} />} onClick={bootstrapWallets}>Khởi tạo bộ ví mặc định</Button>
                       )}
                     </div>
 
@@ -1788,9 +1743,9 @@ export default function OwnerSettingsPage() {
                                wallet.type === "trading" ? "Ví nhập hàng" : "Ví cá nhân"}
                             </span>
                           </div>
-                          <button onClick={() => handleDeleteWallet(wallet.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="Xóa ví">
+                          <Button variant="danger-ghost" size="sm" title="Xóa ví" aria-label="Xóa ví" onClick={() => handleDeleteWallet(wallet.id)}>
                             <Trash2 size={14} />
-                          </button>
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -1805,7 +1760,7 @@ export default function OwnerSettingsPage() {
                         <input 
                           type="text" 
                           placeholder="Tên ví, VD: Quỹ nhà trọ 2..." 
-                          className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all"
+                          className="input mt-1.5 text-xs"
                           value={newWallet.name} 
                           onChange={(e) => setNewWallet({ ...newWallet, name: e.target.value })} 
                         />
@@ -1898,13 +1853,9 @@ export default function OwnerSettingsPage() {
                           <span className="text-xs font-black uppercase text-slate-700 tracking-wider">
                             Tạo danh mục {activeCategoryTab === "income" ? "thu" : "chi"} mới
                           </span>
-                          <button 
-                            type="button"
-                            onClick={resetCategoryForm} 
-                            className="text-slate-400 hover:text-slate-600 transition-colors"
-                          >
+                          <Button type="button" variant="ghost" size="sm" aria-label="Đóng" onClick={resetCategoryForm}>
                             <X size={18} />
-                          </button>
+                          </Button>
                         </div>
 
                         <div className="grid gap-4 sm:grid-cols-3 items-end">
@@ -1915,7 +1866,7 @@ export default function OwnerSettingsPage() {
                               value={categoryForm.name} 
                               onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })} 
                               placeholder="VD: Tiền điện, Tiền nước, Tiền vệ sinh..."
-                              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs focus:border-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all bg-white font-semibold text-slate-800"
+                              className="input text-xs"
                             />
                           </div>
 
@@ -2023,28 +1974,17 @@ export default function OwnerSettingsPage() {
                           <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                             {confirmDeleteCategoryId === c.id ? (
                               <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => handleDeleteCategory(c.id)}
-                                  disabled={deletingCategoryId === c.id}
-                                  className="text-[10px] font-black text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg border border-red-200 transition-colors"
-                                >
+                                <Button variant="danger" size="sm" loading={deletingCategoryId === c.id} onClick={() => handleDeleteCategory(c.id)}>
                                   Xác nhận
-                                </button>
-                                <button
-                                  onClick={() => setConfirmDeleteCategoryId(null)}
-                                  className="text-[10px] font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 px-2 py-1 rounded-lg border border-slate-200 transition-colors"
-                                >
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => setConfirmDeleteCategoryId(null)}>
                                   Hủy
-                                </button>
+                                </Button>
                               </div>
                             ) : (
-                              <button
-                                onClick={() => setConfirmDeleteCategoryId(c.id)}
-                                className="text-slate-400 hover:text-red-600 p-2 rounded-xl hover:bg-slate-50 transition-all"
-                                title="Xóa danh mục"
-                              >
+                              <Button variant="danger-ghost" size="sm" title="Xóa danh mục" aria-label="Xóa danh mục" onClick={() => setConfirmDeleteCategoryId(c.id)}>
                                 <Trash2 size={15} />
-                              </button>
+                              </Button>
                             )}
                           </div>
                         </div>
@@ -2069,7 +2009,7 @@ export default function OwnerSettingsPage() {
       onCancel={() => setConfirmAction(null)}
     />
   )}
-</div>
+</PageContainer>
   );
 }
 

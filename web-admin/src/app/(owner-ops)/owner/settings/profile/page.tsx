@@ -11,6 +11,8 @@ import { ApiClientError } from "@/utils/apiClient";
 import { setClientSession } from "@/utils/session";
 import { getMyProfile, ProfileFormErrors, ProfileFormValues, ProfileResponse, profileToForm, updateProfile } from "@/lib/profile";
 import Button from "@/components/ui/Button";
+import PageHeader from "@/components/ui/PageHeader";
+import PageContainer from "@/components/ui/PageContainer";
 
 export default function OwnerProfileSettingsPage() {
   const router = useRouter();
@@ -73,15 +75,17 @@ export default function OwnerProfileSettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl p-4 lg:p-6">
-      <div className="mb-6">
-        <Link href="/owner/profile" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900">
-          <ArrowLeft size={16} />
-          Quay lại hồ sơ
-        </Link>
-        <h1 className="mt-4 text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Cài đặt hồ sơ</h1>
-        <p className="mt-1 text-sm text-slate-500">Cập nhật thông tin liên hệ của chủ trọ. Email, role và provider chỉ đọc.</p>
-      </div>
+    <PageContainer width="narrow">
+      <PageHeader
+        title="Cài đặt hồ sơ"
+        description="Cập nhật thông tin liên hệ của chủ trọ. Email, role và provider chỉ đọc."
+        breadcrumb={
+          <Link href="/owner/profile" className="inline-flex items-center gap-2 font-semibold text-slate-500 hover:text-slate-900">
+            <ArrowLeft size={16} />
+            Quay lại hồ sơ
+          </Link>
+        }
+      />
 
       {loading ? (
         <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
@@ -116,6 +120,6 @@ export default function OwnerProfileSettingsPage() {
       ) : null}
 
       {toast && <Toast message={toast} onHide={() => setToast("")} />}
-    </div>
+    </PageContainer>
   );
 }

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
 import ConfirmDialog from "@/components/ops/ConfirmDialog";
 import Button from "@/components/ui/Button";
+import PageHeader from "@/components/ui/PageHeader";
+import PageContainer from "@/components/ui/PageContainer";
 import {
   RentalRoom,
   ServiceConfig,
@@ -83,20 +85,16 @@ export default function OwnerContractsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl">
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-sm font-medium text-blue-700">Hợp đồng</p>
-          <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Quản lý hợp đồng thuê</h1>
-          <p className="mt-1 text-sm text-slate-500">Tạo hợp đồng cho phòng trống và theo dõi trạng thái hợp đồng đang hiệu lực.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="primary" onClick={() => setFormOpen(true)}>
-            <Plus size={16} />
+    <PageContainer width="wide">
+      <PageHeader
+        title="Quản lý hợp đồng thuê"
+        description="Tạo hợp đồng cho phòng trống và theo dõi trạng thái hợp đồng đang hiệu lực."
+        actions={
+          <Button variant="primary" icon={<Plus size={16} />} onClick={() => setFormOpen(true)}>
             Tạo hợp đồng
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="mb-4 flex flex-wrap gap-2">
         {filters.map((item) => <button key={item} onClick={() => setFilter(item)} className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${filter === item ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-600"}`}>{item}</button>)}
@@ -145,7 +143,7 @@ export default function OwnerContractsPage() {
           onCancel={() => setConfirmDeleteContractId(null)}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }
 

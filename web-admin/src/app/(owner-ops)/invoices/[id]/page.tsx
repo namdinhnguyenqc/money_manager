@@ -9,6 +9,7 @@ import { apiDelete } from "@/utils/apiClient";
 import { useToast } from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
 import Input, { Label } from "@/components/ui/Input";
+import PageContainer from "@/components/ui/PageContainer";
 import ZaloNotificationSection from "@/components/ZaloNotificationSection";
 
 const BANK_LABELS: Record<string, string> = {
@@ -179,7 +180,7 @@ export default function InvoiceDetailPage() {
   const statusColor = isPaid ? "text-emerald-700" : isCarriedForward ? "text-blue-600" : status === "partial" ? "text-amber-600" : "text-red-600";
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <PageContainer width="narrow">
       {/* Back */}
       <Link href="/invoices" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-blue-700">
         <ArrowLeft size={15} /> Quay lại hóa đơn
@@ -427,7 +428,7 @@ export default function InvoiceDetailPage() {
       )}
 
       <ZaloNotificationSection invoice={invoice} onStatusChange={loadInvoiceOnly} />
-    </div>
+    </PageContainer>
   );
 }
 
@@ -465,12 +466,9 @@ function CopyLine({ label, value, mono, copied, onCopy }: { label: string; value
         <span className="font-semibold text-slate-500">{label} </span>
         <span className={`font-bold ${mono ? "font-mono" : ""} text-slate-900`}>{value}</span>
       </div>
-      <button
-        onClick={onCopy}
-        className={`shrink-0 flex h-6 w-6 items-center justify-center rounded border transition-colors ${copied ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-slate-200 bg-slate-50 text-slate-400 hover:text-blue-600"}`}
-      >
+      <Button type="button" variant="ghost" size="sm" onClick={onCopy}>
         {copied ? <Check size={10} /> : <Copy size={10} />}
-      </button>
+      </Button>
     </div>
   );
 }

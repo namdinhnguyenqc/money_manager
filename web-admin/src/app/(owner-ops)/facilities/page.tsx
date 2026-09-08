@@ -11,6 +11,8 @@ import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import FacilityBlocksField, { createFacilityBlocks } from "@/components/ops/FacilityBlocksField";
 import { useToast } from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
+import PageHeader from "@/components/ui/PageHeader";
+import PageContainer from "@/components/ui/PageContainer";
 
 export default function FacilitiesPage() {
   const queryClient = useQueryClient();
@@ -81,17 +83,16 @@ export default function FacilitiesPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl">
-      <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Cơ sở của tôi</h1>
-          <p className="mt-1 text-sm leading-5 text-slate-600">Quản lý cơ sở, phòng và tình trạng vận hành.</p>
-        </div>
-        <Button type="button" variant="primary" onClick={() => setShowCreateForm(true)}>
-          <Plus size={16} />
-          Thêm cơ sở
-        </Button>
-      </div>
+    <PageContainer width="wide">
+      <PageHeader
+        title="Cơ sở của tôi"
+        description="Quản lý cơ sở, phòng và tình trạng vận hành."
+        actions={
+          <Button type="button" variant="primary" icon={<Plus size={16} />} onClick={() => setShowCreateForm(true)}>
+            Thêm cơ sở
+          </Button>
+        }
+      />
 
       {housesQuery.isLoading ? <LoadingSkeleton rows={3} /> : null}
       {!housesQuery.isLoading && houses.length === 0 ? (
@@ -117,11 +118,11 @@ export default function FacilitiesPage() {
                 </div>
               </Link>
               <div className="flex items-center gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-3">
-                <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => setEditingFacility(facility)}>
-                  <Pencil size={14} /> Chỉnh sửa
+                <Button type="button" variant="outline" size="sm" className="flex-1" icon={<Pencil size={14} />} onClick={() => setEditingFacility(facility)}>
+                  Chỉnh sửa
                 </Button>
-                <Button type="button" variant="danger-ghost" size="sm" className="border border-red-200" loading={deletingId === facility.id} onClick={() => handleDelete(facility)}>
-                  <Trash2 size={14} /> {deletingId === facility.id ? "Đang xóa..." : "Xóa"}
+                <Button type="button" variant="danger-ghost" size="sm" className="flex-1 border border-red-200" loading={deletingId === facility.id} icon={<Trash2 size={14} />} onClick={() => handleDelete(facility)}>
+                  {deletingId === facility.id ? "Đang xóa..." : "Xóa"}
                 </Button>
               </div>
             </article>
@@ -150,7 +151,7 @@ export default function FacilitiesPage() {
           }}
         />
       ) : null}
-    </div>
+    </PageContainer>
   );
 }
 
