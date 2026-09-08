@@ -179,9 +179,7 @@ function ZaloSendResultDialog({
               {unresolvedCount > 0 ? ` • Chưa gửi được ${unresolvedCount}` : ""}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-[8px] p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Đóng">
-            <X size={18} />
-          </button>
+          <Button type="button" variant="ghost" size="sm" onClick={onClose} aria-label="Đóng" icon={<X size={18} />} />
         </div>
 
         <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
@@ -213,9 +211,9 @@ function ZaloSendResultDialog({
         </div>
 
         <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
-          <button type="button" onClick={onClose} className="rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700">
+          <Button type="button" variant="primary" onClick={onClose}>
             Đã hiểu
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -584,14 +582,17 @@ export default function InvoicesPage() {
               {sendingZalo ? "Đang gửi..." : "Gửi qua Zalo"}
             </Button>
             <Button variant="danger" size="sm" icon={<Trash2 size={13} />} onClick={handleBulkDelete} disabled={sendingZalo}>Xóa</Button>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
+              className="ml-auto"
               onClick={() => setSelected({})}
               disabled={sendingZalo}
-              className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+              icon={<X size={13} />}
             >
-              <X size={13} /> Bỏ chọn
-            </button>
+              Bỏ chọn
+            </Button>
           </div>
           {sendingZalo && (
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-blue-100">
@@ -671,12 +672,9 @@ export default function InvoicesPage() {
                   <Link href={`/invoices/${invoice.id}`} className="font-semibold text-blue-700 hover:underline">Xem</Link>
                   {status === "sent" || status === "overdue" || status === "partial" ? <Link href={`/payments/new?invoice_id=${invoice.id}`} className="font-semibold text-blue-700 hover:underline">Thu tiền</Link> : null}
                   {status !== "paid" && (
-                    <button
-                      onClick={() => handleDeleteSingle(invoice.id)}
-                      className="font-semibold text-red-600 hover:underline text-sm"
-                    >
+                    <Button variant="danger-ghost" size="sm" onClick={() => handleDeleteSingle(invoice.id)}>
                       Xóa
-                    </button>
+                    </Button>
                   )}
                 </div>
               </td>
