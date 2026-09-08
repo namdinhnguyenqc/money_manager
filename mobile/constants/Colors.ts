@@ -1,32 +1,31 @@
 /**
- * TrọCare Design System — Color Tokens (Ethereal Aurora White & Porcelain)
- * Breakthrough PO & UI/UX color architecture: Matte Snow White backing,
- * pure white porcelain cards with faint custom-colored shadows, Royal Amethyst brand purple,
- * and semantic Mint Teal (success) & Terracotta Coral (expenses).
+ * TrọCare Design System — Blue-led Neutral.
+ * Brand blue is reserved for navigation and primary actions. Content remains
+ * navy/slate; green, amber and red only communicate real financial states.
  */
 
 const Colors = {
   // ─── Brand Primary (Premium White & Blue) ───
   primary: '#2563EB',
   primaryDark: '#1D4ED8',
-  primaryLight: '#F0F9FF',  // Soft sky blue backing
+  primaryLight: '#EFF6FF',
   primaryAlpha20: 'rgba(37, 99, 235, 0.12)',
   primaryAlpha50: 'rgba(37, 99, 235, 0.4)',
 
-  // ─── Semantic Brand Overrides (Unique & Fresh) ───
+  // Legacy aliases kept so older screens inherit the normalized system.
   appleBlue: '#2563EB',
   appleBlueHover: '#1D4ED8',
-  appleRed: '#F43F5E',      // Coral Crimson
-  appleGreen: '#0D9488',    // Mint Teal
+  appleRed: '#DC2626',
+  appleGreen: '#059669',
 
   // ─── Semantic Operations ───
-  success: '#0D9488',       // Mint Teal (Success/Income)
-  successDark: '#0f766e',
-  successLight: 'rgba(13, 148, 136, 0.08)',
-  danger: '#F43F5E',        // Coral Crimson (Expenses)
-  dangerLight: 'rgba(244, 63, 94, 0.08)',
-  warning: '#EAB308',       // Muted gold (Warning/Pending)
-  warningLight: 'rgba(234, 179, 8, 0.08)',
+  success: '#059669',
+  successDark: '#047857',
+  successLight: '#ECFDF5',
+  danger: '#DC2626',
+  dangerLight: '#FEF2F2',
+  warning: '#D97706',
+  warningLight: '#FFFBEB',
 
   // ─── Ethereal Alabaster Surfaces ───
   background: '#F8FAFC',
@@ -47,29 +46,29 @@ const Colors = {
   // ─── Status Capsule Badge Colors ───
   status: {
     // Room statuses
-    vacant: { bg: 'rgba(13, 148, 136, 0.08)', text: '#0D9488', border: 'rgba(13, 148, 136, 0.2)' },
-    occupied: { bg: 'rgba(0, 113, 227, 0.08)', text: '#0071e3', border: 'rgba(0, 113, 227, 0.2)' },
-    maintenance: { bg: 'rgba(59, 130, 246, 0.08)', text: '#3b82f6', border: 'rgba(59, 130, 246, 0.2)' },
-    reserved: { bg: 'rgba(234, 179, 8, 0.08)', text: '#EAB308', border: 'rgba(234, 179, 8, 0.2)' },
-    expiringSoon: { bg: 'rgba(234, 179, 8, 0.08)', text: '#EAB308', border: 'rgba(234, 179, 8, 0.2)' },
-    expired: { bg: 'rgba(244, 63, 94, 0.08)', text: '#F43F5E', border: 'rgba(244, 63, 94, 0.2)' },
+    vacant: { bg: '#ECFDF5', text: '#047857', border: '#A7F3D0' },
+    occupied: { bg: '#EFF6FF', text: '#2563EB', border: '#BFDBFE' },
+    maintenance: { bg: '#F8FAFC', text: '#475569', border: '#CBD5E1' },
+    reserved: { bg: '#FFFBEB', text: '#B45309', border: '#FDE68A' },
+    expiringSoon: { bg: '#FFFBEB', text: '#B45309', border: '#FDE68A' },
+    expired: { bg: '#FEF2F2', text: '#B91C1C', border: '#FECACA' },
     disabled: { bg: 'rgba(148, 163, 184, 0.08)', text: '#94A3B8', border: 'rgba(148, 163, 184, 0.2)' },
 
     // Invoice statuses
-    paid: { bg: 'rgba(13, 148, 136, 0.08)', text: '#0D9488', border: 'rgba(13, 148, 136, 0.2)' },
-    partial: { bg: 'rgba(0, 113, 227, 0.08)', text: '#0071e3', border: 'rgba(0, 113, 227, 0.2)' },
-    sent: { bg: 'rgba(234, 179, 8, 0.08)', text: '#EAB308', border: 'rgba(234, 179, 8, 0.2)' },
-    overdue: { bg: 'rgba(244, 63, 94, 0.08)', text: '#F43F5E', border: 'rgba(244, 63, 94, 0.2)' },
+    paid: { bg: '#ECFDF5', text: '#047857', border: '#A7F3D0' },
+    partial: { bg: '#EFF6FF', text: '#2563EB', border: '#BFDBFE' },
+    sent: { bg: '#FFFBEB', text: '#B45309', border: '#FDE68A' },
+    overdue: { bg: '#FEF2F2', text: '#B91C1C', border: '#FECACA' },
     draft: { bg: 'rgba(148, 163, 184, 0.08)', text: '#94A3B8', border: 'rgba(148, 163, 184, 0.2)' },
 
     // Contract statuses
-    active: { bg: 'rgba(0, 113, 227, 0.08)', text: '#0071e3', border: 'rgba(0, 113, 227, 0.2)' },
+    active: { bg: '#EFF6FF', text: '#2563EB', border: '#BFDBFE' },
     ended: { bg: 'rgba(148, 163, 184, 0.08)', text: '#94A3B8', border: 'rgba(148, 163, 184, 0.2)' },
 
     // Deposit statuses
-    holding: { bg: 'rgba(0, 113, 227, 0.08)', text: '#0071e3', border: 'rgba(0, 113, 227, 0.2)' },
-    transferred: { bg: 'rgba(13, 148, 136, 0.08)', text: '#0D9488', border: 'rgba(13, 148, 136, 0.2)' },
-    refunded: { bg: 'rgba(234, 179, 8, 0.08)', text: '#EAB308', border: 'rgba(234, 179, 8, 0.2)' },
+    holding: { bg: '#EFF6FF', text: '#2563EB', border: '#BFDBFE' },
+    transferred: { bg: '#ECFDF5', text: '#047857', border: '#A7F3D0' },
+    refunded: { bg: '#F8FAFC', text: '#475569', border: '#CBD5E1' },
     cancelled: { bg: 'rgba(148, 163, 184, 0.08)', text: '#94A3B8', border: 'rgba(148, 163, 184, 0.2)' },
   },
 } as const;

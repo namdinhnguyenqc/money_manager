@@ -2,7 +2,7 @@
   "expo": {
     "name": "TrọCare Owner",
     "slug": "trocare-mobile",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "TroCare Owner giúp chủ trọ quản lý dãy trọ, phòng, khách thuê, hợp đồng, hóa đơn, thu chi và thanh toán.",
     "privacyPolicyUrl": "https://trocare-production.vercel.app/privacy",
     "orientation": "portrait",
@@ -11,9 +11,9 @@
     "newArchEnabled": true,
     "scheme": "trocare",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/brand/transparent/trocare-logo-full-transparent-2000.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#F8FAFC"
     },
     "ios": {
       "supportsTablet": true,
@@ -26,7 +26,7 @@
       }
     },
     "android": {
-      "versionCode": 5,
+      "versionCode": 6,
       "usesCleartextTraffic": false,
       "permissions": [
         "android.permission.INTERNET",
@@ -50,6 +50,14 @@
     "plugins": [
       "expo-router",
       "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F8FAFC",
+          "image": "./assets/brand/transparent/trocare-logo-full-transparent-2000.png",
+          "imageWidth": 176
+        }
+      ],
       "expo-secure-store",
       "expo-notifications",
       "expo-web-browser"

@@ -184,8 +184,8 @@ export default function LoginScreen() {
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.appName}>
-            TrọCare <Text style={{ color: Colors.primary }}>Owner</Text>
+          <Text style={styles.appName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.82}>
+            TrọCare <Text style={styles.appNameAccent}>Owner</Text>
           </Text>
           <Text style={styles.tagline}>Nền tảng quản lý phòng trọ thế hệ mới</Text>
         </View>
@@ -344,10 +344,16 @@ const styles = StyleSheet.create({
     height: 44,
   },
   appName: {
-    fontSize: 30,
+    maxWidth: "100%",
+    fontSize: 28,
+    lineHeight: 36,
     fontFamily: Typography.fontFamily.extrabold,
     color: '#0F172A',
-    letterSpacing: -1,
+    letterSpacing: -0.6,
+    textAlign: 'center',
+  },
+  appNameAccent: {
+    color: Colors.primary,
   },
   tagline: {
     fontSize: 13,

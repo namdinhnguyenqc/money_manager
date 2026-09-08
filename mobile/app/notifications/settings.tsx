@@ -6,6 +6,7 @@ import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import { apiGet, apiPatch } from '@/lib/api';
 import { registerPushNotifications } from '@/lib/pushNotifications';
+import { useAppToast } from '@/components/ui/ToastProvider';
 
 type Preferences = {
   notificationsEnabled: boolean;
@@ -26,6 +27,7 @@ const defaults: Preferences = {
 };
 
 export default function NotificationSettingsScreen() {
+  const { showError } = useAppToast();
   const [prefs, setPrefs] = useState(defaults);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<keyof Preferences | null>(null);
@@ -94,7 +96,7 @@ export default function NotificationSettingsScreen() {
       setPrefs({ ...defaults, ...(response?.data || response) });
     } catch {
       setPrefs(previous);
-      Alert.alert('Không lưu được', 'Cài đặt chưa được thay đổi. Vui lòng thử lại.');
+      showError('Cài đặt chưa được thay đổi. Vui lòng thử lại.', 'Không lưu được thông báo');
     } finally {
       setSavingKey(null);
     }

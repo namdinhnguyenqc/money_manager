@@ -19,7 +19,7 @@ export default function DataErrorState({
   return (
     <View style={styles.container} accessibilityRole="alert">
       <View style={styles.icon}>
-        <Ionicons name="cloud-offline-outline" size={24} color={Colors.danger} />
+        <Ionicons name="cloud-offline-outline" size={24} color={Colors.primary} />
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
@@ -30,7 +30,7 @@ export default function DataErrorState({
 
 const styles = StyleSheet.create({
   container: { flex: 1, minHeight: 260, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
-  icon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.dangerLight },
+  icon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primaryLight },
   title: { marginTop: 14, fontSize: 17, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary, textAlign: 'center' },
   message: { marginTop: 6, marginBottom: 18, fontSize: 14, lineHeight: 20, fontFamily: Typography.fontFamily.regular, color: Colors.textSecondary, textAlign: 'center' },
 });

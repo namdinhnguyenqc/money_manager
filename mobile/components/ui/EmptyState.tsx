@@ -28,9 +28,9 @@ export default function EmptyState({
   style,
 }: EmptyStateProps) {
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, style]} accessibilityRole="summary">
       <View style={styles.iconContainer}>
-        <Ionicons name={icon} size={48} color={Colors.textMuted} />
+        <Ionicons name={icon} size={30} color={Colors.primary} />
       </View>
       <Text style={styles.title}>{title}</Text>
       {description && <Text style={styles.description}>{description}</Text>}
@@ -51,17 +51,17 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
+    paddingVertical: 40,
     paddingHorizontal: 32,
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#f1f5f9',
+    width: 60,
+    height: 60,
+    borderRadius: 16,
+    backgroundColor: Colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   title: {
     fontSize: 16,

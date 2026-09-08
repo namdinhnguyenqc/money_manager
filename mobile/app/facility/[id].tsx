@@ -1,7 +1,7 @@
 /**
  * TrọCare Mobile — Boarding House Detail Screen
  * Restructured with premium, high-fidelity landlord metrics.
- * Displays facility information, dynamic financial summary, occupancy progress, and detailed rooms list.
+ * Displays facility information, dynamic financial summary, and detailed rooms list.
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -26,6 +26,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { apiGet, apiDelete } from '@/lib/api';
 import { useFacilityStore } from '@/store/facilityStore';
+import { useAppToast } from '@/components/ui/ToastProvider';
 
 const formatMoney = (v?: number | null) =>
   `${new Intl.NumberFormat('vi-VN').format(Math.round(Number(v || 0)))} ₫`;
@@ -41,6 +42,7 @@ function normalizeRoomStatus(room: any): string {
 export default function FacilityDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { showSuccess, showError } = useAppToast();
 
   const { facilityDetails, fetchFacilityDetail } = useFacilityStore();
   const cachedDetail = id ? facilityDetails[id] : null;
@@ -74,7 +76,7 @@ export default function FacilityDetailScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchData(true);
+      fetchData(false);
     }, [fetchData])
   );
 
@@ -92,9 +94,10 @@ export default function FacilityDetailScreen() {
         onPress: async () => {
           try {
             await apiDelete(`/owner/boarding-houses/${id}`);
+            showSuccess('Cơ sở đã được xoá.');
             router.back();
           } catch (e: any) {
-            Alert.alert('Lỗi', e?.message || 'Không thể xóa.');
+            showError(e?.message || 'Không thể xoá cơ sở.');
           }
         },
       },
@@ -115,14 +118,7 @@ export default function FacilityDetailScreen() {
   const collectedRevenue = bhInvoices.reduce((sum, i) => sum + Number(i.paid_amount || 0), 0);
   const remainingDebt = Math.max(0, projectedRevenue - collectedRevenue);
 
-  // Room Status Stats
   const totalRooms = rooms.length;
-  const occupiedCount = rooms.filter((r) => normalizeRoomStatus(r) === 'occupied').length;
-  const vacantCount = rooms.filter((r) => normalizeRoomStatus(r) === 'vacant').length;
-  const otherCount = rooms.filter(
-    (r) => normalizeRoomStatus(r) === 'maintenance' || normalizeRoomStatus(r) === 'reserved'
-  ).length;
-  const occupancyPercentage = totalRooms > 0 ? (occupiedCount / totalRooms) * 100 : 0;
 
   // Unpaid invoices debt calculation per room
   const getRoomDebt = (roomId: string) => {
@@ -216,39 +212,6 @@ export default function FacilityDetailScreen() {
                 {formatMoney(remainingDebt)}
               </Text>
             </View>
-          </View>
-        </Card>
-
-        {/* Occupancy Status Progress */}
-        <Card style={styles.statusProgressCard}>
-          <View style={styles.statusHeaderRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Ionicons name="bed-outline" size={16} color={Colors.primary} />
-              <Text style={styles.statusTitle}>Tỷ lệ lấp đầy</Text>
-            </View>
-            <Text style={styles.statusPercentageText}>{occupancyPercentage.toFixed(0)}%</Text>
-          </View>
-
-          {/* Sleek iOS-style Progress Bar */}
-          <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: `${occupancyPercentage}%` }]} />
-          </View>
-
-          <View style={styles.statusCountersRow}>
-            <View style={styles.counterItem}>
-              <View style={[styles.counterIndicator, { backgroundColor: Colors.primary }]} />
-              <Text style={styles.counterLabel}>Đang thuê: {occupiedCount}</Text>
-            </View>
-            <View style={styles.counterItem}>
-              <View style={[styles.counterIndicator, { backgroundColor: Colors.success }]} />
-              <Text style={styles.counterLabel}>Phòng trống: {vacantCount}</Text>
-            </View>
-            {otherCount > 0 && (
-              <View style={styles.counterItem}>
-                <View style={[styles.counterIndicator, { backgroundColor: Colors.warning }]} />
-                <Text style={styles.counterLabel}>Bảo trì/Cọc: {otherCount}</Text>
-              </View>
-            )}
           </View>
         </Card>
 

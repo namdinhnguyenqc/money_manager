@@ -14,13 +14,15 @@ import {
   TrendingDown,
   TrendingUp
 } from "lucide-react";
-import Link from "next/link";
 import { 
   loadTransactions, 
   loadWallets, 
+  loadCategories,
+  createCategory,
   formatMoney, 
   deleteTransaction,
-  createTransaction
+  createTransaction,
+  TransactionCategory,
 } from "@/lib/rentalOps";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import EmptyState from "@/components/ops/EmptyState";
@@ -61,10 +63,12 @@ export default function OwnerTransactionsPage() {
   const [formOpen, setFormOpen] = useState(false);
 
   const walletsQuery = useQuery({ queryKey: ["wallets"], queryFn: loadWallets, staleTime: 60_000 });
+  const categoriesQuery = useQuery({ queryKey: ["categories"], queryFn: loadCategories, staleTime: 30_000 });
   const txQuery = useQuery({ queryKey: ["transactions", selectedWalletId], queryFn: loadTransactions, staleTime: 30_000 });
 
   const transactions = txQuery.data ?? [];
   const wallets = walletsQuery.data ?? [];
+  const categories = categoriesQuery.data ?? [];
 
   const filteredTxs = useMemo(() => {
     let result = transactions;
@@ -113,7 +117,7 @@ export default function OwnerTransactionsPage() {
     }
   };
 
-  if (txQuery.isLoading || walletsQuery.isLoading) return <div className="p-8"><LoadingSkeleton rows={12} /></div>;
+  if (txQuery.isLoading || walletsQuery.isLoading || categoriesQuery.isLoading) return <div className="p-8"><LoadingSkeleton rows={12} /></div>;
 
   return (
     <div className="mx-auto max-w-7xl animate-in fade-in duration-500">
@@ -123,14 +127,9 @@ export default function OwnerTransactionsPage() {
         description="Quản lý dòng tiền, thu chi và biến động số dư các ví."
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" icon={<Plus size={16} />} onClick={() => setFormOpen(true)}>
-              Nhanh
+            <Button variant="primary" icon={<Plus size={16} />} onClick={() => setFormOpen(true)}>
+              Thêm giao dịch
             </Button>
-            <Link href="/owner/transactions/new">
-              <Button variant="primary" icon={<Plus size={16} />}>
-                Thêm giao dịch
-              </Button>
-            </Link>
           </div>
         }
       />
@@ -252,6 +251,7 @@ export default function OwnerTransactionsPage() {
       {formOpen ? (
         <TransactionForm
           wallets={wallets}
+          categories={categories}
           onClose={() => setFormOpen(false)}
           onSaved={() => {
             setFormOpen(false);
@@ -272,9 +272,23 @@ export default function OwnerTransactionsPage() {
   );
 }
 
-function TransactionForm({ wallets, onClose, onSaved }: { wallets: Array<{ id: string; name: string }>; onClose: () => void; onSaved: () => void }) {
+function TransactionForm({
+  wallets,
+  categories,
+  onClose,
+  onSaved,
+}: {
+  wallets: Array<{ id: string; name: string }>;
+  categories: TransactionCategory[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const today = new Date().toISOString().slice(0, 10);
-  const [form, setForm] = useState({ type: "expense" as "income" | "expense", amount: "", description: "", walletId: String(wallets[0]?.id || ""), date: today });
+  const [form, setForm] = useState({ type: "expense" as "income" | "expense", amount: "", description: "", categoryId: "", walletId: String(wallets[0]?.id || ""), date: today });
+  const [availableCategories, setAvailableCategories] = useState(categories);
+  const [categoryFormOpen, setCategoryFormOpen] = useState(false);
+  const [categoryName, setCategoryName] = useState("");
+  const [creatingCategory, setCreatingCategory] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -286,12 +300,42 @@ function TransactionForm({ wallets, onClose, onSaved }: { wallets: Array<{ id: s
     setSaving(true);
     setError("");
     try {
-      await createTransaction({ ...form, amount, description: form.description.trim() });
+      await createTransaction({ ...form, amount, categoryId: form.categoryId || undefined, description: form.description.trim() });
       onSaved();
     } catch (err: any) {
       setError(err?.message || "Không tạo được giao dịch.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  useEffect(() => setAvailableCategories(categories), [categories]);
+
+  const filteredCategories = availableCategories.filter((category) => category.type === form.type);
+
+  const addCategory = async () => {
+    const name = categoryName.trim();
+    if (!name) return setError("Nhập tên danh mục trước khi thêm.");
+    if (!form.walletId) return setError("Chọn ví trước khi thêm danh mục.");
+
+    setCreatingCategory(true);
+    setError("");
+    try {
+      const category = await createCategory({
+        name,
+        type: form.type,
+        walletId: form.walletId,
+        icon: form.type === "income" ? "💰" : "🧾",
+        color: form.type === "income" ? "#059669" : "#dc2626",
+      });
+      setAvailableCategories((current) => [...current, category]);
+      setForm((current) => ({ ...current, categoryId: category.id }));
+      setCategoryName("");
+      setCategoryFormOpen(false);
+    } catch (err: any) {
+      setError(err?.message || "Không thêm được danh mục.");
+    } finally {
+      setCreatingCategory(false);
     }
   };
 
@@ -308,7 +352,7 @@ function TransactionForm({ wallets, onClose, onSaved }: { wallets: Array<{ id: s
         {error ? <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
         <div className="mb-4 grid grid-cols-2 gap-2">
           {(["income", "expense"] as const).map((type) => (
-            <button key={type} type="button" onClick={() => setForm((prev) => ({ ...prev, type }))} className={`rounded-[8px] border px-3 py-2 text-sm font-semibold ${form.type === type ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600"}`}>
+            <button key={type} type="button" onClick={() => setForm((prev) => ({ ...prev, type, categoryId: "" }))} className={`rounded-[8px] border px-3 py-2 text-sm font-semibold ${form.type === type ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600"}`}>
               {type === "income" ? "Khoản thu" : "Khoản chi"}
             </button>
           ))}
@@ -317,6 +361,25 @@ function TransactionForm({ wallets, onClose, onSaved }: { wallets: Array<{ id: s
           <label><span className="mb-1 block text-sm font-medium text-slate-700">Số tiền *</span><Input type="number" min="1" value={form.amount} onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))} /></label>
           <label><span className="mb-1 block text-sm font-medium text-slate-700">Ngày *</span><Input type="date" value={form.date} onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))} /></label>
           <label className="sm:col-span-2"><span className="mb-1 block text-sm font-medium text-slate-700">Ví *</span><select className="input" value={form.walletId} onChange={(e) => setForm((prev) => ({ ...prev, walletId: e.target.value }))}>{wallets.map((wallet) => <option key={wallet.id} value={wallet.id}>{wallet.name}</option>)}</select></label>
+          <div className="sm:col-span-2">
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <span className="block text-sm font-medium text-slate-700">Danh mục</span>
+              <button type="button" onClick={() => setCategoryFormOpen((open) => !open)} className="text-sm font-semibold text-blue-700 hover:text-blue-800">
+                + Thêm danh mục
+              </button>
+            </div>
+            <select className="input" value={form.categoryId} onChange={(e) => setForm((prev) => ({ ...prev, categoryId: e.target.value }))}>
+              <option value="">— Không chọn —</option>
+              {filteredCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+            </select>
+            {categoryFormOpen ? (
+              <div className="mt-3 flex flex-col gap-2 rounded-[8px] border border-blue-100 bg-blue-50 p-3 sm:flex-row">
+                <Input value={categoryName} onChange={(e) => setCategoryName(e.target.value)} placeholder={`Tên danh mục ${form.type === "income" ? "thu" : "chi"}`} />
+                <Button type="button" variant="primary" loading={creatingCategory} disabled={creatingCategory} onClick={addCategory} className="shrink-0">Thêm</Button>
+              </div>
+            ) : null}
+            {filteredCategories.length === 0 && !categoryFormOpen ? <p className="mt-1 text-xs text-slate-500">Chưa có danh mục {form.type === "income" ? "thu" : "chi"}; thêm nhanh một mục để dễ theo dõi.</p> : null}
+          </div>
           <label className="sm:col-span-2"><span className="mb-1 block text-sm font-medium text-slate-700">Mô tả</span><Input value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} /></label>
         </div>
         <div className="mt-5 flex justify-end gap-2">

@@ -139,7 +139,9 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
   const [isSettingsOpen, setIsSettingsOpen] = useState(() => Boolean(pathname && pathname.startsWith("/owner/settings")));
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationItems, setNotificationItems] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(3);
+  // Never show a made-up badge while the notification request is in flight.
+  // The API response is the only source of truth for unread state.
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchHeaderNotifications = useCallback(async () => {
     try {
@@ -205,34 +207,6 @@ export default function OwnerWorkspaceShell({ children }: { children: React.Reac
     }
     
     return true;
-  };
-
-const getPageTitle = (path: string) => {
-    if (path === "/owner/dashboard") return "Dashboard";
-    if (path.startsWith("/owner/boarding-houses") || path.startsWith("/facilities")) return "Cơ sở";
-    if (path.startsWith("/rooms")) return "Phòng";
-    if (path.startsWith("/owner/tenants")) return "Khách thuê";
-    if (path.startsWith("/contracts") || path === "/owner/rental") return "Hợp đồng";
-    if (path.startsWith("/invoices")) return "Hóa đơn";
-    if (path.startsWith("/deposits")) return "Tiền cọc";
-    if (path.startsWith("/payments")) return "Thu tiền";
-    if (path.startsWith("/owner/transactions")) return "Số thu chi";
-
-    if (path.startsWith("/owner/profile")) return "Hồ sơ chủ trọ";
-    if (path.startsWith("/owner/settings") || path === "/settings") {
-      const tab = currentSearchParams?.get("tab");
-      if (tab === "sepay-logs") return "Kết nối SePay";
-      if (tab === "zalo") return "Kết nối Zalo";
-      if (tab === "notifications") return "Nhận thông báo";
-      if (tab === "overdue") return "Hạn thanh toán & quá hạn";
-      if (tab === "pricing") return "Bảng giá dịch vụ";
-      if (tab === "categories") return "Danh mục thu chi";
-      if (tab === "extension") return "Ví & Dòng tiền";
-      return "Cài đặt hệ thống";
-    }
-    if (path.startsWith("/owner/feedback")) return "Báo cáo lỗi / Góp ý";
-    if (path.startsWith("/owner/notifications")) return "Thông báo hệ thống";
-    return "Hệ thống quản lý TrọCare";
   };
 
   useEffect(() => { setDemo(isDemoMode()); }, []);
@@ -677,10 +651,7 @@ const getPageTitle = (path: string) => {
       </header>
 
         {/* Desktop Header */}
-        <header className="hidden lg:flex items-center justify-between bg-white border-b border-slate-100 px-6 py-3.5 sticky top-0 z-20">
-          <div className="flex items-center gap-3">
-            <span className="text-base font-extrabold text-blue-600 tracking-tight">{getPageTitle(pathname)}</span>
-          </div>
+        <header className="hidden lg:flex items-center justify-end bg-white border-b border-slate-100 px-6 py-3.5 sticky top-0 z-20">
           <div className="flex items-center gap-4">
             
 

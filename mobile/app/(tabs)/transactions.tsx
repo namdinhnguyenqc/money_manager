@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -155,13 +155,17 @@ export default function TransactionsScreen() {
   const [deletingTx, setDeletingTx] = useState<any | null>(null);
   const [selectedTx, setSelectedTx] = useState<any | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const hasLoadedRef = useRef(false);
 
   const fetchData = useCallback(async (isRef = false) => {
     const tab = "transactions";
     logPerfEvent("SECONDARY_DATA_START", { tab, forceRefresh: isRef, walletId: activeWalletId || null });
     try {
       if (isRef) setRefreshing(true);
-      else setLoading(true);
+      // Returning to this tab should retain its usable ledger instead of
+      // replacing it with a full-screen loader. A mutation clears API cache,
+      // while explicit pull-to-refresh remains available for an immediate read.
+      else if (!hasLoadedRef.current) setLoading(true);
 
       // Start filter-only requests in parallel, but never block the ledger UI on them.
       const supplementalDataPromise = Promise.all([
@@ -200,6 +204,7 @@ export default function TransactionsScreen() {
       logPerfEvent("TAB_DATA_READY_TRANSACTIONS", { success: false, message: String(e?.message || e) });
       logPerfEvent("SECONDARY_DATA_READY", { tab, success: false });
     } finally {
+      hasLoadedRef.current = true;
       setLoading(false);
       setRefreshing(false);
     }

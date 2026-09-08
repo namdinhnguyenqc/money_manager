@@ -6,7 +6,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, Alert, RefreshControl, KeyboardAvoidingView, Platform,
+  TouchableOpacity, RefreshControl, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -14,12 +14,14 @@ import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
+import { useAppToast } from '@/components/ui/ToastProvider';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { loadProfile, updateProfile, type OwnerProfile } from '@/lib/profile';
 import { useAuthStore } from '@/store/authStore';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { showSuccess, showError } = useAppToast();
   const { user } = useAuthStore();
   const [profile, setProfile] = useState<OwnerProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,19 +62,19 @@ export default function ProfileScreen() {
 
   const handleSave = async () => {
     if (!form.fullName.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập họ tên.');
+      showError('Vui lòng nhập họ tên.', 'Thiếu thông tin');
       return;
     }
 
     const phone = form.phone.trim();
     if (!/^(0|\+84)\d{9,10}$/.test(phone)) {
-      Alert.alert('Lỗi', 'Vui lòng nhập số điện thoại hợp lệ.');
+      showError('Vui lòng nhập số điện thoại hợp lệ.', 'Thông tin không hợp lệ');
       return;
     }
 
     const addressLine = form.address.trim();
     if (addressLine.length < 5) {
-      Alert.alert('Lỗi', 'Vui lòng nhập địa chỉ chi tiết.');
+      showError('Vui lòng nhập địa chỉ chi tiết.', 'Thiếu thông tin');
       return;
     }
 
@@ -89,11 +91,11 @@ export default function ProfileScreen() {
         districtCode: profile?.districtCode || 'mobile',
         districtName: profile?.districtName || 'Chưa cập nhật',
       });
-      Alert.alert('Thành công', 'Đã cập nhật hồ sơ.');
+      showSuccess('Hồ sơ đã được cập nhật.');
       setEditing(false);
       fetchData();
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.message || 'Không thể cập nhật hồ sơ.');
+      showError(err?.message || 'Không thể cập nhật hồ sơ.', 'Cập nhật chưa thành công');
     } finally {
       setSaving(false);
     }
@@ -116,6 +118,8 @@ export default function ProfileScreen() {
         style={styles.container}
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {/* Header */}
         <View style={styles.header}>

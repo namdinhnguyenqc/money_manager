@@ -28,10 +28,10 @@ type FeedbackReport = {
 };
 
 const statusMap = {
-  new: { label: 'Mới gửi', color: '#0071e3', bg: 'rgba(0, 113, 227, 0.08)' },
-  in_progress: { label: 'Đang xử lý', color: '#EAB308', bg: 'rgba(234, 179, 8, 0.08)' },
-  resolved: { label: 'Đã xử lý xong', color: '#0D9488', bg: 'rgba(13, 148, 136, 0.08)' },
-  reopened: { label: 'Yêu cầu lại', color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.08)' },
+  new: { label: 'Mới gửi', color: Colors.primary, bg: Colors.primaryLight },
+  in_progress: { label: 'Đang xử lý', color: Colors.warning, bg: Colors.warningLight },
+  resolved: { label: 'Đã xử lý xong', color: Colors.successDark, bg: Colors.successLight },
+  reopened: { label: 'Yêu cầu lại', color: Colors.danger, bg: Colors.dangerLight },
   closed: { label: 'Đã đóng', color: '#94A3B8', bg: 'rgba(148, 163, 184, 0.08)' },
 };
 

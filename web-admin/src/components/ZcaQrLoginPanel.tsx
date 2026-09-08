@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { AlertCircle, CheckCircle2, LogOut, QrCode, RefreshCw } from "lucide-react";
+import { AlertCircle, CheckCircle2, LogOut, QrCode } from "lucide-react";
 import { apiGet, apiPost } from "@/utils/apiClient";
 import Button from "@/components/ui/Button";
 
@@ -148,9 +148,6 @@ export default function ZcaQrLoginPanel() {
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" icon={<RefreshCw size={14} />} onClick={loadStatus} disabled={loading} className="rounded-[8px]">
-            Làm mới
-          </Button>
           {status?.connected ? (
             <Button variant="outline" icon={<LogOut size={14} />} onClick={disconnect} disabled={disconnecting} className="rounded-[8px] border-red-200 text-red-600 hover:bg-red-50">
               Ngắt
@@ -181,9 +178,6 @@ export default function ZcaQrLoginPanel() {
               </div>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" icon={<RefreshCw size={14} />} onClick={loadStatus} disabled={loading} className="rounded-[8px] bg-white">
-                Làm mới
-              </Button>
               <Button variant="outline" icon={<LogOut size={14} />} onClick={disconnect} disabled={disconnecting} className="rounded-[8px] border-red-200 bg-white text-red-600 hover:bg-red-50">
                 Ngắt
               </Button>

@@ -10,7 +10,6 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  ActivityIndicator,
   SafeAreaView,
   TouchableOpacity,
 } from 'react-native';
@@ -20,6 +19,8 @@ import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Card from '@/components/ui/Card';
 import EmptyState from '@/components/ui/EmptyState';
+import { ListItemSkeleton } from '@/components/ui/Skeleton';
+import DataErrorState from '@/components/ui/DataErrorState';
 import { apiGet, apiPost } from '@/lib/api';
 
 export default function NotificationsScreen() {
@@ -142,10 +143,13 @@ export default function NotificationsScreen() {
 
       <View style={styles.container}>
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Đang tải thông báo...</Text>
+          <View style={styles.loadingContainer} accessibilityLabel="Đang tải thông báo">
+            <ListItemSkeleton />
+            <ListItemSkeleton />
+            <ListItemSkeleton />
           </View>
+        ) : loadError && notifications.length === 0 ? (
+          <DataErrorState message="Không tải được thông báo. Vui lòng thử lại." onRetry={() => fetchNotifications()} />
         ) : (
           <FlatList
             data={notifications}
@@ -219,8 +223,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   container: { flex: 1 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 12, fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  loadingContainer: { flex: 1, padding: 16, gap: 12 },
   list: { padding: 16, gap: 12 },
   summaryBar: {
     flexDirection: 'row',

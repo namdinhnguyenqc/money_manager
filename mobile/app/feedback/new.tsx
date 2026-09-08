@@ -9,6 +9,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -17,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import { apiPost } from '@/lib/api';
+import { useAppToast } from '@/components/ui/ToastProvider';
 
 type AttachmentPayload = {
   fileUrl: string;
@@ -26,6 +29,7 @@ type AttachmentPayload = {
 
 export default function NewFeedbackScreen() {
   const router = useRouter();
+  const { showSuccess, showError } = useAppToast();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState<'bug' | 'suggestion' | 'support'>('bug');
@@ -77,11 +81,11 @@ export default function NewFeedbackScreen() {
 
   const handleSubmit = async () => {
     if (!title.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập tiêu đề ngắn gọn.');
+      showError('Vui lòng nhập tiêu đề ngắn gọn.', 'Thiếu thông tin');
       return;
     }
     if (!description.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng mô tả chi tiết lỗi hoặc góp ý.');
+      showError('Vui lòng mô tả chi tiết lỗi hoặc góp ý.', 'Thiếu thông tin');
       return;
     }
 
@@ -97,11 +101,10 @@ export default function NewFeedbackScreen() {
         attachments,
       });
 
-      Alert.alert('Thành công', 'Báo cáo lỗi/góp ý của bạn đã được gửi thành công.', [
-        { text: 'Xác nhận', onPress: () => router.back() },
-      ]);
+      showSuccess('Báo cáo lỗi/góp ý đã được gửi.');
+      router.back();
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể gửi báo cáo lỗi. Vui lòng thử lại.');
+      showError(err.message || 'Không thể gửi báo cáo lỗi. Vui lòng thử lại.', 'Gửi báo cáo chưa thành công');
     } finally {
       setSubmitting(false);
     }
@@ -117,7 +120,8 @@ export default function NewFeedbackScreen() {
         <View style={{ width: 44 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Tiêu đề lỗi / góp ý *</Text>
           <TextInput
@@ -180,7 +184,7 @@ export default function NewFeedbackScreen() {
             {(['low', 'medium', 'high', 'urgent'] as const).map((p) => {
               const active = priority === p;
               const labels = { low: 'Thấp', medium: 'Vừa', high: 'Cao', urgent: 'Khẩn' };
-              const colors = { low: '#94A3B8', medium: '#0071e3', high: '#EAB308', urgent: '#F43F5E' };
+              const colors = { low: '#94A3B8', medium: Colors.primary, high: Colors.warning, urgent: Colors.danger };
               return (
                 <TouchableOpacity
                   key={p}
@@ -253,6 +257,7 @@ export default function NewFeedbackScreen() {
           )}
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -262,6 +267,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  flex: { flex: 1 },
   header: {
     height: 56,
     flexDirection: 'row',
@@ -414,7 +420,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: 'rgba(244, 63, 94, 0.8)',
+    backgroundColor: '#DC2626',
     alignItems: 'center',
     justifyContent: 'center',
   },

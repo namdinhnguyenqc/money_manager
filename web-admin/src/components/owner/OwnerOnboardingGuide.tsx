@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Building2,
   Home,
@@ -20,6 +21,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { apiGet } from "@/utils/apiClient";
+import { getStoredSessionUser } from "@/utils/session";
 
 export interface OnboardingStepItem {
   id: string;
@@ -34,11 +36,24 @@ export interface OnboardingStepItem {
   tip?: string;
 }
 
+/**
+ * Onboarding progress belongs to the signed-in owner, never to the browser.
+ * Email is already available in the local session and is stable for the
+ * current account; it also avoids an extra auth request before dashboard data
+ * starts loading.
+ */
+function getOnboardingCacheKey() {
+  if (typeof window === "undefined") return null;
+  const email = getStoredSessionUser().email?.trim().toLowerCase();
+  return email ? `trocare_onboarding_completed:${email}` : null;
+}
+
 export default function OwnerOnboardingGuide({
   onOpenModal,
 }: {
   onOpenModal?: () => void;
 }) {
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<Record<string, boolean>>({
     house: false,
@@ -49,7 +64,8 @@ export default function OwnerOnboardingGuide({
   });
   const [cachedCompleted, setCachedCompleted] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("trocare_onboarding_completed") === "true";
+      const cacheKey = getOnboardingCacheKey();
+      return cacheKey ? localStorage.getItem(cacheKey) === "true" : false;
     }
     return false;
   });
@@ -77,17 +93,12 @@ export default function OwnerOnboardingGuide({
 
   // Auto-detect completed steps by inspecting owner data count
   useEffect(() => {
-    if (cachedCompleted) {
-      setLoading(false);
-      return;
-    }
-
     const detectProgress = async () => {
       try {
         const [housesRes, roomsRes, servicesRes, contractsRes, invoicesRes] = await Promise.allSettled([
           apiGet<{ data?: any[] }>("/owner/boarding-houses"),
           apiGet<{ data?: any[] }>("/rental/rooms"),
-          apiGet<{ data?: any[] }>("/rental/services"),
+          apiGet<{ data?: any[] }>("/rental/services?activeOnly=0"),
           apiGet<{ data?: any[] }>("/rental/contracts"),
           apiGet<{ data?: any[] }>("/invoices"),
         ]);
@@ -106,7 +117,13 @@ export default function OwnerOnboardingGuide({
 
         const isAllDone = houseDone && roomDone && serviceDone && contractDone && invoiceDone;
         if (typeof window !== "undefined") {
-          localStorage.setItem("trocare_onboarding_completed", isAllDone ? "true" : "false");
+          // Remove the legacy browser-wide key once. It could incorrectly hide
+          // the guide for a different owner who logs in on the same browser.
+          localStorage.removeItem("trocare_onboarding_completed");
+          const cacheKey = getOnboardingCacheKey();
+          if (cacheKey) {
+            localStorage.setItem(cacheKey, isAllDone ? "true" : "false");
+          }
         }
         setCachedCompleted(isAllDone);
 
@@ -125,7 +142,7 @@ export default function OwnerOnboardingGuide({
     };
 
     detectProgress();
-  }, []);
+  }, [pathname]);
 
   const steps: OnboardingStepItem[] = [
     {

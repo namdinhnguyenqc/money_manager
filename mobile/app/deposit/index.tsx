@@ -3,7 +3,7 @@
  * View all reservation deposits, filter by status, change statuses (cancel/refund/transfer), and create new deposits.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,9 @@ import {
   ActivityIndicator,
   SafeAreaView,
   Modal,
-  Alert,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,18 +25,22 @@ import Card from '@/components/ui/Card';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import Toast from '@/components/ui/Toast';
+import { ListItemSkeleton } from '@/components/ui/Skeleton';
+import DataErrorState from '@/components/ui/DataErrorState';
+import { useAppToast } from '@/components/ui/ToastProvider';
 import { loadDeposits, updateDepositStatus, formatMoney, DepositStatus } from '@/lib/rentalOps';
 
 export default function DepositsScreen() {
   const router = useRouter();
+  const { showSuccess, showError } = useAppToast();
+  const hasLoadedRef = useRef(false);
 
   // State
   const [deposits, setDeposits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [filter, setFilter] = useState<'all' | DepositStatus>('all');
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Status Action Modal State
   const [selectedDeposit, setSelectedDeposit] = useState<any | null>(null);
@@ -43,32 +48,26 @@ export default function DepositsScreen() {
   const [statusNote, setStatusNote] = useState('');
   const [savingAction, setSavingAction] = useState(false);
 
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-  };
-
   const fetchDeposits = useCallback(async (isRef = false) => {
     try {
+      setLoadError('');
       if (isRef) setRefreshing(true);
       else setLoading(true);
 
       const list = await loadDeposits();
       setDeposits(list);
+      hasLoadedRef.current = true;
     } catch (e: any) {
-      showToast(e?.message || 'Không tải được danh sách tiền cọc giữ phòng.', 'error');
+      setLoadError(e?.message || 'Không tải được danh sách tiền cọc giữ phòng.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchDeposits();
-  }, [fetchDeposits]);
-
   useFocusEffect(
     useCallback(() => {
-      fetchDeposits(true);
+      if (!hasLoadedRef.current) fetchDeposits();
     }, [fetchDeposits])
   );
 
@@ -84,12 +83,12 @@ export default function DepositsScreen() {
     try {
       setSavingAction(true);
       await updateDepositStatus(selectedDeposit.id, actionStatus, statusNote.trim() || undefined);
-      showToast('Cập nhật trạng thái tiền cọc giữ phòng thành công!', 'success');
+      showSuccess('Trạng thái tiền cọc đã được cập nhật.', 'Đã cập nhật tiền cọc');
       setSelectedDeposit(null);
       setActionStatus(null);
       fetchDeposits();
     } catch (e: any) {
-      Alert.alert('Lỗi cập nhật', e?.message || 'Không thể thay đổi trạng thái tiền cọc.');
+      showError(e?.message || 'Không thể thay đổi trạng thái tiền cọc.', 'Cập nhật chưa thành công');
     } finally {
       setSavingAction(false);
     }
@@ -193,10 +192,13 @@ export default function DepositsScreen() {
         </View>
 
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Đang tải tiền cọc giữ phòng...</Text>
+          <View style={styles.loadingContainer} accessibilityLabel="Đang tải tiền cọc giữ phòng">
+            <ListItemSkeleton />
+            <ListItemSkeleton />
+            <ListItemSkeleton />
           </View>
+        ) : loadError && deposits.length === 0 ? (
+          <DataErrorState message={loadError} onRetry={() => fetchDeposits()} />
         ) : (
           <FlatList
             data={filtered}
@@ -293,7 +295,7 @@ export default function DepositsScreen() {
       {/* Action Dialog / Note Picker */}
       <Modal visible={!!selectedDeposit} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <SafeAreaView style={styles.modalContent}>
+          <KeyboardAvoidingView style={styles.modalContent} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {actionStatus === 'refunded' ? 'Xác nhận hoàn trả cọc' : 'Xác nhận hủy cọc'}
@@ -339,16 +341,9 @@ export default function DepositsScreen() {
                 icon={savingAction ? <ActivityIndicator size="small" color="#fff" /> : undefined}
               />
             </View>
-          </SafeAreaView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
-
-      <Toast
-        visible={!!toast}
-        message={toast?.message || ''}
-        type={toast?.type}
-        onDismiss={() => setToast(null)}
-      />
     </SafeAreaView>
   );
 }
@@ -370,8 +365,7 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: Colors.primary },
   tabText: { fontSize: 11, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
   tabTextActive: { color: Colors.textWhite },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 12, fontSize: 14, fontFamily: Typography.fontFamily.medium, color: Colors.textSecondary },
+  loadingContainer: { flex: 1, padding: 16, gap: 12 },
   list: { padding: 16, gap: 14 },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80, gap: 8 },
   emptyTitle: { fontSize: 16, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },

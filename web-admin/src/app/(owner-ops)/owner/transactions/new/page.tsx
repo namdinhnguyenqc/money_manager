@@ -71,6 +71,7 @@ export default function NewTransactionPage() {
         type: form.type,
         amount,
         description: form.description.trim(),
+        categoryId: form.categoryId || undefined,
         walletId: form.walletId,
         date: form.date,
       });
@@ -175,7 +176,12 @@ export default function NewTransactionPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label>Hạng mục</Label>
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <Label>Hạng mục</Label>
+                <Link href="/owner/transactions/categories" className="text-xs font-semibold text-blue-700 hover:text-blue-800">
+                  + Thêm danh mục
+                </Link>
+              </div>
               {loadingData ? (
                 <div className="h-10 animate-pulse rounded-lg bg-slate-100" />
               ) : (

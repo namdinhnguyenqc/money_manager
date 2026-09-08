@@ -6,7 +6,7 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, Alert, Modal, Pressable,
+  View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, Alert, Modal, Pressable, ScrollView,
 } from 'react-native';
 import { useFocusEffect, useRouter, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +16,8 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import EmptyState from '@/components/ui/EmptyState';
 import DataErrorState from '@/components/ui/DataErrorState';
 import { ListItemSkeleton } from '@/components/ui/Skeleton';
-import { apiGet, getAccessToken } from '@/lib/api';
+import { apiGet, apiPost, getAccessToken, getPersistentApiCache } from '@/lib/api';
+import { useAppToast } from '@/components/ui/ToastProvider';
 import { loadPendingBilling } from '@/lib/rentalOps';
 import { logPerfEvent } from '@/lib/telemetry/appPerformance';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -80,6 +81,7 @@ function matchesStatus(invoice: any, filter: FilterTab, period: { month: number;
 
 export default function InvoicesScreen() {
   const router = useRouter();
+  const { showToast, showSuccess } = useAppToast();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -88,6 +90,9 @@ export default function InvoicesScreen() {
   const [showExportOptions, setShowExportOptions] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [pendingCount, setPendingCount] = useState(0);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
+  const [selectingForZalo, setSelectingForZalo] = useState(false);
+  const [zaloSending, setZaloSending] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState(() => {
     const today = new Date();
     return { month: today.getMonth() + 1, year: today.getFullYear() };
@@ -154,8 +159,17 @@ export default function InvoicesScreen() {
     logPerfEvent("SECONDARY_DATA_START", { tab, forceRefresh, month: selectedPeriod.month, year: selectedPeriod.year });
     try {
       setLoadError('');
+      const invoicePath = `/invoices?month=${selectedPeriod.month}&year=${selectedPeriod.year}&includeOverdueCarryover=true`;
+      if (!forceRefresh) {
+        const cached = await getPersistentApiCache<any>(invoicePath, 24 * 60 * 60 * 1000);
+        if (cached?.data) {
+          setInvoices(cached.data);
+          setLoading(false);
+          logPerfEvent('TAB_DATA_READY_INVOICES', { success: true, source: 'persistent-cache', itemCount: cached.data.length });
+        }
+      }
       const [res, pending] = await Promise.all([
-        apiGet<any>(`/invoices?month=${selectedPeriod.month}&year=${selectedPeriod.year}&includeOverdueCarryover=true`, { forceRefresh }),
+        apiGet<any>(invoicePath, { forceRefresh, persistCache: true }),
         loadPendingBilling(selectedPeriod.month, selectedPeriod.year),
       ]);
       const items = res?.data ?? [];
@@ -219,6 +233,48 @@ export default function InvoicesScreen() {
     [invoices, selectedPeriod],
   );
 
+  const exitZaloSelection = () => {
+    setSelectingForZalo(false);
+    setSelectedInvoiceIds([]);
+  };
+
+  const toggleInvoiceSelection = (invoiceId: string) => {
+    setSelectedInvoiceIds((current) => current.includes(invoiceId)
+      ? current.filter((id) => id !== invoiceId)
+      : [...current, invoiceId]);
+  };
+
+  const sendInvoicesViaZalo = async (invoiceIds: string[]) => {
+    if (!invoiceIds.length || zaloSending) return;
+    setZaloSending(true);
+    try {
+      // The bulk endpoint validates each invoice independently: paid invoices
+      // are skipped and a bad phone/Zalo account never stops the whole batch.
+      const response = await apiPost<any>('/api/invoices/send-zalo-bulk?mode=sync', { invoiceIds }, { timeoutMs: 120000 });
+      const summary = response?.data ?? response;
+      const sent = summary?.sent?.length ?? 0;
+      const paidSkipped = summary?.paidSkipped?.length ?? 0;
+      const missingPhone = summary?.missingPhone ?? [];
+      const zaloNotFound = summary?.zaloNotFound ?? [];
+      const failed = summary?.failed ?? [];
+      const unresolved = [...missingPhone, ...zaloNotFound, ...failed];
+      const headline = `Đã chọn ${invoiceIds.length} • Gửi thành công ${sent} • Đã thanh toán bỏ qua ${paidSkipped} • Thiếu SĐT ${missingPhone.length} • Chưa gửi được ${zaloNotFound.length + failed.length}`;
+
+      if (sent > 0) showSuccess(headline, 'Đã gửi qua Zalo');
+      else showToast(headline, 'warning', 'Chưa gửi được hóa đơn nào');
+
+      if (unresolved.length) {
+        const details = unresolved.slice(0, 8).map((item: any) => `${item.roomName || 'Phòng'} · ${item.tenantName || 'Khách thuê'}${item.reason ? `: ${item.reason}` : ''}`).join('\n');
+        Alert.alert('Cần xử lý trước khi gửi lại', `${headline}\n\n${details}${unresolved.length > 8 ? `\n… và ${unresolved.length - 8} hóa đơn khác` : ''}`);
+      }
+      exitZaloSelection();
+    } catch (error: any) {
+      showToast(error?.message || 'Không gửi được hóa đơn. Kiểm tra kết nối Zalo rồi thử lại.', 'error', 'Gửi Zalo thất bại');
+    } finally {
+      setZaloSending(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -243,7 +299,16 @@ export default function InvoicesScreen() {
           headerShown: true,
           title: 'Hóa đơn',
           headerTitle: 'Quản lý hóa đơn',
-          headerRight: () => null,
+          headerRight: () => (
+            <TouchableOpacity
+              style={styles.headerZaloButton}
+              onPress={() => selectingForZalo ? exitZaloSelection() : setSelectingForZalo(true)}
+              disabled={zaloSending}
+            >
+              <Ionicons name={selectingForZalo ? 'close-outline' : 'logo-wechat'} size={18} color={Colors.primary} />
+              <Text style={styles.headerZaloButtonText}>{selectingForZalo ? 'Hủy' : 'Gửi Zalo'}</Text>
+            </TouchableOpacity>
+          ),
         }}
       />
       {/* Period Picker Header */}
@@ -274,66 +339,54 @@ export default function InvoicesScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Filter Tabs */}
-      <View style={styles.tabContent}>
-        {[TABS.slice(0, 3), TABS.slice(3)].map((row, rowIndex) => (
-          <View key={rowIndex} style={styles.tabRow}>
-            {row.map((tab) => (
-              <TouchableOpacity
-                key={tab.key}
-                style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-                onPress={() => setActiveTab(tab.key)}
-                accessibilityRole="tab"
-                accessibilityLabel={`${tab.label}, ${filterCounts[tab.key]} hóa đơn`}
-                accessibilityState={{ selected: activeTab === tab.key }}
-              >
-                <Text numberOfLines={1} style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
-                  {tab.label}
-                </Text>
-                <View style={[styles.tabCountPill, activeTab === tab.key && styles.tabCountPillActive]}>
-                  <Text style={[styles.tabCount, activeTab === tab.key && styles.tabCountActive]}>
-                    {filterCounts[tab.key]}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
+      {/* A single horizontal filter row keeps the list above the fold. */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabContent}>
+        {TABS.map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+            onPress={() => setActiveTab(tab.key)}
+            accessibilityRole="tab"
+            accessibilityLabel={`${tab.label}, ${filterCounts[tab.key]} hóa đơn`}
+            accessibilityState={{ selected: activeTab === tab.key }}
+          >
+            <Text numberOfLines={1} style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+              {tab.label}
+            </Text>
+            <View style={[styles.tabCountPill, activeTab === tab.key && styles.tabCountPillActive]}>
+              <Text style={[styles.tabCount, activeTab === tab.key && styles.tabCountActive]}>
+                {filterCounts[tab.key]}
+              </Text>
+            </View>
+          </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
-      {/* Bulk Invoice Entry */}
-      <TouchableOpacity
-        style={[styles.pendingBanner, pendingCount === 0 && styles.pendingBannerMuted, { shadowColor: Colors.primary }]}
-        onPress={() => router.push({
-          pathname: '/invoice/bulk',
-          params: { month: selectedPeriod.month, year: selectedPeriod.year }
-        })}
-        activeOpacity={0.8}
-      >
-        <View style={styles.pendingBannerLeft}>
-          <View style={[styles.pendingBadge, pendingCount === 0 && styles.pendingBadgeMuted]}>
-            <Ionicons
-              name={pendingCount > 0 ? 'alert-circle-outline' : 'receipt-outline'}
-              size={16}
-              color={pendingCount > 0 ? Colors.primary : Colors.textSecondary}
-            />
+      {/* Only surface this task when there are rooms that still need an invoice. */}
+      {pendingCount > 0 && (
+        <TouchableOpacity
+          style={styles.pendingBanner}
+          onPress={() => router.push({
+            pathname: '/invoice/bulk',
+            params: { month: selectedPeriod.month, year: selectedPeriod.year }
+          })}
+          activeOpacity={0.8}
+        >
+          <View style={styles.pendingBannerLeft}>
+            <View style={styles.pendingBadge}>
+              <Ionicons name="alert-circle-outline" size={16} color={Colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.pendingBannerTitle}>Có {pendingCount} phòng chưa lập hóa đơn</Text>
+              <Text style={styles.pendingBannerSub}>Kỳ đóng tiền tháng {selectedPeriod.month}/{selectedPeriod.year}</Text>
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.pendingBannerTitle}>
-              {pendingCount > 0 ? `Có ${pendingCount} phòng chưa lập hóa đơn` : 'Lập hóa đơn hàng loạt'}
-            </Text>
-            <Text style={styles.pendingBannerSub}>
-              {pendingCount > 0
-                ? `Kỳ đóng tiền tháng ${selectedPeriod.month}/${selectedPeriod.year}`
-                : `Kiểm tra phòng đủ điều kiện trong kỳ ${selectedPeriod.month}/${selectedPeriod.year}`}
-            </Text>
+          <View style={styles.pendingBannerAction}>
+            <Text style={styles.pendingActionText}>Lập ngay</Text>
+            <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
           </View>
-        </View>
-        <View style={styles.pendingBannerAction}>
-          <Text style={styles.pendingActionText}>{pendingCount > 0 ? 'Lập ngay' : 'Mở'}</Text>
-          <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      )}
 
       {overdueCarryCount > 0 && (
         <TouchableOpacity
@@ -356,6 +409,21 @@ export default function InvoicesScreen() {
         </TouchableOpacity>
       )}
 
+      {selectingForZalo && (
+        <View style={styles.zaloSelectionBar}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.zaloSelectionTitle}>Chọn hóa đơn cần gửi</Text>
+            <Text style={styles.zaloSelectionCopy}>Hóa đơn đã thanh toán sẽ tự bỏ qua.</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.selectAllButton}
+            onPress={() => setSelectedInvoiceIds(selectedInvoiceIds.length === filtered.length ? [] : filtered.map((item) => item.id))}
+          >
+            <Text style={styles.selectAllText}>{selectedInvoiceIds.length === filtered.length ? 'Bỏ chọn' : 'Chọn tất cả'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
@@ -374,17 +442,14 @@ export default function InvoicesScreen() {
         renderItem={({ item }) => {
           const status = getDisplayInvoiceStatus(item, selectedPeriod);
           const total = Number(item.total_amount || 0);
-          const paid = Number(item.paid_amount || 0);
-          const remainingAmount = Math.max(0, total - paid);
-          const showCollect = remainingAmount > 0
-            && (status === 'sent' || status === 'overdue' || status === 'partial');
           const carriedOverOverdue = isInvoiceBeforePeriod(item, selectedPeriod) && isInvoiceUnpaid(item);
           const periodOverdue = !carriedOverOverdue && isInvoiceBeforeCurrentMonth(item) && isInvoiceUnpaid(item);
+          const isSelected = selectedInvoiceIds.includes(item.id);
 
           return (
             <TouchableOpacity
-              style={[styles.invoiceRow, (carriedOverOverdue || periodOverdue) && styles.invoiceRowOverdue]}
-              onPress={() => router.push(`/invoice/${item.id}`)}
+              style={[styles.invoiceRow, (carriedOverOverdue || periodOverdue) && styles.invoiceRowOverdue, isSelected && styles.invoiceRowSelected]}
+              onPress={() => selectingForZalo ? toggleInvoiceSelection(item.id) : router.push(`/invoice/${item.id}`)}
               activeOpacity={0.7}
             >
               <View style={{ flex: 1 }}>
@@ -406,25 +471,29 @@ export default function InvoicesScreen() {
                 <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={styles.amount}>
                   {formatMoney(total)}
                 </Text>
-                <View style={styles.actionsRow}>
+                <View style={styles.statusLine}>
                   <StatusBadge status={status} type="invoice" />
-                  {showCollect && (
-                    <TouchableOpacity
-                      style={styles.collectBtn}
-                      onPress={(e) => {
-                        e.stopPropagation?.();
-                        router.push(`/payment/new?invoice_id=${item.id}`);
-                      }}
-                    >
-                      <Text style={styles.collectText}>Thu tiền</Text>
-                    </TouchableOpacity>
-                  )}
+                  {selectingForZalo && <View style={[styles.selectionCheckbox, isSelected && styles.selectionCheckboxActive]}>{isSelected && <Ionicons name="checkmark" size={14} color={Colors.textWhite} />}</View>}
                 </View>
               </View>
             </TouchableOpacity>
           );
         }}
       />
+
+      {selectingForZalo && (
+        <View style={styles.zaloActionFooter}>
+          <Text style={styles.zaloActionCount}>Đã chọn {selectedInvoiceIds.length}</Text>
+          <TouchableOpacity
+            style={[styles.sendZaloBulkButton, (!selectedInvoiceIds.length || zaloSending) && styles.controlDisabled]}
+            disabled={!selectedInvoiceIds.length || zaloSending}
+            onPress={() => sendInvoicesViaZalo(selectedInvoiceIds)}
+          >
+            <Ionicons name={zaloSending ? 'hourglass-outline' : 'send'} size={16} color={Colors.textWhite} />
+            <Text style={styles.sendZaloBulkText}>{zaloSending ? 'Đang gửi…' : 'Gửi qua Zalo'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <Modal visible={showExportOptions} transparent animationType="fade" onRequestClose={() => setShowExportOptions(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setShowExportOptions(false)}>
@@ -468,7 +537,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: Colors.surface,
-    paddingVertical: 12,
+    paddingVertical: 9,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
@@ -482,12 +551,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(138, 63, 252, 0.08)',
+    backgroundColor: Colors.primaryLight,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(138, 63, 252, 0.15)',
+    borderColor: Colors.primaryAlpha20,
   },
   exportBtnText: {
     fontSize: 11,
@@ -495,6 +564,8 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   controlDisabled: { opacity: 0.55 },
+  headerZaloButton: { flexDirection: 'row', alignItems: 'center', gap: 5, marginRight: 12, paddingHorizontal: 9, paddingVertical: 7, borderRadius: 9, backgroundColor: Colors.primaryLight },
+  headerZaloButtonText: { fontSize: 12, fontFamily: Typography.fontFamily.bold, color: Colors.primary },
   periodArrow: {
     width: 34,
     height: 34,
@@ -513,16 +584,18 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   tabContent: {
-    gap: 7,
-    paddingHorizontal: 16, paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16, paddingVertical: 10,
     backgroundColor: Colors.surface,
     borderBottomWidth: 1, borderBottomColor: Colors.borderLight,
   },
-  tabRow: { flexDirection: 'row', gap: 7 },
+  tabScroll: { flexGrow: 0, height: 56, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
   tab: {
-    flex: 1, minWidth: 0, minHeight: 38,
+    minHeight: 36,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
-    paddingHorizontal: 8, paddingVertical: 8, borderRadius: 10,
+    paddingHorizontal: 11, paddingVertical: 7, borderRadius: 18,
     backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: 'transparent',
   },
   tabActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
@@ -535,16 +608,17 @@ const styles = StyleSheet.create({
   tabCount: { fontSize: 10, fontFamily: Typography.fontFamily.bold, color: Colors.textSecondary },
   tabCountActive: { color: Colors.textWhite },
   tabTextActive: { color: Colors.primary },
-  list: { padding: 16, gap: 8, paddingBottom: 32 },
+  list: { padding: 16, gap: 9, paddingBottom: 32 },
   invoiceRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.surface, padding: 14, borderRadius: 12,
+    flexDirection: 'row', alignItems: 'flex-start',
+    backgroundColor: Colors.surface, padding: 14, borderRadius: 14,
     borderWidth: 1, borderColor: Colors.borderLight, gap: 12,
   },
   invoiceRowOverdue: {
-    borderColor: 'rgba(244, 63, 94, 0.28)',
+    borderColor: '#FECACA',
     backgroundColor: '#FFF7F9',
   },
+  invoiceRowSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
   roomName: { fontSize: 14, fontFamily: Typography.fontFamily.semibold, color: Colors.textPrimary, letterSpacing: -0.2 },
   meta: { fontSize: 12, fontFamily: Typography.fontFamily.regular, color: Colors.textMuted, marginTop: 2 },
   overdueMeta: {
@@ -555,32 +629,34 @@ const styles = StyleSheet.create({
   },
   rightCol: { alignItems: 'flex-end', gap: 6, maxWidth: '48%', flexShrink: 1 },
   amount: { fontSize: 14, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary, letterSpacing: -0.3 },
-  actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center', justifyContent: 'flex-end' },
-  collectBtn: {
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
-    backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: Colors.primaryAlpha20,
-  },
-  collectText: { fontSize: 11, fontFamily: Typography.fontFamily.semibold, color: Colors.primary },
+  statusLine: { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'flex-end' },
+  selectionCheckbox: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface },
+  selectionCheckboxActive: { borderColor: Colors.primary, backgroundColor: Colors.primary },
+  zaloSelectionBar: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12, paddingHorizontal: 16, paddingVertical: 11, borderTopWidth: 1, borderBottomWidth: 1, borderColor: Colors.primaryAlpha20, backgroundColor: Colors.primaryLight },
+  zaloSelectionTitle: { fontSize: 13, fontFamily: Typography.fontFamily.bold, color: Colors.textPrimary },
+  zaloSelectionCopy: { marginTop: 2, fontSize: 11, fontFamily: Typography.fontFamily.regular, color: Colors.textSecondary },
+  selectAllButton: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.primaryAlpha20 },
+  selectAllText: { fontSize: 11, fontFamily: Typography.fontFamily.semibold, color: Colors.primary },
+  zaloActionFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 16, paddingVertical: 12, paddingBottom: 18, borderTopWidth: 1, borderColor: Colors.borderLight, backgroundColor: Colors.surface },
+  zaloActionCount: { flex: 1, fontSize: 13, fontFamily: Typography.fontFamily.semibold, color: Colors.textSecondary },
+  sendZaloBulkButton: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 15, borderRadius: 11, backgroundColor: Colors.primary },
+  sendZaloBulkText: { fontSize: 13, fontFamily: Typography.fontFamily.bold, color: Colors.textWhite },
   pendingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
-    marginTop: 12,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: 'rgba(138, 63, 252, 0.15)', // Glowing royal amethyst outline
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    elevation: 0,
   },
   pendingBannerMuted: {
     borderColor: Colors.borderLight,
-    shadowOpacity: 0.04,
-    elevation: 1,
+    elevation: 0,
   },
   pendingBannerLeft: {
     flexDirection: 'row',
@@ -592,7 +668,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: 'rgba(138, 63, 252, 0.08)',
+    backgroundColor: Colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -614,7 +690,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(138, 63, 252, 0.08)',
+    backgroundColor: Colors.primaryLight,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
@@ -634,7 +710,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: 'rgba(244, 63, 94, 0.2)',
+    borderColor: '#FECACA',
   },
   overdueBannerIcon: {
     width: 28,

@@ -295,8 +295,8 @@ export default function RedesignedReportsTab() {
     if (total === 0) return [];
     return [
       { name: 'Tiền phòng', value: roomRent, percentage: (roomRent / total) * 100, color: '#3B82F6' },
-      { name: 'Tiền điện', value: electricity, percentage: (electricity / total) * 100, color: '#EAB308' },
-      { name: 'Tiền nước', value: water, percentage: (water / total) * 100, color: '#06B6D4' },
+      { name: 'Tiền điện', value: electricity, percentage: (electricity / total) * 100, color: Colors.primary },
+      { name: 'Tiền nước', value: water, percentage: (water / total) * 100, color: Colors.warning },
       { name: 'Dịch vụ khác', value: services, percentage: (services / total) * 100, color: '#10B981' }
     ].filter(item => item.value > 0);
   }, [periodTxs]);

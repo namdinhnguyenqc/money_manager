@@ -52,7 +52,7 @@ function getStatusColor(status: string): { bg: string; text: string; border: str
   const s = Colors.status as any;
   const normalized = status.toLowerCase().replace(/\s+/g, '_');
   const tokenKey = normalized === 'expiring_soon' ? 'expiringSoon' : normalized;
-  return s[tokenKey] || s.draft || { bg: '#f1f5f9', text: '#64748b', border: '#e2e8f0' };
+  return s[tokenKey] || s.draft || { bg: '#F8FAFC', text: Colors.textMuted, border: Colors.border };
 }
 
 export default function StatusBadge({ status, type = 'room', style }: StatusBadgeProps) {

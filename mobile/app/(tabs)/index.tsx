@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AppState,
   Image,
   RefreshControl,
   ScrollView,
@@ -127,19 +126,11 @@ export default function DashboardScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => {
-    void fetchData(hasLoadedRef.current);
+    // Keep the last rendered dashboard responsive when the user switches tabs.
+    // Successful create/update/delete calls already invalidate this cache; a
+    // manual pull-to-refresh remains the explicit way to force a fresh fetch.
+    void fetchData(false);
   }, [fetchData]));
-
-  useEffect(() => {
-    let previousState = AppState.currentState;
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      if (previousState !== 'active' && nextState === 'active') {
-        void fetchData(true);
-      }
-      previousState = nextState;
-    });
-    return () => subscription.remove();
-  }, [fetchData]);
 
   useEffect(() => {
     markFirstScreenReady({ screen: 'dashboard', hasSummary: !loading && !error });

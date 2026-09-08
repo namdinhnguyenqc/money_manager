@@ -12,7 +12,6 @@ import {
   ScrollView,
   Alert,
   TouchableOpacity,
-  ActivityIndicator,
   TextInput,
   KeyboardAvoidingView,
   Platform,
@@ -23,7 +22,8 @@ import Colors from '@/constants/Colors';
 import Typography from '@/constants/Typography';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
-import Toast from '@/components/ui/Toast';
+import { CardSkeleton } from '@/components/ui/Skeleton';
+import { useAppToast } from '@/components/ui/ToastProvider';
 import { apiGet, apiPost, apiDelete } from '@/lib/api';
 import { loadWallets, formatMoney } from '@/lib/rentalOps';
 
@@ -50,6 +50,7 @@ const COLOR_PALETTE = [
 
 export default function CategoriesScreen() {
   const router = useRouter();
+  const { showSuccess, showError } = useAppToast();
 
   // Loading & Action states
   const [loading, setLoading] = useState(true);
@@ -67,12 +68,6 @@ export default function CategoriesScreen() {
   const [color, setColor] = useState('#6366f1');
   const [walletId, setWalletId] = useState('');
 
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-  };
-
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -87,7 +82,7 @@ export default function CategoriesScreen() {
         setWalletId(wRes[0].id);
       }
     } catch (e: any) {
-      showToast(e?.message || 'Không thể tải danh sách danh mục.', 'error');
+      showError(e?.message || 'Không thể tải danh sách danh mục.', 'Không tải được danh mục');
     } finally {
       setLoading(false);
     }
@@ -99,11 +94,11 @@ export default function CategoriesScreen() {
 
   const handleCreateCategory = async () => {
     if (!name.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập tên danh mục.');
+      showError('Vui lòng nhập tên danh mục.', 'Thiếu thông tin');
       return;
     }
     if (!walletId) {
-      Alert.alert('Lỗi', 'Vui lòng chọn hoặc liên kết một tài khoản ví.');
+      showError('Vui lòng chọn hoặc liên kết một tài khoản ví.', 'Thiếu thông tin');
       return;
     }
 
@@ -117,12 +112,12 @@ export default function CategoriesScreen() {
         walletId,
       });
 
-      showToast('Đã thêm danh mục mới thành công!', 'success');
+      showSuccess('Danh mục mới đã được thêm.', 'Đã tạo danh mục');
       setName('');
       setShowAddForm(false);
       fetchData();
     } catch (e: any) {
-      Alert.alert('Lỗi', e?.message || 'Không thể tạo danh mục.');
+      showError(e?.message || 'Không thể tạo danh mục.', 'Tạo danh mục chưa thành công');
     } finally {
       setSubmitting(false);
     }
@@ -140,10 +135,10 @@ export default function CategoriesScreen() {
           onPress: async () => {
             try {
               await apiDelete<any>(`/categories/${id}`);
-              showToast('Đã xóa danh mục thành công!', 'success');
+              showSuccess('Danh mục đã được xóa.', 'Đã xóa danh mục');
               fetchData();
             } catch (e: any) {
-              Alert.alert('Lỗi', e?.message || 'Không thể xóa danh mục.');
+              showError(e?.message || 'Không thể xóa danh mục.', 'Xóa danh mục chưa thành công');
             }
           },
         },
@@ -168,14 +163,16 @@ export default function CategoriesScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           {loading ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator size="large" color={Colors.primary} />
-              <Text style={styles.stateText}>Đang tải danh sách danh mục...</Text>
+            <View style={styles.stateBox} accessibilityLabel="Đang tải danh mục thu chi">
+              <CardSkeleton />
+              <CardSkeleton />
+              <CardSkeleton />
             </View>
           ) : (
             <ScrollView
               contentContainerStyle={styles.scroll}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
             >
               {/* Premium segmented tab bar */}
               <View style={styles.tabContainer}>
@@ -344,7 +341,7 @@ export default function CategoriesScreen() {
                     title={submitting ? 'Đang tạo danh mục...' : 'Lưu danh mục'}
                     onPress={handleCreateCategory}
                     loading={submitting}
-                    variant={activeTab === 'income' ? 'success' : 'primary'}
+                    variant="primary"
                     fullWidth
                     icon={<Ionicons name="checkmark-circle-outline" size={18} color="#fff" />}
                   />
@@ -403,12 +400,6 @@ export default function CategoriesScreen() {
           )}
         </KeyboardAvoidingView>
       </SafeAreaView>
-      <Toast
-        visible={!!toast}
-        message={toast?.message || ''}
-        type={toast?.type}
-        onDismiss={() => setToast(null)}
-      />
     </>
   );
 }
@@ -424,11 +415,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
     gap: 12,
-  },
-  stateText: {
-    fontSize: 14,
-    fontFamily: Typography.fontFamily.regular,
-    color: Colors.textMuted,
   },
   scroll: {
     padding: 16,
