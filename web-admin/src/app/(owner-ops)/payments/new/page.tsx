@@ -82,7 +82,7 @@ export default function NewPaymentPage() {
   });
 
   if (invoiceQuery.isLoading || walletsQuery.isLoading) return <LoadingSkeleton rows={5} />;
-  if (!invoice) return <div className="rounded-[8px] border border-red-200 bg-red-50 p-4 text-sm text-red-700">Không tìm thấy hóa đơn.</div>;
+  if (!invoice) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">Không tìm thấy hóa đơn.</div>;
 
   return (
     <div className="mx-auto max-w-lg">
@@ -95,10 +95,10 @@ export default function NewPaymentPage() {
         <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Ghi nhận thu tiền</h1>
       </div>
 
-      {error && <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-      {success && <div className="mb-4 flex items-center gap-2 rounded-[8px] border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"><CheckCircle2 size={16} /> {success}</div>}
+      {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {success && <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"><CheckCircle2 size={16} /> {success}</div>}
 
-      <section className="mb-5 overflow-hidden rounded-[8px] border border-slate-200 bg-white shadow-sm">
+      <section className="mb-5 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -122,18 +122,18 @@ export default function NewPaymentPage() {
         </div>
       </section>
 
-      <form onSubmit={(event) => { event.preventDefault(); setError(""); mutation.mutate(); }} className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm">
+      <form onSubmit={(event) => { event.preventDefault(); setError(""); mutation.mutate(); }} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">Số tiền thu *</span>
           <input className="input" type="number" value={form.amount} onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))} />
         </label>
-        {shortAmount > 0 ? <div className="mt-2 rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">Thu thiếu {formatMoney(shortAmount)}.</div> : null}
+        {shortAmount > 0 ? <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">Thu thiếu {formatMoney(shortAmount)}.</div> : null}
 
         <div className="mt-4">
           <span className="mb-2 block text-sm font-medium text-slate-700">Phương thức *</span>
           <div className="grid gap-2 sm:grid-cols-3">
             {methods.map((method) => (
-              <button key={method} type="button" onClick={() => setForm((prev) => ({ ...prev, method }))} className={`rounded-[8px] border px-3 py-3 text-sm font-semibold ${form.method === method ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-700"}`}>
+              <button key={method} type="button" onClick={() => setForm((prev) => ({ ...prev, method }))} className={`rounded-lg border px-3 py-3 text-sm font-semibold ${form.method === method ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-700"}`}>
                 {method}
               </button>
             ))}
@@ -148,7 +148,7 @@ export default function NewPaymentPage() {
         </div>
 
         <div className="mt-5 flex gap-2">
-          <Link href={`/invoices/${invoice.id}`} className="flex-1 rounded-[8px] border border-slate-200 bg-white px-4 py-2.5 text-center text-sm font-semibold text-slate-700">Hủy</Link>
+          <Link href={`/invoices/${invoice.id}`} className="flex-1 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-center text-sm font-semibold text-slate-700">Hủy</Link>
           <Button type="submit" variant="primary" className="flex-[2]" loading={mutation.isPending}>{mutation.isPending ? "Đang xác nhận..." : "Xác nhận thu tiền"}</Button>
         </div>
       </form>

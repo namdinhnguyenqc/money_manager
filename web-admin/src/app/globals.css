@@ -135,21 +135,33 @@ a {
   background: rgba(226, 232, 240, 0.45);
 }
 
+/* Đồng bộ 1-1 với inputBase trong components/ui/design-tokens.ts
+   để mọi field dùng class .input trông y hệt <Input />. */
 .input {
   width: 100%;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border: 1px solid #e2e8f0; /* slate-200 */
+  border-radius: 0.5rem;     /* rounded-lg */
   background: #ffffff;
-  padding: 10px 12px;
+  padding: 10px 12px;        /* py-2.5 px-3 */
   color: #0f172a;
   font-size: 14px;
   outline: none;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
+.input::placeholder {
+  color: #94a3b8; /* slate-400 */
+}
+
 .input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: #3b82f6; /* blue-500 */
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.input:disabled {
+  cursor: not-allowed;
+  background: #f8fafc; /* slate-50 */
+  color: #94a3b8;
 }
 
 .stat-chip {

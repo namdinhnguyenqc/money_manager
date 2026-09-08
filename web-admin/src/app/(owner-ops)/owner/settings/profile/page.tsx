@@ -84,7 +84,7 @@ export default function OwnerProfileSettingsPage() {
       </div>
 
       {loading ? (
-        <div className="rounded-[8px] border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <RefreshCw size={22} className="animate-spin text-blue-600" />
           <p className="mt-4 text-sm text-slate-500">Đang tải hồ sơ...</p>
         </div>
@@ -108,7 +108,7 @@ export default function OwnerProfileSettingsPage() {
             onCancel={() => router.push("/owner/profile")}
           />
           {error && (
-            <div className="mt-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </div>
           )}

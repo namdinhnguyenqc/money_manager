@@ -35,6 +35,9 @@ import {
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import PageContainer from "@/components/ui/PageContainer";
+import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
+import { radius, surfacePadding } from "@/components/ui/design-tokens";
 
 const fmtDate = (d?: string | null) => (d ? new Date(d).toLocaleDateString("vi-VN") : "—");
 const fmtMoney = (v?: number | null) => (v != null ? formatMoney(v) : "—");
@@ -95,30 +98,27 @@ export default function TenantDetailPage() {
 
   if (loading)
     return (
-      <div className="mx-auto flex max-w-3xl flex-col gap-4 py-8 animate-pulse">
-        <div className="h-8 w-48 rounded-xl bg-slate-100" />
-        <div className="h-40 rounded-xl bg-slate-100" />
-        <div className="h-28 rounded-xl bg-slate-100" />
-        <div className="h-56 rounded-xl bg-slate-100" />
-      </div>
+      <PageContainer width="narrow">
+        <LoadingSkeleton rows={5} />
+      </PageContainer>
     );
 
   if (error)
     return (
-      <div className="mx-auto flex max-w-xl flex-col items-center justify-center py-24 text-center">
+      <PageContainer width="narrow" className="flex flex-col items-center justify-center py-24 text-center">
         <AlertCircle size={40} className="mb-3 text-red-400" />
         <p className="text-sm font-semibold text-red-600">{error}</p>
         <Button variant="ghost" className="mt-4" onClick={() => router.back()} icon={<ArrowLeft size={16} />}>
           Quay lại
         </Button>
-      </div>
+      </PageContainer>
     );
 
   const tenantName = tenant?.name || room?.tenant_name || `Khách thuê #${id?.slice(0, 8)}`;
 
   return (
     <RBACGuard allowedRoles={["OWNER", "SUPER_ADMIN"]}>
-      <div className="mx-auto max-w-3xl animate-in fade-in duration-300">
+      <PageContainer width="narrow" className="animate-in fade-in duration-300">
         <div className="mb-5 flex items-center gap-2 text-sm text-slate-500">
           <Link href="/owner/tenants" className="flex items-center gap-1.5 font-semibold hover:text-blue-600 transition-colors">
             <ArrowLeft size={16} />
@@ -128,9 +128,9 @@ export default function TenantDetailPage() {
           <span className="truncate font-bold text-slate-800">{tenantName}</span>
         </div>
 
-        <Card className="mb-5 p-6">
+        <Card className={`mb-5 ${surfacePadding}`}>
           <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+            <div className={`flex h-14 w-14 shrink-0 items-center justify-center ${radius.surface} bg-blue-600 text-white`}>
               <span className="text-xl font-black">{tenantName.charAt(0).toUpperCase()}</span>
             </div>
             <div className="min-w-0 flex-1">
@@ -173,7 +173,7 @@ export default function TenantDetailPage() {
 
         {room && (
           <div className="mb-5 grid gap-4 sm:grid-cols-2">
-            <Card className="p-5">
+            <Card className={surfacePadding}>
               <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800">
                 <Home size={16} className="text-slate-400" />
                 Thông tin phòng
@@ -196,7 +196,7 @@ export default function TenantDetailPage() {
               </div>
             </Card>
 
-            <Card className="p-5">
+            <Card className={surfacePadding}>
               <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800">
                 <DollarSign size={16} className="text-slate-400" />
                 Tiền cọc & thanh toán
@@ -259,7 +259,7 @@ export default function TenantDetailPage() {
         </Card>
 
         {isActive && contract && (
-          <Card className="flex flex-col items-start justify-between gap-4 border-red-100 bg-red-50 p-5 sm:flex-row sm:items-center">
+          <Card className={`flex flex-col items-start justify-between gap-4 border-red-100 bg-red-50 sm:flex-row sm:items-center ${surfacePadding}`}>
             <div>
               <p className="text-sm font-bold text-red-800">Trả phòng</p>
               <p className="mt-0.5 text-xs font-medium text-red-600">Kết thúc hợp đồng thuê, hoàn trả cọc và lập biên bản thanh lý.</p>
@@ -269,7 +269,7 @@ export default function TenantDetailPage() {
             </Button>
           </Card>
         )}
-      </div>
+      </PageContainer>
     </RBACGuard>
   );
 }

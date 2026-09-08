@@ -9,6 +9,8 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input, { Label, Select } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
+import PageContainer from "@/components/ui/PageContainer";
+import { surfacePadding } from "@/components/ui/design-tokens";
 import MetricCard from "@/components/ui/MetricCard";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
@@ -92,14 +94,14 @@ export default function PaymentsPage() {
   const totalSepay = filtered.filter((tx) => tx.source === "sepay").reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <PageContainer width="wide">
       <PageHeader
         subtitle="Lịch sử thu tiền"
         title="Thu tiền"
         description="Theo dõi các khoản tiền phòng đã ghi nhận, tách khỏi bước lập hóa đơn."
       />
 
-      <Card className="mb-4 p-4">
+      <Card className={`mb-4 ${surfacePadding}`}>
         <div className="grid gap-3 md:grid-cols-4">
           <div>
             <Label>Cơ sở</Label>
@@ -193,6 +195,6 @@ export default function PaymentsPage() {
       <div className="mt-4 text-sm text-slate-500">
         Ghi nhận thanh toán mới bắt đầu từ trang chi tiết hóa đơn: <Link href="/invoices" className="font-semibold text-blue-700 hover:underline">mở danh sách hóa đơn</Link>.
       </div>
-    </div>
+    </PageContainer>
   );
 }

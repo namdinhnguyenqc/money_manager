@@ -186,7 +186,7 @@ export default function InvoiceDetailPage() {
       </Link>
 
       {/* Paper card — match mobile style */}
-      <div ref={cardRef} className="rounded-2xl border border-slate-300 bg-[#FFFEFB] shadow-sm overflow-hidden">
+      <div ref={cardRef} className="rounded-xl border border-slate-300 bg-[#FFFEFB] shadow-sm overflow-hidden">
         {/* Title */}
         <div className="border-b border-slate-200 px-5 py-4 text-center">
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400">TrọCare</p>
@@ -364,7 +364,7 @@ export default function InvoiceDetailPage() {
           role="presentation"
           onMouseDown={(event) => { if (event.target === event.currentTarget) setAddFeeOpen(false); }}
         >
-          <div role="dialog" aria-modal="true" aria-labelledby="add-fee-title" className="w-full max-w-md rounded-[12px] bg-white p-5 shadow-xl sm:p-6">
+          <div role="dialog" aria-modal="true" aria-labelledby="add-fee-title" className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl sm:p-6">
             <div className="mb-5 flex items-start justify-between gap-4">
               <h2 id="add-fee-title" className="text-xl font-bold text-slate-950">Thêm khoản phí phát sinh</h2>
               <Button type="button" variant="ghost" size="sm" onClick={() => setAddFeeOpen(false)} aria-label="Đóng" icon={<X size={18} />} />

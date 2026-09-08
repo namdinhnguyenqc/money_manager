@@ -13,14 +13,17 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  ExternalLink
+  ExternalLink,
+  X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiGet, apiPost } from "@/utils/apiClient";
 import PageHeader from "@/components/ui/PageHeader";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import Input, { Label, Select as UISelect } from "@/components/ui/Input";
+import Input, { Label, Select as UISelect, Textarea } from "@/components/ui/Input";
+import PageContainer from "@/components/ui/PageContainer";
+import { surfacePadding } from "@/components/ui/design-tokens";
 import { useToast } from "@/components/ui/Toast";
 import ConfirmDialog from "@/components/ops/ConfirmDialog";
 
@@ -280,7 +283,7 @@ export default function OwnerFeedbackPage() {
   };
 
   return (
-    <div className="w-full animate-in fade-in duration-500 pb-16">
+    <PageContainer width="wide" className="animate-in fade-in duration-500 pb-16">
       <PageHeader
         title="Báo cáo lỗi / Góp ý"
         subtitle="Ý kiến của bạn giúp TrọCare hoạt động mượt mà và thông minh hơn."
@@ -290,8 +293,7 @@ export default function OwnerFeedbackPage() {
               variant="primary" 
               icon={<Plus size={15} />} 
               onClick={() => setShowCreateModal(true)} 
-              className="bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg shadow-slate-900/10 px-5 transition-all"
-            >
+                         >
               Tạo báo cáo mới
             </Button>
           </div>
@@ -299,7 +301,7 @@ export default function OwnerFeedbackPage() {
       />
 
       {(error || success) && (
-        <div className={`mb-6 rounded-2xl p-4 text-sm font-semibold flex items-center gap-3 border shadow-sm transition-all animate-in slide-in-from-top-2 ${
+        <div className={`mb-6 rounded-xl p-4 text-sm font-semibold flex items-center gap-3 border shadow-sm transition-all animate-in slide-in-from-top-2 ${
           error 
             ? "border-red-100 bg-red-50/70 text-red-700" 
             : "border-emerald-100 bg-emerald-50/70 text-emerald-700"
@@ -315,7 +317,7 @@ export default function OwnerFeedbackPage() {
           <span className="text-sm font-medium text-slate-500">Đang tải danh sách báo cáo...</span>
         </div>
       ) : reports.length === 0 ? (
-        <Card className="p-16 text-center border border-slate-200/60 rounded-[2rem] bg-white flex flex-col items-center">
+        <Card className="flex flex-col items-center border border-slate-200/60 bg-white p-16 text-center">
           <HelpCircle size={48} className="text-slate-300 mb-4" />
           <h3 className="text-lg font-black text-slate-800 tracking-tight">Chưa có báo cáo lỗi hoặc góp ý nào</h3>
           <p className="text-slate-400 text-sm mt-1.5 max-w-sm">Bất cứ lúc nào hệ thống gặp lỗi hoặc bạn có ý tưởng cải tiến, hãy gửi ngay cho đội ngũ kỹ thuật.</p>
@@ -332,7 +334,7 @@ export default function OwnerFeedbackPage() {
             return (
               <Card 
                 key={report.id} 
-                className="p-6 border border-slate-200/60 rounded-3xl bg-white hover:border-slate-400 hover:shadow-md transition-all duration-300 cursor-pointer flex flex-col justify-between"
+                className={`flex cursor-pointer flex-col justify-between border border-slate-200/60 bg-white transition-all duration-300 hover:border-slate-400 hover:shadow-md ${surfacePadding}`}
                 onClick={() => handleOpenDetail(report)}
               >
                 <div>
@@ -379,24 +381,24 @@ export default function OwnerFeedbackPage() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-[2rem] w-full max-w-lg overflow-hidden border border-slate-200 shadow-2xl flex flex-col max-h-[90vh]"
+              className="bg-white rounded-xl w-full max-w-lg overflow-hidden border border-slate-200 shadow-2xl flex flex-col max-h-[90vh]"
             >
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-black text-slate-900 tracking-tight">Tạo báo cáo lỗi / Góp ý</h3>
                   <p className="text-xs text-slate-500">Mô tả cụ thể vấn đề của bạn để kỹ thuật viên xử lý nhanh nhất.</p>
                 </div>
-                <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-600 font-bold p-1">&times;</button>
+                <Button variant="ghost" size="sm" onClick={() => setShowCreateModal(false)} aria-label="Đóng"><X size={18} /></Button>
               </div>
 
               <form onSubmit={handleCreateReport} className="p-6 space-y-4 overflow-y-auto flex-1">
                 <div>
                   <Label className="font-bold text-slate-800 text-xs">Tiêu đề ngắn gọn</Label>
-                  <input
+                  <Input
                     type="text"
                     required
                     placeholder="Ví dụ: Không lưu được số điện nước..."
-                    className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-slate-900 focus:outline-none transition-all font-semibold text-slate-800 shadow-sm"
+                    className="mt-1.5"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                   />
@@ -405,21 +407,21 @@ export default function OwnerFeedbackPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="font-bold text-slate-800 text-xs">Loại báo cáo</Label>
-                    <select
-                      className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-slate-900 focus:outline-none transition-all font-semibold text-slate-800 shadow-sm appearance-none"
+                    <UISelect
+                      className="mt-1.5"
                       value={type}
                       onChange={(e) => setType(e.target.value as any)}
                     >
                       <option value="bug">Báo lỗi hệ thống</option>
                       <option value="suggestion">Góp ý cải thiện</option>
                       <option value="support">Yêu cầu hỗ trợ</option>
-                    </select>
+                    </UISelect>
                   </div>
 
                   <div>
                     <Label className="font-bold text-slate-800 text-xs">Mức độ ưu tiên</Label>
-                    <select
-                      className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-slate-900 focus:outline-none transition-all font-semibold text-slate-800 shadow-sm appearance-none"
+                    <UISelect
+                      className="mt-1.5"
                       value={priority}
                       onChange={(e) => setPriority(e.target.value as any)}
                     >
@@ -427,15 +429,15 @@ export default function OwnerFeedbackPage() {
                       <option value="medium">Trung bình</option>
                       <option value="high">Cao</option>
                       <option value="urgent">Khẩn cấp</option>
-                    </select>
+                    </UISelect>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="font-bold text-slate-800 text-xs">Lĩnh vực phát sinh</Label>
-                    <select
-                      className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-slate-900 focus:outline-none transition-all font-semibold text-slate-800 shadow-sm appearance-none"
+                    <UISelect
+                      className="mt-1.5"
                       value={category}
                       onChange={(e) => setCategory(e.target.value as any)}
                     >
@@ -445,15 +447,15 @@ export default function OwnerFeedbackPage() {
                       <option value="payment">Thanh toán (Payment)</option>
                       <option value="invoice">Hóa đơn (Invoice)</option>
                       <option value="other">Khác (Other)</option>
-                    </select>
+                    </UISelect>
                   </div>
 
                   <div>
                     <Label className="font-bold text-slate-800 text-xs">Màn hình liên quan (nếu có)</Label>
-                    <input
+                    <Input
                       type="text"
                       placeholder="Ví dụ: /invoices/new"
-                      className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-slate-900 focus:outline-none transition-all font-semibold text-slate-800 shadow-sm"
+                      className="mt-1.5"
                       value={relatedScreen}
                       onChange={(e) => setRelatedScreen(e.target.value)}
                     />
@@ -462,11 +464,11 @@ export default function OwnerFeedbackPage() {
 
                 <div>
                   <Label className="font-bold text-slate-800 text-xs">Mô tả chi tiết</Label>
-                  <textarea
+                  <Textarea
                     required
                     rows={4}
                     placeholder="Mô tả cụ thể hoàn cảnh phát sinh lỗi, các bước tái hiện, thiết bị đang sử dụng..."
-                    className="w-full mt-1.5 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-slate-900 focus:outline-none transition-all font-semibold text-slate-800 shadow-sm resize-none"
+                    className="mt-1.5 resize-none"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                   />
@@ -497,10 +499,10 @@ export default function OwnerFeedbackPage() {
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 flex gap-3 justify-end">
-                  <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)} className="rounded-xl border-slate-200">
+                  <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>
                     Hủy
                   </Button>
-                  <Button type="submit" variant="primary" disabled={submitting} loading={submitting} className="bg-slate-900 text-white rounded-xl font-bold px-6">
+                  <Button type="submit" variant="primary" disabled={submitting} loading={submitting}>
                     Gửi báo cáo
                   </Button>
                 </div>
@@ -531,19 +533,14 @@ export default function OwnerFeedbackPage() {
                     {selectedReport.title}
                   </h3>
                 </div>
-                <button 
-                  onClick={() => setSelectedReport(null)} 
-                  className="text-slate-400 hover:text-slate-700 font-bold p-1 text-lg"
-                >
-                  &times;
-                </button>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedReport(null)} aria-label="Đóng"><X size={18} /></Button>
               </div>
 
               {/* Main Area */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 
                 {/* Description card */}
-                <Card className="p-5 border border-slate-200/60 rounded-3xl bg-slate-50/50">
+                <Card className={`border border-slate-200/60 bg-slate-50/50 ${surfacePadding}`}>
                   <div className="flex items-center justify-between text-xs font-semibold text-slate-400 mb-3">
                     <span className="flex items-center gap-1.5">
                       <Clock size={12} />
@@ -582,7 +579,7 @@ export default function OwnerFeedbackPage() {
 
                 {/* RESOLVED ACTION CARD */}
                 {selectedReport.status === "resolved" && !showReopenForm && (
-                  <Card className="p-5 border-2 border-emerald-200 bg-emerald-50/40 rounded-3xl flex flex-col gap-3.5">
+                  <Card className={`flex flex-col gap-3.5 border-2 border-emerald-200 bg-emerald-50/40 ${surfacePadding}`}>
                     <div className="flex items-start gap-3">
                       <AlertCircle className="text-emerald-600 mt-0.5 shrink-0" size={18} />
                       <div>
@@ -613,23 +610,23 @@ export default function OwnerFeedbackPage() {
 
                 {/* REOPEN REASON FORM */}
                 {showReopenForm && (
-                  <Card className="p-5 border-2 border-red-200 bg-red-50/30 rounded-3xl animate-in slide-in-from-bottom-3">
+                  <Card className={`animate-in slide-in-from-bottom-3 border-2 border-red-200 bg-red-50/30 ${surfacePadding}`}>
                     <h4 className="text-sm font-bold text-slate-900 mb-1">Mô tả lý do xử lý chưa đạt</h4>
                     <p className="text-xs text-slate-500 font-medium mb-3">Vui lòng cung cấp chi tiết lỗi phát sinh thêm hoặc điểm chưa đúng.</p>
                     <form onSubmit={handleReopenReport} className="space-y-3">
-                      <textarea
+                      <Textarea
                         required
                         rows={3}
                         placeholder="Nhập lý do cụ thể..."
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-slate-900 focus:outline-none transition-all font-semibold text-slate-800 shadow-sm resize-none"
+                        className="resize-none text-xs"
                         value={reopenReasonInput}
                         onChange={(e) => setReopenReasonInput(e.target.value)}
                       />
                       <div className="flex gap-2 justify-end">
-                        <Button type="button" variant="outline" onClick={() => setShowReopenForm(false)} className="rounded-xl border-slate-200 text-xs py-1.5 px-3">
+                        <Button type="button" variant="outline" onClick={() => setShowReopenForm(false)} className="text-xs">
                           Quay lại
                         </Button>
-                        <Button type="submit" variant="primary" className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs py-1.5 px-4 shadow-md">
+                        <Button type="submit" variant="danger" className="text-xs">
                           Gửi yêu cầu mở lại
                         </Button>
                       </div>
@@ -647,7 +644,7 @@ export default function OwnerFeedbackPage() {
                       <span className="text-xs text-slate-400">Đang tải lịch sử trao đổi...</span>
                     </div>
                   ) : comments.length === 0 ? (
-                    <div className="py-6 text-center text-xs text-slate-400 font-medium bg-slate-50 rounded-2xl">
+                    <div className="py-6 text-center text-xs text-slate-400 font-medium bg-slate-50 rounded-xl">
                       Chưa có phản hồi nào. Kỹ thuật viên sẽ liên hệ với bạn tại đây.
                     </div>
                   ) : (
@@ -679,7 +676,7 @@ export default function OwnerFeedbackPage() {
                                 </span>
                               </div>
 
-                              <div className={`p-3.5 rounded-2xl text-xs font-semibold leading-relaxed ${
+                              <div className={`p-3.5 rounded-xl text-xs font-semibold leading-relaxed ${
                                 isAdmin 
                                   ? "bg-slate-100 text-slate-800 rounded-tr-none" 
                                   : "bg-blue-600 text-white rounded-tl-none shadow-sm"
@@ -698,11 +695,11 @@ export default function OwnerFeedbackPage() {
               {/* Form Input Reply */}
               {selectedReport.status !== "closed" && (
                 <form onSubmit={handleSendComment} className="p-4 border-t border-slate-100 bg-slate-50 flex items-center gap-2">
-                  <input
+                  <Input
                     type="text"
                     required
                     placeholder="Nhập phản hồi hoặc nội dung trao đổi..."
-                    className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs focus:border-slate-900 focus:outline-none transition-all font-semibold text-slate-800 shadow-sm"
+                    className="flex-1"
                     value={commentInput}
                     onChange={(e) => setCommentInput(e.target.value)}
                   />
@@ -711,7 +708,7 @@ export default function OwnerFeedbackPage() {
                     variant="primary" 
                     disabled={sendingComment || !commentInput.trim()} 
                     icon={<Send size={13} />}
-                    className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold px-4 py-3 shrink-0 shadow-sm shadow-slate-900/10"
+                    className="shrink-0"
                   >
                     Gửi
                   </Button>
@@ -729,6 +726,6 @@ export default function OwnerFeedbackPage() {
           onCancel={() => setConfirmCloseReport(false)}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

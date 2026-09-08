@@ -11,8 +11,10 @@ import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
+import PageContainer from "@/components/ui/PageContainer";
+import FilterBar from "@/components/ui/FilterBar";
 import { Label, Select } from "@/components/ui/Input";
-import { filterPillActive, filterPillInactive } from "@/components/ui/design-tokens";
+import { filterPillActive, filterPillInactive, radius, surfacePadding } from "@/components/ui/design-tokens";
 
 const filters: Array<{ label: string; value: "all" | ContractStatus }> = [
   { label: "Tất cả", value: "all" },
@@ -44,14 +46,26 @@ export default function ContractsPage() {
   useEffect(() => setPage(1), [filter, houseId]);
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <PageContainer width="wide">
       <PageHeader
         subtitle="Quản lý vận hành"
         title="Hợp đồng"
         description="Tạo hợp đồng từ phòng trống để giữ đúng context cơ sở và phòng."
       />
 
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <FilterBar
+        actions={
+          houses.length > 1 ? (
+            <div className="w-full sm:w-56">
+              <Label>Cơ sở</Label>
+              <Select value={houseId} onChange={(e) => setHouseId(e.target.value)}>
+                <option value="">Tất cả cơ sở</option>
+                {houses.map((house) => <option key={house.id} value={house.id}>{house.name}</option>)}
+              </Select>
+            </div>
+          ) : null
+        }
+      >
         <div className="flex flex-wrap gap-2">
           {filters.map((item) => (
             <button key={item.value} onClick={() => setFilter(item.value)} className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition-all ${filter === item.value ? filterPillActive : filterPillInactive}`}>
@@ -59,16 +73,7 @@ export default function ContractsPage() {
             </button>
           ))}
         </div>
-        {houses.length > 1 && (
-          <div className="w-full sm:w-56">
-            <Label>Cơ sở</Label>
-            <Select value={houseId} onChange={(e) => setHouseId(e.target.value)}>
-              <option value="">Tất cả cơ sở</option>
-              {houses.map((house) => <option key={house.id} value={house.id}>{house.name}</option>)}
-            </Select>
-          </div>
-        )}
-      </div>
+      </FilterBar>
 
       {contractsQuery.isLoading ? <LoadingSkeleton rows={5} /> : null}
       {!contractsQuery.isLoading && filtered.length === 0 ? (
@@ -95,7 +100,7 @@ export default function ContractsPage() {
       {filtered.length > 0 && (
         <div className="space-y-3 lg:hidden">
           {visibleContracts.map((contract) => (
-            <div key={contract.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div key={contract.id} className={`border border-slate-200 bg-white shadow-sm ${radius.surface} ${surfacePadding}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="font-semibold text-slate-900">{contract.room_name}</div>
@@ -117,6 +122,6 @@ export default function ContractsPage() {
       )}
 
       <Pagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
-    </div>
+    </PageContainer>
   );
 }

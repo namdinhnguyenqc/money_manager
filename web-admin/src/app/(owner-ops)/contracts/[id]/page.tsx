@@ -48,7 +48,7 @@ export default function ContractDetailPage() {
 
 
   if (contractQuery.isLoading) return <LoadingSkeleton rows={4} />;
-  if (!contract) return <div className="rounded-[8px] border border-red-200 bg-red-50 p-4 text-sm text-red-700">Không tìm thấy hợp đồng.</div>;
+  if (!contract) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">Không tìm thấy hợp đồng.</div>;
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -67,7 +67,7 @@ export default function ContractDetailPage() {
 
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-slate-950">Thông tin khách thuê</h2>
             <Button
@@ -87,7 +87,7 @@ export default function ContractDetailPage() {
             <Info label="Email" value={contract.tenant_email || "-"} />
           </div>
         </section>
-        <section className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-950">Điều khoản</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <Info label="Phòng" value={contract.room_name} />
@@ -101,7 +101,7 @@ export default function ContractDetailPage() {
       </div>
 
       {refundQuery.data && (
-        <section className="mt-5 rounded-[8px] border border-blue-200 bg-blue-50 p-5 shadow-sm">
+        <section className="mt-5 rounded-lg border border-blue-200 bg-blue-50 p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-blue-900">Thông tin trả cọc</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <Info label="Tiền cọc ban đầu" value={formatMoney(refundQuery.data.original_deposit_amount)} />
@@ -116,14 +116,14 @@ export default function ContractDetailPage() {
         </section>
       )}
 
-      <section className="mt-5 rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="mt-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-950">Dịch vụ áp dụng</h2>
         <div className="mt-4 space-y-3">
           {(contract.applied_services_snapshot || []).length === 0 ? (
             <div className="text-sm text-slate-500">Hợp đồng này chưa có snapshot dịch vụ. Dữ liệu cũ vẫn được giữ nguyên.</div>
           ) : (
             (contract.applied_services_snapshot || []).map((service) => (
-              <div key={`${contract.id}-${service.service_id}`} className="flex items-start justify-between gap-3 rounded-[8px] border border-slate-200 bg-slate-50 px-4 py-3">
+              <div key={`${contract.id}-${service.service_id}`} className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                 <div>
                   <div className="font-medium text-slate-900">{service.name}</div>
                   <div className="text-xs text-slate-500">
@@ -152,10 +152,10 @@ export default function ContractDetailPage() {
         </div>
       </section>
 
-      <section className="mt-5 overflow-hidden rounded-[8px] border border-slate-200 bg-white shadow-sm">
+      <section className="mt-5 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
           <h2 className="text-lg font-semibold text-slate-950">Hóa đơn của hợp đồng</h2>
-          <Link href={`/invoices/new?contract_id=${contract.id}`} className="inline-flex items-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">
+          <Link href={`/invoices/new?contract_id=${contract.id}`} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">
             <FileText size={16} />
             Tạo hóa đơn tháng này
           </Link>
@@ -181,7 +181,7 @@ export default function ContractDetailPage() {
         </div>
       </section>
 
-      <section className="mt-5 overflow-hidden rounded-[8px] border border-slate-200 bg-white shadow-sm">
+      <section className="mt-5 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <h2 className="text-lg font-semibold text-slate-950">Lịch sử thu chi (Phiếu Thu/Chi)</h2>
         </div>
@@ -364,7 +364,7 @@ function RenewContractPanel({ contract, onClose, onRenewed }: { contract: any; o
   return (
     <SidePanel title="Gia hạn hợp đồng" onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
-        <div className="rounded-[8px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
           <div className="font-semibold text-slate-900">Phòng {contract.room_name} · {contract.tenant_name}</div>
           <div className="mt-1 text-slate-600">
             Hạn hiện tại: <strong>{currentEnd || "chưa đặt"}</strong>
@@ -391,7 +391,7 @@ function RenewContractPanel({ contract, onClose, onRenewed }: { contract: any; o
           )}
         </label>
 
-        <label className={`flex cursor-pointer items-start gap-3 rounded-[8px] border px-3 py-3 transition-colors ${reprice ? "border-amber-200 bg-amber-50" : "border-slate-200 hover:bg-slate-50"}`}>
+        <label className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 transition-colors ${reprice ? "border-amber-200 bg-amber-50" : "border-slate-200 hover:bg-slate-50"}`}>
           <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-slate-300" checked={reprice} onChange={(e) => setReprice(e.target.checked)} />
           <span className="min-w-0">
             <span className="block text-sm font-semibold text-slate-900">Cập nhật giá dịch vụ theo bảng giá hiện tại</span>
@@ -475,9 +475,9 @@ function EditContractPanel({ contract, onClose, onSaved }: { contract: any; onCl
   return (
     <SidePanel title="Sửa hợp đồng" onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
-        {error && <div className="rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-        <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
           <div className="mb-3">
             <div className="text-sm font-semibold text-slate-950">Thông tin khách thuê</div>
             <p className="mt-1 text-xs text-slate-500">Số điện thoại ở đây sẽ được dùng để gửi hóa đơn qua Zalo.</p>
@@ -528,13 +528,13 @@ function EditContractPanel({ contract, onClose, onSaved }: { contract: any; onCl
           <Field label="Số người ở"><input className="input" type="number" min={1} value={form.occupantCount} onChange={(e) => setForm(p => ({ ...p, occupantCount: e.target.value }))} required /></Field>
         </div>
 
-        <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
           <div className="mb-3 text-sm font-semibold text-slate-900">Dịch vụ áp dụng</div>
           <div className="grid gap-2 sm:grid-cols-2">
             {services.map((service) => {
               const checked = selectedServiceIds.some((id) => String(id) === String(service.id));
               return (
-                <label key={service.id} className="flex items-center gap-3 rounded-[8px] border border-slate-200 bg-white px-3 py-2 cursor-pointer hover:bg-slate-50">
+                <label key={service.id} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 cursor-pointer hover:bg-slate-50">
                   <input
                     type="checkbox"
                     className="h-4 w-4 rounded border-slate-300"
@@ -567,7 +567,7 @@ function EditContractPanel({ contract, onClose, onSaved }: { contract: any; onCl
 function SidePanel({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 sm:p-6" onClick={onClose}>
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl relative" onClick={(event) => event.stopPropagation()}>
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 shadow-2xl relative" onClick={(event) => event.stopPropagation()}>
         <div className="mb-6 flex items-center justify-between gap-4">
           <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Đóng" icon={<X size={18} />} />
@@ -717,7 +717,7 @@ function RefundModal({ contract, invoices, onClose, onConfirm }: { contract: any
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4 rounded-[8px] border border-slate-200 p-3 text-sm">
+        <div className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 p-3 text-sm">
           <Info label="Tiền cọc ban đầu" value={formatMoney(originalDeposit)} />
           <Info label="Tiền trọ khấu trừ" value={formatMoney(actualSettlementAmount)} />
           <div className="col-span-2 border-t pt-2">
@@ -725,7 +725,7 @@ function RefundModal({ contract, invoices, onClose, onConfirm }: { contract: any
           </div>
         </div>
 
-        {error && <div className="rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-3">
           <input 

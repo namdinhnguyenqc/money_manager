@@ -102,7 +102,7 @@ export default function FacilitiesPage() {
         {houses.map((facility) => {
           const summary = summaries[facility.id] || { total: 0, vacant: 0, occupied: 0, maintenance: 0, reserved: 0 };
           return (
-            <article key={facility.id} className="overflow-hidden rounded-[8px] border border-slate-200 bg-white shadow-sm transition hover:border-blue-300">
+            <article key={facility.id} className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:border-blue-300">
               <Link href={`/rooms?facility_id=${encodeURIComponent(facility.id)}`} className="block p-5">
                 <div className="font-semibold text-slate-950">{facility.name}</div>
                 <div className="mt-1 line-clamp-2 text-sm text-gray-500">{facility.address || "Chưa có địa chỉ"}</div>
@@ -202,7 +202,7 @@ function FacilityFormModal({ queryClient, facility, onClose, onCreated, onSaved 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div role="dialog" aria-modal="true" aria-labelledby="create-facility-title" className="w-full max-w-lg rounded-[12px] bg-white p-5 shadow-xl sm:p-6">
+      <div role="dialog" aria-modal="true" aria-labelledby="create-facility-title" className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl sm:p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 id="create-facility-title" className="text-xl font-bold text-slate-950">{isEditing ? "Chỉnh sửa cơ sở" : "Thêm cơ sở"}</h2>
@@ -211,7 +211,7 @@ function FacilityFormModal({ queryClient, facility, onClose, onCreated, onSaved 
           <Button type="button" variant="ghost" size="sm" onClick={onClose} aria-label="Đóng form" icon={<X size={18} />} />
         </div>
 
-        {error ? <div role="alert" className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div> : null}
+        {error ? <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div> : null}
 
         <form onSubmit={submit} className="space-y-4">
           <label className="block">
@@ -241,5 +241,5 @@ function FacilityFormModal({ queryClient, facility, onClose, onCreated, onSaved 
 }
 
 function Stat({ label, value, tone = "text-slate-950" }: { label: string; value: number; tone?: string }) {
-  return <div className="rounded-[8px] bg-slate-50 px-2 py-2 text-center"><div className={`text-lg font-semibold ${tone}`}>{value}</div><div className="text-[11px] text-slate-500">{label}</div></div>;
+  return <div className="rounded-lg bg-slate-50 px-2 py-2 text-center"><div className={`text-lg font-semibold ${tone}`}>{value}</div><div className="text-[11px] text-slate-500">{label}</div></div>;
 }

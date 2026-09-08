@@ -356,7 +356,7 @@ export default function ServicesPage() {
         </div>
       ) : services.length === 0 ? (
         <Card className="p-12 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
             <Zap size={32} />
           </div>
           <h3 className="text-base font-bold text-slate-900">Chưa có dịch vụ nào</h3>
@@ -464,7 +464,7 @@ export default function ServicesPage() {
           role="presentation"
           onMouseDown={(event) => { if (event.target === event.currentTarget) setPriceServiceId(null); }}
         >
-          <div role="dialog" aria-modal="true" aria-labelledby="price-update-title" className="w-full max-w-md rounded-[12px] bg-white p-5 shadow-xl sm:p-6">
+          <div role="dialog" aria-modal="true" aria-labelledby="price-update-title" className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl sm:p-6">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <h2 id="price-update-title" className="text-xl font-bold text-slate-950">Cập nhật giá — {priceService.name}</h2>
@@ -472,7 +472,7 @@ export default function ServicesPage() {
                   Giá hiện tại: {formatMoney(priceService.unit_price)}. Bill cũ giữ nguyên giá cũ, chỉ bill từ kỳ áp dụng mới trở đi dùng giá mới.
                 </p>
               </div>
-              <button type="button" onClick={() => setPriceServiceId(null)} aria-label="Đóng form" className="rounded-[8px] p-2 text-slate-500 hover:bg-slate-100">
+              <button type="button" onClick={() => setPriceServiceId(null)} aria-label="Đóng form" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
                 <X size={18} />
               </button>
             </div>
@@ -534,10 +534,10 @@ function PriceHistoryModal({ serviceId, onClose }: { serviceId: string; onClose:
       role="presentation"
       onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
     >
-      <div role="dialog" aria-modal="true" aria-labelledby="price-history-title" className="w-full max-w-lg rounded-[12px] bg-white p-5 shadow-xl sm:p-6">
+      <div role="dialog" aria-modal="true" aria-labelledby="price-history-title" className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl sm:p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <h2 id="price-history-title" className="text-xl font-bold text-slate-950">Lịch sử giá</h2>
-          <button type="button" onClick={onClose} aria-label="Đóng" className="rounded-[8px] p-2 text-slate-500 hover:bg-slate-100">
+          <button type="button" onClick={onClose} aria-label="Đóng" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
             <X size={18} />
           </button>
         </div>

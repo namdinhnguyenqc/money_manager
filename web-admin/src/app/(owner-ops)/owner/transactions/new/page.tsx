@@ -16,6 +16,8 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input, { Label, Select } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
+import PageContainer from "@/components/ui/PageContainer";
+import { surfacePadding } from "@/components/ui/design-tokens";
 
 type Category = { id: string; name: string; type: "income" | "expense" };
 
@@ -85,7 +87,7 @@ export default function NewTransactionPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl animate-in fade-in duration-500">
+    <PageContainer width="narrow" className="animate-in fade-in duration-500">
       <PageHeader
         subtitle="Sổ thu chi"
         title="Thêm giao dịch"
@@ -104,7 +106,7 @@ export default function NewTransactionPage() {
         }
       />
 
-      <Card className="p-6">
+      <Card className={surfacePadding}>
         {error && (
           <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
             {error}
@@ -243,6 +245,6 @@ export default function NewTransactionPage() {
           </div>
         </form>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

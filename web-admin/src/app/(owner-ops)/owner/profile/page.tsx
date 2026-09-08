@@ -21,6 +21,7 @@ import EmptyState from "@/components/ops/EmptyState";
 import { getMyProfile, ProfileResponse } from "@/lib/profile";
 import Card from "@/components/ui/Card";
 import PageHeader from "@/components/ui/PageHeader";
+import PageContainer from "@/components/ui/PageContainer";
 import Button from "@/components/ui/Button";
 
 function InfoLabel({ label, icon: Icon }: { label: string; icon: any }) {
@@ -66,7 +67,7 @@ export default function OwnerProfilePage() {
   }, []);
 
   return (
-    <div className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <PageContainer width="wide" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <PageHeader
         subtitle="Account Management"
         title="Hồ sơ tài khoản"
@@ -84,7 +85,7 @@ export default function OwnerProfilePage() {
       />
 
       {loading ? (
-        <div className="p-4 lg:p-0"><LoadingSkeleton rows={4} /></div>
+        <LoadingSkeleton rows={4} />
       ) : error ? (
         <EmptyState
           icon={<RefreshCw size={24} />}
@@ -100,11 +101,11 @@ export default function OwnerProfilePage() {
               <div className="h-28 bg-gradient-to-br from-blue-600 to-cyan-500" />
               <div className="px-6 pb-8 text-center -mt-14">
                 <div className="relative inline-block">
-                  <div className="h-28 w-28 rounded-3xl bg-white p-1.5 shadow-xl ring-1 ring-slate-200">
+                  <div className="h-28 w-28 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-slate-200">
                     {data.user?.avatarUrl ? (
-                      <img src={data.user?.avatarUrl} alt="" className="h-full w-full rounded-2xl object-cover" />
+                      <img src={data.user?.avatarUrl} alt="" className="h-full w-full rounded-xl object-cover" />
                     ) : (
-                      <div className="h-full w-full rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300">
+                      <div className="h-full w-full rounded-xl bg-slate-50 flex items-center justify-center text-slate-300">
                         <UserCircle size={64} strokeWidth={1.5} />
                       </div>
                     )}
@@ -228,6 +229,6 @@ export default function OwnerProfilePage() {
 
         </div>
       ) : null}
-    </div>
+    </PageContainer>
   );
 }

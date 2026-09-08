@@ -341,7 +341,7 @@ function TransactionForm({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-      <form onSubmit={save} className="w-full max-w-lg rounded-[8px] border border-slate-200 bg-white p-6 shadow-2xl">
+      <form onSubmit={save} className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-2xl">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold text-slate-950">Thêm thu chi</h2>
@@ -349,10 +349,10 @@ function TransactionForm({
           </div>
           <Button type="button" variant="outline" size="sm" onClick={onClose}>Đóng</Button>
         </div>
-        {error ? <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+        {error ? <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
         <div className="mb-4 grid grid-cols-2 gap-2">
           {(["income", "expense"] as const).map((type) => (
-            <button key={type} type="button" onClick={() => setForm((prev) => ({ ...prev, type, categoryId: "" }))} className={`rounded-[8px] border px-3 py-2 text-sm font-semibold ${form.type === type ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600"}`}>
+            <button key={type} type="button" onClick={() => setForm((prev) => ({ ...prev, type, categoryId: "" }))} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${form.type === type ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600"}`}>
               {type === "income" ? "Khoản thu" : "Khoản chi"}
             </button>
           ))}
@@ -373,7 +373,7 @@ function TransactionForm({
               {filteredCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
             </select>
             {categoryFormOpen ? (
-              <div className="mt-3 flex flex-col gap-2 rounded-[8px] border border-blue-100 bg-blue-50 p-3 sm:flex-row">
+              <div className="mt-3 flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 sm:flex-row">
                 <Input value={categoryName} onChange={(e) => setCategoryName(e.target.value)} placeholder={`Tên danh mục ${form.type === "income" ? "thu" : "chi"}`} />
                 <Button type="button" variant="primary" loading={creatingCategory} disabled={creatingCategory} onClick={addCategory} className="shrink-0">Thêm</Button>
               </div>

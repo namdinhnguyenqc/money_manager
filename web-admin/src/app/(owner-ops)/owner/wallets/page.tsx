@@ -183,7 +183,7 @@ export default function WalletsPage() {
         </div>
       ) : wallets.length === 0 ? (
         <Card className="p-12 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
             <WalletIcon size={32} />
           </div>
           <h3 className="text-base font-bold text-slate-900">Chưa có ví nào</h3>

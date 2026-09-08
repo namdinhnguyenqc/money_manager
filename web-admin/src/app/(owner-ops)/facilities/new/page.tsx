@@ -52,10 +52,10 @@ export default function NewFacilityPage() {
         <h1 className="text-xl font-bold leading-7 tracking-[-0.02em] text-slate-950 sm:text-[22px]">Thêm cơ sở</h1>
       </div>
 
-      {error && <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <form onSubmit={submit} className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-[8px] bg-blue-50 text-blue-700">
+      <form onSubmit={submit} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
           <Building2 size={22} />
         </div>
         <div className="grid gap-4">

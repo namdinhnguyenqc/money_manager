@@ -102,10 +102,10 @@ export default function OwnerContractsPage() {
         {filters.map((item) => <button key={item} onClick={() => setFilter(item)} className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${filter === item ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-600"}`}>{item}</button>)}
       </div>
 
-      {toast && <div className="mb-4 rounded-[8px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{toast}</div>}
-      {error && <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {toast && <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{toast}</div>}
+      {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="overflow-hidden rounded-[8px] border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
@@ -241,7 +241,7 @@ function ContractDrawer({ rooms, onClose, onSaved }: { rooms: RentalRoom[]; onCl
           <Button variant="ghost" size="sm" onClick={onClose}>Đóng</Button>
         </div>
         <form onSubmit={submit} className="space-y-4">
-          {error ? <div className="rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+          {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
           <Field label="Phòng trống">
             <select className="input" value={form.roomId} onChange={(e) => setForm((prev) => ({ ...prev, roomId: e.target.value }))}>
               {vacantRooms.map((room) => <option key={room.id} value={room.id}>{room.name} · {formatMoney(room.price)}</option>)}
@@ -256,10 +256,10 @@ function ContractDrawer({ rooms, onClose, onSaved }: { rooms: RentalRoom[]; onCl
           <div className="grid gap-3 md:grid-cols-3">
             <Field label="Ngày bắt đầu"><input className="input" type="date" value={form.startDate} onChange={(e) => setForm((prev) => ({ ...prev, startDate: e.target.value }))} /></Field>
             <Field label="Ngày kết thúc"><input className="input" type="date" value={form.endDate} onChange={(e) => setForm((prev) => ({ ...prev, endDate: e.target.value }))} /></Field>
-            <div><div className="mb-1 text-sm font-medium text-slate-700">Số tháng</div><div className="rounded-[8px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold">{months ? `${months} tháng` : "Chưa tính"}</div></div>
+            <div><div className="mb-1 text-sm font-medium text-slate-700">Số tháng</div><div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold">{months ? `${months} tháng` : "Chưa tính"}</div></div>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
-            <div><div className="mb-1 text-sm font-medium text-slate-700">Tiền thuê/tháng</div><div className="rounded-[8px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold">{formatMoney(selectedRoom?.price)}</div></div>
+            <div><div className="mb-1 text-sm font-medium text-slate-700">Tiền thuê/tháng</div><div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold">{formatMoney(selectedRoom?.price)}</div></div>
             <Field label="Tiền cọc"><input className="input" type="number" value={form.deposit} onChange={(e) => setForm((prev) => ({ ...prev, deposit: e.target.value }))} /></Field>
             <Field label="Ngày thu tiền"><input className="input" type="number" min={1} max={28} value={form.collectDay} onChange={(e) => setForm((prev) => ({ ...prev, collectDay: e.target.value }))} /></Field>
           </div>
@@ -273,7 +273,7 @@ function ContractDrawer({ rooms, onClose, onSaved }: { rooms: RentalRoom[]; onCl
             {servicesLoading ? (
               <p className="text-sm text-slate-500">Đang tải dịch vụ...</p>
             ) : services.length === 0 ? (
-              <div className="rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-3">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3">
                 <p className="text-sm font-semibold text-amber-900">Chưa cấu hình dịch vụ nào</p>
                 <p className="mt-1 text-xs leading-5 text-amber-800">
                   Hợp đồng này sẽ chỉ thu tiền phòng. Hóa đơn sẽ không tự tính được tiền điện, nước.

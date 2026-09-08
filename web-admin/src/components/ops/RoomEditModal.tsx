@@ -360,10 +360,10 @@ function RoomServicesSection({ roomId }: { roomId: string }) {
 
       {addServiceOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setAddServiceOpen(false); }}>
-          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-[12px] bg-white p-5 shadow-xl sm:p-6">
+          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl sm:p-6">
             <div className="mb-5 flex items-start justify-between gap-4">
               <h2 className="text-xl font-bold text-slate-950">Thêm dịch vụ vào phòng</h2>
-              <button type="button" onClick={() => setAddServiceOpen(false)} aria-label="Đóng" className="rounded-[8px] p-2 text-slate-500 hover:bg-slate-100"><X size={18} /></button>
+              <button type="button" onClick={() => setAddServiceOpen(false)} aria-label="Đóng" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X size={18} /></button>
             </div>
             <form onSubmit={handleAddService} className="space-y-4">
               <div>
@@ -398,10 +398,10 @@ function RoomServicesSection({ roomId }: { roomId: string }) {
 
       {addFeeOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setAddFeeOpen(false); }}>
-          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-[12px] bg-white p-5 shadow-xl sm:p-6">
+          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl sm:p-6">
             <div className="mb-5 flex items-start justify-between gap-4">
               <h2 className="text-xl font-bold text-slate-950">Thêm phí phát sinh</h2>
-              <button type="button" onClick={() => setAddFeeOpen(false)} aria-label="Đóng" className="rounded-[8px] p-2 text-slate-500 hover:bg-slate-100"><X size={18} /></button>
+              <button type="button" onClick={() => setAddFeeOpen(false)} aria-label="Đóng" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X size={18} /></button>
             </div>
             <form onSubmit={handleAddFee} className="space-y-4">
               <div>

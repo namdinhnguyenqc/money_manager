@@ -16,6 +16,8 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input, { Label, Select } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
+import PageContainer from "@/components/ui/PageContainer";
+import { surfacePadding } from "@/components/ui/design-tokens";
 
 export default function NewRoomPage() {
   const { showToast } = useToast();
@@ -79,7 +81,7 @@ export default function NewRoomPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <PageContainer width="narrow">
       <PageHeader
         subtitle="Cơ sở & phòng"
         title="Thêm phòng mới"
@@ -92,7 +94,7 @@ export default function NewRoomPage() {
         }
       />
 
-      <Card className="p-5 sm:p-6">
+      <Card className={surfacePadding}>
         {error && (
           <div role="alert" className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
             {error}
@@ -186,6 +188,6 @@ export default function NewRoomPage() {
           </div>
         </form>
       </Card>
-    </div>
+    </PageContainer>
   );
 }
