@@ -13,8 +13,10 @@ import {
 import { useToast } from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import Input, { Label, Select } from "@/components/ui/Input";
+import Input, { Select, FormField } from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
+import PageContainer from "@/components/ui/PageContainer";
+import { radius } from "@/components/ui/design-tokens";
 
 const EMOJI_PALETTE = [
   "💰", "🏠", "💡", "💧", "🚗", "🍔", "🎁", "🔧",
@@ -92,7 +94,7 @@ export default function CategoriesPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <PageContainer className="max-w-3xl">
       <PageHeader
         subtitle="Cấu hình"
         title="Danh mục thu chi"
@@ -110,7 +112,7 @@ export default function CategoriesPage() {
           <button
             key={t}
             onClick={() => setActiveTab(t)}
-            className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-bold transition-all ${
+            className={`h-10 flex-1 ${radius.control} border px-4 text-sm font-semibold transition-colors ${
               activeTab === t
                 ? t === "income"
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700"
@@ -130,53 +132,49 @@ export default function CategoriesPage() {
             <h3 className="text-sm font-bold text-slate-900">
               Thêm danh mục {activeTab === "income" ? "thu" : "chi"}
             </h3>
-            <button onClick={resetForm} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+            <Button variant="ghost" size="sm" onClick={resetForm} aria-label="Đóng" icon={<X size={16} />} />
           </div>
 
-          <div>
-            <Label>Tên danh mục</Label>
+          <FormField label="Tên danh mục">
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="VD: Tiền điện, Tiền rác..." />
-          </div>
+          </FormField>
 
-          <div>
-            <Label>Liên kết ví</Label>
+          <FormField label="Liên kết ví">
             <Select value={form.walletId} onChange={(e) => setForm({ ...form, walletId: e.target.value })}>
               {wallets.length === 0 && <option value="">Chưa có ví</option>}
               {wallets.map((w) => (
                 <option key={w.id} value={w.id}>{w.name}</option>
               ))}
             </Select>
-          </div>
+          </FormField>
 
-          <div>
-            <Label>Biểu tượng</Label>
+          <FormField label="Biểu tượng">
             <div className="flex flex-wrap gap-1.5">
               {EMOJI_PALETTE.map((e) => (
                 <button
                   key={e}
                   onClick={() => setForm({ ...form, icon: e })}
-                  className={`flex h-9 w-9 items-center justify-center rounded-lg border text-lg transition-all ${form.icon === e ? "border-blue-400 bg-blue-50 scale-110" : "border-slate-200 bg-white hover:bg-slate-50"}`}
+                  className={`flex h-9 w-9 items-center justify-center ${radius.control} border text-lg transition-colors ${form.icon === e ? "border-blue-500 bg-blue-50 ring-2 ring-blue-500/20" : "border-slate-200 bg-white hover:bg-slate-50"}`}
                 >
                   {e}
                 </button>
               ))}
             </div>
-          </div>
+          </FormField>
 
-          <div>
-            <Label>Màu sắc</Label>
+          <FormField label="Màu sắc">
             <div className="flex flex-wrap gap-2">
               {COLOR_PALETTE.map((c) => (
                 <button
                   key={c}
                   onClick={() => setForm({ ...form, color: c })}
-                  className={`h-8 w-8 rounded-full border-2 transition-all ${form.color === c ? "scale-110 border-slate-900" : "border-transparent"}`}
+                  className={`h-8 w-8 ${radius.pill} border-2 transition-colors ${form.color === c ? "border-slate-900 ring-2 ring-slate-900/15" : "border-transparent hover:border-slate-300"}`}
                   style={{ backgroundColor: c }}
                   aria-label={c}
                 />
               ))}
             </div>
-          </div>
+          </FormField>
 
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="outline" onClick={resetForm}>Hủy</Button>
@@ -189,7 +187,7 @@ export default function CategoriesPage() {
 
       {/* List */}
       {categoriesQuery.isLoading ? (
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">Đang tải...</div>
+        <Card className="px-4 py-10 text-center text-sm text-slate-500">Đang tải...</Card>
       ) : visible.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 py-12 text-center">
           <Tag size={36} className="text-slate-300" />
@@ -211,20 +209,25 @@ export default function CategoriesPage() {
               </div>
               {confirmDeleteId === cat.id ? (
                 <div className="flex shrink-0 items-center gap-1.5">
-                  <button onClick={() => handleDelete(cat.id)} disabled={deletingId === cat.id} className="rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-red-700">
-                    {deletingId === cat.id ? "..." : "Xóa"}
-                  </button>
-                  <button onClick={() => setConfirmDeleteId(null)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600">Hủy</button>
+                  <Button variant="danger" size="sm" onClick={() => handleDelete(cat.id)} loading={deletingId === cat.id}>
+                    Xóa
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setConfirmDeleteId(null)}>Hủy</Button>
                 </div>
               ) : (
-                <button onClick={() => setConfirmDeleteId(cat.id)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-100" aria-label="Xóa">
-                  <Trash2 size={15} />
-                </button>
+                <Button
+                  variant="danger-ghost"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => setConfirmDeleteId(cat.id)}
+                  aria-label="Xóa"
+                  icon={<Trash2 size={15} />}
+                />
               )}
             </Card>
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
