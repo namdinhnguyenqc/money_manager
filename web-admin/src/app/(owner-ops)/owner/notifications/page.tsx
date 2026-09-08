@@ -6,6 +6,7 @@ import { Bell, CheckCircle2, FileText, Receipt, HelpCircle, ArrowRight } from "l
 import RBACGuard from "@/components/RBACGuard";
 import { apiGet, apiPost } from "@/utils/apiClient";
 import PageHeader from "@/components/ui/PageHeader";
+import Button from "@/components/ui/Button";
 
 type NotificationItem = {
   id: string;
@@ -75,14 +76,15 @@ export default function OwnerNotificationsPage() {
           description={`Theo dõi các biến động thanh toán, hợp đồng và phản hồi khách thuê (${unreadCount} chưa đọc).`}
           actions={
             unreadCount > 0 ? (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={handleMarkAllRead}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-white px-3.5 py-2 text-xs font-bold text-blue-700 shadow-xs hover:bg-blue-50 transition active:scale-95"
+                icon={<CheckCircle2 size={15} />}
               >
-                <CheckCircle2 size={15} />
                 Đánh dấu tất cả đã đọc
-              </button>
+              </Button>
             ) : undefined
           }
         />
