@@ -1522,14 +1522,14 @@ export default function OwnerSettingsPage() {
                   </Card>
 
                   <div className="flex justify-end">
-                    <button
+                    <Button
+                      variant="secondary"
                       onClick={() => handleSave()}
-                      disabled={saving}
-                      className="flex items-center gap-2 rounded-xl bg-slate-900 text-white px-5 py-2.5 text-xs font-bold hover:bg-slate-800 transition-all shadow-md disabled:opacity-60"
+                      loading={saving}
+                      icon={<Check size={13} />}
                     >
-                      {saving ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
                       Lưu cấu hình thanh toán tĩnh
-                    </button>
+                    </Button>
                   </div>
                 </div>)}
 
@@ -1549,12 +1549,13 @@ export default function OwnerSettingsPage() {
                       <p className="text-xs text-slate-500 font-medium">Cấu hình đơn giá định mức dịch vụ điện, nước, tiện ích phòng trọ.</p>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => setShowAddService(!showAddService)} 
-                    className="flex items-center gap-1.5 rounded-xl bg-slate-900 text-white hover:bg-slate-800 px-4 py-2.5 text-xs font-bold shadow-md shadow-slate-900/10 transition-all"
+                  <Button
+                    variant="secondary"
+                    onClick={() => setShowAddService(!showAddService)}
+                    icon={<Plus size={14} />}
                   >
-                    <Plus size={14} /> Thêm dịch vụ mới
-                  </button>
+                    Thêm dịch vụ mới
+                  </Button>
                 </div>
 
                 {showAddService && (
@@ -1677,20 +1678,22 @@ export default function OwnerSettingsPage() {
                           </div>
                           
                           <div className="flex items-center gap-1.5">
-                            <button 
-                              onClick={() => { setEditingServiceId(service.id); setEditingService(service); }} 
-                              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" 
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => { setEditingServiceId(service.id); setEditingService(service); }}
                               title="Sửa dịch vụ"
-                            >
-                              <Edit2 size={13} />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteService(service.id)} 
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
+                              aria-label="Sửa dịch vụ"
+                              icon={<Edit2 size={13} />}
+                            />
+                            <Button
+                              variant="danger-ghost"
+                              size="sm"
+                              onClick={() => handleDeleteService(service.id)}
                               title="Xóa dịch vụ"
-                            >
-                              <Trash2 size={13} />
-                            </button>
+                              aria-label="Xóa dịch vụ"
+                              icon={<Trash2 size={13} />}
+                            />
                           </div>
                         </div>
 
