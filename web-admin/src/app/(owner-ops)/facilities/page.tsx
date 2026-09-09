@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Building2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Building2, Eye, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import EmptyState from "@/components/ops/EmptyState";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
@@ -11,6 +11,7 @@ import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import FacilityBlocksField, { createFacilityBlocks } from "@/components/ops/FacilityBlocksField";
 import { useToast } from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/Badge";
 import PageHeader from "@/components/ui/PageHeader";
 import PageContainer from "@/components/ui/PageContainer";
 
@@ -99,32 +100,47 @@ export default function FacilitiesPage() {
         <EmptyState icon={<Building2 size={20} />} message="Chưa có cơ sở nào. Bắt đầu bằng cách thêm cơ sở đầu tiên." action={<Button type="button" variant="primary" onClick={() => setShowCreateForm(true)}>Thêm cơ sở</Button>} />
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="flex flex-col gap-3">
         {houses.map((facility) => {
           const summary = summaries[facility.id] || { total: 0, vacant: 0, occupied: 0, maintenance: 0, reserved: 0 };
+          const isDeleting = deletingId === facility.id;
           return (
-            <article key={facility.id} className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:border-blue-300">
-              <Link href={`/rooms?facility_id=${encodeURIComponent(facility.id)}`} className="block p-5">
-                <div className="font-semibold text-slate-950">{facility.name}</div>
-                <div className="mt-1 line-clamp-2 text-sm text-gray-500">{facility.address || "Chưa có địa chỉ"}</div>
-                {/* Reserved rooms used to fall into "Trống", which reads as
-                    available to let even though a deposit is already held. */}
-                <div className="mt-5 grid grid-cols-5 gap-2">
-                  <Stat label="Tổng" value={summary.total} />
-                  <Stat label="Trống" value={summary.vacant} tone="text-green-700" />
-                  <Stat label="Đang thuê" value={summary.occupied} tone="text-blue-700" />
-                  <Stat label="Đã cọc" value={summary.reserved ?? 0} tone="text-amber-700" />
-                  <Stat label="Bảo trì" value={summary.maintenance} tone="text-red-700" />
+            <article
+              key={facility.id}
+              className={`relative overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:border-blue-300 ${isDeleting ? "pointer-events-none opacity-60" : ""}`}
+            >
+              <FacilityActionMenu
+                facilityId={facility.id}
+                onEdit={() => setEditingFacility(facility)}
+                onDelete={() => handleDelete(facility)}
+              />
+              <Link
+                href={`/rooms?facility_id=${encodeURIComponent(facility.id)}`}
+                className="block px-4 py-3.5 pr-12 sm:px-5 sm:py-4 sm:pr-14"
+              >
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="truncate text-base font-bold text-slate-950">{facility.name}</h3>
+                      {facility.status ? (
+                        <Badge variant={facility.status === "ACTIVE" ? "success" : "neutral"}>
+                          {facility.status === "ACTIVE" ? "Đang hoạt động" : "Ngưng hoạt động"}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className="mt-0.5 truncate text-sm text-slate-500">{facility.address || "Chưa có địa chỉ"}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                    <FacilityStat value={summary.total} label="Tổng phòng" />
+                    <FacilityStat value={summary.occupied} label="Đang thuê" dotClassName="bg-blue-600" />
+                    {/* Reserved rooms used to fall into "Trống", which reads as
+                        available to let even though a deposit is already held. */}
+                    <FacilityStat value={summary.vacant} label="Trống" dotClassName="bg-green-600" />
+                    <FacilityStat value={summary.reserved ?? 0} label="Đã cọc" dotClassName="bg-orange-500" />
+                    <FacilityStat value={summary.maintenance} label="Bảo trì" dotClassName="bg-red-600" />
+                  </div>
                 </div>
               </Link>
-              <div className="flex items-center gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-3">
-                <Button type="button" variant="outline" size="sm" className="flex-1" icon={<Pencil size={14} />} onClick={() => setEditingFacility(facility)}>
-                  Chỉnh sửa
-                </Button>
-                <Button type="button" variant="danger-ghost" size="sm" className="flex-1 border border-red-200" loading={deletingId === facility.id} icon={<Trash2 size={14} />} onClick={() => handleDelete(facility)}>
-                  {deletingId === facility.id ? "Đang xóa..." : "Xóa"}
-                </Button>
-              </div>
             </article>
           );
         })}
@@ -241,6 +257,53 @@ function FacilityFormModal({ queryClient, facility, onClose, onCreated, onSaved 
   );
 }
 
-function Stat({ label, value, tone = "text-slate-950" }: { label: string; value: number; tone?: string }) {
-  return <div className="rounded-lg bg-slate-50 px-2 py-2 text-center"><div className={`text-lg font-semibold ${tone}`}>{value}</div><div className="text-[11px] text-slate-500">{label}</div></div>;
+function FacilityStat({ value, label, dotClassName }: { value: number; label: string; dotClassName?: string }) {
+  return (
+    <div className="flex items-center gap-1.5 whitespace-nowrap text-sm">
+      {dotClassName ? <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClassName}`} aria-hidden="true" /> : null}
+      <span className="font-bold text-slate-900">{value}</span>
+      <span className="text-slate-500">{label}</span>
+    </div>
+  );
+}
+
+function FacilityActionMenu({ facilityId, onEdit, onDelete }: { facilityId: string; onEdit: () => void; onDelete: () => void }) {
+  const close = (event: React.MouseEvent<HTMLElement>) => event.currentTarget.closest("details")?.removeAttribute("open");
+  return (
+    <details className="absolute right-2 top-2 z-10 sm:right-3 sm:top-3">
+      <summary
+        aria-label="Thao tác với cơ sở"
+        className="list-none cursor-pointer rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600 [&::-webkit-details-marker]:hidden"
+      >
+        <MoreHorizontal size={17} />
+      </summary>
+      <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+        <Link
+          href={`/rooms?facility_id=${encodeURIComponent(facilityId)}`}
+          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          <Eye size={14} />
+          Xem chi tiết
+        </Link>
+        <button
+          type="button"
+          role="menuitem"
+          onClick={(event) => { close(event); onEdit(); }}
+          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          <Pencil size={14} />
+          Chỉnh sửa
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          onClick={(event) => { close(event); onDelete(); }}
+          className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+        >
+          <Trash2 size={14} />
+          Xóa
+        </button>
+      </div>
+    </details>
+  );
 }
