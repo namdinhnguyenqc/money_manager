@@ -107,7 +107,7 @@ export default function FacilitiesPage() {
           return (
             <article
               key={facility.id}
-              className={`relative overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:border-blue-300 ${isDeleting ? "pointer-events-none opacity-60" : ""}`}
+              className={`relative rounded-lg border border-slate-200 bg-white shadow-sm transition hover:border-blue-300 has-[details[open]]:z-10 ${isDeleting ? "pointer-events-none opacity-60" : ""}`}
             >
               <FacilityActionMenu
                 facilityId={facility.id}
