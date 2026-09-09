@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Save, AlertCircle, Zap, Droplets, Camera } from "lucide-react";
 import Button from "@/components/ui/Button";
-import { formatMoney, RentalRoom, ContractView, AppliedServiceSnapshot, bulkCreateInvoices } from "@/lib/rentalOps";
+import { formatMoney, RentalRoom, ContractView, AppliedServiceSnapshot, bulkCreateInvoices, loadContract } from "@/lib/rentalOps";
 import { apiGet } from "@/utils/apiClient";
 import MeterOcrImportModal from "@/components/ops/MeterOcrImportModal";
 
@@ -68,23 +68,26 @@ export default function BulkInvoiceModal({ isOpen, onClose, onSuccess, pendingRo
       const results = await Promise.all(
         pendingRooms.map(async (room) => {
           try {
-            // Fetch contract and latest readings
-            const [contractRes, readingsRes] = await Promise.all([
-              apiGet<any>(`/rental/contracts/${room.contract_id}`),
+            // Fetch contract and latest readings. loadContract() normalizes
+            // applied_services_snapshot — some contracts carry an older, differently
+            // shaped snapshot (unitPrice/billingType instead of applied_unit_price/type)
+            // and reading that shape raw silently priced per_person services at 0,
+            // which is why "theo người" services looked like they had no amount here.
+            const [contract, readingsRes] = await Promise.all([
+              loadContract(String(room.contract_id)),
               apiGet<any>(`/invoices/latest-meter-readings?roomId=${room.id}`)
             ]);
 
             // Prefer the latest invoice reading (subsequent months). On the FIRST
             // bill there is none, so fall back to the contract's starting meter
             // reading — never 0, which would overcount usage by the whole meter.
-            const contract = contractRes?.data;
             const latestElec = readingsRes?.data?.elec_old;
             const latestWater = readingsRes?.data?.water_old;
             return {
               roomId: room.id,
-              contract,
-              elecOld: Number(latestElec ?? contract?.electric_start ?? contract?.electricStart ?? 0),
-              waterOld: Number(latestWater ?? contract?.water_start ?? contract?.waterStart ?? 0),
+              contract: contract ?? undefined,
+              elecOld: Number(latestElec ?? contract?.electric_start ?? 0),
+              waterOld: Number(latestWater ?? contract?.water_start ?? 0),
               roomFee: Number(contract?.rent_amount ?? room.price),
             };
           } catch (e) {
