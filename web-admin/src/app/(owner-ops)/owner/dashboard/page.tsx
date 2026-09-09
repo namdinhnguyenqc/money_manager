@@ -406,9 +406,14 @@ export default function OwnerDashboard() {
               </Link>
             </div>
 
-            <div className="mt-6 flex items-center gap-6">
+            {/* flex-1 + items-center: the section is stretched to match Dòng
+                tiền's height (by design — the bug asks these two cards to stay
+                aligned), so this block centers in whatever room that leaves
+                instead of sitting at a fixed size with one big gap dropped
+                below it. */}
+            <div className="flex flex-1 items-center gap-7 py-2">
               <Donut
-                size={128}
+                size={144}
                 centerValue={`${collectionChartData.rate}%`}
                 centerLabel="Đã thu"
                 segments={[
@@ -417,23 +422,23 @@ export default function OwnerDashboard() {
                   { value: summary?.totals?.overdue ?? 0, color: "#EF4444" },
                 ]}
               />
-              <dl className="min-w-0 flex-1 space-y-3.5 text-sm leading-5">
+              <dl className="min-w-0 flex-1 space-y-5 text-sm leading-5">
                 <div className="flex items-center justify-between gap-2">
-                  <dt className="flex items-center gap-2.5 text-slate-600"><span className="h-2 w-2 rounded-full bg-emerald-500" />Đã thu</dt>
-                  <dd className="font-semibold tabular-nums text-slate-900">{formatMoney(summary?.totals?.collected ?? collectionChartData.paid)}</dd>
+                  <dt className="flex items-center gap-2.5 text-slate-600"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Đã thu</dt>
+                  <dd className="text-base font-semibold tabular-nums text-slate-900">{formatMoney(summary?.totals?.collected ?? collectionChartData.paid)}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <dt className="flex items-center gap-2.5 text-slate-600"><span className="h-2 w-2 rounded-full bg-amber-500" />Chưa thu</dt>
-                  <dd className="font-semibold tabular-nums text-slate-900">{formatMoney(summary?.totals?.receivable ?? collectionChartData.unpaid)}</dd>
+                  <dt className="flex items-center gap-2.5 text-slate-600"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" />Chưa thu</dt>
+                  <dd className="text-base font-semibold tabular-nums text-slate-900">{formatMoney(summary?.totals?.receivable ?? collectionChartData.unpaid)}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <dt className="flex items-center gap-2.5 text-slate-600"><span className="h-2 w-2 rounded-full bg-red-500" />Quá hạn</dt>
-                  <dd className="font-semibold tabular-nums text-slate-900">{formatMoney(summary?.totals?.overdue ?? overdueAmount)}</dd>
+                  <dt className="flex items-center gap-2.5 text-slate-600"><span className="h-2.5 w-2.5 rounded-full bg-red-500" />Quá hạn</dt>
+                  <dd className="text-base font-semibold tabular-nums text-slate-900">{formatMoney(summary?.totals?.overdue ?? overdueAmount)}</dd>
                 </div>
               </dl>
             </div>
 
-            <div className="mt-auto space-y-2 pt-5">
+            <div className="space-y-2 pt-5">
               <Link
                 href="/invoices?filter=Chưa+gửi"
                 className="flex h-10 w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
@@ -893,7 +898,7 @@ function Donut({
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-center">
         <span
-          className={`font-bold tabular-nums text-slate-900 ${compactCenter ? "break-words text-xs leading-tight" : "text-2xl"}`}
+          className={`font-bold tabular-nums text-slate-900 ${compactCenter ? "break-words text-xs leading-tight" : "text-3xl"}`}
           style={compactCenter ? { maxWidth: size * 0.68 } : undefined}
         >
           {centerValue}
