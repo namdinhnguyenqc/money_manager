@@ -142,11 +142,15 @@ export default function OwnerDashboard() {
     return { income, expense, profit: income - expense, months, maxVal };
   }, [findBucket, chartMonths, selectedPeriod]);
 
-  // Presentation-only: whether the selected window has any revenue/expense to
-  // plot. No new data source — derived from the same `financial.months` the
-  // chart already renders, so an empty state can replace the bars without
-  // ever fabricating a value.
-  const hasCashflowData = financial.months.some((m) => m.rev > 0 || m.exp > 0);
+  // Presentation-only, and it keeps two states apart that both end up looking
+  // like zeros. /cashflow-summary pre-creates a bucket for every month in the
+  // window, so a 0 that came back with a response is a real "nothing was
+  // recorded that month" — not missing data, and the chart should say so.
+  // A window with no response at all (the request failed, or never ran) is the
+  // genuinely unknown case: findBucket then misses every month and the same
+  // zeros appear, which must not be reported as a real zero.
+  const cashflowLoaded = Boolean(cashflowQuery.data);
+  const cashflowHasMovement = financial.months.some((m) => m.rev > 0 || m.exp > 0);
 
   // Invoices for selected period
   const thisMonthInvoices = useMemo(() => {
@@ -269,7 +273,7 @@ export default function OwnerDashboard() {
           <div className="flex flex-wrap items-center gap-2">
             <label className="sr-only" htmlFor="dashboard-facility">Phạm vi quản lý</label>
             <div className="relative">
-              <Building2 size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Building2 size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <select
                 id="dashboard-facility"
                 value={facilityId || ""}
@@ -283,7 +287,7 @@ export default function OwnerDashboard() {
             <div className="flex h-10 items-center gap-0.5 rounded-lg border border-slate-200 bg-white px-1">
               <Button type="button" variant="ghost" size="sm" aria-label="Tháng trước" onClick={() => { let m = selectedPeriod.month - 1; let y = selectedPeriod.year; if (m < 1) { m = 12; y--; } setSelectedPeriod({ month: m, year: y }); }}><ChevronLeft size={16} /></Button>
               <span className="flex items-center gap-1.5 whitespace-nowrap px-1.5 text-sm font-semibold text-slate-700">
-                <CalendarDays size={15} className="text-slate-400" />
+                <CalendarDays size={16} className="text-slate-400" />
                 T{selectedPeriod.month}/{selectedPeriod.year}
               </span>
               <Button type="button" variant="ghost" size="sm" disabled={isCurrentPeriod} aria-label="Tháng sau" onClick={() => { let m = selectedPeriod.month + 1; let y = selectedPeriod.year; if (m > 12) { m = 1; y++; } setSelectedPeriod({ month: m, year: y }); }}><ChevronRight size={16} /></Button>
@@ -296,13 +300,13 @@ export default function OwnerDashboard() {
 
         {/* ── OVERDUE ALERT BANNER (chỉ hiện khi có hóa đơn quá hạn) ── */}
         {summary?.totals?.overdueCount ? (
-          <Link href="/invoices?filter=Quá+hạn" className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 transition-colors hover:bg-amber-100/60">
-            <AlertCircle size={18} className="shrink-0 text-amber-600" />
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-amber-900">{summary.totals.overdueCount} hóa đơn đã quá hạn</div>
-              <div className="mt-0.5 text-xs text-amber-700">{formatMoney(summary.totals.overdue)} · trễ trung bình {summary.totals.averageOverdueDays} ngày</div>
-            </div>
-            <ChevronRight size={16} className="shrink-0 text-amber-700" />
+          <Link href="/invoices?filter=Quá+hạn" className="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-2.5 transition-colors hover:bg-amber-50">
+            <AlertCircle size={16} className="shrink-0 text-amber-600" />
+            <span className="min-w-0 flex-1 text-[13px] leading-5 text-amber-900">
+              <strong className="font-semibold">{summary.totals.overdueCount} hóa đơn đã quá hạn</strong>
+              <span className="text-amber-700"> · {formatMoney(summary.totals.overdue)} · trễ trung bình {summary.totals.averageOverdueDays} ngày</span>
+            </span>
+            <ChevronRight size={16} className="shrink-0 text-amber-600" />
           </Link>
         ) : null}
 
@@ -367,7 +371,7 @@ export default function OwnerDashboard() {
               </div>
             </div>
 
-            {hasCashflowData ? (
+            {cashflowLoaded && cashflowHasMovement ? (
               <CashflowChart
                 months={financial.months}
                 maxVal={financial.maxVal}
@@ -375,9 +379,15 @@ export default function OwnerDashboard() {
                 onSelect={(month, year) => setSelectedPeriod({ month, year })}
               />
             ) : (
-              <div className="mt-6 flex flex-1 flex-col items-center justify-center gap-1 py-16 text-center">
-                <span className="text-sm font-semibold text-slate-600">Chưa có dữ liệu dòng tiền</span>
-                <span className="max-w-xs text-xs text-slate-400">Dữ liệu sẽ được hiển thị khi có phát sinh doanh thu hoặc chi phí trong kỳ.</span>
+              <div className="mt-6 flex flex-1 flex-col items-center justify-center gap-1.5 py-16 text-center">
+                <span className="text-sm font-semibold text-slate-600">
+                  {cashflowLoaded ? "Chưa phát sinh thu chi trong kỳ này" : "Chưa tải được dữ liệu dòng tiền"}
+                </span>
+                <span className="max-w-xs text-[13px] leading-5 text-slate-400">
+                  {cashflowLoaded
+                    ? "Kỳ đang xem không ghi nhận khoản thu hoặc chi nào. Biểu đồ sẽ hiện khi có giao dịch."
+                    : "Chưa nhận được số liệu thu chi cho kỳ này. Thử tải lại trang sau giây lát."}
+                </span>
               </div>
             )}
           </section>
@@ -396,9 +406,9 @@ export default function OwnerDashboard() {
               </Link>
             </div>
 
-            <div className="mt-5 flex items-center gap-5">
+            <div className="mt-6 flex items-center gap-6">
               <Donut
-                size={124}
+                size={128}
                 centerValue={`${collectionChartData.rate}%`}
                 centerLabel="Đã thu"
                 segments={[
@@ -407,17 +417,17 @@ export default function OwnerDashboard() {
                   { value: summary?.totals?.overdue ?? 0, color: "#EF4444" },
                 ]}
               />
-              <dl className="min-w-0 flex-1 space-y-2.5 text-sm">
+              <dl className="min-w-0 flex-1 space-y-3.5 text-sm leading-5">
                 <div className="flex items-center justify-between gap-2">
-                  <dt className="flex items-center gap-2 text-slate-600"><span className="h-2 w-2 rounded-full bg-emerald-500" />Đã thu</dt>
+                  <dt className="flex items-center gap-2.5 text-slate-600"><span className="h-2 w-2 rounded-full bg-emerald-500" />Đã thu</dt>
                   <dd className="font-semibold tabular-nums text-slate-900">{formatMoney(summary?.totals?.collected ?? collectionChartData.paid)}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <dt className="flex items-center gap-2 text-slate-600"><span className="h-2 w-2 rounded-full bg-amber-500" />Chưa thu</dt>
+                  <dt className="flex items-center gap-2.5 text-slate-600"><span className="h-2 w-2 rounded-full bg-amber-500" />Chưa thu</dt>
                   <dd className="font-semibold tabular-nums text-slate-900">{formatMoney(summary?.totals?.receivable ?? collectionChartData.unpaid)}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <dt className="flex items-center gap-2 text-slate-600"><span className="h-2 w-2 rounded-full bg-red-500" />Quá hạn</dt>
+                  <dt className="flex items-center gap-2.5 text-slate-600"><span className="h-2 w-2 rounded-full bg-red-500" />Quá hạn</dt>
                   <dd className="font-semibold tabular-nums text-slate-900">{formatMoney(summary?.totals?.overdue ?? overdueAmount)}</dd>
                 </div>
               </dl>
@@ -426,7 +436,7 @@ export default function OwnerDashboard() {
             <div className="mt-auto space-y-2 pt-5">
               <Link
                 href="/invoices?filter=Chưa+gửi"
-                className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                className="flex h-10 w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
               >
                 <span className="flex items-center gap-2.5">
                   <FileText size={16} className="text-slate-400" />
@@ -436,7 +446,7 @@ export default function OwnerDashboard() {
               </Link>
               <Link
                 href="/invoices?filter=Quá+hạn"
-                className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                className="flex h-10 w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
               >
                 <span className="flex items-center gap-2.5">
                   <Send size={16} className="text-blue-600" />
@@ -461,16 +471,16 @@ export default function OwnerDashboard() {
                 </span>
                 <h2 className="text-base font-bold text-slate-900">Cơ cấu chi phí</h2>
               </div>
-              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">
+              <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
                 T{selectedPeriod.month}/{selectedPeriod.year}
               </span>
             </div>
 
             {(summary?.expenseComposition || []).length ? (
               <>
-                <div className="mt-5 flex items-center gap-5">
+                <div className="mt-5 flex items-center gap-4">
                   <Donut
-                    size={112}
+                    size={80}
                     centerValue={formatMoney(summary?.totals?.expense || 0)}
                     centerLabel="Tổng chi phí"
                     compactCenter
@@ -479,26 +489,26 @@ export default function OwnerDashboard() {
                       color: EXPENSE_COLORS[i % EXPENSE_COLORS.length],
                     }))}
                   />
-                  <dl className="min-w-0 flex-1 space-y-2 text-xs">
+                  <dl className="min-w-0 flex-1 space-y-3 text-[13px] leading-5">
                     {(summary?.expenseComposition || []).map((item, i) => {
                       const totalExpense = summary?.totals?.expense || 0;
                       const share = totalExpense > 0 ? Math.round((Number(item.amount || 0) / totalExpense) * 100) : 0;
                       return (
                         <div key={item.name} className="flex items-center justify-between gap-2">
-                          <dt className="flex min-w-0 items-center gap-2 text-slate-600">
+                          <dt className="flex min-w-0 items-center gap-2.5 text-slate-600">
                             <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: EXPENSE_COLORS[i % EXPENSE_COLORS.length] }} />
-                            <span className="truncate">{item.name}</span>
+                            <span className="truncate" title={item.name}>{item.name}</span>
                           </dt>
-                          <dd className="flex shrink-0 items-center gap-2 tabular-nums">
+                          <dd className="flex shrink-0 items-baseline gap-1.5 tabular-nums">
                             <span className="font-semibold text-slate-900">{formatMoney(item.amount)}</span>
-                            <span className="w-8 text-right text-slate-400">{share}%</span>
+                            <span className="text-xs text-slate-400">{share}%</span>
                           </dd>
                         </div>
                       );
                     })}
                   </dl>
                 </div>
-                <div className="mt-auto pt-4 text-right">
+                <div className="mt-auto border-t border-slate-100 pt-4 text-right">
                   <Link href="/owner/transactions" className="text-sm font-semibold text-blue-600 hover:underline">Xem chi tiết →</Link>
                 </div>
               </>
@@ -536,17 +546,17 @@ export default function OwnerDashboard() {
               </span>
             </div>
 
-            <dl className="mt-5 space-y-3 text-sm">
+            <dl className="mt-6 space-y-3.5 text-sm leading-5">
               <div className="flex items-center justify-between gap-2">
-                <dt className="flex items-center gap-2 text-slate-600"><span className="h-2 w-2 rounded-full bg-emerald-500" />Đang thuê</dt>
+                <dt className="flex items-center gap-2.5 text-slate-600"><span className="h-2 w-2 rounded-full bg-emerald-500" />Đang thuê</dt>
                 <dd className="font-semibold tabular-nums text-slate-900">{summary?.occupancy?.occupied || 0} / {summary?.occupancy?.total || 0} phòng</dd>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <dt className="flex items-center gap-2 text-slate-600"><span className="h-2 w-2 rounded-full bg-slate-300" />Phòng trống</dt>
+                <dt className="flex items-center gap-2.5 text-slate-600"><span className="h-2 w-2 rounded-full bg-slate-300" />Phòng trống</dt>
                 <dd className="font-semibold tabular-nums text-slate-900">{summary?.occupancy?.vacant || 0}</dd>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <dt className="flex items-center gap-2 text-slate-600"><span className="h-2 w-2 rounded-full bg-amber-500" />Sắp hết hợp đồng (30 ngày)</dt>
+                <dt className="flex items-center gap-2.5 text-slate-600"><span className="h-2 w-2 rounded-full bg-amber-500" />Sắp hết hợp đồng (30 ngày)</dt>
                 <dd className="font-semibold tabular-nums text-slate-900">{summary?.occupancy?.expiringContracts || 0}</dd>
               </div>
             </dl>
@@ -575,19 +585,19 @@ export default function OwnerDashboard() {
                 Chưa có giao dịch thu chi nào
               </div>
             ) : (
-              <ul className="mt-4 space-y-3.5">
+              <ul className="mt-5 space-y-4">
                 {recentTx.map((tx: any, idx: number) => (
-                  <li key={tx.id || idx} className="flex items-start gap-3">
-                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tx.type === "income" ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}>
-                      {tx.type === "income" ? <ArrowDownLeft size={15} /> : <ArrowUpRight size={15} />}
+                  <li key={tx.id || idx} className="flex items-center gap-3">
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tx.type === "income" ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}>
+                      {tx.type === "income" ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-slate-900">
+                      <div className="truncate text-sm font-semibold leading-5 text-slate-900">
                         {tx.type === "income" ? "Đã thu" : "Ghi chi phí"} {formatMoney(tx.amount)}
                       </div>
-                      <div className="truncate text-xs text-slate-500">{tx.description || tx.category_name || "Giao dịch"}</div>
+                      <div className="mt-0.5 truncate text-[13px] leading-5 text-slate-500">{tx.description || tx.category_name || "Giao dịch"}</div>
                     </div>
-                    <span className="shrink-0 text-xs text-slate-400">{new Date(tx.date).toLocaleDateString("vi-VN")}</span>
+                    <span className="shrink-0 self-start text-[13px] leading-5 tabular-nums text-slate-400">{new Date(tx.date).toLocaleDateString("vi-VN")}</span>
                   </li>
                 ))}
               </ul>
@@ -599,19 +609,24 @@ export default function OwnerDashboard() {
         {/* ── HIỆU SUẤT THEO CƠ SỞ (giữ nguyên tính năng sẵn có) ── */}
         {!facilityId && (summary?.facilitiesPerformance || []).length > 0 && (
           <section className="rounded-xl border border-slate-200 bg-white p-5">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">Hiệu suất theo cơ sở</h2>
-                <p className="mt-0.5 text-xs text-slate-500">Ưu tiên cơ sở có công nợ hoặc tỷ lệ thu thấp.</p>
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                  <Building2 size={18} />
+                </span>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">Hiệu suất theo cơ sở</h2>
+                  <p className="mt-0.5 text-[13px] leading-5 text-slate-500">Ưu tiên cơ sở có công nợ hoặc tỷ lệ thu thấp.</p>
+                </div>
               </div>
-              <Link href="/owner/boarding-houses" className="text-sm font-semibold text-blue-600 hover:underline">Xem cơ sở →</Link>
+              <Link href="/owner/boarding-houses" className="shrink-0 text-sm font-semibold text-blue-600 hover:underline">Xem cơ sở →</Link>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[600px] text-left text-sm">
-                <thead className="border-b border-slate-100 text-xs text-slate-500"><tr><th className="pb-2 font-semibold">Cơ sở</th><th className="pb-2 text-right font-semibold">Lấp đầy</th><th className="pb-2 text-right font-semibold">Đã thu</th><th className="pb-2 text-right font-semibold">Quá hạn</th><th className="pb-2 text-right font-semibold">Trạng thái</th></tr></thead>
+                <thead className="border-b border-slate-200 text-[13px] text-slate-500"><tr><th className="pb-3 font-semibold">Cơ sở</th><th className="pb-3 text-right font-semibold">Lấp đầy</th><th className="pb-3 text-right font-semibold">Đã thu</th><th className="pb-3 text-right font-semibold">Quá hạn</th><th className="pb-3 text-right font-semibold">Trạng thái</th></tr></thead>
                 <tbody>{(summary?.facilitiesPerformance || []).slice(0, 5).map((facility) => {
                   const needsAttention = facility.overdue > 0 || facility.collectedRate < 80 || facility.occupancyRate < 80;
-                  return <tr key={facility.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50"><td className="py-3 font-semibold text-slate-800">{facility.name}</td><td className="py-3 text-right tabular-nums">{facility.occupancyRate}%</td><td className="py-3 text-right tabular-nums">{facility.collectedRate}%</td><td className="py-3 text-right font-semibold tabular-nums text-amber-700">{formatMoney(facility.overdue)}</td><td className="py-3 text-right"><button aria-pressed={facilityId === facility.id} type="button" onClick={() => setFacilityId(facility.id)} className={needsAttention ? "font-semibold text-amber-700" : "font-semibold text-emerald-700"}>{needsAttention ? "Cần chú ý" : "Tốt"}</button></td></tr>;
+                  return <tr key={facility.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50"><td className="py-3.5 font-semibold text-slate-800">{facility.name}</td><td className="py-3.5 text-right tabular-nums text-slate-600">{facility.occupancyRate}%</td><td className="py-3.5 text-right tabular-nums text-slate-600">{facility.collectedRate}%</td><td className="py-3.5 text-right font-semibold tabular-nums text-amber-700">{formatMoney(facility.overdue)}</td><td className="py-3.5 text-right"><button aria-pressed={facilityId === facility.id} type="button" onClick={() => setFacilityId(facility.id)} className={needsAttention ? "font-semibold text-amber-700" : "font-semibold text-emerald-700"}>{needsAttention ? "Cần chú ý" : "Tốt"}</button></td></tr>;
                 })}</tbody>
               </table>
             </div>
@@ -622,16 +637,16 @@ export default function OwnerDashboard() {
         <section className="rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="mb-4 text-base font-bold text-slate-900">Thao tác nhanh</h2>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Link href="/rooms/new" className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+            <Link href="/rooms/new" className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
               <Plus size={16} className="text-blue-600" /> Thêm phòng mới
             </Link>
-            <Link href="/invoices/new" className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+            <Link href="/invoices/new" className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
               <FileText size={16} className="text-blue-600" /> Lập hóa đơn mới
             </Link>
-            <Link href="/contracts/new" className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+            <Link href="/contracts/new" className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
               <Users size={16} className="text-blue-600" /> Tạo hợp đồng mới
             </Link>
-            <Link href="/owner/transactions/new" className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+            <Link href="/owner/transactions/new" className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
               <Wallet size={16} className="text-blue-600" /> Ghi chép thu chi
             </Link>
           </div>
@@ -657,15 +672,20 @@ function KpiCard({
 }) {
   const body = (
     <>
-      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconClass}`}>{icon}</span>
-      <span className="min-w-0">
-        <span className="block text-sm text-slate-500">{label}</span>
-        <span className="mt-0.5 block truncate text-xl font-bold tabular-nums text-slate-900">{value}</span>
-        <span className={`mt-1 block truncate text-xs ${hintClass}`}>{hint}</span>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-medium leading-5 text-slate-500">{label}</span>
+        {/* Four cards across leaves ~200px per card on a 1400px screen, where a
+            24px figure clipped mid-number. It steps up only once there is room. */}
+        <span className="mt-1 block truncate text-xl font-bold leading-7 tabular-nums text-slate-900 2xl:text-2xl 2xl:leading-8">{value}</span>
+        {/* Wraps instead of truncating: at four cards across, "Biên lợi nhuận …
+            · Dòng tiền ròng …" is wider than the card, and clipping it hid a
+            figure the owner is meant to read. */}
+        <span className={`mt-1 block text-[13px] leading-5 ${hintClass}`}>{hint}</span>
       </span>
     </>
   );
-  const shell = "flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white p-4";
+  const shell = "flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-5";
   return href
     ? <Link href={href} className={`${shell} transition-colors hover:border-slate-300`}>{body}</Link>
     : <div className={shell}>{body}</div>;
@@ -725,7 +745,7 @@ function CashflowChart({
     <div className="mt-5">
       <div className="flex gap-3">
         {/* Y axis */}
-        <div className="flex h-56 w-16 shrink-0 flex-col justify-between py-px text-right text-[11px] text-slate-400">
+        <div className="flex h-56 w-20 shrink-0 flex-col justify-between py-px text-right text-xs leading-4 text-slate-400">
           {ticks.map((t) => <span key={t}>{t === 0 ? "0" : formatCompactMoney(Math.round(axisMax * t))}</span>)}
         </div>
 
@@ -733,24 +753,24 @@ function CashflowChart({
         <div className="relative h-56 min-w-0 flex-1">
           {/* grid */}
           {ticks.map((t) => (
-            <span key={t} className="absolute inset-x-0 border-t border-slate-100" style={{ top: `${(1 - t) * 100}%` }} />
+            <span key={t} className="absolute inset-x-0 border-t border-slate-100/80" style={{ top: `${(1 - t) * 100}%` }} />
           ))}
 
           <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             <defs>
               <linearGradient id="cf-rev" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#2563EB" stopOpacity="0.18" />
+                <stop offset="0%" stopColor="#2563EB" stopOpacity="0.10" />
                 <stop offset="100%" stopColor="#2563EB" stopOpacity="0" />
               </linearGradient>
               <linearGradient id="cf-exp" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#EF4444" stopOpacity="0.14" />
+                <stop offset="0%" stopColor="#EF4444" stopOpacity="0.07" />
                 <stop offset="100%" stopColor="#EF4444" stopOpacity="0" />
               </linearGradient>
             </defs>
             <path d={areaFor("rev")} fill="url(#cf-rev)" />
             <path d={areaFor("exp")} fill="url(#cf-exp)" />
-            <path d={lineFor("exp")} fill="none" stroke="#EF4444" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
-            <path d={lineFor("rev")} fill="none" stroke="#2563EB" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+            <path d={lineFor("exp")} fill="none" stroke="#EF4444" strokeWidth="1.75" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+            <path d={lineFor("rev")} fill="none" stroke="#2563EB" strokeWidth="1.75" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
           </svg>
 
           {/* dots + hit areas: one column per month, so hovering or clicking
@@ -788,7 +808,7 @@ function CashflowChart({
           {/* tooltip */}
           {tooltipMonth && (
             <div
-              className="pointer-events-none absolute z-10 w-44 rounded-lg border border-slate-200 bg-white p-2.5 text-xs shadow-lg"
+              className="pointer-events-none absolute z-10 w-48 rounded-lg border border-slate-200 bg-white p-3 text-[13px] leading-5 shadow-lg"
               style={{
                 left: `${pointAt(hovered as number, tooltipMonth.rev).x}%`,
                 top: 8,
@@ -810,13 +830,13 @@ function CashflowChart({
       </div>
 
       {/* X axis */}
-      <div className="mt-2 flex gap-3">
-        <span className="w-16 shrink-0" />
+      <div className="mt-2.5 flex gap-3">
+        <span className="w-20 shrink-0" />
         <div className="flex min-w-0 flex-1">
           {months.map((m, i) => (
             <span
               key={`${m.year}-${m.month}`}
-              className={`flex-1 text-center text-[11px] ${i === active ? "font-bold text-slate-900" : "text-slate-400"}`}
+              className={`flex-1 text-center text-xs leading-4 ${i === active ? "font-semibold text-slate-900" : "text-slate-400"}`}
             >
               {m.label}
             </span>
@@ -825,9 +845,9 @@ function CashflowChart({
       </div>
 
       {/* Legend */}
-      <div className="mt-4 flex items-center gap-5 text-xs text-slate-500">
-        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-600" />Doanh thu</span>
-        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-500" />Chi phí</span>
+      <div className="mt-5 flex items-center gap-6 border-t border-slate-100 pt-4 text-[13px] leading-5 text-slate-500">
+        <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-blue-600" />Doanh thu</span>
+        <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-red-500" />Chi phí</span>
       </div>
     </div>
   );
