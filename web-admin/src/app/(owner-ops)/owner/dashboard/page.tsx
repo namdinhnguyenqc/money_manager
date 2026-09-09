@@ -213,7 +213,7 @@ export default function OwnerDashboard() {
     [overdueInvoices]);
 
   const recentTx = useMemo(() =>
-    [...transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5),
+    [...transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3),
     [transactions]);
 
   // Expense ratio %
@@ -460,7 +460,7 @@ export default function OwnerDashboard() {
         </div>
 
         {/* ── ROW 3: CƠ CẤU CHI PHÍ · TÌNH TRẠNG PHÒNG · HOẠT ĐỘNG GẦN ĐÂY ── */}
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid items-start gap-4 lg:grid-cols-3">
 
           {/* Cơ cấu chi phí */}
           <section className="flex flex-col rounded-xl border border-slate-200 bg-white p-5">
@@ -478,9 +478,10 @@ export default function OwnerDashboard() {
 
             {(summary?.expenseComposition || []).length ? (
               <>
-                <div className="mt-5 flex items-center gap-4">
+                <div className="mt-5 flex items-center gap-3">
                   <Donut
-                    size={80}
+                    size={92}
+                    strokeWidth={8}
                     centerValue={formatMoney(summary?.totals?.expense || 0)}
                     centerLabel="Tổng chi phí"
                     compactCenter
@@ -499,7 +500,7 @@ export default function OwnerDashboard() {
                             <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: EXPENSE_COLORS[i % EXPENSE_COLORS.length] }} />
                             <span className="truncate" title={item.name}>{item.name}</span>
                           </dt>
-                          <dd className="flex shrink-0 items-baseline gap-1.5 tabular-nums">
+                          <dd className="flex shrink-0 items-baseline gap-1 tabular-nums">
                             <span className="font-semibold text-slate-900">{formatMoney(item.amount)}</span>
                             <span className="text-xs text-slate-400">{share}%</span>
                           </dd>
@@ -508,7 +509,7 @@ export default function OwnerDashboard() {
                     })}
                   </dl>
                 </div>
-                <div className="mt-auto border-t border-slate-100 pt-4 text-right">
+                <div className="mt-4 border-t border-slate-100 pt-4 text-right">
                   <Link href="/owner/transactions" className="text-sm font-semibold text-blue-600 hover:underline">Xem chi tiết →</Link>
                 </div>
               </>
@@ -561,7 +562,7 @@ export default function OwnerDashboard() {
               </div>
             </dl>
 
-            <div className="mt-auto pt-5">
+            <div className="mt-5">
               <Button href="/rooms" variant="outline" className="w-full">Xem danh sách phòng →</Button>
             </div>
           </section>
@@ -854,13 +855,16 @@ function CashflowChart({
 }
 
 function Donut({
-  segments, size, centerValue, centerLabel, compactCenter = false,
+  segments, size, centerValue, centerLabel, compactCenter = false, strokeWidth = 11,
 }: {
   segments: Array<{ value: number; color: string }>;
   size: number;
   centerValue: string;
   centerLabel: string;
   compactCenter?: boolean;
+  /** Thinner on the compact variant so a long money string has an open hole
+      to sit in — at the default 11 the ring itself crowded the text (Bug 1). */
+  strokeWidth?: number;
 }) {
   const total = segments.reduce((sum, s) => sum + Math.max(0, s.value), 0);
   const radius = 42;
@@ -870,7 +874,7 @@ function Donut({
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-        <circle cx="50" cy="50" r={radius} fill="none" stroke="#F1F5F9" strokeWidth="11" />
+        <circle cx="50" cy="50" r={radius} fill="none" stroke="#F1F5F9" strokeWidth={strokeWidth} />
         {total > 0 && segments.map((segment, i) => {
           const share = Math.max(0, segment.value) / total;
           const dash = share * circumference;
@@ -878,7 +882,7 @@ function Donut({
             <circle
               key={i}
               cx="50" cy="50" r={radius} fill="none"
-              stroke={segment.color} strokeWidth="11"
+              stroke={segment.color} strokeWidth={strokeWidth}
               strokeDasharray={`${dash} ${circumference - dash}`}
               strokeDashoffset={-offset}
             />
@@ -887,9 +891,14 @@ function Donut({
           return node;
         })}
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center px-3 text-center">
-        <span className={`font-bold tabular-nums text-slate-900 ${compactCenter ? "text-[13px] leading-tight" : "text-2xl"}`}>{centerValue}</span>
-        <span className="mt-0.5 text-[11px] text-slate-500">{centerLabel}</span>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-center">
+        <span
+          className={`font-bold tabular-nums text-slate-900 ${compactCenter ? "break-words text-xs leading-tight" : "text-2xl"}`}
+          style={compactCenter ? { maxWidth: size * 0.68 } : undefined}
+        >
+          {centerValue}
+        </span>
+        <span className={`text-slate-500 ${compactCenter ? "text-[10px] leading-tight" : "mt-0.5 text-[11px]"}`}>{centerLabel}</span>
       </div>
     </div>
   );
