@@ -1516,76 +1516,85 @@ export default function OwnerSettingsPage() {
                 </div>
 
                 {showAddService && (
-                  <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-5 shadow-inner space-y-4 animate-in slide-in-from-top-3">
-                    <span className="text-xs font-extrabold text-blue-900 uppercase tracking-wider block">Thêm dịch vụ phòng trọ mới</span>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                      <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-700">Tên dịch vụ *</label>
-                        <input type="text" className="input text-xs" value={newService.name} onChange={(e) => setNewService({ ...newService, name: e.target.value })} placeholder="VD: Rác sinh hoạt..." />
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowAddService(false); }}>
+                    <div role="dialog" aria-modal="true" aria-labelledby="add-service-title" className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl sm:p-6">
+                      <div className="mb-5 flex items-start justify-between gap-4">
+                        <div>
+                          <h2 id="add-service-title" className="text-xl font-bold text-slate-950">Thêm dịch vụ phòng trọ mới</h2>
+                          <p className="mt-1 text-sm text-slate-600">Đơn giá máy lạnh và đơn vị tính có thể bổ sung sau bằng nút Sửa.</p>
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setShowAddService(false)} aria-label="Đóng form" icon={<X size={18} />} />
                       </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-700">Loại tính phí</label>
-                        <select className="input text-xs appearance-none pr-8" value={newService.type} onChange={(e) => setNewService({ ...newService, type: e.target.value })}>
-                          <option value="metered">Theo số đo (Điện, Nước)</option>
-                          <option value="per_person">Theo người (Người/Tháng)</option>
-                          <option value="per_room">Theo phòng (Phòng/Tháng)</option>
-                          <option value="fixed">Cố định tháng</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-700">Đơn giá chuẩn *</label>
-                        <input type="number" className="input text-xs" value={newService.unitPrice} onChange={(e) => setNewService({ ...newService, unitPrice: Number(e.target.value) })} />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-700">Đơn giá máy lạnh (nếu có)</label>
-                        <input type="number" className="input text-xs" value={newService.unitPriceAc} onChange={(e) => setNewService({ ...newService, unitPriceAc: Number(e.target.value) })} />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-700">Đơn vị tính</label>
-                        <input type="text" className="input text-xs" value={newService.unit} onChange={(e) => setNewService({ ...newService, unit: e.target.value })} placeholder="VD: kWh, khối, người..." />
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2 pt-2">
-                      <Button onClick={() => setShowAddService(false)} className="text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl px-4 py-2">Hủy</Button>
-                      <Button onClick={handleCreateService} className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl px-4 py-2">Thêm dịch vụ</Button>
+                      <form onSubmit={(e) => { e.preventDefault(); handleCreateService(); }} className="space-y-4">
+                        <div>
+                          <Label>Tên dịch vụ *</Label>
+                          <Input autoFocus value={newService.name} onChange={(e) => setNewService({ ...newService, name: e.target.value })} placeholder="VD: Rác sinh hoạt..." required />
+                        </div>
+                        <div>
+                          <Label>Loại tính phí</Label>
+                          <UISelect value={newService.type} onChange={(e) => setNewService({ ...newService, type: e.target.value })}>
+                            <option value="metered">Theo số đo (Điện, Nước)</option>
+                            <option value="per_person">Theo người (Người/Tháng)</option>
+                            <option value="per_room">Theo phòng (Phòng/Tháng)</option>
+                            <option value="fixed">Cố định tháng</option>
+                          </UISelect>
+                        </div>
+                        <div>
+                          <Label>Đơn giá chuẩn *</Label>
+                          <Input type="number" value={newService.unitPrice} onChange={(e) => setNewService({ ...newService, unitPrice: Number(e.target.value) })} required />
+                        </div>
+                        <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
+                          <Button type="button" variant="outline" onClick={() => setShowAddService(false)}>Hủy</Button>
+                          <Button type="submit" variant="primary" loading={saving}>{saving ? "Đang lưu..." : "Thêm dịch vụ"}</Button>
+                        </div>
+                      </form>
                     </div>
                   </div>
                 )}
 
                 {/* Edit Service Form */}
                 {editingServiceId && (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-5 shadow-inner space-y-4 animate-in slide-in-from-top-3">
-                    <span className="text-xs font-extrabold text-amber-900 uppercase tracking-wider block">Sửa cấu hình dịch vụ</span>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                      <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-700">Tên dịch vụ *</label>
-                        <input type="text" className="input text-xs" value={editingService.name || ""} onChange={(e) => setEditingService({ ...editingService, name: e.target.value })} />
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingServiceId(null); }}>
+                    <div role="dialog" aria-modal="true" aria-labelledby="edit-service-title" className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl sm:p-6">
+                      <div className="mb-5 flex items-start justify-between gap-4">
+                        <div>
+                          <h2 id="edit-service-title" className="text-xl font-bold text-slate-950">Sửa cấu hình dịch vụ</h2>
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setEditingServiceId(null)} aria-label="Đóng form" icon={<X size={18} />} />
                       </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-700">Loại tính phí</label>
-                        <select className="input text-xs appearance-none pr-8" value={editingService.type || "metered"} onChange={(e) => setEditingService({ ...editingService, type: e.target.value })}>
-                          <option value="metered">Theo số đo (Điện, Nước)</option>
-                          <option value="per_person">Theo người (Người/Tháng)</option>
-                          <option value="per_room">Theo phòng (Phòng/Tháng)</option>
-                          <option value="fixed">Cố định tháng</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-700">Đơn giá chuẩn *</label>
-                        <input type="number" className="input text-xs" value={editingService.unit_price ?? 0} onChange={(e) => setEditingService({ ...editingService, unit_price: Number(e.target.value) })} />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-700">Đơn giá máy lạnh (nếu có)</label>
-                        <input type="number" className="input text-xs" value={editingService.unit_price_ac ?? 0} onChange={(e) => setEditingService({ ...editingService, unit_price_ac: Number(e.target.value) })} />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-700">Đơn vị tính</label>
-                        <input type="text" className="input text-xs" value={editingService.unit || ""} onChange={(e) => setEditingService({ ...editingService, unit: e.target.value })} />
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2 pt-2">
-                      <Button onClick={() => setEditingServiceId(null)} className="text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl px-4 py-2">Hủy</Button>
-                      <Button onClick={handleUpdateService} className="text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl px-4 py-2">Lưu thay đổi</Button>
+                      <form onSubmit={(e) => { e.preventDefault(); handleUpdateService(); }} className="space-y-4">
+                        <div>
+                          <Label>Tên dịch vụ *</Label>
+                          <Input autoFocus value={editingService.name || ""} onChange={(e) => setEditingService({ ...editingService, name: e.target.value })} required />
+                        </div>
+                        <div>
+                          <Label>Loại tính phí</Label>
+                          <UISelect value={editingService.type || "metered"} onChange={(e) => setEditingService({ ...editingService, type: e.target.value })}>
+                            <option value="metered">Theo số đo (Điện, Nước)</option>
+                            <option value="per_person">Theo người (Người/Tháng)</option>
+                            <option value="per_room">Theo phòng (Phòng/Tháng)</option>
+                            <option value="fixed">Cố định tháng</option>
+                          </UISelect>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <Label>Đơn giá chuẩn *</Label>
+                            <Input type="number" value={editingService.unit_price ?? 0} onChange={(e) => setEditingService({ ...editingService, unit_price: Number(e.target.value) })} required />
+                          </div>
+                          <div>
+                            <Label>Đơn giá máy lạnh (nếu có)</Label>
+                            <Input type="number" value={editingService.unit_price_ac ?? 0} onChange={(e) => setEditingService({ ...editingService, unit_price_ac: Number(e.target.value) })} />
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Đơn vị tính</Label>
+                          <Input value={editingService.unit || ""} onChange={(e) => setEditingService({ ...editingService, unit: e.target.value })} placeholder="VD: kWh, khối, người..." />
+                        </div>
+                        <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
+                          <Button type="button" variant="outline" onClick={() => setEditingServiceId(null)}>Hủy</Button>
+                          <Button type="submit" variant="primary" loading={saving}>{saving ? "Đang lưu..." : "Lưu thay đổi"}</Button>
+                        </div>
+                      </form>
                     </div>
                   </div>
                 )}
