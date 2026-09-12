@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { supabaseAdmin } from "../lib/supabase.js";
+import { waitUntil } from "@vercel/functions";
 import { decryptToken, encryptToken } from "../utils/crypto.js";
 import {
   DEFAULT_ZALO_PAYMENT_RECEIVED_MESSAGE,
@@ -386,7 +387,18 @@ export function startZcaQrLogin(ownerId: string) {
   };
   loginSessions.set(sessionId, session);
 
-  createZalo()
+  // zalo.loginQR() opens a WebSocket and waits (potentially tens of seconds)
+  // for the phone to scan and confirm. On Vercel that work runs inside the
+  // POST /zca/qr/start invocation; the moment this function returns its HTTP
+  // response, Vercel is free to freeze the instance, and an un-awaited promise
+  // has no claim on staying alive. That's why "scanned" could arrive (the
+  // container was still warm serving the poll requests) but the later
+  // "confirmed" event never did — the freeze usually lands before the user
+  // finishes tapping confirm on their phone. waitUntil() tells Vercel this
+  // invocation isn't done until the promise settles (bounded by the route's
+  // maxDuration, 60s in api/index.js), which is what actually keeps the
+  // WebSocket's event loop running long enough to see the confirmation.
+  const loginPromise = createZalo()
     .then((zalo) => zalo.loginQR({ userAgent: ZCA_USER_AGENT, language: "vi" }, async (event: ZcaLoginEvent) => {
       const current = loginSessions.get(sessionId);
       if (!current) return;
@@ -437,6 +449,8 @@ export function startZcaQrLogin(ownerId: string) {
         current.error = error?.message || "Không đăng nhập Zalo được.";
       }
     });
+
+  waitUntil(loginPromise);
 
   return { sessionId, status: session.status };
 }
