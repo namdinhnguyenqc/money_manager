@@ -16,6 +16,7 @@
     "@hono/node-server": "^1.19.14",
     "@supabase/supabase-js": "^2.49.1",
     "@types/bcryptjs": "^2.4.6",
+    "@vercel/functions": "^3.9.7",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.1.0",
     "dotenv": "^17.4.2",
