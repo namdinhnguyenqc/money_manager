@@ -865,16 +865,22 @@ export function startInvoicesBulkZcaJob(ownerId: string, invoiceIds: string[], p
   };
   bulkJobs.set(job.id, job);
 
-  queueMicrotask(() => {
-    runBulkJob(job.id, uniqueInvoiceIds, phonesMap).catch((error: any) => {
-      const failedJob = bulkJobs.get(job.id);
-      if (!failedJob) return;
-      failedJob.status = "failed";
-      failedJob.error = error?.message || "Không gửi được hóa đơn qua Zalo.";
-      failedJob.updatedAt = new Date().toISOString();
-      failedJob.completedAt = failedJob.updatedAt;
-    });
+  // Same failure mode as the QR login flow: sending 9 invoices (render image +
+  // Zalo send + 850ms pacing, each) easily runs past whatever grace period an
+  // un-awaited promise gets after this handler's HTTP response is sent, so the
+  // job froze mid-list — which is what "rất rất lâu" was. waitUntil() keeps
+  // this invocation (and the loop running inside it) alive until the job
+  // finishes, bounded by the route's 60s maxDuration.
+  const bulkPromise = runBulkJob(job.id, uniqueInvoiceIds, phonesMap).catch((error: any) => {
+    const failedJob = bulkJobs.get(job.id);
+    if (!failedJob) return;
+    failedJob.status = "failed";
+    failedJob.error = error?.message || "Không gửi được hóa đơn qua Zalo.";
+    failedJob.updatedAt = new Date().toISOString();
+    failedJob.completedAt = failedJob.updatedAt;
   });
+
+  waitUntil(bulkPromise);
 
   return cloneBulkJob(job);
 }
