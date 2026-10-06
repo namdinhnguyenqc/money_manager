@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { OAuth2Client } from "google-auth-library";
 import { supabaseAdmin } from "../lib/supabase.js";
@@ -151,6 +152,41 @@ const adminLoginSchema = z.object({
   username: z.string().min(1),
   password: z.string().min(1),
 });
+
+const ADMIN_LOGIN_MAX_FAILURES = 5;
+const ADMIN_LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const ADMIN_LOGIN_FAILURE_DELAY_MS = 800;
+const adminLoginFailures = new Map<string, { count: number; resetAt: number }>();
+
+const adminLoginLockRemainingMs = (ip: string, now: number) => {
+  const record = adminLoginFailures.get(ip);
+  if (!record) return 0;
+  if (now >= record.resetAt) {
+    adminLoginFailures.delete(ip);
+    return 0;
+  }
+  return record.count >= ADMIN_LOGIN_MAX_FAILURES ? record.resetAt - now : 0;
+};
+
+const recordAdminLoginFailure = (ip: string, now: number) => {
+  if (adminLoginFailures.size > 5000) {
+    for (const [key, record] of adminLoginFailures) {
+      if (now >= record.resetAt) adminLoginFailures.delete(key);
+    }
+  }
+  const record = adminLoginFailures.get(ip);
+  if (!record || now >= record.resetAt) {
+    adminLoginFailures.set(ip, { count: 1, resetAt: now + ADMIN_LOGIN_WINDOW_MS });
+    return;
+  }
+  record.count += 1;
+};
+
+const safeEqual = (a: string, b: string) => {
+  const left = createHash("sha256").update(a).digest();
+  const right = createHash("sha256").update(b).digest();
+  return timingSafeEqual(left, right);
+};
 
 let googleOAuth2Client: OAuth2Client | null = null;
 
@@ -719,9 +755,25 @@ authRoutes.post("/admin-login", async (c) => {
 
   const { username, password } = parsed.data;
 
-  if (username !== env.ADMIN_USERNAME || password !== env.ADMIN_PASSWORD) {
+  const clientIp = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const now = Date.now();
+  const lockedForMs = adminLoginLockRemainingMs(clientIp, now);
+  if (lockedForMs > 0) {
+    c.header("Retry-After", String(Math.ceil(lockedForMs / 1000)));
+    return c.json({ code: "TOO_MANY_ATTEMPTS", message: "Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau." }, 429);
+  }
+
+  const credentialsMatch =
+    safeEqual(username, env.ADMIN_USERNAME) && safeEqual(password, env.ADMIN_PASSWORD);
+  if (!credentialsMatch) {
+    recordAdminLoginFailure(clientIp, now);
+    auditLog("ADMIN_LOGIN_FAILED", "admin-builtin", { ip: clientIp });
+    // Instances do not share the attempt counter, so a fixed delay keeps
+    // guessing slow even when requests land on a fresh instance.
+    await new Promise((resolve) => setTimeout(resolve, ADMIN_LOGIN_FAILURE_DELAY_MS));
     return c.json({ code: "INVALID_CREDENTIALS", message: "Sai tên đăng nhập hoặc mật khẩu." }, 401);
   }
+  adminLoginFailures.delete(clientIp);
 
   const adminUser = {
     id: "admin-builtin",
