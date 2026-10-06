@@ -1,5 +1,8 @@
-const SUPABASE_URL = "https://eikkywprsbszsiqeuujg.supabase.co";
-const SUPABASE_KEY = "***REMOVED-SUPABASE-KEY***";
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  throw new Error("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before running this script.");
+}
 
 async function resetWallets() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/wallets?id=not.is.null`, {

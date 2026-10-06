@@ -79,6 +79,8 @@ function matchesStatus(invoice: any, filter: FilterTab, period: { month: number;
   return false;
 }
 
+const ZALO_ROUND_SIZE = 5;
+
 export default function InvoicesScreen() {
   const router = useRouter();
   const { showToast, showSuccess } = useAppToast();
@@ -250,8 +252,20 @@ export default function InvoicesScreen() {
     try {
       // The bulk endpoint validates each invoice independently: paid invoices
       // are skipped and a bad phone/Zalo account never stops the whole batch.
-      const response = await apiPost<any>('/api/invoices/send-zalo-bulk?mode=sync', { invoiceIds }, { timeoutMs: 120000 });
-      const summary = response?.data ?? response;
+      const summary: any = { sent: [], paidSkipped: [], missingPhone: [], zaloNotFound: [], failed: [] };
+      let queue = [...invoiceIds];
+      while (queue.length > 0) {
+        // Small rounds keep every request well under the server's 60s limit.
+        const round = queue.slice(0, ZALO_ROUND_SIZE);
+        const response = await apiPost<any>('/api/invoices/send-zalo-bulk?mode=sync', { invoiceIds: round }, { timeoutMs: 70000 });
+        const part = response?.data ?? response;
+        for (const key of ['sent', 'paidSkipped', 'missingPhone', 'zaloNotFound', 'failed']) {
+          summary[key].push(...(part?.[key] ?? []));
+        }
+        const deferred: string[] = part?.deferred ?? [];
+        if (deferred.length >= round.length) throw new Error('Zalo phản hồi quá chậm, chưa gửi thêm được hóa đơn nào. Vui lòng thử lại.');
+        queue = [...deferred, ...queue.slice(round.length)];
+      }
       const sent = summary?.sent?.length ?? 0;
       const paidSkipped = summary?.paidSkipped?.length ?? 0;
       const missingPhone = summary?.missingPhone ?? [];

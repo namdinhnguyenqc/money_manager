@@ -40,7 +40,7 @@ const sendZaloSchema = z.object({
 });
 
 const bulkSendZaloSchema = z.object({
-  invoiceIds: z.array(z.string().uuid()),
+  invoiceIds: z.array(z.string().uuid()).min(1).max(200),
   phonesMap: z.record(z.string(), z.string()).optional(), // invoiceId -> phoneNumber if missing
 });
 

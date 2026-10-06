@@ -16,7 +16,7 @@ import {
   loadPendingBilling,
   normalizeInvoiceStatus 
 } from "@/lib/rentalOps";
-import { apiDelete, apiGet, apiPost } from "@/utils/apiClient";
+import { apiDelete, apiPost } from "@/utils/apiClient";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
 import MetricCard from "@/components/ui/MetricCard";
@@ -51,6 +51,8 @@ type ZaloBatchSummary = {
   zaloNotFound: ZaloBatchItem[];
   failed: ZaloBatchItem[];
 };
+
+const ZALO_ROUND_SIZE = 5;
 
 type ZaloBulkJob = {
   id: string;
@@ -442,38 +444,38 @@ export default function InvoicesPage() {
     setZaloSummary(null);
     setZaloJob(null);
     try {
-      const res = await apiPost<any>("/api/invoices/send-zalo-bulk", { invoiceIds: selectedIds });
-      const startedJob = res?.data as ZaloBulkJob | undefined;
-      if (!res?.success || !startedJob?.id) throw new Error(res?.error || "Không gửi được hóa đơn qua Zalo.");
+      // Sent in small synchronous rounds: each request stays far below the
+      // server's 60s limit and progress no longer depends on server memory.
+      const merged: ZaloBatchSummary = { selected: selectedIds.length, sent: [], paidSkipped: [], missingPhone: [], zaloNotFound: [], failed: [] };
+      const publish = (status: ZaloBulkJob["status"], processed: number) =>
+        setZaloJob({ id: "local", status, total: selectedIds.length, processed, summary: { ...merged } });
 
-      setZaloJob(startedJob);
+      let queue = [...selectedIds];
+      let processed = 0;
+      publish("running", 0);
       setSelected({});
 
-      let finished = false;
-      for (let attempt = 0; attempt < 240; attempt += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 1200));
-        const jobRes = await apiGet<any>(`/api/invoices/send-zalo-bulk/${startedJob.id}`);
-        const currentJob = jobRes?.data as ZaloBulkJob | undefined;
+      while (queue.length > 0) {
+        const round = queue.slice(0, ZALO_ROUND_SIZE);
+        const res = await apiPost<any>("/api/invoices/send-zalo-bulk?mode=sync", { invoiceIds: round });
+        const summary = res?.data as (ZaloBatchSummary & { deferred?: string[] }) | undefined;
+        if (!res?.success || !summary) throw new Error(res?.error || "Không gửi được hóa đơn qua Zalo.");
 
-        if (!jobRes?.success || !currentJob) {
-          throw new Error(jobRes?.error || "Không đọc được tiến trình gửi Zalo.");
-        }
+        merged.sent.push(...summary.sent);
+        merged.paidSkipped.push(...summary.paidSkipped);
+        merged.missingPhone.push(...summary.missingPhone);
+        merged.zaloNotFound.push(...summary.zaloNotFound);
+        merged.failed.push(...summary.failed);
 
-        setZaloJob(currentJob);
-
-        if (currentJob.status === "completed") {
-          setZaloSummary(currentJob.summary);
-          setZaloJob(null);
-          finished = true;
-          break;
-        }
-
-        if (currentJob.status === "failed") {
-          throw new Error(currentJob.error || "Gửi Zalo thất bại.");
-        }
+        const deferred = summary.deferred ?? [];
+        if (deferred.length >= round.length) throw new Error("Zalo phản hồi quá chậm, chưa gửi thêm được hóa đơn nào. Vui lòng thử lại.");
+        processed += round.length - deferred.length;
+        queue = [...deferred, ...queue.slice(round.length)];
+        publish("running", processed);
       }
 
-      if (!finished) throw new Error("Gửi Zalo lâu hơn dự kiến. Vui lòng kiểm tra lại sau.");
+      setZaloSummary(merged);
+      setZaloJob(null);
     } catch (err: any) {
       setActionError(err?.message || "Không gửi được hóa đơn qua Zalo. Vui lòng kiểm tra kết nối Zalo.");
       setZaloJob(null);
