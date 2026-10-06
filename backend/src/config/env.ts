@@ -64,17 +64,11 @@ export const env = {
   ZALO_APP_ID: optional("ZALO_APP_ID", ""),
   ZALO_APP_SECRET: optional("ZALO_APP_SECRET", ""),
   ZALO_REDIRECT_URI: optional("ZALO_REDIRECT_URI", ""),
-  // Platform-owned OA. Admin connects this account once; individual owners do
-  // not need to complete Zalo OAuth for automated payment reminders.
-  ZALO_SHARED_OWNER_ID: optional("ZALO_SHARED_OWNER_ID", ""),
-  ZALO_PAYMENT_REMINDER_TEMPLATE_ID: optional("ZALO_PAYMENT_REMINDER_TEMPLATE_ID", ""),
-  ZALO_REMINDERS_ENABLED: (process.env.ZALO_REMINDERS_ENABLED ?? "false").toLowerCase() === "true",
   WEB_ADMIN_URL: optional("WEB_ADMIN_URL", "http://localhost:3001"),
   // Public site (web-admin) that serves /tin-tuc — used to trigger on-demand
   // ISR revalidation right after an article is created/updated/deleted.
   SITE_URL: optional("SITE_URL", "https://trocare-production.vercel.app"),
   REVALIDATE_SECRET: optional("REVALIDATE_SECRET", ""),
-  CRON_SECRET: optional("CRON_SECRET", ""),
   // Optional distributed response cache. Upstash exposes Redis over HTTPS,
   // which avoids opening long-lived TCP connections on Render/serverless.
   UPSTASH_REDIS_REST_URL: optional("UPSTASH_REDIS_REST_URL", ""),
