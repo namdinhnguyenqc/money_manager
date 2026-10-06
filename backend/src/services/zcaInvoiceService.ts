@@ -56,7 +56,13 @@ export type ZcaBulkInvoiceResult = {
   missingPhone: ZcaBulkInvoiceItem[];
   zaloNotFound: ZcaBulkInvoiceItem[];
   failed: ZcaBulkInvoiceItem[];
+  /** Invoice ids not attempted because the run hit its time budget; send them again. */
+  deferred: string[];
 };
+
+// One invoice costs a few seconds (image render, Zalo upload, pacing delay) and
+// the function is killed at 60s, so a run stops early and reports the rest.
+const BULK_SEND_BUDGET_MS = 40_000;
 
 export type ZcaBulkJobStatus = "queued" | "running" | "completed" | "failed";
 
@@ -557,6 +563,7 @@ const createEmptyBulkSummary = (selected: number): ZcaBulkInvoiceResult => ({
   missingPhone: [],
   zaloNotFound: [],
   failed: [],
+  deferred: [],
 });
 
 const cloneBulkJob = (job: ZcaBulkInvoiceJob): ZcaBulkInvoiceJob => ({
@@ -568,6 +575,7 @@ const cloneBulkJob = (job: ZcaBulkInvoiceJob): ZcaBulkInvoiceJob => ({
     missingPhone: [...job.summary.missingPhone],
     zaloNotFound: [...job.summary.zaloNotFound],
     failed: [...job.summary.failed],
+    deferred: [...job.summary.deferred],
   },
 });
 
@@ -583,8 +591,13 @@ const runBulkJob = async (jobId: string, invoiceIds: string[], phonesMap: Record
   if (!job) return;
   job.status = "running";
   job.updatedAt = new Date().toISOString();
+  const deadline = Date.now() + BULK_SEND_BUDGET_MS;
 
-  for (const invoiceId of invoiceIds) {
+  for (const [index, invoiceId] of invoiceIds.entries()) {
+    if (Date.now() > deadline) {
+      job.summary.deferred.push(...invoiceIds.slice(index));
+      break;
+    }
     let bundle: InvoiceBundle | null = null;
     try {
       bundle = await loadInvoiceBundle(job.ownerId, invoiceId);
@@ -603,9 +616,9 @@ const runBulkJob = async (jobId: string, invoiceIds: string[], phonesMap: Record
         continue;
       }
 
-      await sendInvoiceImageViaZca(job.ownerId, invoiceId, phone);
+      await sendInvoiceImageViaZca(job.ownerId, invoiceId, phone, bundle);
       job.summary.sent.push(bundleToBulkItem(bundle, { phone }));
-      await sleep(850);
+      if (index < invoiceIds.length - 1) await sleep(850);
     } catch (error: any) {
       if (bundle) {
         pushFailedByError(job.summary, bundle, error, phonesMap[invoiceId]);
@@ -891,8 +904,13 @@ export function getInvoicesBulkZcaJob(ownerId: string, jobId: string) {
   return cloneBulkJob(job);
 }
 
-export async function sendInvoiceImageViaZca(ownerId: string, invoiceId: string, phoneOverride?: string) {
-  const bundle = await loadInvoiceBundle(ownerId, invoiceId);
+export async function sendInvoiceImageViaZca(
+  ownerId: string,
+  invoiceId: string,
+  phoneOverride?: string,
+  preloadedBundle?: InvoiceBundle,
+) {
+  const bundle = preloadedBundle ?? (await loadInvoiceBundle(ownerId, invoiceId));
   const phone = cleanPhone(phoneOverride || bundle.tenant.phone || "");
   if (!/^0\d{9}$/.test(phone)) {
     throw new Error("Số điện thoại khách thuê phải là số Việt Nam 10 chữ số.");
@@ -906,6 +924,9 @@ export async function sendInvoiceImageViaZca(ownerId: string, invoiceId: string,
 
   const folder = await mkdtemp(path.join(tmpdir(), "trocare-zalo-"));
   const imagePath = path.join(folder, `hoa-don-${invoiceId}.png`);
+  // Render while the delivery log row is being written.
+  const rendering = renderInvoicePng(bundle, imagePath);
+  rendering.catch(() => undefined);
 
   const logBase = {
     invoice_id: invoiceId,
@@ -927,7 +948,7 @@ export async function sendInvoiceImageViaZca(ownerId: string, invoiceId: string,
   if (logError && !isMissingSchemaError(logError)) throw new Error(logError.message);
 
   try {
-    await renderInvoicePng(bundle, imagePath);
+    await rendering;
     const result = await api.sendMessage(
       {
         msg: await buildMessage(bundle),
@@ -1156,16 +1177,14 @@ export async function sendPaymentReceivedViaZca(input: {
 
 export async function sendInvoicesBulkViaZca(ownerId: string, invoiceIds: string[], phonesMap: Record<string, string> = {}) {
   const uniqueInvoiceIds = [...new Set(invoiceIds.filter(Boolean))];
-  const summary: ZcaBulkInvoiceResult = {
-    selected: uniqueInvoiceIds.length,
-    sent: [],
-    paidSkipped: [],
-    missingPhone: [],
-    zaloNotFound: [],
-    failed: [],
-  };
+  const summary = createEmptyBulkSummary(uniqueInvoiceIds.length);
+  const deadline = Date.now() + BULK_SEND_BUDGET_MS;
 
-  for (const invoiceId of uniqueInvoiceIds) {
+  for (const [index, invoiceId] of uniqueInvoiceIds.entries()) {
+    if (Date.now() > deadline) {
+      summary.deferred.push(...uniqueInvoiceIds.slice(index));
+      break;
+    }
     let bundle: InvoiceBundle | null = null;
     try {
       bundle = await loadInvoiceBundle(ownerId, invoiceId);
@@ -1181,9 +1200,9 @@ export async function sendInvoicesBulkViaZca(ownerId: string, invoiceIds: string
         continue;
       }
 
-      await sendInvoiceImageViaZca(ownerId, invoiceId, phone);
+      await sendInvoiceImageViaZca(ownerId, invoiceId, phone, bundle);
       summary.sent.push(bundleToBulkItem(bundle, { phone }));
-      await sleep(650);
+      if (index < uniqueInvoiceIds.length - 1) await sleep(650);
     } catch (error: any) {
       if (bundle) {
         pushFailedByError(summary, bundle, error, phonesMap[invoiceId]);

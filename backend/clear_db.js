@@ -1,5 +1,8 @@
-const SUPABASE_URL = "https://eikkywprsbszsiqeuujg.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpa2t5d3Byc2JzenNpcWV1dWpnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzYyMjY4MiwiZXhwIjoyMDkzMTk4NjgyfQ.4WNOtfLcGcDbxEEIXSlV07oxplFx_XV6tQCEkl-awVE";
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  throw new Error("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before running this script.");
+}
 
 async function resetWallets() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/wallets?id=not.is.null`, {
