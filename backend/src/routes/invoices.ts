@@ -1781,47 +1781,56 @@ invoicesRoutes.post("/auto-generate", async (c) => {
   return c.json({ created: createdCount, skipped: rooms.length - createdCount });
 });
 
+const BULK_CREATE_CONCURRENCY = 6;
+
 invoicesRoutes.post("/bulk-create", async (c) => {
   const user = c.get("user");
   const invoices = await c.req.json();
   if (!Array.isArray(invoices)) return c.json({ error: "Invalid data format" }, 400);
 
   const db = c.get("supabase");
-  const results = [];
   const defaultPaymentChannel = await loadDefaultPaymentChannel(db, user.id);
   await applyDuePriceChanges(db, user.id);
 
-  for (const invData of invoices) {
+  const dueDateCache = new Map<string, Promise<string>>();
+  const dueDateFor = (month: number, year: number, explicit?: string) => {
+    if (explicit) return Promise.resolve(explicit);
+    const key = `${year}-${month}`;
+    let pending = dueDateCache.get(key);
+    if (!pending) {
+      pending = resolveInvoiceDueDate(db, user.id, month, year);
+      dueDateCache.set(key, pending);
+    }
+    return pending;
+  };
+
+  const createOne = async (invData: any): Promise<Record<string, unknown>> => {
     try {
-      // Check if invoice already exists for this room and billing period
-      const { data: existing, error: checkError } = await db
-        .from("invoices")
-        .select("id")
-        .eq("room_id", invData.roomId)
-        .eq("month", invData.month)
-        .eq("year", invData.year)
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const [existingRes, contractRes] = await Promise.all([
+        db
+          .from("invoices")
+          .select("id")
+          .eq("room_id", invData.roomId)
+          .eq("month", invData.month)
+          .eq("year", invData.year)
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        db
+          .from("contracts")
+          .select("rent_amount,start_date")
+          .eq("id", invData.contractId)
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
 
-      if (checkError) {
-        results.push({ roomId: invData.roomId, error: checkError.message });
-        continue;
+      if (existingRes.error) {
+        return { roomId: invData.roomId, error: existingRes.error.message };
       }
-
-      if (existing) {
-        results.push({ roomId: invData.roomId, error: "Hóa đơn đã tồn tại cho phòng này trong kỳ thanh toán." });
-        continue;
+      if (existingRes.data) {
+        return { roomId: invData.roomId, error: "Hóa đơn đã tồn tại cho phòng này trong kỳ thanh toán." };
       }
-
-      const contractRes = await db
-        .from("contracts")
-        .select("rent_amount,start_date")
-        .eq("id", invData.contractId)
-        .eq("user_id", user.id)
-        .maybeSingle();
       if (contractRes.error || !contractRes.data) {
-        results.push({ roomId: invData.roomId, error: contractRes.error?.message || "Không tìm thấy hợp đồng." });
-        continue;
+        return { roomId: invData.roomId, error: contractRes.error?.message || "Không tìm thấy hợp đồng." };
       }
 
       const requestedRoomFee = Number(invData.roomFee || 0);
@@ -1861,15 +1870,14 @@ invoicesRoutes.post("/bulk-create", async (c) => {
         water_new: invData.waterNew,
         note: invData.note || "Lập hàng loạt",
         status: "unpaid",
-        due_date: await resolveInvoiceDueDate(db, user.id, Number(invData.month), Number(invData.year), invData.dueDate),
+        due_date: await dueDateFor(Number(invData.month), Number(invData.year), invData.dueDate),
         payment_code: generatePaymentCode(),
         payment_channel_id: invData.paymentChannelId || defaultPaymentChannel?.id || null,
       };
 
       const res = await db.from("invoices").insert(payload).select("id").single();
       if (res.error) {
-        results.push({ roomId: invData.roomId, error: res.error.message });
-        continue;
+        return { roomId: invData.roomId, error: res.error.message };
       }
 
       const invoiceId = res.data.id;
@@ -1895,11 +1903,29 @@ invoicesRoutes.post("/bulk-create", async (c) => {
         }));
         await db.from("invoice_items").insert(rows);
       }
-      results.push({ roomId: invData.roomId, id: invoiceId, success: true });
+      return { roomId: invData.roomId, id: invoiceId, success: true };
     } catch (err: any) {
-      results.push({ roomId: invData.roomId, error: err.message });
+      return { roomId: invData.roomId, error: err.message };
     }
-  }
+  };
+
+  // Invoices of the same contract/room share carryover and credit balance, so
+  // those stay strictly ordered; everything else runs a few at a time.
+  const lanes = new Map<string, number[]>();
+  invoices.forEach((invData: any, index: number) => {
+    const key = String(invData?.contractId ?? invData?.roomId ?? index);
+    const lane = lanes.get(key);
+    if (lane) lane.push(index);
+    else lanes.set(key, [index]);
+  });
+  const queue = [...lanes.values()];
+  const results: Record<string, unknown>[] = new Array(invoices.length);
+  const worker = async () => {
+    for (let lane = queue.shift(); lane; lane = queue.shift()) {
+      for (const index of lane) results[index] = await createOne(invoices[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(BULK_CREATE_CONCURRENCY, queue.length) }, worker));
 
   return c.json({ data: results });
 });
