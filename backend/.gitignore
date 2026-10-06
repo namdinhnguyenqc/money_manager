@@ -10,3 +10,6 @@ reports/
 *.local
 scratch/
 eng.traineddata
+.vercel
+.env*
+debug_output.json
