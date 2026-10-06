@@ -9,10 +9,9 @@ before — read this table before touching any deploy setting.
 |---|---|---|---|
 | `web-admin/` | **Web for landlords** (owner app) — *not* the admin portal, despite the name. 38 owner pages + landing. | `trocare-production` | `web-admin` |
 | `admin-portal/` | **The real internal admin portal.** Only place with `/admin/owners` and `/admin/users`. | `tcare.production` | `admin-portal` |
-| `backend/` | Hono API. | Render (`money-manager-xdem`) | `backend` |
-| `mobile/` | Expo / React Native app. | EAS | — |
-| `money-manager/` | Legacy Vite React app, reference only. | — | — |
-| `money-manager-backend-express/` | Legacy Express backend, reference only. | — | — |
+| `backend/` | Hono API. | Vercel (`trocare-api`) | `backend` |
+| `mobile/` | Expo / React Native app for landlords (TrọCare Owner). | EAS | — |
+| `tenant-mobile/` | Expo / React Native app for tenants (TrọCare Tenant). | EAS | — |
 
 ⚠️ **Do not add a `vercel.json` to this root.** One used to live here forcing
 `npm --prefix web-admin run build`. A repo-root `vercel.json` applies to any

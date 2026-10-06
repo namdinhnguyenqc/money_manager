@@ -3,7 +3,7 @@
     "name": "TrọCare Tenant",
     "slug": "trocare-tenant-mobile",
     "version": "1.0.0",
-    "privacyPolicyUrl": "https://money-manager-xdem.onrender.com/privacy",
+    "privacyPolicyUrl": "https://trocare-production.vercel.app/privacy",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

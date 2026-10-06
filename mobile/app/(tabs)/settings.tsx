@@ -42,6 +42,7 @@ const sections: Array<{
     title: 'Thanh toán và đối soát',
     items: [
       { icon: 'wallet-outline', label: 'Ví và tài khoản', detail: 'Nguồn tiền, số dư, giao dịch', route: '/wallets' as any },
+      { icon: 'swap-horizontal-outline', label: 'SePay và đối soát', detail: 'Kênh nhận tiền và giao dịch tự ghi nhận', route: '/sepay' as any },
       { icon: 'trending-up-outline', label: 'Kinh doanh hàng hóa', detail: 'Thu bán thêm dịch vụ, vật tư', route: '/trading' as any },
     ],
   },
@@ -50,6 +51,7 @@ const sections: Array<{
     items: [
       { icon: 'notifications-outline', label: 'Cài đặt thông báo', detail: 'Nhận tiền, thanh toán và thông báo đẩy', route: '/notifications/settings' as any },
       { icon: 'chatbubble-ellipses-outline', label: 'Kết nối Zalo', detail: 'Quét QR để gửi hóa đơn và nhắc nợ', route: '/zalo' as any },
+      { icon: 'time-outline', label: 'Nhật ký thao tác', detail: 'Ai đã tạo, sửa, xóa dữ liệu', route: '/audit-logs' as any },
       { icon: 'help-circle-outline', label: 'Báo cáo lỗi / Góp ý', detail: 'Gửi góp ý và báo lỗi hệ thống', route: '/feedback' as any },
       { icon: 'log-out-outline', label: 'Đăng xuất', detail: 'Thoát khỏi tài khoản hiện tại', action: 'logout', tone: 'danger' },
     ],
