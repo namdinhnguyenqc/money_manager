@@ -54,3 +54,14 @@ test_rpc.ts
 
 .claude/worktrees/
 .env*
+
+# Secrets and data that must never be committed
+!.env.example
+*.dump
+backups/
+*.jks
+*.p12
+*.pem
+*service-account*.json
+# Personal data (employee name lists)
+danh_sach_*
