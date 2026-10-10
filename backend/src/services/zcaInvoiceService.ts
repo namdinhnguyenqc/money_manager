@@ -485,7 +485,18 @@ async function getApi(ownerId: string) {
     throw new Error("Chưa kết nối Zalo. Vào Cài đặt > Cấu hình Zalo để quét QR trước.");
   }
 
-  const api = await (await createZalo()).login(credentials);
+  let api: ZcaApi;
+  try {
+    api = await (await createZalo()).login(credentials);
+  } catch (error: any) {
+    const detail = error?.message || String(error);
+    console.error(JSON.stringify({ level: "ERROR", event: "ZALO_LOGIN_FAILED", ownerId, detail }));
+    await supabaseAdmin
+      .from("zca_sessions")
+      .update({ last_error: detail.slice(0, 500), updated_at: new Date().toISOString() })
+      .eq("owner_id", ownerId);
+    throw new Error(`Phiên Zalo không đăng nhập lại được (${detail}). Vào Cài đặt > Kết nối Zalo để quét lại QR.`);
+  }
   apiCache.set(ownerId, { api, cachedAt: Date.now() });
   return api;
 }
@@ -544,6 +555,7 @@ const bundleToBulkItem = (bundle: InvoiceBundle, extra: Partial<ZcaBulkInvoiceIt
 
 const pushFailedByError = (summary: ZcaBulkInvoiceResult, bundle: InvoiceBundle, error: any, phone?: string) => {
   const message = error?.message || "Không gửi được hóa đơn qua Zalo.";
+  console.warn(JSON.stringify({ level: "WARN", event: "ZALO_SEND_FAILED", invoiceId: bundle.invoice?.id, reason: message }));
   const item = bundleToBulkItem(bundle, { phone: phone || bundle.tenant?.phone || null, reason: message });
   if (/không tìm thấy tài khoản zalo/i.test(message)) {
     summary.zaloNotFound.push(item);
