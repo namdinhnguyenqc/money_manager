@@ -322,6 +322,7 @@ async function saveCredentials(ownerId: string, credentials: ZcaCredentials, acc
       display_name: account?.name || null,
       avatar_url: account?.avatar || null,
       status: "ACTIVE",
+      last_error: null,
       connected_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -341,6 +342,10 @@ export async function getZcaStatus(ownerId: string) {
   const pending = [...loginSessions.entries()]
     .filter(([, session]) => session.ownerId === ownerId)
     .sort((a, b) => b[1].createdAt.localeCompare(a[1].createdAt))[0];
+
+  // The stored row only says a QR login once succeeded. Log in for real so an
+  // expired session is reported as disconnected instead of "connected".
+  if (!apiCache.get(ownerId)) await getApi(ownerId).catch(() => undefined);
 
   const cached = apiCache.get(ownerId);
   const { data, error } = await supabaseAdmin
@@ -491,11 +496,23 @@ async function getApi(ownerId: string) {
   } catch (error: any) {
     const detail = error?.message || String(error);
     console.error(JSON.stringify({ level: "ERROR", event: "ZALO_LOGIN_FAILED", ownerId, detail }));
+    // Zalo rejecting the stored cookies means the session is gone for good;
+    // anything else (network, timeout) may recover, so the row stays ACTIVE.
+    const sessionRejected = /đăng nhập thất bại|login failed|unauthorized|expired/i.test(detail);
+    apiCache.delete(ownerId);
     await supabaseAdmin
       .from("zca_sessions")
-      .update({ last_error: detail.slice(0, 500), updated_at: new Date().toISOString() })
+      .update({
+        ...(sessionRejected ? { status: "ERROR" } : {}),
+        last_error: sessionRejected ? "Phiên Zalo đã hết hạn hoặc bị đăng xuất. Hãy quét lại QR." : detail.slice(0, 500),
+        updated_at: new Date().toISOString(),
+      })
       .eq("owner_id", ownerId);
-    throw new Error(`Phiên Zalo không đăng nhập lại được (${detail}). Vào Cài đặt > Kết nối Zalo để quét lại QR.`);
+    throw new Error(
+      sessionRejected
+        ? "Phiên Zalo đã hết hạn hoặc bị đăng xuất. Vào Cài đặt > Kết nối Zalo để quét lại QR."
+        : `Chưa kết nối được tới Zalo (${detail}). Vui lòng thử lại sau.`,
+    );
   }
   apiCache.set(ownerId, { api, cachedAt: Date.now() });
   return api;
