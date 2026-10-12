@@ -47,6 +47,18 @@ export default function ContractDetailPage() {
   const contract = contractQuery.data;
   const [refundModalOpen, setRefundModalOpen] = useState(false);
 
+  // "Trả phòng" in the room and tenant menus links here with ?action=terminate.
+  const contractStatus = contract?.status;
+  React.useEffect(() => {
+    if (!contractStatus || contractStatus === "ended") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("action") !== "terminate") return;
+    setRefundModalOpen(true);
+    params.delete("action");
+    const query = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+  }, [contractStatus]);
+
 
   if (contractQuery.isLoading) return <LoadingSkeleton rows={4} />;
   if (!contract) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">Không tìm thấy hợp đồng.</div>;
