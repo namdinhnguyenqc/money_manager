@@ -8,6 +8,7 @@ import { logAuditAction } from "../utils/audit.js";
 import { updateWalletBalance } from "../utils/wallet.js";
 import { summarizeRoomInvoices, buildAppliedServicesSnapshot, applyDuePriceChanges } from "../utils/billing.js";
 import { env } from "../config/env.js";
+import { buildCheckoutPreview } from "../utils/checkoutSettlement.js";
 
 
 const formatMoney = (value: number) => 
@@ -158,6 +159,8 @@ const terminateContractSchema = z.object({
   note: z.string().optional(),
   walletId: z.string().nullable().optional(),
   settlementWalletId: z.string().nullable().optional(),
+  // Unpaid invoices the owner chose to settle as part of the checkout.
+  settledInvoiceIds: z.array(z.string().uuid()).max(60).optional(),
 });
 
 const roomSort = (a: { name: string }, b: { name: string }) => String(a.name).localeCompare(String(b.name));
@@ -1982,6 +1985,34 @@ rentalRoutes.post("/contracts/:id/terminate", async (c) => {
   if (!atomicRes.error) {
     const result = atomicRes.data as any;
     if (result?.error) return c.json({ error: String(result.error) }, 400);
+
+    // Their amount is already inside the settlement transaction above, so the
+    // invoices are closed without a second income entry.
+    const settledInvoiceIds = parsed.data.settledInvoiceIds ?? [];
+    if (!result?.idempotent && settledInvoiceIds.length > 0) {
+      const { data: openInvoices } = await db
+        .from("invoices")
+        .select("id,total_amount")
+        .eq("contract_id", id)
+        .eq("user_id", user.id)
+        .in("id", settledInvoiceIds);
+      const closed = await Promise.all((openInvoices ?? []).map((inv) =>
+        db.from("invoices")
+          .update({ paid_amount: inv.total_amount, status: "paid", updated_at: new Date().toISOString() })
+          .eq("id", inv.id)
+          .eq("user_id", user.id),
+      ));
+      const failed = closed.filter((res) => res.error);
+      if (failed.length > 0) {
+        console.error("Checkout closed the contract but could not mark invoices paid:", failed[0].error?.message);
+        return c.json({
+          ok: true,
+          message: "Trả phòng thành công",
+          warning: "Đã trả phòng nhưng chưa đánh dấu được một số hóa đơn là đã thu. Vui lòng kiểm tra lại danh sách hóa đơn.",
+          data: result,
+        });
+      }
+    }
     return c.json({ ok: true, message: "Trả phòng thành công", data: result });
   }
 
@@ -2119,50 +2150,59 @@ rentalRoutes.post("/contracts/:id/terminate", async (c) => {
   return c.json({ ok: true, message: "Trả phòng thành công" });
 });
 
-// Route lấy dữ liệu tính toán thanh lý dự kiến
+// Itemised checkout figures for a chosen move-out date. The client decides
+// which lines to charge; this only supplies the numbers.
 rentalRoutes.get("/contracts/:id/settlement-preview", async (c) => {
   const user = c.get("user");
   const id = toId(c.req.param("id"));
-  const endDateStr = c.req.query("endDate") || new Date().toISOString().split('T')[0];
-  const endDate = new Date(endDateStr);
+  if (!id) return c.json({ error: "Invalid contract id" }, 400);
+  const moveOutDate = c.req.query("endDate") || new Date().toISOString().split("T")[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(moveOutDate)) return c.json({ error: "Ngày trả phòng không hợp lệ." }, 400);
 
   const db = c.get("supabase");
   const { data: contract, error } = await db.from("contracts").select("*, rooms(*)").eq("id", id).eq("user_id", user.id).single();
   if (error || !contract) return c.json({ error: "Contract not found" }, 404);
+  if (contract.start_date && moveOutDate < String(contract.start_date).slice(0, 10)) {
+    return c.json({ error: "Ngày trả phòng không thể trước ngày bắt đầu hợp đồng." }, 400);
+  }
 
-  // Kiểm tra xem hóa đơn tháng hiện tại đã được thanh toán chưa
-  const today = new Date();
-  const currentMonth = today.getMonth() + 1;
-  const currentYear = today.getFullYear();
+  const [invoicesRes, servicesRes] = await Promise.all([
+    db.from("invoices")
+      .select("id,month,year,total_amount,paid_amount,status,elec_new,water_new")
+      .eq("contract_id", id)
+      .eq("user_id", user.id),
+    Array.isArray(contract.applied_services_snapshot) && contract.applied_services_snapshot.length > 0
+      ? Promise.resolve({ data: null, error: null })
+      : db.from("contract_services")
+          .select("service_snapshot, service_name, service_type, calculation_type, unit_price, unit")
+          .eq("contract_id", id)
+          .eq("user_id", user.id),
+  ]);
+  if (invoicesRes.error) return c.json({ error: invoicesRes.error.message }, 500);
 
-  const { data: paidInvoice } = await db
-    .from("invoices")
-    .select("id")
-    .eq("contract_id", id)
-    .eq("year", currentYear)
-    .eq("month", currentMonth)
-    .eq("status", "paid")
-    .maybeSingle();
+  const services = Array.isArray(contract.applied_services_snapshot) && contract.applied_services_snapshot.length > 0
+    ? contract.applied_services_snapshot
+    : ((servicesRes.data as any[] | null) ?? []).map((service) => ({
+        name: service.service_snapshot?.name ?? service.service_name ?? "",
+        category: service.service_snapshot?.category ?? "other",
+        type: service.service_snapshot?.type ?? service.calculation_type ?? service.service_type ?? "fixed",
+        unit: service.service_snapshot?.unit ?? service.unit ?? null,
+        unit_price: service.service_snapshot?.unit_price ?? service.unit_price ?? 0,
+        applied_unit_price: service.service_snapshot?.applied_unit_price ?? service.unit_price ?? 0,
+        amount: service.service_snapshot?.amount ?? null,
+        is_metered: service.service_snapshot?.is_metered ?? false,
+      }));
 
-  const isAlreadyPaid = Boolean(paidInvoice);
-
-  const { calculateProratedRent } = await import("../utils/rentCalc.js");
-  const startOfLastMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
-  const contractStartDate = contract.start_date ? new Date(contract.start_date) : null;
-  const prorationStartDate = (contractStartDate && contractStartDate > startOfLastMonth) ? contractStartDate : startOfLastMonth;
-  const result = calculateProratedRent(contract.rooms.price, prorationStartDate, endDate);
-
-  const actualTotalAmount = isAlreadyPaid ? 0 : result.totalAmount;
-
-  return c.json({ 
-    data: {
-      ...result,
-      totalAmount: actualTotalAmount,
-      isAlreadyPaid,
-      deposit: contract.deposit,
-      suggestedRefund: Math.max(0, contract.deposit - actualTotalAmount)
-    } 
+  const room = Array.isArray(contract.rooms) ? contract.rooms[0] : contract.rooms;
+  const preview = buildCheckoutPreview({
+    moveOutDate,
+    contract,
+    roomPrice: room?.price,
+    services,
+    invoices: (invoicesRes.data ?? []) as any[],
   });
+
+  return c.json({ data: preview });
 });
 
 rentalRoutes.get("/contracts/:id/refund", async (c) => {

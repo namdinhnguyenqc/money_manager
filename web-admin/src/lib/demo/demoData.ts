@@ -293,6 +293,27 @@ export function resolveDemoPayload(pathname: string, method: string, search: URL
   if (p === "/wallets") return { data: WALLETS };
   if (p === "/categories") return { data: CATEGORIES };
   if (p === "/rental/contracts") return { data: CONTRACTS };
+  if (p.startsWith("/rental/contracts/") && p.endsWith("/settlement-preview")) {
+    const contract: any = CONTRACTS.find((c) => c.id === p.split("/")[3]);
+    const moveOutDate = search.get("endDate") || new Date().toISOString().slice(0, 10);
+    const [year, month, day] = moveOutDate.split("-").map(Number);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const monthlyRent = Number(contract?.rent_amount || 3500000);
+    return {
+      data: {
+        moveOutDate,
+        deposit: Number(contract?.deposit_amount ?? contract?.deposit ?? monthlyRent),
+        rent: { alreadyInvoiced: false, monthlyRent, daysInMonth, stayedDays: day, fromDate: `${moveOutDate.slice(0, 8)}01`, amount: Math.round((monthlyRent / daysInMonth) * day) },
+        meters: {
+          electricity: { name: "Tiền điện", unit: "kWh", unitPrice: 3500, lastReading: 1284 },
+          water: { name: "Tiền nước", unit: "m³", unitPrice: 15000, lastReading: 312 },
+        },
+        fixedServices: [{ name: "Wifi", monthlyAmount: 100000, amount: Math.round((100000 / daysInMonth) * day) }],
+        unpaidInvoices: [{ id: "demo-unpaid", month: month === 1 ? 12 : month - 1, year: month === 1 ? year - 1 : year, remaining: 850000 }],
+      },
+    };
+  }
+  if (p.startsWith("/rental/contracts/") && p.endsWith("/terminate")) return { ok: true, message: "Trả phòng thành công" };
   if (p.startsWith("/rental/contracts/")) {
     const id = p.split("/").pop();
     return { data: CONTRACTS.find((c) => c.id === id) || null };

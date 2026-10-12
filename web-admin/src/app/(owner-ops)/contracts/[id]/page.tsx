@@ -4,8 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, FileText, XCircle, Settings, X, Printer, Check, CalendarPlus } from "lucide-react";
-import ConfirmDialog from "@/components/ops/ConfirmDialog";
+import { ArrowLeft, FileText, XCircle, Settings, X, Printer, CalendarPlus } from "lucide-react";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 import StatusBadge from "@/components/ops/StatusBadge";
 import { 
@@ -23,10 +22,11 @@ import {
   ServiceConfig,
   loadDepositRefund,
   loadWallets,
+  loadCheckoutPreview,
+  CheckoutPreview,
   loadTransactionsByContract,
   Wallet
 } from "@/lib/rentalOps";
-import { calculateProratedRent } from "@/utils/rentCalc";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import Button from "@/components/ui/Button";
 import PageContainer from "@/components/ui/PageContainer";
@@ -37,7 +37,6 @@ const onlyDigits = (value: string) => value.replace(/\D/g, "").slice(0, 10);
 export default function ContractDetailPage() {
   const { id } = useParams();
   const queryClient = useQueryClient();
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [renewOpen, setRenewOpen] = useState(false);
   const contractQuery = useQuery({ queryKey: ["contracts", id], queryFn: () => loadContract(String(id)), staleTime: 60_000 });
@@ -233,29 +232,16 @@ export default function ContractDetailPage() {
           variant="danger-ghost"
           className="border border-red-200 bg-red-50"
           disabled={contract.status === "ended"}
-          onClick={() => setConfirmOpen(true)}
+          onClick={() => setRefundModalOpen(true)}
           icon={<XCircle size={16} />}
         >
-          Kết thúc hợp đồng
+          Trả phòng
         </Button>
       </div>
-
-      {confirmOpen ? (
-        <ConfirmDialog
-          title="Kết thúc hợp đồng?"
-          description="Hệ thống sẽ chuyển sang bước xử lý tiền đặt cọc sau khi bạn xác nhận."
-          onCancel={() => setConfirmOpen(false)}
-          onConfirm={() => {
-            setConfirmOpen(false);
-            setRefundModalOpen(true);
-          }}
-        />
-      ) : null}
 
       {refundModalOpen && contract && (
         <RefundModal
           contract={contract}
-          invoices={invoicesQuery.data || []}
           onClose={() => setRefundModalOpen(false)}
           onConfirm={async (data) => {
             await terminateContract(contract, data);
@@ -583,94 +569,110 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <label className="block"><span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>{children}</label>;
 }
 
-function RefundModal({ contract, invoices, onClose, onConfirm }: { contract: any; invoices: any[]; onClose: () => void; onConfirm: (data: any) => Promise<void> }) {
+type ExtraCharge = { id: number; name: string; amount: string; checked: boolean };
+
+function RefundModal({ contract, onClose, onConfirm }: { contract: any; onClose: () => void; onConfirm: (data: any) => Promise<void> }) {
+  const todayIso = new Date().toISOString().split("T")[0];
+  const [moveOutDate, setMoveOutDate] = useState(todayIso);
+  const [preview, setPreview] = useState<CheckoutPreview | null>(null);
+  const [previewError, setPreviewError] = useState("");
   const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [isSettled, setIsSettled] = useState(false);
-  const formatDateDDMM = (date: Date) => {
-    const d = date.getDate().toString().padStart(2, '0');
-    const m = (date.getMonth() + 1).toString().padStart(2, '0');
-    return `${d}/${m}`;
-  };
-  
-  // Kiểm tra xem hóa đơn tháng này đã thanh toán chưa
-  const today = new Date();
-  const currentMonth = today.getMonth() + 1;
-  const currentYear = today.getFullYear();
-  
-  // Tìm bất kỳ hóa đơn nào của tháng hiện tại hoặc tháng trước (nếu ngày thu tiền lệch) đã thanh toán
-  const paidInvoice = invoices?.find(inv => {
-    const isPaid = normalizeInvoiceStatus(inv) === "paid";
-    const isCurrentMonth = Number(inv.month) === currentMonth && Number(inv.year) === currentYear;
-    
-    // Nếu ngày trả phòng là đầu tháng (ví dụ ngày 1-5), cũng kiểm tra hóa đơn tháng trước 
-    // vì có thể khách đã đóng tiền cho chu kỳ này rồi.
-    const isEarlyMonth = today.getDate() <= 5;
-    const isLastMonth = isEarlyMonth && 
-      (currentMonth === 1 ? (Number(inv.month) === 12 && Number(inv.year) === currentYear - 1) : (Number(inv.month) === currentMonth - 1 && Number(inv.year) === currentYear));
-
-    return isPaid && (isCurrentMonth || isLastMonth);
-  });
-
-  const isAlreadyPaid = Boolean(paidInvoice);
-  
-  // Tính toán thanh lý dự kiến
-  const startOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const contractStartDate = contract.start_date ? new Date(contract.start_date) : null;
-  const prorationStartDate = (contractStartDate && contractStartDate > startOfLastMonth) ? contractStartDate : startOfLastMonth;
-  const settlementResult = calculateProratedRent(contract.rent_amount, prorationStartDate, today);
-  
-  // Nếu đã thanh toán hóa đơn tháng này, tiền trọ khấu trừ = 0
-  const actualSettlementAmount = isAlreadyPaid ? 0 : settlementResult.totalAmount;
-
-  const [form, setForm] = useState({
-    refundAmount: String(Math.max(0, contract.deposit_amount - actualSettlementAmount)),
-    refundDate: today.toISOString().split("T")[0],
-    refundMethod: "Tiền mặt",
-    note: isAlreadyPaid 
-      ? `Thanh lý trả phòng. (Tiền nhà tháng này đã thanh toán xong qua hóa đơn T${currentMonth}/${currentYear}).`
-      : `Thanh lý trả phòng. Tiền nhà tháng cuối: ${settlementResult.totalAmount.toLocaleString()} ₫ (${settlementResult.stayedDays} ngày).`,
-    walletId: "",
-    settlementWalletId: "",
-  });
-  
+  const [walletId, setWalletId] = useState("");
+  const [refundMethod, setRefundMethod] = useState("Tiền mặt");
+  const [note, setNote] = useState("");
+  const [unchecked, setUnchecked] = useState<Record<string, boolean>>({});
+  const [elecNew, setElecNew] = useState("");
+  const [waterNew, setWaterNew] = useState("");
+  const [extras, setExtras] = useState<ExtraCharge[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   React.useEffect(() => {
-    loadWallets().then(data => {
+    loadWallets().then((data) => {
       setWallets(data);
-      if (data.length > 0) {
-        setForm(p => ({ 
-          ...p, 
-          walletId: data[0].id,
-          settlementWalletId: data[0].id
-        }));
-      }
+      if (data.length > 0) setWalletId(data[0].id);
     }).catch(() => undefined);
   }, []);
 
-  const originalDeposit = Number(contract.deposit_amount || 0);
-  const refundAmount = Number(form.refundAmount || 0);
+  React.useEffect(() => {
+    let cancelled = false;
+    setPreview(null);
+    setPreviewError("");
+    loadCheckoutPreview(String(contract.id), moveOutDate)
+      .then((data) => { if (!cancelled) setPreview(data); })
+      .catch((err: any) => { if (!cancelled) setPreviewError(err?.message || "Không tính được chi phí trả phòng."); });
+    return () => { cancelled = true; };
+  }, [contract.id, moveOutDate]);
+
+  const isOn = (key: string) => !unchecked[key];
+  const toggle = (key: string) => setUnchecked((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const meterLine = (key: "electricity" | "water", reading: string) => {
+    const meter = preview?.meters[key];
+    if (!meter) return null;
+    const hasReading = reading.trim() !== "";
+    const usage = hasReading ? Number(reading) - meter.lastReading : 0;
+    return { meter, hasReading, usage, invalid: hasReading && usage < 0, amount: hasReading && usage > 0 ? Math.round(usage * meter.unitPrice) : 0 };
+  };
+  const elec = meterLine("electricity", elecNew);
+  const water = meterLine("water", waterNew);
+
+  const lines: { key: string; label: string; amount: number }[] = [];
+  if (preview) {
+    if (!preview.rent.alreadyInvoiced && preview.rent.amount > 0) {
+      lines.push({ key: "rent", label: `Tiền phòng ${preview.rent.stayedDays}/${preview.rent.daysInMonth} ngày`, amount: preview.rent.amount });
+    }
+    if (elec) lines.push({ key: "electricity", label: `${elec.meter.name} (${Math.max(0, elec.usage)} ${elec.meter.unit})`, amount: elec.amount });
+    if (water) lines.push({ key: "water", label: `${water.meter.name} (${Math.max(0, water.usage)} ${water.meter.unit})`, amount: water.amount });
+    preview.fixedServices.forEach((service, index) => lines.push({ key: `service-${index}`, label: `${service.name} (tính theo ngày ở)`, amount: service.amount }));
+    preview.unpaidInvoices.forEach((inv) => lines.push({ key: `invoice-${inv.id}`, label: `Hóa đơn T${inv.month}/${inv.year} còn nợ`, amount: inv.remaining }));
+  }
+  extras.forEach((extra) => lines.push({ key: `extra-${extra.id}`, label: extra.name.trim() || "Chi phí phát sinh", amount: Math.max(0, Math.round(Number(extra.amount || 0))) }));
+
+  const extraOn = (extra: ExtraCharge) => extra.checked;
+  const charged = lines.filter((line) => (line.key.startsWith("extra-") ? extraOn(extras.find((e) => `extra-${e.id}` === line.key)!) : isOn(line.key)));
+  const totalCharges = charged.reduce((sum, line) => sum + line.amount, 0);
+  const deposit = Number(preview?.deposit ?? contract.deposit_amount ?? 0);
+  const balance = totalCharges - deposit;
+  const refundToTenant = balance < 0 ? -balance : 0;
+  const tenantPays = balance > 0 ? balance : 0;
+  const moneyMoves = totalCharges > 0 || refundToTenant > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isSettled) return setError("Vui lòng xác nhận đã thanh toán xong khoản thanh lý trước khi hoàn tất.");
-    
-    if (refundAmount > 0 && !form.walletId) {
-      return setError("Vui lòng chọn ví để thực hiện hoàn trả tiền cọc.");
+    setError("");
+    if (!preview) return setError("Chưa tính xong chi phí cho ngày trả phòng này.");
+    for (const [line, reading, label] of [[elec, elecNew, "điện"], [water, waterNew, "nước"]] as const) {
+      const key = label === "điện" ? "electricity" : "water";
+      if (!line || !isOn(key)) continue;
+      if (!line.hasReading) return setError(`Nhập chỉ số ${label} lúc trả phòng, hoặc bỏ tick khoản này.`);
+      if (line.invalid) return setError(`Chỉ số ${label} mới (${reading}) nhỏ hơn chỉ số cũ (${line.meter.lastReading}).`);
     }
+    if (extras.some((extra) => extra.checked && !(Number(extra.amount) > 0))) return setError("Chi phí phát sinh đã tick cần có số tiền lớn hơn 0.");
+    if (moneyMoves && !walletId) return setError("Chọn ví để ghi nhận khoản thu / hoàn cọc. Nếu chưa có ví, hãy tạo ví trước.");
 
-    if (actualSettlementAmount > 0 && !form.settlementWalletId) {
-      return setError("Vui lòng chọn ví để thu tiền thanh lý.");
-    }
+    const breakdown = charged.map((line) => `- ${line.label}: ${formatMoney(line.amount)}`).join("\n");
+    const outcome = refundToTenant > 0
+      ? `Hoàn lại khách ${formatMoney(refundToTenant)}`
+      : tenantPays > 0 ? `Khách trả thêm ${formatMoney(tenantPays)}` : "Hai bên không phải trả thêm";
+    const fullNote = [
+      `Trả phòng ngày ${moveOutDate}. Tiền cọc ${formatMoney(deposit)}, tổng chi phí ${formatMoney(totalCharges)}. ${outcome}.`,
+      breakdown,
+      note.trim(),
+    ].filter(Boolean).join("\n");
 
     setLoading(true);
     try {
       await onConfirm({
-        ...form,
-        refundAmount,
-        settlementAmount: actualSettlementAmount,
-        settlementStatus: 'paid'
+        refundAmount: refundToTenant,
+        settlementAmount: totalCharges,
+        settlementStatus: "paid",
+        refundDate: moveOutDate,
+        refundMethod,
+        note: fullNote,
+        walletId,
+        settlementWalletId: walletId,
+        settledInvoiceIds: preview.unpaidInvoices.filter((inv) => isOn(`invoice-${inv.id}`)).map((inv) => inv.id),
       });
       onClose();
     } catch (err: any) {
@@ -680,101 +682,132 @@ function RefundModal({ contract, invoices, onClose, onConfirm }: { contract: any
     }
   };
 
-  return (
-    <SidePanel title="Thanh lý & Trả phòng" onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Bảng tính thanh lý */}
-        {isAlreadyPaid ? (
-          <div className="rounded-xl border-2 border-emerald-100 bg-emerald-50 p-4">
-            <div className="flex items-center gap-2 mb-2 text-emerald-800 font-bold">
-              <Check size={18} />
-              THÁNG NÀY ĐÃ THANH TOÁN XONG
-            </div>
-            <p className="text-sm text-emerald-700">
-              Khách đã thanh toán hóa đơn tháng T{currentMonth}/{currentYear}. Hệ thống sẽ không khấu trừ thêm tiền phòng từ tiền cọc.
-            </p>
-          </div>
-        ) : (
-          <div className="rounded-xl border-2 border-blue-100 bg-blue-50/50 p-4">
-            <h3 className="mb-3 text-sm font-bold text-blue-800 uppercase tracking-wider">Bảng tính tiền trọ tháng cuối</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600">Tháng hiện tại ({today.getMonth() + 1}/{today.getFullYear()}):</span>
-                <span className="font-semibold text-slate-900">{settlementResult.daysInMonth} ngày thực tế</span>
-              </div>
-              <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-1 font-mono bg-white/60 p-2.5 rounded border border-blue-100">
-                <span className="text-blue-700 whitespace-nowrap">{formatMoney(contract.rent_amount)} / {settlementResult.daysInMonth} =</span>
-                <span className="font-bold text-blue-900 whitespace-nowrap">{formatMoney(settlementResult.dailyRent)}/ngày</span>
-              </div>
-              <div className="flex justify-between items-center pt-1">
-                <span className="text-slate-600">Số ngày ở ({formatDateDDMM(prorationStartDate)} → {formatDateDDMM(today)}):</span>
-                <span className="font-bold text-slate-900 whitespace-nowrap">{settlementResult.stayedDays} ngày</span>
-              </div>
-              <div className="flex justify-between items-center border-t border-blue-200 pt-2 text-base">
-                <span className="font-bold text-slate-800">Tiền trọ cuối kỳ:</span>
-                <span className="font-bold text-red-600 whitespace-nowrap">{formatMoney(settlementResult.totalAmount)}</span>
-              </div>
-            </div>
-          </div>
-        )}
+  // A plain render helper, not a component: a nested component would remount
+  // its inputs (and drop focus) on every keystroke.
+  const row = ({ lineKey, label, hint, amount, children }: { lineKey: string; label: string; hint?: string; amount: number; children?: React.ReactNode }) => (
+    <div key={lineKey} className="flex items-start gap-3 py-2.5">
+      <input type="checkbox" id={`line-${lineKey}`} checked={isOn(lineKey)} onChange={() => toggle(lineKey)} className="mt-1 h-4 w-4 accent-blue-600" />
+      <div className="min-w-0 flex-1">
+        <label htmlFor={`line-${lineKey}`} className="block cursor-pointer text-sm font-semibold text-slate-900">{label}</label>
+        {hint && <div className="text-xs text-slate-500">{hint}</div>}
+        {children}
+      </div>
+      <div className={`whitespace-nowrap text-sm font-bold tabular-nums ${isOn(lineKey) ? "text-slate-900" : "text-slate-400 line-through"}`}>{formatMoney(amount)}</div>
+    </div>
+  );
 
-        <div className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 p-3 text-sm">
-          <Info label="Tiền cọc ban đầu" value={formatMoney(originalDeposit)} />
-          <Info label="Tiền trọ khấu trừ" value={formatMoney(actualSettlementAmount)} />
-          <div className="col-span-2 border-t pt-2">
-            <Info label="Gợi ý hoàn cọc" value={<span className="text-green-700">{formatMoney(Math.max(0, originalDeposit - actualSettlementAmount))}</span>} />
-          </div>
-        </div>
+  const meterRow = (key: "electricity" | "water", line: ReturnType<typeof meterLine>, value: string, setValue: (v: string) => void) => line && row({
+    lineKey: key,
+    label: line.meter.name,
+    hint: `Chỉ số cũ ${line.meter.lastReading} · ${formatMoney(line.meter.unitPrice)}/${line.meter.unit}`,
+    amount: line.amount,
+    children: (
+      <>
+        <input
+          id={`reading-${key}`}
+          className="input mt-1.5 max-w-[200px]"
+          type="number"
+          inputMode="decimal"
+          min={line.meter.lastReading}
+          placeholder="Chỉ số lúc trả phòng"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          disabled={!isOn(key)}
+        />
+        {line.invalid && <div className="mt-1 text-xs font-medium text-red-600">Nhỏ hơn chỉ số cũ.</div>}
+      </>
+    ),
+  });
+
+  return (
+    <SidePanel title="Trả phòng" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Field label="Ngày khách trả phòng">
+          <input className="input" type="date" value={moveOutDate} min={String(contract.start_date || "").slice(0, 10) || undefined} onChange={(e) => e.target.value && setMoveOutDate(e.target.value)} required />
+        </Field>
+
+        {previewError && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{previewError}</div>}
+        {!preview && !previewError && <div className="rounded-lg border border-slate-200 px-3 py-6 text-center text-sm text-slate-500">Đang tính chi phí...</div>}
+
+        {preview && (
+          <>
+            <div className="rounded-xl border border-slate-200 px-4 py-1">
+              <div className="border-b border-slate-100 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-500">Các khoản tính cho khách · bỏ tick khoản không thu</div>
+              <div className="divide-y divide-slate-100">
+                {preview.rent.alreadyInvoiced ? (
+                  <div className="py-2.5 text-sm text-slate-600">Tiền phòng tháng {Number(moveOutDate.slice(5, 7))} đã nằm trong hóa đơn của tháng, không tính lại.</div>
+                ) : preview.rent.amount > 0 && row({
+                  lineKey: "rent",
+                  label: `Tiền phòng ${preview.rent.stayedDays}/${preview.rent.daysInMonth} ngày`,
+                  hint: `Từ ${preview.rent.fromDate.split("-").reverse().join("/")} đến ${moveOutDate.split("-").reverse().join("/")} · ${formatMoney(preview.rent.monthlyRent)}/tháng`,
+                  amount: preview.rent.amount,
+                })}
+                {meterRow("electricity", elec, elecNew, setElecNew)}
+                {meterRow("water", water, waterNew, setWaterNew)}
+                {preview.fixedServices.map((service, index) => row({
+                  lineKey: `service-${index}`,
+                  label: service.name,
+                  hint: `${formatMoney(service.monthlyAmount)}/tháng, tính theo số ngày ở`,
+                  amount: service.amount,
+                }))}
+                {preview.unpaidInvoices.map((inv) => row({
+                  lineKey: `invoice-${inv.id}`,
+                  label: `Hóa đơn T${inv.month}/${inv.year} còn nợ`,
+                  hint: "Tick để tất toán luôn hóa đơn này",
+                  amount: inv.remaining,
+                }))}
+                {extras.map((extra) => (
+                  <div key={extra.id} className="flex items-center gap-3 py-2.5">
+                    <input type="checkbox" aria-label="Tính khoản này" checked={extra.checked} onChange={() => setExtras((prev) => prev.map((x) => x.id === extra.id ? { ...x, checked: !x.checked } : x))} className="h-4 w-4 accent-blue-600" />
+                    <input id={`extra-name-${extra.id}`} className="input min-w-0 flex-1" placeholder="Tên khoản (vd: Sửa cửa, vệ sinh)" value={extra.name} onChange={(e) => setExtras((prev) => prev.map((x) => x.id === extra.id ? { ...x, name: e.target.value } : x))} />
+                    <input id={`extra-amount-${extra.id}`} className="input w-32 text-right" type="number" min={0} placeholder="Số tiền" value={extra.amount} onChange={(e) => setExtras((prev) => prev.map((x) => x.id === extra.id ? { ...x, amount: e.target.value } : x))} />
+                    <button type="button" aria-label="Xóa khoản này" className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-red-600" onClick={() => setExtras((prev) => prev.filter((x) => x.id !== extra.id))}><X size={16} /></button>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-slate-100 py-2.5">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setExtras((prev) => [...prev, { id: Date.now(), name: "", amount: "", checked: true }])}>+ Thêm chi phí phát sinh</Button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 p-4 text-sm">
+              <div className="flex justify-between py-1"><span className="text-slate-600">Tổng chi phí</span><span className="font-semibold tabular-nums">{formatMoney(totalCharges)}</span></div>
+              <div className="flex justify-between py-1"><span className="text-slate-600">Tiền cọc đang giữ</span><span className="font-semibold tabular-nums">− {formatMoney(deposit)}</span></div>
+              <div className={`mt-2 flex items-center justify-between rounded-lg px-3 py-3 text-base font-bold ${refundToTenant > 0 ? "bg-amber-50 text-amber-900" : tenantPays > 0 ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-700"}`}>
+                <span>{refundToTenant > 0 ? "Bạn hoàn lại cho khách" : tenantPays > 0 ? "Khách trả thêm cho bạn" : "Hai bên không phải trả thêm"}</span>
+                {!(refundToTenant === 0 && tenantPays === 0) && <span className="tabular-nums">{formatMoney(refundToTenant || tenantPays)}</span>}
+              </div>
+            </div>
+
+            {moneyMoves && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Ví ghi nhận">
+                  <select className="input" value={walletId} onChange={(e) => setWalletId(e.target.value)}>
+                    {wallets.length === 0 && <option value="">Chưa có ví</option>}
+                    {wallets.map((w) => <option key={w.id} value={w.id}>{w.name} ({formatMoney(w.balance || 0)})</option>)}
+                  </select>
+                </Field>
+                <Field label="Hình thức">
+                  <select className="input" value={refundMethod} onChange={(e) => setRefundMethod(e.target.value)}>
+                    <option>Tiền mặt</option>
+                    <option>Chuyển khoản</option>
+                  </select>
+                </Field>
+              </div>
+            )}
+
+            <Field label="Ghi chú thêm (không bắt buộc)">
+              <textarea className="input min-h-16 text-sm" value={note} onChange={(e) => setNote(e.target.value)} />
+            </Field>
+          </>
+        )}
 
         {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-3">
-          <input 
-            type="checkbox" 
-            id="is-settled" 
-            checked={isSettled} 
-            onChange={(e) => setIsSettled(e.target.checked)}
-            className="w-5 h-5 accent-amber-600"
-          />
-          <label htmlFor="is-settled" className="text-sm font-bold text-amber-900 cursor-pointer">
-            Tôi xác nhận khách đã thanh toán xong tiền nhà/điện/nước và các khoản thanh lý.
-          </label>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Ví thu tiền thanh lý (Dịch vụ)">
-            <select className="input font-semibold text-blue-700" value={form.settlementWalletId} onChange={(e) => setForm(p => ({ ...p, settlementWalletId: e.target.value }))} required>
-              {wallets.map(w => <option key={w.id} value={w.id}>{w.name} ({formatMoney(w.balance || 0)})</option>)}
-            </select>
-          </Field>
-          <Field label="Ví thực hiện hoàn cọc">
-            <select className="input font-semibold text-green-700" value={form.walletId} onChange={(e) => setForm(p => ({ ...p, walletId: e.target.value }))} required>
-              {wallets.map(w => <option key={w.id} value={w.id}>{w.name} ({formatMoney(w.balance || 0)})</option>)}
-            </select>
-          </Field>
-          <Field label="Thực tế hoàn trả cọc">
-            <input className="input font-bold text-green-700" type="number" value={form.refundAmount} onChange={(e) => setForm(p => ({ ...p, refundAmount: e.target.value }))} required />
-          </Field>
-          <Field label="Ngày thanh lý">
-            <input className="input" type="date" value={form.refundDate} onChange={(e) => setForm(p => ({ ...p, refundDate: e.target.value }))} required />
-          </Field>
-        </div>
-
-        <Field label="Ghi chú thanh lý">
-          <textarea className="input min-h-20 text-xs" value={form.note} onChange={(e) => setForm(p => ({ ...p, note: e.target.value }))} />
-        </Field>
-
         <div className="flex gap-3 pt-2">
           <Button type="button" variant="outline" size="lg" className="flex-1" onClick={onClose}>Hủy</Button>
-          <Button
-            type="submit"
-            variant="danger"
-            size="lg"
-            className="flex-[2]"
-            disabled={!isSettled}
-            loading={loading}
-          >
-            {loading ? "Đang xử lý..." : "Hoàn tất Trả phòng"}
+          <Button type="submit" variant="danger" size="lg" className="flex-[2]" disabled={!preview} loading={loading}>
+            {loading ? "Đang xử lý..." : "Hoàn tất trả phòng"}
           </Button>
         </div>
       </form>

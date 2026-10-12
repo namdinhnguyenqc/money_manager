@@ -624,7 +624,22 @@ export async function renewContract(
   return (res?.data ?? res) as any;
 }
 
-export async function terminateContract(contract: ContractView, input: { refundAmount: number; refundDate: string; refundMethod: string; note: string; walletId?: string; settlementWalletId?: string; settlementAmount?: number; settlementStatus?: string }) {
+export type CheckoutMeter = { name: string; unit: string; unitPrice: number; lastReading: number };
+export type CheckoutPreview = {
+  moveOutDate: string;
+  deposit: number;
+  rent: { alreadyInvoiced: boolean; monthlyRent: number; daysInMonth: number; stayedDays: number; fromDate: string; amount: number };
+  meters: { electricity: CheckoutMeter | null; water: CheckoutMeter | null };
+  fixedServices: { name: string; monthlyAmount: number; amount: number }[];
+  unpaidInvoices: { id: string; month: number; year: number; remaining: number }[];
+};
+
+export async function loadCheckoutPreview(contractId: string, moveOutDate: string) {
+  const res = await apiGet<any>(`/rental/contracts/${contractId}/settlement-preview?endDate=${moveOutDate}`);
+  return (res?.data ?? res) as CheckoutPreview;
+}
+
+export async function terminateContract(contract: ContractView, input: { refundAmount: number; refundDate: string; refundMethod: string; note: string; walletId?: string; settlementWalletId?: string; settlementAmount?: number; settlementStatus?: string; settledInvoiceIds?: string[] }) {
   const res = await apiPost<any>(`/rental/contracts/${contract.id}/terminate`, {
     roomId: contract.room_id,
     refundAmount: input.refundAmount,
@@ -635,6 +650,7 @@ export async function terminateContract(contract: ContractView, input: { refundA
     note: input.note,
     walletId: input.walletId || null,
     settlementWalletId: input.settlementWalletId || null,
+    settledInvoiceIds: input.settledInvoiceIds ?? [],
   });
   return res?.data ?? res;
 }
