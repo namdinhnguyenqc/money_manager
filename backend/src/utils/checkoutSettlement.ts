@@ -20,6 +20,7 @@ export type CheckoutService = {
   applied_unit_price?: number | string | null;
   amount?: number | string | null;
   is_metered?: boolean | null;
+  occupant_count?: number | string | null;
 };
 
 export type CheckoutMeter = {
@@ -42,6 +43,17 @@ const parseDate = (value: string) => {
 const isMetered = (service: CheckoutService) =>
   Boolean(service.is_metered) || ["metered", "meter"].includes(String(service.type || ""));
 
+// Older contract snapshots carry no category, so fall back to the unit and name.
+const categoryOf = (service: CheckoutService): "electricity" | "water" | "other" => {
+  const explicit = String(service.category || "");
+  if (explicit === "electricity" || explicit === "water") return explicit;
+  const unit = String(service.unit || "").toLowerCase();
+  const name = String(service.name || "").toLowerCase();
+  if (unit === "kwh" || name.includes("điện") || name.includes("dien")) return "electricity";
+  if (unit === "m³" || unit === "m3" || unit === "khối" || name.includes("nước") || name.includes("nuoc")) return "water";
+  return "other";
+};
+
 /** Who owes whom once the charges are set against the deposit. */
 export function settleAgainstDeposit(deposit: number, totalCharges: number) {
   const balance = Math.round(num(totalCharges)) - Math.round(num(deposit));
@@ -60,6 +72,7 @@ export function buildCheckoutPreview(input: {
     deposit?: number | string | null;
     electric_start?: number | string | null;
     water_start?: number | string | null;
+    occupant_count?: number | string | null;
   };
   roomPrice?: number | string | null;
   services: CheckoutService[];
@@ -95,8 +108,8 @@ export function buildCheckoutPreview(input: {
       .sort((a, b) => Number(b.year) - Number(a.year) || Number(b.month) - Number(a.month))[0];
 
   const meterFor = (category: "electricity" | "water", field: "elec_new" | "water_new", start: unknown, unit: string): CheckoutMeter | null => {
-    const service = input.services.find((s) => String(s.category || "") === category && isMetered(s))
-      ?? input.services.find((s) => String(s.category || "") === category);
+    // Only a metered service has a reading; water billed per person is a fixed charge.
+    const service = input.services.find((s) => categoryOf(s) === category && isMetered(s));
     if (!service) return null;
     const last = latestWithReading(field);
     return {
@@ -110,9 +123,12 @@ export function buildCheckoutPreview(input: {
   const fixedServices = periodInvoice
     ? []
     : input.services
-        .filter((s) => !["electricity", "water"].includes(String(s.category || "")) && !isMetered(s))
+        .filter((s) => !isMetered(s))
         .map((s) => {
-          const monthly = num(s.amount) || num(s.applied_unit_price) || num(s.unit_price);
+          const unitPrice = num(s.applied_unit_price) || num(s.unit_price) || num(s.amount);
+          const monthly = String(s.type || "") === "per_person"
+            ? unitPrice * Math.max(1, num(s.occupant_count) || num(input.contract.occupant_count) || 1)
+            : num(s.amount) || unitPrice;
           return { name: s.name || "Dịch vụ", monthlyAmount: monthly, amount: Math.round(monthly * ratio) };
         })
         .filter((s) => s.monthlyAmount > 0);

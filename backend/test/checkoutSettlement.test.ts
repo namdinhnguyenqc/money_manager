@@ -55,6 +55,26 @@ describe("buildCheckoutPreview", () => {
     expect(later.unpaidInvoices).toEqual([]);
   });
 
+  it("classifies snapshots that have no category, and bills per-person water as a fixed charge", () => {
+    const legacy = [
+      { name: "Điện có máy lạnh", type: "metered", unit: "kWh", unit_price: 4000, amount: 4000 },
+      { name: "Nước", type: "per_person", unit: "người", unit_price: 50000, amount: 50000 },
+      { name: "Rác", type: "per_room", unit: "phòng", unit_price: 36500, amount: 36500 },
+    ];
+    const preview = buildCheckoutPreview({
+      moveOutDate: "2026-06-15",
+      contract: { ...contract, occupant_count: 2 },
+      services: legacy,
+      invoices: [],
+    });
+    expect(preview.meters.electricity).toMatchObject({ name: "Điện có máy lạnh", unitPrice: 4000, lastReading: 100 });
+    expect(preview.meters.water).toBeNull();
+    expect(preview.fixedServices).toEqual([
+      { name: "Nước", monthlyAmount: 100000, amount: 50000 },
+      { name: "Rác", monthlyAmount: 36500, amount: 18250 },
+    ]);
+  });
+
   it("omits a meter the contract has no service for", () => {
     const preview = buildCheckoutPreview({ moveOutDate: "2026-06-15", contract, services: [services[0]], invoices: [] });
     expect(preview.meters.water).toBeNull();
