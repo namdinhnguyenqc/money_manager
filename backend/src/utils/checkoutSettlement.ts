@@ -9,6 +9,7 @@ export type CheckoutInvoice = {
   status?: string | null;
   elec_new?: number | string | null;
   water_new?: number | string | null;
+  room_fee?: number | string | null;
 };
 
 export type CheckoutService = {
@@ -21,6 +22,7 @@ export type CheckoutService = {
   amount?: number | string | null;
   is_metered?: boolean | null;
   occupant_count?: number | string | null;
+  service_id?: string | null;
 };
 
 export type CheckoutMeter = {
@@ -77,6 +79,8 @@ export function buildCheckoutPreview(input: {
   roomPrice?: number | string | null;
   services: CheckoutService[];
   invoices: CheckoutInvoice[];
+  /** Line items of the move-out month's invoice, if one exists. */
+  periodInvoiceItems?: { service_id?: string | null; name?: string | null; amount?: number | string | null }[];
 }) {
   const moveOut = parseDate(input.moveOutDate);
   const month = moveOut.getMonth() + 1;
@@ -84,6 +88,7 @@ export function buildCheckoutPreview(input: {
   const monthlyRent = num(input.contract.rent_amount) || num(input.roomPrice);
 
   const periodInvoice = input.invoices.find((inv) => Number(inv.month) === month && Number(inv.year) === year);
+  const periodItems = periodInvoice ? input.periodInvoiceItems ?? [] : [];
 
   const firstOfMonth = new Date(year, month - 1, 1);
   const contractStart = input.contract.start_date ? parseDate(String(input.contract.start_date).slice(0, 10)) : null;
@@ -91,15 +96,18 @@ export function buildCheckoutPreview(input: {
   const prorated = calculateProratedRent(monthlyRent, rentFrom, moveOut);
   const ratio = prorated.daysInMonth > 0 ? Math.min(1, Math.max(0, prorated.stayedDays / prorated.daysInMonth)) : 0;
 
-  // The month's invoice already bills rent and fixed services for this period,
-  // so charging them again here would double count.
+  // invoicedAmount is what the move-out month's invoice already bills for an
+  // item. The client picks a target (none / by days stayed / full month) and
+  // charges target − invoicedAmount, which turns into a credit when the
+  // invoice billed a full month the tenant did not stay.
   const rent = {
     alreadyInvoiced: Boolean(periodInvoice),
     monthlyRent,
     daysInMonth: prorated.daysInMonth,
     stayedDays: Math.max(0, prorated.stayedDays),
     fromDate: `${rentFrom.getFullYear()}-${String(rentFrom.getMonth() + 1).padStart(2, "0")}-${String(rentFrom.getDate()).padStart(2, "0")}`,
-    amount: periodInvoice ? 0 : Math.max(0, prorated.totalAmount),
+    proratedAmount: Math.max(0, prorated.totalAmount),
+    invoicedAmount: periodInvoice ? num(periodInvoice.room_fee) : 0,
   };
 
   const latestWithReading = (field: "elec_new" | "water_new") =>
@@ -120,18 +128,25 @@ export function buildCheckoutPreview(input: {
     };
   };
 
-  const fixedServices = periodInvoice
-    ? []
-    : input.services
-        .filter((s) => !isMetered(s))
-        .map((s) => {
-          const unitPrice = num(s.applied_unit_price) || num(s.unit_price) || num(s.amount);
-          const monthly = String(s.type || "") === "per_person"
-            ? unitPrice * Math.max(1, num(s.occupant_count) || num(input.contract.occupant_count) || 1)
-            : num(s.amount) || unitPrice;
-          return { name: s.name || "Dịch vụ", monthlyAmount: monthly, amount: Math.round(monthly * ratio) };
-        })
-        .filter((s) => s.monthlyAmount > 0);
+  const services = input.services
+    .filter((s) => !isMetered(s))
+    .map((s, index) => {
+      const unitPrice = num(s.applied_unit_price) || num(s.unit_price) || num(s.amount);
+      const monthly = String(s.type || "") === "per_person"
+        ? unitPrice * Math.max(1, num(s.occupant_count) || num(input.contract.occupant_count) || 1)
+        : num(s.amount) || unitPrice;
+      const serviceId = s.service_id ? String(s.service_id) : null;
+      const billed = periodItems.find((item) => (serviceId && item.service_id === serviceId) || (!serviceId && item.name === s.name));
+      return {
+        key: serviceId ?? `service-${index}`,
+        name: s.name || "Dịch vụ",
+        type: String(s.type || "fixed"),
+        monthlyAmount: Math.round(monthly),
+        proratedAmount: Math.round(monthly * ratio),
+        invoicedAmount: billed ? Math.round(num(billed.amount)) : 0,
+      };
+    })
+    .filter((s) => s.monthlyAmount > 0 || s.invoicedAmount > 0);
 
   const unpaidInvoices = input.invoices
     .map((inv) => ({
@@ -151,7 +166,8 @@ export function buildCheckoutPreview(input: {
       electricity: meterFor("electricity", "elec_new", input.contract.electric_start, "kWh"),
       water: meterFor("water", "water_new", input.contract.water_start, "m³"),
     },
-    fixedServices,
+    services,
     unpaidInvoices,
+    periodInvoice: periodInvoice ? { id: periodInvoice.id, month, year } : null,
   };
 }

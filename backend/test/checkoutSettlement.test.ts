@@ -23,8 +23,8 @@ describe("settleAgainstDeposit", () => {
 describe("buildCheckoutPreview", () => {
   it("prorates rent and fixed services up to the move-out date", () => {
     const preview = buildCheckoutPreview({ moveOutDate: "2026-06-15", contract, services, invoices: [] });
-    expect(preview.rent).toMatchObject({ alreadyInvoiced: false, stayedDays: 15, daysInMonth: 30, amount: 1500000, fromDate: "2026-06-01" });
-    expect(preview.fixedServices).toEqual([{ name: "Wifi", monthlyAmount: 100000, amount: 50000 }]);
+    expect(preview.rent).toMatchObject({ alreadyInvoiced: false, stayedDays: 15, daysInMonth: 30, proratedAmount: 1500000, invoicedAmount: 0, fromDate: "2026-06-01" });
+    expect(preview.services).toEqual([{ key: "service-0", name: "Wifi", type: "fixed", monthlyAmount: 100000, proratedAmount: 50000, invoicedAmount: 0 }]);
   });
 
   it("starts proration at the contract start in the first month", () => {
@@ -32,11 +32,18 @@ describe("buildCheckoutPreview", () => {
     expect(preview.rent).toMatchObject({ stayedDays: 10, fromDate: "2026-05-10" });
   });
 
-  it("does not charge rent or fixed services again when the month is already invoiced", () => {
-    const invoices = [{ id: "i1", month: 6, year: 2026, total_amount: 3400000, paid_amount: 0, elec_new: 250, water_new: 31 }];
-    const preview = buildCheckoutPreview({ moveOutDate: "2026-06-15", contract, services, invoices });
-    expect(preview.rent).toMatchObject({ alreadyInvoiced: true, amount: 0 });
-    expect(preview.fixedServices).toEqual([]);
+  it("reports what the move-out month's invoice already billed, so the client can credit unused days", () => {
+    const invoices = [{ id: "i1", month: 6, year: 2026, total_amount: 3400000, paid_amount: 0, elec_new: 250, water_new: 31, room_fee: 3000000 }];
+    const preview = buildCheckoutPreview({
+      moveOutDate: "2026-06-15",
+      contract,
+      services: [...services.slice(0, 2), { ...services[2], service_id: "wifi-id" }],
+      invoices,
+      periodInvoiceItems: [{ service_id: "wifi-id", name: "Wifi", amount: 100000 }],
+    });
+    expect(preview.rent).toMatchObject({ alreadyInvoiced: true, proratedAmount: 1500000, invoicedAmount: 3000000 });
+    expect(preview.services).toEqual([{ key: "wifi-id", name: "Wifi", type: "fixed", monthlyAmount: 100000, proratedAmount: 50000, invoicedAmount: 100000 }]);
+    expect(preview.periodInvoice).toEqual({ id: "i1", month: 6, year: 2026 });
     expect(preview.unpaidInvoices).toEqual([{ id: "i1", month: 6, year: 2026, remaining: 3400000 }]);
   });
 
@@ -69,9 +76,9 @@ describe("buildCheckoutPreview", () => {
     });
     expect(preview.meters.electricity).toMatchObject({ name: "Điện có máy lạnh", unitPrice: 4000, lastReading: 100 });
     expect(preview.meters.water).toBeNull();
-    expect(preview.fixedServices).toEqual([
-      { name: "Nước", monthlyAmount: 100000, amount: 50000 },
-      { name: "Rác", monthlyAmount: 36500, amount: 18250 },
+    expect(preview.services.map(({ name, type, monthlyAmount, proratedAmount }) => ({ name, type, monthlyAmount, proratedAmount }))).toEqual([
+      { name: "Nước", type: "per_person", monthlyAmount: 100000, proratedAmount: 50000 },
+      { name: "Rác", type: "per_room", monthlyAmount: 36500, proratedAmount: 18250 },
     ]);
   });
 

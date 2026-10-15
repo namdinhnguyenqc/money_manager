@@ -10,17 +10,14 @@ This feature covers the lifecycle of lease contracts between owners and tenants.
 Phần này mô tả luồng hiện tại và thay thế mọi mô tả "terminate" cũ hơn ở phía dưới.
 
 1. Chủ trọ mở bảng **Trả phòng** từ nút trên trang hợp đồng, từ menu 3 chấm của phòng (`/contracts/:id?action=terminate`), hoặc từ trang khách thuê.
-2. Chọn **ngày khách đi**. Web gọi `GET /rental/contracts/:id/settlement-preview?endDate=YYYY-MM-DD` (logic trong `backend/src/utils/checkoutSettlement.ts`), nhận về:
-   - **Tiền phòng theo ngày ở** trong tháng đó (từ ngày 1, hoặc từ ngày bắt đầu hợp đồng nếu muộn hơn). Bằng 0 nếu tháng đó đã có hóa đơn.
-   - **Công tơ điện, nước**: chỉ số cuối (lấy từ hóa đơn gần nhất, không có thì lấy chỉ số đầu hợp đồng) và đơn giá. Chỉ dịch vụ tính theo công tơ mới có dòng này; nước tính theo đầu người là phí cố định.
-   - **Dịch vụ cố định** (rác, wifi, nước theo người…) chia theo số ngày ở. Bỏ qua nếu tháng đó đã có hóa đơn.
-   - **Hóa đơn còn nợ** của hợp đồng.
-3. Mỗi khoản có ô tick; chủ trọ nhập chỉ số công tơ lúc đi và thêm **chi phí phát sinh** tùy ý.
-4. **Kết quả = tổng các khoản đã tick − tiền cọc**: âm thì chủ trọ hoàn lại khách, dương thì khách trả thêm, bằng 0 thì không ai trả.
-5. Hoàn tất gọi `POST /rental/contracts/:id/terminate` với `settlementAmount` = tổng chi phí, `refundAmount` = phần hoàn khách, `settledInvoiceIds` = các hóa đơn nợ đã tick. Hàm SQL `terminate_contract_atomic` kết thúc hợp đồng, trả phòng về trống, lưu `deposit_refunds` và ghi sổ quỹ: một dòng thu bằng tổng chi phí và một dòng chi bằng toàn bộ tiền cọc, chênh lệch đúng bằng số tiền trao tay. Sau đó backend đánh dấu các hóa đơn đã tick là đã thu (không tạo thêm giao dịch, vì tiền đã nằm trong dòng thu ở trên).
-6. Bảng kê từng khoản được lưu vào ghi chú của `deposit_refunds`.
+2. Chọn **ngày khách đi**. Web gọi `GET /rental/contracts/:id/settlement-preview?endDate=YYYY-MM-DD` (logic trong `backend/src/utils/checkoutSettlement.ts`). Với tiền phòng và từng dịch vụ không theo công tơ (rác, wifi, nước theo người…), API trả về giá cả tháng, giá theo số ngày ở, và số tiền hóa đơn của tháng đó đã tính (0 nếu chưa có hóa đơn).
+3. Mỗi khoản tiền phòng / dịch vụ có 3 lựa chọn: **Không tính / Theo ngày ở / Cả tháng**. Số tiền của dòng = mức đã chọn − phần hóa đơn tháng đó đã tính, nên khi hóa đơn đã tính cả tháng mà chọn "Theo ngày ở" thì dòng thành **giảm trừ** cho khách. Mặc định: dịch vụ chưa có trong hóa đơn là "Không tính"; khoản đã có trong hóa đơn là "Cả tháng" (không thay đổi gì); tiền phòng chưa lập hóa đơn là "Theo ngày ở".
+4. Điện, nước theo công tơ mặc định không tính; nhập chỉ số lúc đi thì dòng tự bật. Hóa đơn còn nợ có ô tick (mặc định tick). Có thể thêm chi phí phát sinh.
+5. **Kết quả = tổng các khoản đã tick − tiền cọc**: âm thì chủ trọ hoàn lại khách, dương thì khách trả thêm, bằng 0 thì không ai trả.
+6. Hoàn tất gọi `POST /rental/contracts/:id/terminate` với `settlementAmount` = tổng chi phí nếu dương (các khoản giảm trừ có thể làm tổng âm, khi đó chỉ hoàn cọc), `refundAmount` = phần hoàn khách, `settledInvoiceIds` = các hóa đơn nợ đã tick. Hàm SQL `terminate_contract_atomic` kết thúc hợp đồng, trả phòng về trống, lưu `deposit_refunds` và ghi sổ quỹ: một dòng thu bằng tổng chi phí và một dòng chi bằng toàn bộ tiền cọc, chênh lệch đúng bằng số tiền trao tay. Sau đó backend đánh dấu các hóa đơn đã tick là đã thu (không tạo thêm giao dịch, vì tiền đã nằm trong dòng thu ở trên).
+7. Bảng kê từng khoản được lưu vào ghi chú của `deposit_refunds`.
 
-Giới hạn hiện tại: app mobile vẫn dùng form trả phòng cũ (nhập tay số tiền hoàn). Nếu hóa đơn của tháng đi đã tính trọn tháng, hệ thống không tự giảm trừ; chủ trọ bỏ tick hóa đơn đó và thêm dòng chi phí đúng số tiền.
+Giới hạn hiện tại: app mobile vẫn dùng form trả phòng cũ (nhập tay số tiền hoàn).
 
 ---
 

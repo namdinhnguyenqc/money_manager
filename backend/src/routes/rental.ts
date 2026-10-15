@@ -2168,13 +2168,13 @@ rentalRoutes.get("/contracts/:id/settlement-preview", async (c) => {
 
   const [invoicesRes, servicesRes] = await Promise.all([
     db.from("invoices")
-      .select("id,month,year,total_amount,paid_amount,status,elec_new,water_new")
+      .select("id,month,year,total_amount,paid_amount,status,elec_new,water_new,room_fee")
       .eq("contract_id", id)
       .eq("user_id", user.id),
     Array.isArray(contract.applied_services_snapshot) && contract.applied_services_snapshot.length > 0
       ? Promise.resolve({ data: null, error: null })
       : db.from("contract_services")
-          .select("service_snapshot, service_name, service_type, calculation_type, unit_price, unit")
+          .select("service_id, service_snapshot, service_name, service_type, calculation_type, unit_price, unit")
           .eq("contract_id", id)
           .eq("user_id", user.id),
   ]);
@@ -2194,12 +2194,20 @@ rentalRoutes.get("/contracts/:id/settlement-preview", async (c) => {
       }));
 
   const room = Array.isArray(contract.rooms) ? contract.rooms[0] : contract.rooms;
+  const [moveOutYear, moveOutMonth] = moveOutDate.split("-").map(Number);
+  const periodInvoice = (invoicesRes.data ?? []).find((inv: any) => Number(inv.month) === moveOutMonth && Number(inv.year) === moveOutYear);
+  const periodItemsRes = periodInvoice
+    ? await db.from("invoice_items").select("service_id,name,amount").eq("invoice_id", periodInvoice.id).eq("user_id", user.id)
+    : { data: [], error: null };
+  if (periodItemsRes.error) return c.json({ error: periodItemsRes.error.message }, 500);
+
   const preview = buildCheckoutPreview({
     moveOutDate,
     contract,
     roomPrice: room?.price,
     services,
     invoices: (invoicesRes.data ?? []) as any[],
+    periodInvoiceItems: (periodItemsRes.data ?? []) as any[],
   });
 
   return c.json({ data: preview });

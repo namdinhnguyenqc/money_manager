@@ -628,10 +628,11 @@ export type CheckoutMeter = { name: string; unit: string; unitPrice: number; las
 export type CheckoutPreview = {
   moveOutDate: string;
   deposit: number;
-  rent: { alreadyInvoiced: boolean; monthlyRent: number; daysInMonth: number; stayedDays: number; fromDate: string; amount: number };
+  rent: { alreadyInvoiced: boolean; monthlyRent: number; daysInMonth: number; stayedDays: number; fromDate: string; proratedAmount: number; invoicedAmount: number };
   meters: { electricity: CheckoutMeter | null; water: CheckoutMeter | null };
-  fixedServices: { name: string; monthlyAmount: number; amount: number }[];
+  services: { key: string; name: string; type: string; monthlyAmount: number; proratedAmount: number; invoicedAmount: number }[];
   unpaidInvoices: { id: string; month: number; year: number; remaining: number }[];
+  periodInvoice: { id: string; month: number; year: number } | null;
 };
 
 export async function loadCheckoutPreview(contractId: string, moveOutDate: string) {

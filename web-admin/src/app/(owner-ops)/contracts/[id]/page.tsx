@@ -582,6 +582,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 type ExtraCharge = { id: number; name: string; amount: string; checked: boolean };
+type ChargeMode = "none" | "prorated" | "full";
+const CHARGE_MODES: { value: ChargeMode; label: string }[] = [
+  { value: "none", label: "Không tính" },
+  { value: "prorated", label: "Theo ngày ở" },
+  { value: "full", label: "Cả tháng" },
+];
 
 function RefundModal({ contract, onClose, onConfirm }: { contract: any; onClose: () => void; onConfirm: (data: any) => Promise<void> }) {
   const todayIso = new Date().toISOString().split("T")[0];
@@ -592,7 +598,9 @@ function RefundModal({ contract, onClose, onConfirm }: { contract: any; onClose:
   const [walletId, setWalletId] = useState("");
   const [refundMethod, setRefundMethod] = useState("Tiền mặt");
   const [note, setNote] = useState("");
-  const [unchecked, setUnchecked] = useState<Record<string, boolean>>({});
+  // Meters start off; typing a final reading switches the line on.
+  const [unchecked, setUnchecked] = useState<Record<string, boolean>>({ electricity: true, water: true });
+  const [modes, setModes] = useState<Record<string, ChargeMode>>({});
   const [elecNew, setElecNew] = useState("");
   const [waterNew, setWaterNew] = useState("");
   const [extras, setExtras] = useState<ExtraCharge[]>([]);
@@ -610,6 +618,7 @@ function RefundModal({ contract, onClose, onConfirm }: { contract: any; onClose:
     let cancelled = false;
     setPreview(null);
     setPreviewError("");
+    setModes({});
     loadCheckoutPreview(String(contract.id), moveOutDate)
       .then((data) => { if (!cancelled) setPreview(data); })
       .catch((err: any) => { if (!cancelled) setPreviewError(err?.message || "Không tính được chi phí trả phòng."); });
@@ -629,26 +638,47 @@ function RefundModal({ contract, onClose, onConfirm }: { contract: any; onClose:
   const elec = meterLine("electricity", elecNew);
   const water = meterLine("water", waterNew);
 
+  // Rent and services: the owner picks how much the tenant should owe for the
+  // move-out month; anything the month's invoice already billed is subtracted,
+  // so a full-month invoice turns into a credit when charging by days stayed.
+  // Services start at "Không tính" unless that invoice already billed them.
+  type ModeItem = { key: string; name: string; monthly: number; prorated: number; invoiced: number };
+  const modeItems: ModeItem[] = preview ? [
+    { key: "rent", name: "Tiền phòng", monthly: preview.rent.monthlyRent, prorated: preview.rent.proratedAmount, invoiced: preview.rent.invoicedAmount },
+    ...preview.services.map((service) => ({ key: `svc-${service.key}`, name: service.name, monthly: service.monthlyAmount, prorated: service.proratedAmount, invoiced: service.invoicedAmount })),
+  ] : [];
+  const modeOf = (item: ModeItem): ChargeMode => modes[item.key] ?? (item.invoiced > 0 ? "full" : item.key === "rent" ? "prorated" : "none");
+  const targetOf = (item: ModeItem) => ({ none: 0, prorated: item.prorated, full: item.monthly })[modeOf(item)];
+  const modeAmount = (item: ModeItem) => targetOf(item) - item.invoiced;
+  const modeLabel = (item: ModeItem) => {
+    const mode = modeOf(item);
+    const base = mode === "prorated" ? `${item.name} ${preview?.rent.stayedDays}/${preview?.rent.daysInMonth} ngày` : mode === "full" ? `${item.name} cả tháng` : item.name;
+    return modeAmount(item) < 0 ? `Giảm trừ ${base.charAt(0).toLowerCase()}${base.slice(1)} (hóa đơn đã tính ${formatMoney(item.invoiced)})` : base;
+  };
+
   const lines: { key: string; label: string; amount: number }[] = [];
   if (preview) {
-    if (!preview.rent.alreadyInvoiced && preview.rent.amount > 0) {
-      lines.push({ key: "rent", label: `Tiền phòng ${preview.rent.stayedDays}/${preview.rent.daysInMonth} ngày`, amount: preview.rent.amount });
-    }
+    modeItems.forEach((item) => {
+      const amount = modeAmount(item);
+      if (amount !== 0) lines.push({ key: item.key, label: modeLabel(item), amount });
+    });
     if (elec) lines.push({ key: "electricity", label: `${elec.meter.name} (${Math.max(0, elec.usage)} ${elec.meter.unit})`, amount: elec.amount });
     if (water) lines.push({ key: "water", label: `${water.meter.name} (${Math.max(0, water.usage)} ${water.meter.unit})`, amount: water.amount });
-    preview.fixedServices.forEach((service, index) => lines.push({ key: `service-${index}`, label: `${service.name} (tính theo ngày ở)`, amount: service.amount }));
     preview.unpaidInvoices.forEach((inv) => lines.push({ key: `invoice-${inv.id}`, label: `Hóa đơn T${inv.month}/${inv.year} còn nợ`, amount: inv.remaining }));
   }
   extras.forEach((extra) => lines.push({ key: `extra-${extra.id}`, label: extra.name.trim() || "Chi phí phát sinh", amount: Math.max(0, Math.round(Number(extra.amount || 0))) }));
 
   const extraOn = (extra: ExtraCharge) => extra.checked;
-  const charged = lines.filter((line) => (line.key.startsWith("extra-") ? extraOn(extras.find((e) => `extra-${e.id}` === line.key)!) : isOn(line.key)));
+  const isModeKey = (key: string) => key === "rent" || key.startsWith("svc-");
+  const charged = lines.filter((line) => (line.key.startsWith("extra-") ? extraOn(extras.find((e) => `extra-${e.id}` === line.key)!) : isModeKey(line.key) || isOn(line.key)));
   const totalCharges = charged.reduce((sum, line) => sum + line.amount, 0);
   const deposit = Number(preview?.deposit ?? contract.deposit_amount ?? 0);
   const balance = totalCharges - deposit;
   const refundToTenant = balance < 0 ? -balance : 0;
   const tenantPays = balance > 0 ? balance : 0;
-  const moneyMoves = totalCharges > 0 || refundToTenant > 0;
+  // Credits can push the total below zero; only a positive total is income.
+  const settlementAmount = Math.max(0, totalCharges);
+  const moneyMoves = settlementAmount > 0 || refundToTenant > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -677,7 +707,7 @@ function RefundModal({ contract, onClose, onConfirm }: { contract: any; onClose:
     try {
       await onConfirm({
         refundAmount: refundToTenant,
-        settlementAmount: totalCharges,
+        settlementAmount,
         settlementStatus: "paid",
         refundDate: moveOutDate,
         refundMethod,
@@ -708,6 +738,39 @@ function RefundModal({ contract, onClose, onConfirm }: { contract: any; onClose:
     </div>
   );
 
+  const modeRow = (item: ModeItem, hint: string) => {
+    const amount = modeAmount(item);
+    const current = modeOf(item);
+    return (
+      <div key={item.key} className="py-2.5">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-slate-900">{item.name}</div>
+            <div className="text-xs text-slate-500">{hint}</div>
+          </div>
+          <div className={`whitespace-nowrap text-sm font-bold tabular-nums ${amount < 0 ? "text-emerald-700" : amount === 0 ? "text-slate-400" : "text-slate-900"}`}>
+            {amount < 0 ? `− ${formatMoney(-amount)}` : formatMoney(amount)}
+          </div>
+        </div>
+        <div role="radiogroup" aria-label={`Cách tính ${item.name}`} className="mt-2 inline-flex rounded-lg border border-slate-200 p-0.5">
+          {CHARGE_MODES.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={current === option.value}
+              onClick={() => setModes((prev) => ({ ...prev, [item.key]: option.value }))}
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${current === option.value ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        {amount < 0 && <div className="mt-1 text-xs text-emerald-700">Hóa đơn tháng đã tính {formatMoney(item.invoiced)}, khoản này được trừ lại cho khách.</div>}
+      </div>
+    );
+  };
+
   const meterRow = (key: "electricity" | "water", line: ReturnType<typeof meterLine>, value: string, setValue: (v: string) => void) => line && row({
     lineKey: key,
     label: line.meter.name,
@@ -723,8 +786,10 @@ function RefundModal({ contract, onClose, onConfirm }: { contract: any; onClose:
           min={line.meter.lastReading}
           placeholder="Chỉ số lúc trả phòng"
           value={value}
-          onChange={(e) => setValue(e.target.value)}
-          disabled={!isOn(key)}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setUnchecked((prev) => ({ ...prev, [key]: e.target.value.trim() === "" }));
+          }}
         />
         {line.invalid && <div className="mt-1 text-xs font-medium text-red-600">Nhỏ hơn chỉ số cũ.</div>}
       </>
@@ -744,24 +809,16 @@ function RefundModal({ contract, onClose, onConfirm }: { contract: any; onClose:
         {preview && (
           <>
             <div className="rounded-xl border border-slate-200 px-4 py-1">
-              <div className="border-b border-slate-100 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-500">Các khoản tính cho khách · bỏ tick khoản không thu</div>
+              <div className="border-b border-slate-100 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-500">Các khoản tính cho khách</div>
               <div className="divide-y divide-slate-100">
-                {preview.rent.alreadyInvoiced ? (
-                  <div className="py-2.5 text-sm text-slate-600">Tiền phòng tháng {Number(moveOutDate.slice(5, 7))} đã nằm trong hóa đơn của tháng, không tính lại.</div>
-                ) : preview.rent.amount > 0 && row({
-                  lineKey: "rent",
-                  label: `Tiền phòng ${preview.rent.stayedDays}/${preview.rent.daysInMonth} ngày`,
-                  hint: `Từ ${preview.rent.fromDate.split("-").reverse().join("/")} đến ${moveOutDate.split("-").reverse().join("/")} · ${formatMoney(preview.rent.monthlyRent)}/tháng`,
-                  amount: preview.rent.amount,
+                {modeItems.map((item) => {
+                  const perMonth = `${formatMoney(item.monthly)}/tháng`;
+                  const days = `ở ${preview.rent.stayedDays}/${preview.rent.daysInMonth} ngày (${preview.rent.fromDate.split("-").reverse().join("/")} → ${moveOutDate.split("-").reverse().join("/")})`;
+                  const billed = item.invoiced > 0 ? ` · hóa đơn T${preview.periodInvoice?.month} đã tính ${formatMoney(item.invoiced)}` : "";
+                  return modeRow(item, `${perMonth} · ${days}${billed}`);
                 })}
                 {meterRow("electricity", elec, elecNew, setElecNew)}
                 {meterRow("water", water, waterNew, setWaterNew)}
-                {preview.fixedServices.map((service, index) => row({
-                  lineKey: `service-${index}`,
-                  label: service.name,
-                  hint: `${formatMoney(service.monthlyAmount)}/tháng, tính theo số ngày ở`,
-                  amount: service.amount,
-                }))}
                 {preview.unpaidInvoices.map((inv) => row({
                   lineKey: `invoice-${inv.id}`,
                   label: `Hóa đơn T${inv.month}/${inv.year} còn nợ`,

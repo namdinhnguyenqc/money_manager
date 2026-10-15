@@ -303,13 +303,18 @@ export function resolveDemoPayload(pathname: string, method: string, search: URL
       data: {
         moveOutDate,
         deposit: Number(contract?.deposit_amount ?? contract?.deposit ?? monthlyRent),
-        rent: { alreadyInvoiced: false, monthlyRent, daysInMonth, stayedDays: day, fromDate: `${moveOutDate.slice(0, 8)}01`, amount: Math.round((monthlyRent / daysInMonth) * day) },
+        rent: { alreadyInvoiced: true, monthlyRent, daysInMonth, stayedDays: day, fromDate: `${moveOutDate.slice(0, 8)}01`, proratedAmount: Math.round((monthlyRent / daysInMonth) * day), invoicedAmount: monthlyRent },
         meters: {
           electricity: { name: "Tiền điện", unit: "kWh", unitPrice: 3500, lastReading: 1284 },
           water: { name: "Tiền nước", unit: "m³", unitPrice: 15000, lastReading: 312 },
         },
-        fixedServices: [{ name: "Wifi", monthlyAmount: 100000, amount: Math.round((100000 / daysInMonth) * day) }],
-        unpaidInvoices: [{ id: "demo-unpaid", month: month === 1 ? 12 : month - 1, year: month === 1 ? year - 1 : year, remaining: 850000 }],
+        services: [
+          { key: "wifi", name: "Wifi", type: "per_room", monthlyAmount: 100000, proratedAmount: Math.round((100000 / daysInMonth) * day), invoicedAmount: 100000 },
+          { key: "rac", name: "Rác", type: "per_room", monthlyAmount: 36500, proratedAmount: Math.round((36500 / daysInMonth) * day), invoicedAmount: 0 },
+          { key: "nuoc", name: "Nước", type: "per_person", monthlyAmount: 100000, proratedAmount: Math.round((100000 / daysInMonth) * day), invoicedAmount: 0 },
+        ],
+        unpaidInvoices: [{ id: "demo-unpaid", month, year, remaining: monthlyRent + 100000 }],
+        periodInvoice: { id: "demo-unpaid", month, year },
       },
     };
   }
