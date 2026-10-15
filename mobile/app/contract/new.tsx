@@ -94,7 +94,7 @@ export default function NewContractScreen() {
         setLoading(true);
         const [roomsList, servicesList, walletsList] = await Promise.all([
           loadRentalRooms(facility_id),
-          loadServiceConfigs(true),
+          loadServiceConfigs(true, { forceRefresh: true }),
           loadWallets(),
         ]);
 

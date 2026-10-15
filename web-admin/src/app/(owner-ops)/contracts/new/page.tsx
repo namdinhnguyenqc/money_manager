@@ -73,7 +73,9 @@ export default function NewContractPage() {
   const allRoomsQuery = useQuery({ queryKey: ["rooms", "all"], queryFn: () => loadRentalRooms(), staleTime: 30_000 });
   const roomQuery = useQuery({ queryKey: ["room", roomId], queryFn: () => loadRoom(String(roomId)), enabled: Boolean(roomId), staleTime: 60_000 });
   const vacantRoomsQuery = useQuery({ queryKey: ["rooms", "vacant", facilityId], queryFn: async () => (await loadRentalRooms()).filter((room) => ["vacant", "reserved"].includes(normalizeRoomStatus(room))), enabled: true, staleTime: 30_000 });
-  const servicesQuery = useQuery({ queryKey: ["services", "active"], queryFn: () => loadServiceConfigs(true), staleTime: 60_000 });
+  // Services are edited on other screens (Settings) that do not invalidate this
+  // query, so always re-read them when the form opens.
+  const servicesQuery = useQuery({ queryKey: ["services", "active"], queryFn: () => loadServiceConfigs(true), staleTime: 60_000, refetchOnMount: "always" });
   const depositsQuery = useQuery({ queryKey: ["deposits"], queryFn: loadDeposits, staleTime: 60_000 });
   const walletsQuery = useQuery({ queryKey: ["wallets"], queryFn: loadWallets, staleTime: 60_000 });
   
