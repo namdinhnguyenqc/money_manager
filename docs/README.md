@@ -1,90 +1,46 @@
-# TrọCare Canonical Documentation Index
+# Tài liệu TrọCare
 
-Welcome to the TrọCare Platform Developer and AI Agent Documentation. This directory serves as the single source of truth for the platform's system design, architecture runtime, operational rules, database schemas, and developer standards.
+Điểm bắt đầu cho người (và AI agent) sửa code. Mở đúng file theo việc cần làm, không cần đọc hết.
 
----
+## Hệ thống gồm những gì
 
-## 🤖 AI Agent Quick Start: Core Rules & File Routing Board
+| Thư mục | Là gì | Chạy ở đâu |
+|---|---|---|
+| `backend/` | API Hono (Node) | Vercel, project `trocare-api` → https://trocare-api.vercel.app |
+| `web-admin/` | Web cho **chủ trọ** (tên thư mục gây nhầm, không phải trang admin) | Vercel, project `trocare-production` → https://trocare-production.vercel.app |
+| `admin-portal/` | Cổng **admin** nội bộ | Vercel, project `tcare.production` → https://tcareproduction.vercel.app |
+| `mobile/` | App Android/iOS cho chủ trọ (Expo) | Build APK bằng Gradle hoặc EAS |
+| `tenant-mobile/` | App cho người thuê (Expo) | Build APK bằng Gradle hoặc EAS |
 
-> [!IMPORTANT]
-> **READ THIS SECTION FIRST.** If you are an AI coding agent starting a new task, read this routing board to understand the non-negotiable rules and identify exactly which sub-documents you need to open. **Do not read the entire documentation folder; only open the target files mapped below.**
+Database: một project Supabase (PostgreSQL) dùng chung cho production. **Chưa có môi trường staging**, nên backend chạy trên máy cũng ghi vào database thật.
 
-### 🚨 1. Global Core Business Invariants (Never Break These)
-- **Profile Mandatory Guard**: Access to any owner/admin dashboards requires a completed profile. Return `403 PROFILE_REQUIRED` and redirect to `/complete-profile` if incomplete.
-- **Email is Readonly**: The landlord's email is registered via Google OAuth and is strictly **READONLY** in profile updates.
-- **Form Error Input Preservation**: Forms must preserve all user-entered fields upon receiving backend validation errors (e.g., unique phone number clash).
-- **Tenant Validation**: Before activating a lease contract, tenant `phone` must be exactly **10 digits** and `idCard` (CCCD) exactly **12 digits**.
-- **Room Lifecycle locks**: Activating a lease contract locks room status to `OCCUPIED`. Terminating a lease releases room status to `AVAILABLE`.
-- **Deduplication Checks**: Invoices must block duplicate entries for the same room, contract, month, and year. Financial updates require `x-idempotency-key` headers.
+## Tra theo việc cần làm
 
-### 🗺️ 2. Task-Based Documentation Routing Matrix
-Look up your task keywords below to find the specific files you should open:
-
-| Task Keywords / Mentions | Target Documentation Files to Read |
+| Việc | Đọc |
 |---|---|
-| **Google Login, Sign-In, Onboarding, Profile Forms** | 1. [02-business-rules/core-invariants.md](file:///Users/thao/money_manager/docs/02-business-rules/core-invariants.md)<br>2. [03-features/owner-onboarding/README.md](file:///Users/thao/money_manager/docs/03-features/owner-onboarding/README.md)<br>3. [03-features/owner-onboarding/rules.md](file:///Users/thao/money_manager/docs/03-features/owner-onboarding/rules.md) |
-| **Dãy trọ, Facilities, Room CRUD, Room Status** | 1. [03-features/facility-room-management/README.md](file:///Users/thao/money_manager/docs/03-features/facility-room-management/README.md)<br>2. [03-features/facility-room-management/rules.md](file:///Users/thao/money_manager/docs/03-features/facility-room-management/rules.md) |
-| **Lease, Hợp đồng, Tenants, Sign Contracts, Terminate, Deposits, Đặt cọc** | 1. [03-features/contract-management/README.md](file:///Users/thao/money_manager/docs/03-features/contract-management/README.md)<br>2. [03-features/contract-management/rules.md](file:///Users/thao/money_manager/docs/03-features/contract-management/rules.md) |
-| **Hóa đơn, Invoices, Meter Readings, Payments** | 1. [03-features/billing-payments/README.md](file:///Users/thao/money_manager/docs/03-features/billing-payments/README.md)<br>2. [03-features/billing-payments/rules.md](file:///Users/thao/money_manager/docs/03-features/billing-payments/rules.md) |
-| **Thu chi, Transactions, Wallets, Categories, Phiếu thu, Phiếu chi, Ví tiền** | 1. [04-api-contract/endpoints-map.md](file:///Users/thao/money_manager/docs/04-api-contract/endpoints-map.md) (Section 8)<br>2. [05-database/database-schema.md](file:///Users/thao/money_manager/docs/05-database/database-schema.md) (Financial Domain) |
-| **Trading, Hàng hóa, Inventory, Kinh doanh, Mua bán** | 1. [04-api-contract/endpoints-map.md](file:///Users/thao/money_manager/docs/04-api-contract/endpoints-map.md) (Section 9)<br>2. [05-database/database-schema.md](file:///Users/thao/money_manager/docs/05-database/database-schema.md) (Trading Domain) |
-| **Marketplace Search, Guest Portal, booking, leads** | 1. [03-features/public-marketplace/README.md](file:///Users/thao/money_manager/docs/03-features/public-marketplace/README.md)<br>2. [03-features/public-marketplace/rules.md](file:///Users/thao/money_manager/docs/03-features/public-marketplace/rules.md) |
-| **Super Admin views, Roles change, Ban users** | 1. [03-features/admin-management/README.md](file:///Users/thao/money_manager/docs/03-features/admin-management/README.md)<br>2. [03-features/admin-management/rules.md](file:///Users/thao/money_manager/docs/03-features/admin-management/rules.md) |
-| **API standard error codes, Endpoints catalog, headers** | 1. [04-api-contract/api-governance.md](file:///Users/thao/money_manager/docs/04-api-contract/api-governance.md)<br>2. [04-api-contract/endpoints-map.md](file:///Users/thao/money_manager/docs/04-api-contract/endpoints-map.md) |
-| **PostgreSQL tables, schemas, RLS, DB Migrations** | 1. [05-database/database-schema.md](file:///Users/thao/money_manager/docs/05-database/database-schema.md)<br>2. [05-database/migrations-runbook.md](file:///Users/thao/money_manager/docs/05-database/migrations-runbook.md) |
-| **Typescript standards, lint rules, folder guidelines** | 1. [06-engineering-rules/engineering-constitution.md](file:///Users/thao/money_manager/docs/06-engineering-rules/engineering-constitution.md) |
-| **Colors, Design tokens, Animations, Skeletal Loading** | 1. [07-ui-ux-system/design-tokens-ui.md](file:///Users/thao/money_manager/docs/07-ui-ux-system/design-tokens-ui.md) |
-| **Mobile app, React Native, Expo, JWT lifecycle, Push Notification** | 1. [08-mobile/mobile-compatibility.md](file:///Users/thao/money_manager/docs/08-mobile/mobile-compatibility.md)<br>2. [01-architecture/architecture-runtime.md](file:///Users/thao/money_manager/docs/01-architecture/architecture-runtime.md) |
-| **Env setup, Local launch command, test run commands** | 1. [09-dev-guidelines/getting-started.md](file:///Users/thao/money_manager/docs/09-dev-guidelines/getting-started.md)<br>2. [09-dev-guidelines/testing-guidelines.md](file:///Users/thao/money_manager/docs/09-dev-guidelines/testing-guidelines.md) |
+| Hiểu kiến trúc, route backend, xác thực | [01-architecture/architecture-runtime.md](01-architecture/architecture-runtime.md) |
+| Cài đặt, chạy local, build APK, deploy | [09-dev-guidelines/getting-started.md](09-dev-guidelines/getting-started.md) |
+| Viết và chạy test | [09-dev-guidelines/testing-guidelines.md](09-dev-guidelines/testing-guidelines.md) |
+| Quy tắc nghiệp vụ bắt buộc | [02-business-rules/core-invariants.md](02-business-rules/core-invariants.md) |
+| Đăng nhập, hồ sơ, duyệt chủ trọ | [03-features/owner-onboarding.md](03-features/owner-onboarding.md) |
+| Dãy trọ, phòng | [03-features/facility-room-management.md](03-features/facility-room-management.md) |
+| Hợp đồng, cọc, **trả phòng** | [03-features/contract-management.md](03-features/contract-management.md) |
+| Hóa đơn, thu tiền, SePay, Zalo | [03-features/billing-payments.md](03-features/billing-payments.md) |
+| Ví, sổ quỹ thu chi | [03-features/finance-transactions.md](03-features/finance-transactions.md) |
+| Kinh doanh hàng hóa | [03-features/trading-inventory.md](03-features/trading-inventory.md) |
+| Cổng admin | [03-features/admin-management.md](03-features/admin-management.md) |
+| Tin tức, SEO | [03-features/news-cms.md](03-features/news-cms.md) |
+| Chuẩn lỗi API, danh sách endpoint | [04-api-contract/](04-api-contract/) |
+| Bảng, RLS, migration | [05-database/database-schema.md](05-database/database-schema.md), [05-database/migrations-runbook.md](05-database/migrations-runbook.md) |
+| Quy ước code | [06-engineering-rules/engineering-constitution.md](06-engineering-rules/engineering-constitution.md) |
+| Màu, font, component UI | [07-ui-ux-system/design-tokens-ui.md](07-ui-ux-system/design-tokens-ui.md) |
+| Mobile: token, push notification | [08-mobile/mobile-compatibility.md](08-mobile/mobile-compatibility.md) |
+| Hướng dẫn cho AI agent | [10-ai-context/ai-agent-playbook.md](10-ai-context/ai-agent-playbook.md) |
 
----
+Tài liệu cũ (kế hoạch theo phase, prompt, SQL đã chạy) nằm ở [archive/](archive/README.md) và không phản ánh hiện trạng.
 
-## 📂 Documentation Directory Index
+## Ba điều dễ làm hỏng
 
-Explore the structured documentation hierarchy below:
-
-### 🌐 1. High-Level Core Design & Topology
-- **[00-System Design & Overview](file:///Users/thao/money_manager/docs/00-system-design/system-overview.md)**
-  *Product vision, user demographics, release posture, and platform scope transitions.*
-- **[01-Architecture Runtime Context](file:///Users/thao/money_manager/docs/01-architecture/architecture-runtime.md)**
-  *Runtime topology (Next.js 14 -> Hono -> Supabase), route map bindings, and authentication token middleware guards.*
-- **[02-Business Rules & Invariants](file:///Users/thao/money_manager/docs/02-business-rules/core-invariants.md)**
-  *Codified business rules and database constraints (profile completion fields, phone validations, booking transition locks).*
-
-### 🛠 2. Module Specifications & Contracts
-- **[03-Feature Submodules](file:///Users/thao/money_manager/docs/03-features/)**
-  *Detailed specifications per core feature area (Flows, rules, state tables, API maps, mobile integration, and edge cases):*
-  1. [Owner Onboarding & Profile Verification](file:///Users/thao/money_manager/docs/03-features/owner-onboarding/README.md)
-  2. [Facility & Room Management](file:///Users/thao/money_manager/docs/03-features/facility-room-management/README.md)
-  3. [Contract & Lease Management](file:///Users/thao/money_manager/docs/03-features/contract-management/README.md)
-  4. [Billing & Invoices](file:///Users/thao/money_manager/docs/03-features/billing-payments/README.md)
-  5. [Public Marketplace Search](file:///Users/thao/money_manager/docs/03-features/public-marketplace/README.md)
-  6. [Admin Management Dashboard](file:///Users/thao/money_manager/docs/03-features/admin-management/README.md)
-- **[04-API Contracts & Governance](file:///Users/thao/money_manager/docs/04-api-contract/api-governance.md)**
-  *Global error envelopes (`VALIDATION_FAILED`, `PROFILE_REQUIRED`), standard response structures, and [System Endpoints Routing Map](file:///Users/thao/money_manager/docs/04-api-contract/endpoints-map.md).*
-- **[05-Database Architecture](file:///Users/thao/money_manager/docs/05-database/database-schema.md)**
-  *PostgreSQL entity-relationship layouts, constraints, Row-Level Security (RLS) policies, and [Database Migrations Runbook](file:///Users/thao/money_manager/docs/05-database/migrations-runbook.md) (016 to 022).*
-
-### 📐 3. Engineering Guidelines & System Standards
-- **[06-Engineering Constitution](file:///Users/thao/money_manager/docs/06-engineering-rules/engineering-constitution.md)**
-  *Typing guidelines, naming structures, codebase layout rules, and optimization limits.*
-- **[07-UI/UX Design Tokens](file:///Users/thao/money_manager/docs/07-ui-ux-system/design-tokens-ui.md)**
-  *Theme palettes (HSL variables), responsive grids, animated micro-interactions, and skeletal loading states.*
-- **[08-Mobile Compatibility](file:///Users/thao/money_manager/docs/08-mobile/mobile-compatibility.md)**
-  *Token exchange strategies, push notification hooks, FCM setups, and device-native considerations.*
-- **[09-Developer Guidelines](file:///Users/thao/money_manager/docs/09-dev-guidelines/getting-started.md)**
-  *Local server booting guide, env layouts, and [Automated & Manual QA Checklists](file:///Users/thao/money_manager/docs/09-dev-guidelines/testing-guidelines.md).*
-- **[10-AI Coding Agent Playbook](file:///Users/thao/money_manager/docs/10-ai-context/ai-agent-playbook.md)**
-  *Subagent prompt triggers, decision flow routes, and coding heuristics for pair-programming models.*
-
----
-
-## 📦 Active Project Environment At A Glance
-
-- **Admin Web Application**: Next.js 14 App Router (Port `3001` or `3000`)
-- **Backend Hono Service**: Hono on Node Server (Port `8787`)
-- **Database Backend**: PostgreSQL managed via Supabase CLI / Supabase Cloud
-- **Local Dev Launch Command**:
-  ```bash
-  npm run local
-  ```
+1. **Không thêm `vercel.json` ở thư mục gốc.** Nó ghi đè cấu hình của mọi project Vercel có Root Directory là `.` và từng làm cổng admin phục vụ nhầm web chủ trọ.
+2. **Migration không tự chạy.** File trong `backend/supabase/migrations/` phải được chạy tay trong Supabase SQL Editor (xem runbook). Code dùng bảng mới mà quên chạy migration sẽ lỗi trên production.
+3. **Biên dịch được chưa có nghĩa là chạy được.** Sau mỗi lần deploy, chạy `node tools/smoke-test.mjs` để kiểm tra từng site phục vụ đúng app.

@@ -6,7 +6,7 @@ import pg from "pg";
 const { Pool } = pg;
 
 const projectRoot = path.resolve(process.cwd(), "..");
-const sqlInput = process.argv[2] || "docs/admin/admin-schema-tables-only.sql";
+const sqlInput = process.argv[2] || "docs/archive/admin-portal-build/admin-schema-tables-only.sql";
 const sqlPath = path.isAbsolute(sqlInput) ? sqlInput : path.resolve(projectRoot, sqlInput);
 const sql = fs.readFileSync(sqlPath, "utf8");
 

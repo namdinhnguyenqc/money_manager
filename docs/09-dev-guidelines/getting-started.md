@@ -1,127 +1,55 @@
-# Developer Getting-Started Guide
+# Cài đặt, chạy và deploy
 
-This guide describes how to set up the TrọCare local development environment, install system dependencies, and run the backend Hono API server alongside the Next.js web administration portal and the Expo React Native mobile application.
+## Cần có
 
----
+- Node.js 22 (CI dùng bản 22)
+- Android Studio + Android SDK nếu build APK; JDK 21
 
-## 1. System Requirements & Software
+## Biến môi trường
 
-Ensure your local workstation has the following tools installed before beginning installation:
+Mỗi app có file mẫu, copy rồi điền giá trị thật. **Không commit file env thật.** Máy phát triển hiện tại có hook (`.git/hooks/pre-commit`, không đi theo repo) chặn commit chứa file `.env` hoặc chuỗi giống key.
 
-- **Node.js**: Version `18.x` or higher (Version `20.x` LTS recommended).
-- **Package Manager**: `npm` (packaged with Node.js) or `yarn`.
-- **Database Engine**: Access to a Supabase Cloud instance or local Supabase CLI installation.
-- **Mobile Development Tools** (Only for Mobile Client):
-  - **Android Studio**: Android SDK, AVD Manager (Emulator Setup), and platform tools.
-  - **Xcode** (macOS only): For running iOS Simulator and deploying to Apple devices.
-  - **Expo Go App**: Download on your physical Android or iOS device to test without computer compilation.
+| File | Biến quan trọng |
+|---|---|
+| `backend/.env` (mẫu: `backend/.env.example`) | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET`, `GOOGLE_CLIENT_ID(S)`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `CORS_ORIGINS`, `SEPAY_*` |
+| `web-admin/.env.local` | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID` |
+| `mobile/.env`, `tenant-mobile/.env` (mẫu: `.env.example`) | `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` |
 
----
+Lưu ý:
+- `JWT_SECRET` còn là khóa mã hóa phiên Zalo đã lưu. Đổi nó thì mọi chủ trọ phải quét lại QR Zalo.
+- Ở production backend từ chối khởi động nếu `ADMIN_PASSWORD` để trống hoặc là giá trị mặc định.
+- `backend/.env` trên máy đang trỏ vào database production. Chạy local là ghi dữ liệu thật.
 
-## 2. Environment Configurations (Dotenv Setup)
+## Chạy local
 
-To coordinate the frontend, mobile, and backend microservices, developers must configure local environment files under their respective project roots.
-
-### A. Hono Backend Configuration (`backend/.env`)
-Create a file named `.env` inside the `backend/` directory:
-
-```env
-# Server Network Parameters
-API_PORT=8787
-NODE_ENV=development
-
-# Supabase Storage & Relational Connections
-SUPABASE_URL=https://<your-project-id>.supabase.co
-SUPABASE_ANON_KEY=<your-anonymous-public-key>
-SUPABASE_SERVICE_ROLE_KEY=<your-service-role-admin-key>
-
-# DB Mock Mode Toggle (Set false to use active Supabase tables)
-IS_MOCK=false
-
-# Token Signatures Secrets
-JWT_SECRET=use-a-secure-random-32-character-hash-here
-
-# Google OAuth Integration
-GOOGLE_CLIENT_ID=<your-app-google-client-id>
-GOOGLE_CLIENT_SECRET=<your-app-google-client-secret>
-
-# Permitted Client Origins (CORS configuration)
-CORS_ORIGINS=http://localhost:3001,http://localhost:3000
-```
-
-### B. Web-Admin Frontend Configuration (`web-admin/.env.local`)
-Create a file named `.env.local` inside the `web-admin/` directory:
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8787
-```
-
-### C. Mobile Client Configuration (`mobile/.env`)
-Create a file named `.env` inside the `mobile/` directory:
-
-```env
-# For Android Emulator, use http://10.0.2.2:8787
-# For iOS Simulator, use http://localhost:8787
-# For Physical device, use http://YOUR_LAN_IP:8787
-EXPO_PUBLIC_API_URL=http://10.0.2.2:8787
-```
-
----
-
-## 3. Fast-Track Project Bootstrapping
-
-TrọCare is managed using a standardized root workspace setup, allowing developers to install dependencies and boot systems quickly.
-
-### Step 1: Install Unified Dependencies
-From the monorepo root directory, run:
 ```bash
 npm install
-```
-This triggers package installations across all folders in the monorepo.
-
-### Step 2: Launch Local Backend & Web Client
-From the monorepo root, execute the unified launcher script:
-```bash
 npm run local
 ```
 
-The server boot sequence coordinates:
-- **Hono Backend API**: Available at `http://localhost:8787`
-- **Next.js Web-Admin Portal**: Available at `http://localhost:3001` (or falling back to `3000` if taken).
+Backend ở `http://localhost:8787`, web chủ trọ ở `http://localhost:3001`. `admin-portal/` không nằm trong workspace, cài và chạy riêng: `npm --prefix admin-portal install && npm --prefix admin-portal run dev`.
 
----
+## Build APK
 
-## 4. Mobile Development Launcher
+```bash
+cd mobile/android
+EXPO_PUBLIC_API_URL=https://trocare-api.vercel.app ./gradlew assembleRelease
+```
 
-To run and debug the mobile app, you need to spin up the Expo bundler:
+File ra ở `mobile/android/app/build/outputs/apk/release/app-release.apk`. Tương tự cho `tenant-mobile/` (cần `npm install` trong thư mục đó trước, vì nó không thuộc workspace gốc). Truyền `EXPO_PUBLIC_API_URL` khi build để không phụ thuộc file `.env` trên máy.
 
-### Running on Android Emulator
-1. Open your Android Virtual Device (AVD) from Android Studio.
-2. In a new terminal tab, navigate to the `mobile` folder and start Expo:
-   ```bash
-   cd mobile
-   npm run android
-   ```
-3. The packager compiles your bundle and loads the app automatically on your open emulator.
+Bản release hiện ký bằng `debug.keystore`. Trước khi đưa lên Google Play cần tạo khóa ký riêng.
 
-### Running on iOS Simulator
-1. Open Xcode and start the Simulator.
-2. Navigate to the `mobile` folder and boot Expo:
-   ```bash
-   cd mobile
-   npm run ios
-   ```
+## Deploy
 
-### Testing on a Physical Device
-1. Connect your phone to the same local Wi-Fi network as your computer.
-2. Run `npx expo start` in `mobile/`.
-3. Open the **Expo Go** app on your phone and scan the QR code displayed in the terminal.
+Đẩy lên nhánh `main` là Vercel tự build và deploy cả ba project (`trocare-api`, `trocare-production`, `tcare.production`). Sau khi deploy:
 
----
+```bash
+node tools/smoke-test.mjs
+```
 
-## 5. Production Deployment Best Practices
+Migration database không tự chạy, xem [migrations-runbook](../05-database/migrations-runbook.md).
 
-When building the platform for deployment (Vercel, Render, or Supabase Hosting):
-1. **Enforce CORS Boundaries**: Always specify the production frontend and backend URL inside the backend `CORS_ORIGINS` variable.
-2. **Standardize Production Environment Hooks**: Ensure `NODE_ENV=production` is declared to disable verbose logs.
-3. **HTTP Header Overrides**: Hono automatically attaches security caching parameters (`Cache-Control: no-store`) for authenticated API endpoints.
+## Dọn dung lượng
+
+Các thư mục sau chỉ là file build, xóa được bất cứ lúc nào và sẽ tự sinh lại ở lần build sau: `*/android/app/build`, `*/android/app/.cxx`, `*/android/.gradle`, `web-admin/.next`, `admin-portal/.next`, `backend/dist`, và `android/build`, `android/.cxx` bên trong `node_modules`.

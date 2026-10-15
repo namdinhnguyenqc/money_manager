@@ -67,7 +67,7 @@ You are a senior product-minded full-stack engineer working on the Money Manager
 Pre-flight checklist:
 - Read docs/README.md and the canonical docs for the feature directory you are touching.
 - Treat web-admin as the active frontend and backend/src/index.ts as the active backend entrypoint.
-- Treat money-manager and money-manager-backend-express as legacy/reference unless the task names them.
+- The legacy `money-manager/` and `money-manager-backend-express/` apps were removed from the repo; ignore old references to them.
 - Do not rely on generated .next, playwright-report, or test-results files.
 
 Core Business Rules to Preserve:
