@@ -108,6 +108,12 @@ export default function NewInvoicePage() {
   // Partial first month: fixed services follow rent and are charged by days
   // stayed unless the owner picks the full month. Mirrors the backend rounding.
   const [prorateServices, setProrateServices] = useState(true);
+  // Partial first month only: each charge can be switched off (a tenant who
+  // moved in on the 29th may not be billed rent or wifi at all).
+  const [skipped, setSkipped] = useState<Record<string, boolean>>({});
+  const canSkip = Boolean(proratedInfo);
+  const isSkipped = useCallback((key: string) => canSkip && Boolean(skipped[key]), [canSkip, skipped]);
+  const serviceKey = (service: { service_id?: unknown; name?: unknown }) => `svc-${String(service.service_id || service.name)}`;
   const prorate = useCallback((amount: number) => (
     proratedInfo && prorateServices ? Math.round((amount * proratedInfo.stayedDays) / proratedInfo.daysInMonth) : amount
   ), [proratedInfo, prorateServices]);
@@ -119,7 +125,7 @@ export default function NewInvoicePage() {
     const waterType = String(waterService?.type || "").toLowerCase();
     const occupantCount = Number(contract?.occupant_count || 1);
 
-    const electricAmount = electricityService
+    const electricAmount = electricityService && !isSkipped(serviceKey(electricityService))
       ? (electricType === "meter" || electricType === "metered")
         ? electricUsed * Number(electricityService.applied_unit_price || 0)
         : prorate(electricType === "per_person"
@@ -127,7 +133,7 @@ export default function NewInvoicePage() {
           : Number(electricityService.amount || electricityService.applied_unit_price || 0))
       : 0;
 
-    const waterAmount = waterService
+    const waterAmount = waterService && !isSkipped(serviceKey(waterService))
       ? (waterType === "meter" || waterType === "metered")
         ? waterUsed * Number(waterService.applied_unit_price || 0)
         : prorate(waterType === "per_person"
@@ -136,6 +142,7 @@ export default function NewInvoicePage() {
       : 0;
 
     const serviceAmount = otherServices.reduce((sum, item) => {
+      if (isSkipped(serviceKey(item))) return sum;
       const type = String(item.type || "").toLowerCase();
       const amount = type === "per_person"
         ? occupantCount * Number(item.applied_unit_price || 0)
@@ -144,9 +151,9 @@ export default function NewInvoicePage() {
     }, 0);
 
     const otherAmount = fees.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-    const rent = proratedInfo ? proratedInfo.totalAmount : Number(contract?.rent_amount || 0);
+    const rent = isSkipped("rent") ? 0 : proratedInfo ? proratedInfo.totalAmount : Number(contract?.rent_amount || 0);
     return { electricUsed, waterUsed, electricAmount, waterAmount, serviceAmount, otherAmount, rent, total: rent + electricAmount + waterAmount + serviceAmount + otherAmount };
-  }, [contract?.rent_amount, contract?.occupant_count, electricityService, fees, form.electricNew, form.electricOld, form.waterNew, form.waterOld, otherServices, waterService, proratedInfo, prorate]);
+  }, [contract?.rent_amount, contract?.occupant_count, electricityService, fees, form.electricNew, form.electricOld, form.waterNew, form.waterOld, otherServices, waterService, proratedInfo, prorate, isSkipped]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -164,6 +171,9 @@ export default function NewInvoicePage() {
         dueDate: form.dueDate || undefined,
         applyPreviousDebt,
         prorateFirstMonthServices: prorateServices,
+        excludeServiceIds: canSkip
+          ? appliedServices.filter((service) => isSkipped(serviceKey(service))).map((service) => String(service.service_id || service.name))
+          : [],
         items: fees.filter((item) => item.label.trim()).map((item) => ({ name: item.label.trim(), amount: Number(item.amount || 0) })),
       });
     },
@@ -183,6 +193,18 @@ export default function NewInvoicePage() {
   if (!contract) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">Không tìm thấy hợp đồng.</div>;
 
   const occupantCount = Number(contract.occupant_count || 1);
+  const chargeToggle = (key: string, label: string) => canSkip ? (
+    <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-slate-600">
+      <input
+        type="checkbox"
+        className="h-4 w-4 accent-blue-600"
+        checked={!skipped[key]}
+        onChange={() => setSkipped((prev) => ({ ...prev, [key]: !prev[key] }))}
+        aria-label={`Tính ${label}`}
+      />
+      Tính
+    </label>
+  ) : null;
 
   return (
     <PageContainer width="narrow">
@@ -204,7 +226,10 @@ export default function NewInvoicePage() {
             <span className="text-base font-bold text-slate-900">Phòng {contract.room_name}</span>
             <span className="ml-2 text-sm text-slate-500">{contract.tenant_name}</span>
           </div>
-          <span className="shrink-0 text-sm font-semibold text-slate-900">{formatMoney(computed.rent)}</span>
+          <span className="flex shrink-0 items-center gap-3">
+            {chargeToggle("rent", "tiền phòng")}
+            <span className={`text-sm font-semibold ${isSkipped("rent") ? "text-slate-400 line-through" : "text-slate-900"}`}>{formatMoney(isSkipped("rent") ? (proratedInfo?.totalAmount ?? 0) : computed.rent)}</span>
+          </span>
         </div>
         {proratedInfo && (
           <div className="mt-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-700">
@@ -253,7 +278,10 @@ export default function NewInvoicePage() {
             <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2">
               <Zap size={13} className="text-amber-500" />
               <span className="text-sm font-semibold text-slate-700">{electricityService.name}</span>
-              <span className="ml-auto text-sm font-bold text-slate-900">{formatMoney(computed.electricAmount)}</span>
+              <span className="ml-auto flex items-center gap-3">
+                {chargeToggle(serviceKey(electricityService), electricityService.name)}
+                <span className="text-sm font-bold text-slate-900">{formatMoney(computed.electricAmount)}</span>
+              </span>
             </div>
             {electricityIsMetered ? (
               <div className="grid grid-cols-2 gap-3 px-4 py-3">
@@ -283,7 +311,10 @@ export default function NewInvoicePage() {
             <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2">
               <Droplets size={13} className="text-blue-500" />
               <span className="text-sm font-semibold text-slate-700">{waterService.name}</span>
-              <span className="ml-auto text-sm font-bold text-slate-900">{formatMoney(computed.waterAmount)}</span>
+              <span className="ml-auto flex items-center gap-3">
+                {chargeToggle(serviceKey(waterService), waterService.name)}
+                <span className="text-sm font-bold text-slate-900">{formatMoney(computed.waterAmount)}</span>
+              </span>
             </div>
             {waterIsMetered ? (
               <div className="grid grid-cols-2 gap-3 px-4 py-3">
@@ -329,7 +360,10 @@ export default function NewInvoicePage() {
                         {isPerPerson ? `${occupantCount} người × ${formatMoney(service.applied_unit_price)}` : formatMoney(service.applied_unit_price)}
                       </span>
                     </div>
-                    <span className="font-semibold text-slate-900">{formatMoney(amount)}</span>
+                    <span className="flex items-center gap-3">
+                      {chargeToggle(serviceKey(service), service.name)}
+                      <span className={`font-semibold ${isSkipped(serviceKey(service)) ? "text-slate-400 line-through" : "text-slate-900"}`}>{formatMoney(amount)}</span>
+                    </span>
                   </div>
                 );
               })}

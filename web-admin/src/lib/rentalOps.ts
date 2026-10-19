@@ -836,9 +836,13 @@ export async function createInvoiceForContract(contract: ContractView, input: {
   dueDate?: string;
   applyPreviousDebt?: boolean;
   prorateFirstMonthServices?: boolean;
+  /** Contract services the owner switched off for this invoice (service_id, or name when missing). */
+  excludeServiceIds?: string[];
   items: Array<{ name: string; amount: number }>;
 }) {
-  const appliedServices = normalizeAppliedServicesSnapshot(contract.applied_services_snapshot) ?? [];
+  const excluded = new Set(input.excludeServiceIds ?? []);
+  const appliedServices = (normalizeAppliedServicesSnapshot(contract.applied_services_snapshot) ?? [])
+    .filter((service) => !excluded.has(String(service.service_id || service.name)));
   const serviceItems = appliedServices.map((service) => {
     const category = String(service.category || getServiceCategory(service));
     const type = String(service.type || "").toLowerCase();
