@@ -812,6 +812,8 @@ export async function createInvoice(input: {
   roomFee: number;
   /** Opt out of rolling last period's unpaid balance into this bill. Defaults to on. */
   applyPreviousDebt?: boolean;
+  /** Partial first month: charge contract services by days stayed (default) or in full. */
+  prorateFirstMonthServices?: boolean;
   items: Array<{ serviceId?: string | null; name: string; detail?: string; amount: number }>;
   elecOld?: number | null;
   elecNew?: number | null;
@@ -833,6 +835,7 @@ export async function createInvoiceForContract(contract: ContractView, input: {
   waterNew: number;
   dueDate?: string;
   applyPreviousDebt?: boolean;
+  prorateFirstMonthServices?: boolean;
   items: Array<{ name: string; amount: number }>;
 }) {
   const appliedServices = normalizeAppliedServicesSnapshot(contract.applied_services_snapshot) ?? [];
@@ -890,6 +893,7 @@ export async function createInvoiceForContract(contract: ContractView, input: {
     year: input.year,
     roomFee: input.roomFee ?? contract.rent_amount,
     applyPreviousDebt: input.applyPreviousDebt,
+    prorateFirstMonthServices: input.prorateFirstMonthServices,
     elecOld: input.electricOld,
     elecNew: input.electricNew,
     waterOld: input.waterOld,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -105,6 +105,13 @@ export default function NewInvoicePage() {
     return calculateProratedRent(Number(contract.rent_amount || 0), startDate, endDate);
   }, [contract, isFirstMonth]);
 
+  // Partial first month: fixed services follow rent and are charged by days
+  // stayed unless the owner picks the full month. Mirrors the backend rounding.
+  const [prorateServices, setProrateServices] = useState(true);
+  const prorate = useCallback((amount: number) => (
+    proratedInfo && prorateServices ? Math.round((amount * proratedInfo.stayedDays) / proratedInfo.daysInMonth) : amount
+  ), [proratedInfo, prorateServices]);
+
   const computed = useMemo(() => {
     const electricUsed = Math.max(0, Number(form.electricNew || 0) - Number(form.electricOld || 0));
     const waterUsed = Math.max(0, Number(form.waterNew || 0) - Number(form.waterOld || 0));
@@ -115,17 +122,17 @@ export default function NewInvoicePage() {
     const electricAmount = electricityService
       ? (electricType === "meter" || electricType === "metered")
         ? electricUsed * Number(electricityService.applied_unit_price || 0)
-        : electricType === "per_person"
+        : prorate(electricType === "per_person"
           ? occupantCount * Number(electricityService.applied_unit_price || 0)
-          : Number(electricityService.amount || electricityService.applied_unit_price || 0)
+          : Number(electricityService.amount || electricityService.applied_unit_price || 0))
       : 0;
 
     const waterAmount = waterService
       ? (waterType === "meter" || waterType === "metered")
         ? waterUsed * Number(waterService.applied_unit_price || 0)
-        : waterType === "per_person"
+        : prorate(waterType === "per_person"
           ? occupantCount * Number(waterService.applied_unit_price || 0)
-          : Number(waterService.amount || waterService.applied_unit_price || 0)
+          : Number(waterService.amount || waterService.applied_unit_price || 0))
       : 0;
 
     const serviceAmount = otherServices.reduce((sum, item) => {
@@ -133,13 +140,13 @@ export default function NewInvoicePage() {
       const amount = type === "per_person"
         ? occupantCount * Number(item.applied_unit_price || 0)
         : Number(item.amount || item.applied_unit_price || 0);
-      return sum + amount;
+      return sum + (type === "meter" || type === "metered" ? amount : prorate(amount));
     }, 0);
 
     const otherAmount = fees.reduce((sum, item) => sum + Number(item.amount || 0), 0);
     const rent = proratedInfo ? proratedInfo.totalAmount : Number(contract?.rent_amount || 0);
     return { electricUsed, waterUsed, electricAmount, waterAmount, serviceAmount, otherAmount, rent, total: rent + electricAmount + waterAmount + serviceAmount + otherAmount };
-  }, [contract?.rent_amount, contract?.occupant_count, electricityService, fees, form.electricNew, form.electricOld, form.waterNew, form.waterOld, otherServices, waterService, proratedInfo]);
+  }, [contract?.rent_amount, contract?.occupant_count, electricityService, fees, form.electricNew, form.electricOld, form.waterNew, form.waterOld, otherServices, waterService, proratedInfo, prorate]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -156,6 +163,7 @@ export default function NewInvoicePage() {
         waterNew: waterIsMetered ? Number(form.waterNew || 0) : 0,
         dueDate: form.dueDate || undefined,
         applyPreviousDebt,
+        prorateFirstMonthServices: prorateServices,
         items: fees.filter((item) => item.label.trim()).map((item) => ({ name: item.label.trim(), amount: Number(item.amount || 0) })),
       });
     },
@@ -201,6 +209,23 @@ export default function NewInvoicePage() {
         {proratedInfo && (
           <div className="mt-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-700">
             Tháng đầu (từ {new Date(contract.start_date!).toLocaleDateString("vi-VN")}): {proratedInfo.breakdown} = <strong>{formatMoney(proratedInfo.totalAmount)}</strong>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="font-semibold">Dịch vụ (nước, rác, wifi…):</span>
+              <div role="radiogroup" aria-label="Cách tính dịch vụ tháng đầu" className="inline-flex rounded-md border border-blue-200 bg-white p-0.5">
+                {[{ value: true, label: `Theo ngày ở (${proratedInfo.stayedDays}/${proratedInfo.daysInMonth})` }, { value: false, label: "Cả tháng" }].map((option) => (
+                  <button
+                    key={String(option.value)}
+                    type="button"
+                    role="radio"
+                    aria-checked={prorateServices === option.value}
+                    onClick={() => setProrateServices(option.value)}
+                    className={`rounded px-2 py-0.5 font-semibold ${prorateServices === option.value ? "bg-blue-600 text-white" : "text-blue-700 hover:bg-blue-50"}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -293,9 +318,9 @@ export default function NewInvoicePage() {
             <div className="divide-y divide-slate-100">
               {otherServices.map((service) => {
                 const isPerPerson = String(service.type).toLowerCase() === "per_person";
-                const amount = isPerPerson
+                const amount = prorate(isPerPerson
                   ? occupantCount * Number(service.applied_unit_price || 0)
-                  : Number(service.amount || service.applied_unit_price || 0);
+                  : Number(service.amount || service.applied_unit_price || 0));
                 return (
                   <div key={service.service_id} className="flex items-center justify-between px-4 py-2.5 text-sm">
                     <div>

@@ -79,6 +79,14 @@ const CONTRACTS = [
   { id: "c2", room_id: "r2", boarding_house_id: "f1", room_name: "P102", room_price: 2800000, has_ac: false, tenant_name: "Trần Thị Bình", tenant_phone: "0912345678", start_date: iso(2026, 2, 1), end_date: iso(2026, 8, 1), rent_amount: 2800000, deposit: 2800000, billing_day: 5, num_people: 2, status: "active" },
   { id: "c3", room_id: "r4", boarding_house_id: "f1", room_name: "P104", room_price: 2500000, has_ac: false, tenant_name: "Lê Văn Cường", tenant_phone: "0923456789", start_date: iso(2026, 3, 15), end_date: iso(2027, 3, 15), rent_amount: 2500000, deposit: 2500000, billing_day: 10, num_people: 1, status: "active" },
   { id: "c4", room_id: "r6", boarding_house_id: "f2", room_name: "P201", room_price: 4000000, has_ac: true, tenant_name: "Phạm Thị Dung", tenant_phone: "0945678901", start_date: iso(2026, 4, 1), end_date: iso(2027, 4, 1), rent_amount: 4000000, deposit: 4000000, billing_day: 5, num_people: 3, status: "active" },
+  // Moved in mid-month, to exercise first-month proration of rent and services.
+  { id: "c5", room_id: "r5", boarding_house_id: "f1", room_name: "P105", room_price: 3000000, has_ac: true, tenant_name: "Võ Thị Hoa", tenant_phone: "0956789012", start_date: iso(new Date().getFullYear(), new Date().getMonth() + 1, 15), end_date: iso(new Date().getFullYear() + 1, new Date().getMonth() + 1, 14), rent_amount: 3000000, deposit: 3000000, billing_day: 5, num_people: 2, occupant_count: 2, status: "active",
+    applied_services_snapshot: [
+      { service_id: "s-elec", name: "Điện", category: "electricity", type: "metered", unit: "kWh", applied_unit_price: 3500, unit_price: 3500 },
+      { service_id: "s-water", name: "Nước", category: "water", type: "per_person", unit: "người", applied_unit_price: 50000, unit_price: 50000 },
+      { service_id: "s-wifi", name: "Wifi", category: "other", type: "per_room", unit: "phòng", applied_unit_price: 70000, unit_price: 70000, amount: 70000 },
+      { service_id: "s-trash", name: "Rác", category: "other", type: "per_room", unit: "phòng", applied_unit_price: 36500, unit_price: 36500, amount: 36500 },
+    ] },
 ];
 
 const DEPOSITS = [

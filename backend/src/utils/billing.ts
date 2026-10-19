@@ -44,6 +44,55 @@ export function resolveInvoiceRoomFee(input: {
   return calculateProratedRoomFee(monthlyRent, input.contractStartDate, input.month, input.year);
 }
 
+/**
+ * Days billed in a contract's first month when it starts after the 1st, or
+ * null when the period is not a partial first month.
+ */
+export function firstMonthStay(contractStartDate: string | null | undefined, billingMonth: number, billingYear: number) {
+  const start = parseDateOnly(contractStartDate);
+  if (!start || start.year !== billingYear || start.month !== billingMonth || start.day === 1) return null;
+  const daysInMonth = new Date(Date.UTC(billingYear, billingMonth, 0)).getUTCDate();
+  return { stayedDays: daysInMonth - start.day + 1, daysInMonth };
+}
+
+type ProratableItem = {
+  name?: string | null;
+  amount: number;
+  detail?: string | null;
+  serviceId?: string | null;
+  calculationType?: string | null;
+};
+
+const isMeteredType = (type: unknown) => ["metered", "meter"].includes(String(type || "").toLowerCase());
+
+/**
+ * Scales the contract's non-metered service lines (rubbish, wifi, per-person
+ * water...) by the days stayed in a partial first month, matching how rent is
+ * prorated. Metered lines and owner-added fees are left untouched; a line is a
+ * contract service when its serviceId or name matches the contract snapshot.
+ */
+export function prorateFirstMonthServiceItems<T extends ProratableItem>(
+  items: T[],
+  contractServices: Array<{ service_id?: string | null; id?: string | null; name?: string | null; type?: string | null }>,
+  stay: { stayedDays: number; daysInMonth: number } | null,
+): T[] {
+  if (!stay || stay.daysInMonth <= 0) return items;
+  const services = (contractServices ?? []).filter((s) => !isMeteredType(s.type));
+  const ids = new Set(services.map((s) => String(s.service_id ?? s.id ?? "")).filter(Boolean));
+  const names = new Set(services.map((s) => String(s.name ?? "").trim()).filter(Boolean));
+  return items.map((item) => {
+    if (isMeteredType(item.calculationType)) return item;
+    const matches = (item.serviceId && ids.has(String(item.serviceId))) || names.has(String(item.name ?? "").trim());
+    if (!matches) return item;
+    const note = `tháng đầu ${stay.stayedDays}/${stay.daysInMonth} ngày`;
+    return {
+      ...item,
+      amount: Math.round((Number(item.amount || 0) * stay.stayedDays) / stay.daysInMonth),
+      detail: item.detail ? `${item.detail} · ${note}` : note,
+    };
+  });
+}
+
 export type InvoiceDebtRow = {
   id?: string | null;
   room_id?: string | null;

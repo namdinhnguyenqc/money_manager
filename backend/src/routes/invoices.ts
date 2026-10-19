@@ -18,6 +18,8 @@ import {
   applyDuePriceChanges,
   buildItemsFromRoomServices,
   buildItemsFromRoomAdjustments,
+  firstMonthStay,
+  prorateFirstMonthServiceItems,
 } from "../utils/billing.js";
 import { invalidateCache } from "../middleware/cache.js";
 
@@ -77,6 +79,8 @@ const createInvoiceSchema = z.object({
   // Lets the owner decline rolling last period's unpaid balance into this bill,
   // leaving it to be collected on the original invoice instead. Defaults to on.
   applyPreviousDebt: z.coerce.boolean().optional(),
+  // Partial first month: charge contract services by days stayed (default) or in full.
+  prorateFirstMonthServices: z.boolean().optional(),
   items: z.array(invoiceItemSchema).optional(),
   elecOld: nullableNumber,
   elecNew: nullableNumber,
@@ -747,7 +751,7 @@ const buildInvoiceItemsFromServices = (
     const acUnitPrice = Number(service.unit_price_ac || 0);
     const appliedUnitPrice = isElectricity && hasAc && acUnitPrice > 0 ? acUnitPrice : unitPrice;
 
-    if (type === "fixed") {
+    if (type === "fixed" || type === "per_room") {
       return [{
         name,
         detail: `${unitPrice.toLocaleString("vi-VN")}d cố định`,
@@ -885,6 +889,14 @@ invoicesRoutes.post("/", async (c) => {
     } else {
       items = [];
     }
+  }
+
+  if (parsed.data.prorateFirstMonthServices !== false) {
+    items = prorateFirstMonthServiceItems(
+      items ?? [],
+      contractServicesSnapshot,
+      firstMonthStay(contract.start_date, parsed.data.month, parsed.data.year),
+    );
   }
 
   // Dịch vụ gán theo phòng + phí phát sinh theo kỳ — cộng thêm, độc lập với
@@ -1649,12 +1661,16 @@ invoicesRoutes.post("/auto-generate", async (c) => {
           const serviceMap = new Map(servicesRes.data.map(s => [String(s.id), s]));
           const services = serviceIds.map(id => serviceMap.get(String(id))).filter(Boolean);
           
-          items = buildInvoiceItemsFromServices(services, { ...contract, ...room }, {
-            elecOld,
-            elecNew: null,
-            waterOld,
-            waterNew: null,
-          });
+          items = prorateFirstMonthServiceItems(
+            buildInvoiceItemsFromServices(services, { ...contract, ...room }, {
+              elecOld,
+              elecNew: null,
+              waterOld,
+              waterNew: null,
+            }),
+            services,
+            firstMonthStay(contract.start_date, month, year),
+          );
         }
       }
 
@@ -1817,7 +1833,7 @@ invoicesRoutes.post("/bulk-create", async (c) => {
           .maybeSingle(),
         db
           .from("contracts")
-          .select("rent_amount,start_date")
+          .select("rent_amount,start_date,applied_services_snapshot")
           .eq("id", invData.contractId)
           .eq("user_id", user.id)
           .maybeSingle(),
@@ -1841,7 +1857,18 @@ invoicesRoutes.post("/bulk-create", async (c) => {
         month: Number(invData.month),
         year: Number(invData.year),
       });
-      const chargesBeforeDebt = Math.max(0, Number(invData.totalAmount || 0) - requestedRoomFee + roomFee - Number(invData.previousDebt || 0));
+      const requestedItems: any[] = Array.isArray(invData.items) ? invData.items : [];
+      const lineItems = invData.prorateFirstMonthServices === false
+        ? requestedItems
+        : prorateFirstMonthServiceItems(
+            requestedItems.map((item) => ({ ...item, amount: Number(item.amount || 0) })),
+            Array.isArray(contractRes.data.applied_services_snapshot) ? contractRes.data.applied_services_snapshot : [],
+            firstMonthStay(contractRes.data.start_date, Number(invData.month), Number(invData.year)),
+          );
+      // The client's total already includes the full-price lines; swap in the prorated ones.
+      const itemDelta = lineItems.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+        - requestedItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+      const chargesBeforeDebt = Math.max(0, Number(invData.totalAmount || 0) - requestedRoomFee + roomFee - Number(invData.previousDebt || 0) + itemDelta);
       const carryover = await computeCarryover(db, {
         userId: user.id,
         contractId: invData.contractId,
@@ -1884,8 +1911,8 @@ invoicesRoutes.post("/bulk-create", async (c) => {
       if (previousCredit > 0 || creditBalanceLeftover !== carryover.availableCreditAfterDebt) {
         await db.from("contracts").update({ credit_balance: creditBalanceLeftover }).eq("id", invData.contractId).eq("user_id", user.id);
       }
-      if (invData.items && invData.items.length > 0) {
-        const rows = invData.items.map((item: any) => ({
+      if (lineItems.length > 0) {
+        const rows = lineItems.map((item: any) => ({
           user_id: user.id,
           invoice_id: invoiceId,
           service_id: item.serviceId || null,
