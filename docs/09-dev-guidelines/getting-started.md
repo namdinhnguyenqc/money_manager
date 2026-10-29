@@ -52,4 +52,11 @@ Migration database không tự chạy, xem [migrations-runbook](../05-database/m
 
 ## Dọn dung lượng
 
-Các thư mục sau chỉ là file build, xóa được bất cứ lúc nào và sẽ tự sinh lại ở lần build sau: `*/android/app/build`, `*/android/app/.cxx`, `*/android/.gradle`, `web-admin/.next`, `admin-portal/.next`, `backend/dist`, và `android/build`, `android/.cxx` bên trong `node_modules`.
+Code chỉ khoảng 50 MB; phần lớn dung lượng là thư viện (`node_modules`, ~1,9 GB khi đã cài) và file build.
+
+```bash
+npm run clean       # xóa file build và cache (.next, dist, build Android); không cần cài lại
+npm run clean:all   # xóa thêm toàn bộ node_modules; phải `npm install` lại trước khi chạy hay build
+```
+
+`web-admin/.next/cache` lớn dần sau mỗi lần build (có lúc vài trăm MB), nên thỉnh thoảng chạy `npm run clean`.

@@ -14,7 +14,9 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "build": "npm --prefix web-admin run build",
-    "start": "npm --prefix web-admin start"
+    "start": "npm --prefix web-admin start",
+    "clean": "node tools/clean.mjs",
+    "clean:all": "node tools/clean.mjs --all"
   },
   "dependencies": {
     "metro-runtime": "^0.83.3",
