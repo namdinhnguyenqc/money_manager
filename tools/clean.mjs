@@ -51,7 +51,8 @@ const findNativeBuilds = (dir, depth = 0) => {
       }
       continue;
     }
-    if (entry.name.startsWith("@") || depth === 0) findNativeBuilds(full, depth + 1);
+    // node_modules/<pkg> and node_modules/@scope/<pkg>
+    if (depth === 0 || (depth === 1 && path.basename(dir).startsWith("@"))) findNativeBuilds(full, depth + 1);
   }
 };
 if (!removeModules) moduleDirs.forEach((dir) => findNativeBuilds(dir));
