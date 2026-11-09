@@ -190,7 +190,7 @@ This document maps all financial endpoints to their corresponding frontend calle
 
 | System Layer | Target Files |
 |---|---|
-| **Backend Route Handlers** | - [transactions.ts](file:///Users/thao/money_manager/backend/src/routes/transactions.ts)<br/>- [wallets.ts](file:///Users/thao/money_manager/backend/src/routes/wallets.ts)<br/>- [categories.ts](file:///Users/thao/money_manager/backend/src/routes/categories.ts) |
+| **Backend Route Handlers** | - [transactions.ts](../../backend/src/routes/transactions.ts)<br/>- [wallets.ts](../../backend/src/routes/wallets.ts)<br/>- [categories.ts](../../backend/src/routes/categories.ts) |
 | **Mobile Core Callers** | - `mobile/lib/rentalOps.ts` |
 | **Mobile Zustand Stores** | - `mobile/store/useWalletStore.ts` |
 | **Web-Admin View Logs** | - `web-admin/src/app/(owner-ops)/finance/page.tsx` |

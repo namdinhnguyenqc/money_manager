@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Regenerates docs/04-api-contract/endpoints-map.md from the backend source.
+// Regenerates docs/endpoints.md from the backend source.
 // Usage: node tools/gen-endpoints-map.mjs
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -40,12 +40,12 @@ let out = `# Danh sách endpoint
 
 Sinh tự động từ \`backend/src\` bằng \`node tools/gen-endpoints-map.mjs\`. Đừng sửa tay; chạy lại script sau khi thêm hoặc đổi route.
 
-Tổng cộng ${rows.length} endpoint. Quy tắc lỗi và header chung: [api-governance.md](api-governance.md).
+Tổng cộng ${rows.length} endpoint. Kiến trúc và bảo vệ route: [architecture.md](architecture.md).
 `;
 for (const [file, list] of [...groups.entries()].sort()) {
   out += `\n## \`${file}\`\n\n| Method | Đường dẫn |\n|---|---|\n`;
   for (const row of list) out += `| \`${row.method}\` | \`${row.path}\` |\n`;
 }
 
-writeFileSync(path.join(root, "docs/04-api-contract/endpoints-map.md"), out);
+writeFileSync(path.join(root, "docs/endpoints.md"), out);
 console.log(`Wrote ${rows.length} endpoints from ${groups.size} route files.`);

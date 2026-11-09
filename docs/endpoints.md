@@ -2,7 +2,7 @@
 
 Sinh tự động từ `backend/src` bằng `node tools/gen-endpoints-map.mjs`. Đừng sửa tay; chạy lại script sau khi thêm hoặc đổi route.
 
-Tổng cộng 286 endpoint. Quy tắc lỗi và header chung: [api-governance.md](api-governance.md).
+Tổng cộng 286 endpoint. Kiến trúc và bảo vệ route: [architecture.md](architecture.md).
 
 ## `routes/admin.ts`
 

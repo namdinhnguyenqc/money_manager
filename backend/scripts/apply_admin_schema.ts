@@ -6,7 +6,11 @@ import pg from "pg";
 const { Pool } = pg;
 
 const projectRoot = path.resolve(process.cwd(), "..");
-const sqlInput = process.argv[2] || "docs/archive/admin-portal-build/admin-schema-tables-only.sql";
+const sqlInput = process.argv[2];
+if (!sqlInput) {
+  console.error("Usage: tsx scripts/apply_admin_schema.ts <path-to.sql>");
+  process.exit(1);
+}
 const sqlPath = path.isAbsolute(sqlInput) ? sqlInput : path.resolve(projectRoot, sqlInput);
 const sql = fs.readFileSync(sqlPath, "utf8");
 

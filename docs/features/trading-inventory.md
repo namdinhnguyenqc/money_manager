@@ -155,7 +155,7 @@ This mapping aligns merchandise tracking routes and statistics with active clien
 
 | Layer | Path |
 |---|---|
-| **Backend API Route** | - [trading.ts](file:///Users/thao/money_manager/backend/src/routes/trading.ts) |
+| **Backend API Route** | - [trading.ts](../../backend/src/routes/trading.ts) |
 | **Mobile Service Controller** | - `mobile/lib/rentalOps.ts` |
 | **Zustand Store Context** | - `mobile/store/useTradingStore.ts` |
 | **Web Admin Dash View** | - `web-admin/src/app/(owner-ops)/trading/page.tsx` |

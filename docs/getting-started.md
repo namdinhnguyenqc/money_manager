@@ -40,6 +40,16 @@ File ra ở `mobile/android/app/build/outputs/apk/release/app-release.apk`. Tư�
 
 Bản release hiện ký bằng `debug.keystore`. Trước khi đưa lên Google Play cần tạo khóa ký riêng.
 
+## Test
+
+```bash
+npm --prefix backend test        # unit test backend (vitest), không cần database
+npm --prefix web-admin test      # unit test web
+npm --prefix web-admin run test:e2e   # kịch bản trình duyệt (Playwright), nếu đã cài trình duyệt
+```
+
+Kiểm tra giao diện web mà không chạm database thật: bật chế độ dữ liệu mẫu bằng `localStorage.setItem('trocare.demoMode','1')` cùng một `accessToken` giả, dữ liệu lấy từ `web-admin/src/lib/demo/demoData.ts`.
+
 ## Deploy
 
 Đẩy lên nhánh `main` là Vercel tự build và deploy cả ba project (`trocare-api`, `trocare-production`, `tcare.production`). Sau khi deploy:
@@ -48,7 +58,7 @@ Bản release hiện ký bằng `debug.keystore`. Trước khi đưa lên Google
 node tools/smoke-test.mjs
 ```
 
-Migration database không tự chạy, xem [migrations-runbook](../05-database/migrations-runbook.md).
+Migration database không tự chạy, xem [migrations-runbook](database.md).
 
 ## Dọn dung lượng
 
