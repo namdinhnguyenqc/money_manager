@@ -168,10 +168,9 @@ export type ServiceRow = {
 /**
  * Builds the applied-services snapshot a contract carries.
  *
- * A contract stores the prices agreed at signing rather than reading the
- * service table live, so later price changes never silently alter what a tenant
- * already agreed to. Re-running this is therefore an explicit act — renewing at
- * today's prices — not a background refresh.
+ * Invoices are priced from this snapshot, not from the service table. When the
+ * owner edits a service price, syncActiveContractSnapshots re-prices the
+ * matching entries on active contracts; ended contracts keep their old prices.
  */
 export function buildAppliedServicesSnapshot(
   services: ServiceRow[],
@@ -322,6 +321,80 @@ export async function applyDuePriceChanges(db: SupabaseLike, userId: string): Pr
       .eq("user_id", userId);
     await db.from("service_price_history").update({ applied: true }).eq("id", row.id);
   }
+  await syncActiveContractSnapshots(db, userId, due.map((row: { service_id: string }) => String(row.service_id)));
+}
+
+type SnapshotEntry = Record<string, unknown> & { service_id?: unknown; occupant_count?: unknown };
+
+/**
+ * Re-prices the entries of a contract snapshot that belong to the given
+ * services, keeping every other entry (and the entry order) as it was.
+ * Returns null when nothing in the snapshot changed.
+ */
+export function refreshSnapshotEntries(
+  snapshot: SnapshotEntry[],
+  services: ServiceRow[],
+  options: { occupantCount: number; roomHasAc: boolean },
+): SnapshotEntry[] | null {
+  const byId = new Map(services.map((service) => [String(service.id), service]));
+  let changed = false;
+  const next = snapshot.map((entry) => {
+    const service = byId.get(String(entry?.service_id ?? ""));
+    if (!service) return entry;
+    const [rebuilt] = buildAppliedServicesSnapshot([service], {
+      occupantCount: Number(entry.occupant_count || options.occupantCount || 1),
+      roomHasAc: options.roomHasAc,
+    });
+    const same = Object.keys(rebuilt).every((key) => JSON.stringify((rebuilt as Record<string, unknown>)[key]) === JSON.stringify(entry[key]));
+    if (!same) changed = true;
+    return same ? entry : { ...entry, ...rebuilt };
+  });
+  return changed ? next : null;
+}
+
+/**
+ * Carries an edited service price into the active contracts that use it.
+ *
+ * Invoices are priced from the contract snapshot, so without this an owner
+ * who changes a service fee keeps billing the old fee on every running
+ * contract. Ended contracts keep the price they were settled at.
+ */
+export async function syncActiveContractSnapshots(db: SupabaseLike, userId: string, serviceIds: string[]): Promise<number> {
+  const ids = [...new Set(serviceIds.filter(Boolean))];
+  if (ids.length === 0) return 0;
+
+  const [servicesRes, contractsRes] = await Promise.all([
+    db.from("services").select("id,name,type,unit,unit_price,unit_price_ac").eq("user_id", userId).in("id", ids),
+    db.from("contracts").select("id,room_id,occupant_count,applied_services_snapshot").eq("user_id", userId).eq("status", "active"),
+  ]);
+  const services: ServiceRow[] = servicesRes.data ?? [];
+  if (servicesRes.error || contractsRes.error || services.length === 0) return 0;
+
+  const affected = (contractsRes.data ?? []).filter((contract: any) =>
+    Array.isArray(contract.applied_services_snapshot)
+    && contract.applied_services_snapshot.some((entry: SnapshotEntry) => ids.includes(String(entry?.service_id ?? ""))),
+  );
+  if (affected.length === 0) return 0;
+
+  const roomIds = [...new Set(affected.map((contract: any) => String(contract.room_id)))];
+  const roomsRes = await db.from("rooms").select("id,has_ac").eq("user_id", userId).in("id", roomIds);
+  const hasAc = new Map<string, boolean>((roomsRes.data ?? []).map((room: any) => [String(room.id), Boolean(room.has_ac)]));
+
+  let updated = 0;
+  for (const contract of affected) {
+    const next = refreshSnapshotEntries(contract.applied_services_snapshot, services, {
+      occupantCount: Number(contract.occupant_count || 1),
+      roomHasAc: hasAc.get(String(contract.room_id)) ?? false,
+    });
+    if (!next) continue;
+    const res = await db
+      .from("contracts")
+      .update({ applied_services_snapshot: next, updated_at: new Date().toISOString() })
+      .eq("id", contract.id)
+      .eq("user_id", userId);
+    if (!res.error) updated += 1;
+  }
+  return updated;
 }
 
 export type RoomServiceRow = {

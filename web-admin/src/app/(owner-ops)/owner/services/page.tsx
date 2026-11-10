@@ -165,6 +165,8 @@ export default function ServicesPage() {
         showToast("Đã thêm dịch vụ mới.", "success");
       }
       queryClient.invalidateQueries({ queryKey: ["services"] });
+      // Active contracts were re-priced on the server; the invoice form reads them.
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
       closeForm();
     } catch (err: any) {
       showToast(err?.message || "Lỗi khi lưu dịch vụ.", "error");
@@ -212,6 +214,7 @@ export default function ServicesPage() {
         effectiveDate: priceForm.effectiveDate,
       });
       queryClient.invalidateQueries({ queryKey: ["services"] });
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
       const isFuture = priceForm.effectiveDate > todayStr();
       showToast(isFuture ? "Đã lên lịch giá mới, sẽ tự áp dụng đúng ngày hiệu lực." : "Đã cập nhật giá dịch vụ.", "success");
       setPriceServiceId(null);

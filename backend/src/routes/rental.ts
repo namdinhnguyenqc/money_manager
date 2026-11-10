@@ -6,7 +6,7 @@ import type { AppEnv } from "../types.js";
 import { parseJson, toId } from "../utils/validation.js";
 import { logAuditAction } from "../utils/audit.js";
 import { updateWalletBalance } from "../utils/wallet.js";
-import { summarizeRoomInvoices, buildAppliedServicesSnapshot, applyDuePriceChanges } from "../utils/billing.js";
+import { summarizeRoomInvoices, buildAppliedServicesSnapshot, applyDuePriceChanges, syncActiveContractSnapshots } from "../utils/billing.js";
 import { env } from "../config/env.js";
 import { buildCheckoutPreview } from "../utils/checkoutSettlement.js";
 
@@ -1011,7 +1011,8 @@ rentalRoutes.patch("/services/:id", async (c) => {
   const { data, error } = await db.from("services").update(payload).eq("id", id).eq("user_id", user.id).select("*").single();
 
   if (error) return c.json({ error: error.message }, 400);
-  return c.json({ data: { ...data, unitPrice: data.unit_price, unitPriceAc: data.unit_price_ac } });
+  const contractsUpdated = await syncActiveContractSnapshots(db, user.id, [String(id)]);
+  return c.json({ data: { ...data, unitPrice: data.unit_price, unitPriceAc: data.unit_price_ac }, contractsUpdated });
 });
 
 rentalRoutes.delete("/services/:id", async (c) => {
@@ -1084,7 +1085,8 @@ rentalRoutes.post("/services/:id/price-update", async (c) => {
       .select("*")
       .single();
     if (updateRes.error) return c.json({ error: updateRes.error.message }, 400);
-    return c.json({ data: { service: updateRes.data, history: historyRes.data } });
+    const contractsUpdated = await syncActiveContractSnapshots(db, user.id, [String(id)]);
+    return c.json({ data: { service: updateRes.data, history: historyRes.data, contractsUpdated } });
   }
 
   return c.json({ data: { service: serviceRes.data, history: historyRes.data } });
