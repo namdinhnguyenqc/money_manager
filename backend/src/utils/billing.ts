@@ -296,6 +296,120 @@ export function applyCreditToCurrentCharges(
   };
 }
 
+// ── Carrying an unpaid remainder into the next invoice ─────────────────────
+// When a later invoice takes over an earlier one's unpaid remainder (its
+// previous_debt), the earlier invoice must stop showing that remainder as
+// owed, or every place that sums "total − paid" counts it twice. The moved
+// amount is recorded in carried_forward_amount and taken off total_amount, so
+// the earlier invoice ends with nothing left to collect. Its original total is
+// total_amount + carried_forward_amount.
+
+type CarryInvoiceRow = {
+  total_amount?: number | string | null;
+  paid_amount?: number | string | null;
+  carried_forward_amount?: number | string | null;
+};
+
+const money = (value: unknown) => Math.round(Number(value || 0) * 100) / 100;
+
+export function invoiceStatusFor(total: number, paid: number): "paid" | "partial" | "unpaid" {
+  if (paid >= total) return "paid";
+  return paid > 0 ? "partial" : "unpaid";
+}
+
+/** Update that closes an earlier invoice whose remainder moved to a later one, or null if nothing is owed. */
+export function carryForwardUpdate(src: CarryInvoiceRow) {
+  const total = money(src.total_amount);
+  const paid = money(src.paid_amount);
+  const remaining = money(total - paid);
+  if (remaining <= 0) return null;
+  return {
+    total_amount: paid,
+    carried_forward_amount: money(money(src.carried_forward_amount) + remaining),
+    status: "paid" as const,
+  };
+}
+
+/** Update that gives an earlier invoice its carried remainder back (the later invoice was deleted), or null. */
+export function reopenCarriedUpdate(src: CarryInvoiceRow) {
+  const carried = money(src.carried_forward_amount);
+  if (carried <= 0) return null;
+  const total = money(money(src.total_amount) + carried);
+  const paid = money(src.paid_amount);
+  return { total_amount: total, carried_forward_amount: 0, status: invoiceStatusFor(total, paid) };
+}
+
+const isMissingColumn = (error: any) =>
+  error?.code === "42703" || error?.code === "PGRST204" || /carried_forward_amount/.test(String(error?.message || ""));
+
+/** Closes the earlier invoice after a later one took over its remainder. Safe before the migration runs. */
+export async function closeCarriedSourceInvoice(db: SupabaseLike, userId: string, sourceInvoiceId: string | null | undefined) {
+  if (!sourceInvoiceId) return;
+  const srcRes = await db
+    .from("invoices")
+    .select("id,total_amount,paid_amount,carried_forward_amount")
+    .eq("id", sourceInvoiceId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (srcRes.error) {
+    if (!isMissingColumn(srcRes.error)) console.error("[carry-forward] read source failed:", srcRes.error.message);
+    return;
+  }
+  const update = srcRes.data ? carryForwardUpdate(srcRes.data) : null;
+  if (!update) return;
+  const res = await db
+    .from("invoices")
+    .update({ ...update, updated_at: new Date().toISOString() })
+    .eq("id", sourceInvoiceId)
+    .eq("user_id", userId);
+  if (res.error) console.error("[carry-forward] close source failed:", res.error.message);
+}
+
+/** Gives the earlier invoice its remainder back when the invoice that carried it is deleted. */
+export async function reopenCarriedSourceInvoice(db: SupabaseLike, userId: string, sourceInvoiceId: string | null | undefined) {
+  if (!sourceInvoiceId) return;
+  const srcRes = await db
+    .from("invoices")
+    .select("id,total_amount,paid_amount,carried_forward_amount")
+    .eq("id", sourceInvoiceId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (srcRes.error || !srcRes.data) return;
+  const update = reopenCarriedUpdate(srcRes.data);
+  if (!update) return;
+  const res = await db
+    .from("invoices")
+    .update({ ...update, updated_at: new Date().toISOString() })
+    .eq("id", sourceInvoiceId)
+    .eq("user_id", userId);
+  if (res.error) console.error("[carry-forward] reopen source failed:", res.error.message);
+}
+
+/**
+ * A payment aimed at an invoice whose remainder moved on (e.g. the tenant paid
+ * last month's QR code) belongs to the invoice that now holds that debt.
+ * Follows the chain to the latest one.
+ */
+export async function resolveCarryingInvoice<T extends { id: string; user_id: string; carried_forward_amount?: unknown }>(
+  db: SupabaseLike,
+  invoice: T,
+): Promise<T> {
+  let current = invoice;
+  for (let hop = 0; hop < 24 && money(current.carried_forward_amount) > 0; hop += 1) {
+    const nextRes = await db
+      .from("invoices")
+      .select("*")
+      .eq("user_id", current.user_id)
+      .eq("previous_debt_source_invoice_id", current.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (nextRes.error || !nextRes.data) break;
+    current = nextRes.data as T;
+  }
+  return current;
+}
+
 /**
  * Applies any service price changes whose effective date has arrived. Lazy
  * (checked on read) instead of cron-driven — called before any code path that

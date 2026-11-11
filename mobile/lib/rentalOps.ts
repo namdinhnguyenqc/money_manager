@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { apiGet, apiPost, apiDelete, apiPatch, apiPut, type RequestOptions } from './api';
 
 export type ContractStatus = 'active' | 'expiring_soon' | 'ended' | 'expired';
-export type InvoiceStatus = 'paid' | 'partial' | 'sent' | 'overdue' | 'draft';
+export type InvoiceStatus = 'paid' | 'partial' | 'sent' | 'overdue' | 'draft' | 'carried_forward';
 export type RoomStatus = 'vacant' | 'occupied' | 'maintenance' | 'reserved' | 'expiring_soon' | 'expired' | 'disabled';
 
 export type TenantInput = {
@@ -220,6 +220,8 @@ export type Invoice = {
   total_amount: number;
   paid_amount?: number;
   previous_debt?: number;
+  /** Amount of this bill moved onto a later invoice ("cấn nợ kỳ trước"); nothing is left to collect here. */
+  carried_forward_amount?: number;
   status?: string;
   room_name?: string;
   tenant_name?: string;
@@ -334,11 +336,12 @@ export const normalizeInvoiceStatus = (invoice?: Invoice | null) => {
   const total = Math.round(Number(invoice.total_amount || 0));
   const paid = Math.round(Number(invoice.paid_amount || 0));
   const balance = total - paid;
-
-  if (balance <= 0 && total > 0) return 'paid';
-  if (paid > 0 && balance > 0) return 'partial';
-  
   const status = String(invoice.status || '').toLowerCase();
+
+  if (Number(invoice.carried_forward_amount || 0) > 0) return 'carried_forward';
+  if (balance <= 0 && (total > 0 || status === 'paid')) return 'paid';
+  if (paid > 0 && balance > 0) return 'partial';
+
   if (status === 'overdue') return 'overdue';
   if (status === 'draft') return 'draft';
   

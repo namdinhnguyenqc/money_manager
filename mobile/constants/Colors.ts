@@ -60,6 +60,7 @@ const Colors = {
     sent: { bg: '#FFFBEB', text: '#B45309', border: '#FDE68A' },
     overdue: { bg: '#FEF2F2', text: '#B91C1C', border: '#FECACA' },
     draft: { bg: 'rgba(148, 163, 184, 0.08)', text: '#94A3B8', border: 'rgba(148, 163, 184, 0.2)' },
+    carried_forward: { bg: '#F0F9FF', text: '#0369A1', border: '#BAE6FD' },
 
     // Contract statuses
     active: { bg: '#EFF6FF', text: '#2563EB', border: '#BFDBFE' },

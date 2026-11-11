@@ -85,7 +85,11 @@ export default function InvoiceDetailScreen() {
   const total = Number(invoice.total_amount || 0);
   const paid = Number(invoice.paid_amount || 0);
   const outstanding = Math.max(0, total - paid);
-  const status = paid >= total && total > 0 ? 'paid' : paid > 0 ? 'partial' : 'sent';
+  // Part of this bill moved onto a later invoice: nothing left to collect here.
+  const carriedAmount = Number(invoice.carried_forward_amount || 0);
+  const status = carriedAmount > 0
+    ? 'carried_forward'
+    : paid >= total && (total > 0 || String(invoice.status || '').toLowerCase() === 'paid') ? 'paid' : paid > 0 ? 'partial' : 'sent';
   const items = invoice.items || [];
   const paymentCode = invoice.payment_code || invoice.paymentCode || '';
   const channel = invoice.payment_channel;
@@ -96,7 +100,8 @@ export default function InvoiceDetailScreen() {
   const qrUrl = buildInvoiceQrUrl(invoice, { bankId, accountNo }) || bankConfig?.qr_uri || '';
   const paymentProvider = channel?.provider === 'sepay' ? 'SePay tự động' : 'Chuyển khoản';
   const previousDebt = Number(invoice.previous_debt || invoice.previousDebt || 0);
-  const currentPayable = Math.max(0, total - previousDebt);
+  const previousCredit = Number((invoice as any).previous_credit || 0);
+  const currentPayable = Math.max(0, total + carriedAmount - previousDebt + previousCredit);
   const depositReturn = 0;
   const invoiceRows = [
     {
@@ -109,6 +114,10 @@ export default function InvoiceDetailScreen() {
       detail: item.detail || '',
       amount: Number(item.amount || 0),
     })),
+    // Extra rows so the table adds up to its total.
+    ...(previousDebt > 0 ? [{ name: 'Nợ kỳ trước', detail: 'Cộng từ hóa đơn kỳ trước', amount: previousDebt }] : []),
+    ...(previousCredit > 0 ? [{ name: 'Số dư', detail: 'Tiền trả dư kỳ trước', amount: -previousCredit }] : []),
+    ...(carriedAmount > 0 ? [{ name: 'Chuyển kỳ sau', detail: 'Cộng vào hóa đơn kỳ sau', amount: -carriedAmount }] : []),
   ];
 
   const sharePaymentValue = async (label: string, value: string) => {
@@ -198,8 +207,8 @@ export default function InvoiceDetailScreen() {
               </View>
               <View style={styles.recipientCell}>
                 <Text style={styles.recipientLabel}>Trạng thái:</Text>
-                <Text style={[styles.statusText, status === 'paid' && styles.statusPaid]}>
-                  {status === 'paid' ? 'Đã thanh toán' : status === 'partial' ? 'Còn thiếu' : 'Chưa thanh toán'}
+                <Text style={[styles.statusText, (status === 'paid' || status === 'carried_forward') && styles.statusPaid]}>
+                  {status === 'carried_forward' ? 'Đã chuyển nợ sang kỳ sau' : status === 'paid' ? 'Đã thanh toán' : status === 'partial' ? 'Còn thiếu' : 'Chưa thanh toán'}
                 </Text>
               </View>
             </View>
@@ -232,6 +241,7 @@ export default function InvoiceDetailScreen() {
                 <Text style={styles.paymentTitle}>Phần Thanh toán:</Text>
                 <PaymentLine label="Số tiền còn nợ tháng trước:" value={formatMoney(previousDebt)} />
                 <PaymentLine label="Phải trả tháng này:" value={formatMoney(currentPayable)} />
+                {carriedAmount > 0 && <PaymentLine label="Đã chuyển sang kỳ sau:" value={formatMoney(carriedAmount)} />}
                 <PaymentLine label="Trả cọc:" value={formatMoney(depositReturn)} />
                 <View style={styles.payableLine}>
                   <Text style={styles.payableLabel}>Thành tiền phải trả:</Text>
@@ -308,7 +318,9 @@ export default function InvoiceDetailScreen() {
               icon={<Ionicons name="cash-outline" size={18} color={Colors.textWhite} />}
             />
           )}
-          <Button title="Xóa hóa đơn" variant="danger" size="md" fullWidth onPress={handleDelete} />
+          {paid <= 0 && carriedAmount <= 0 && (
+            <Button title="Xóa hóa đơn" variant="danger" size="md" fullWidth onPress={handleDelete} />
+          )}
         </View>
       </ScrollView>
     </>

@@ -232,6 +232,9 @@ export type Invoice = {
   previous_debt?: number;
   previous_credit?: number;
   carriedForward?: boolean;
+  /** Amount of this bill moved onto a later invoice; its original total is total_amount + this. */
+  carried_forward_amount?: number;
+  carriedTo?: { id: string; month: number; year: number } | null;
   status?: string;
   room_name?: string;
   tenant_name?: string;
@@ -350,11 +353,12 @@ export const normalizeInvoiceStatus = (invoice?: Invoice | null) => {
   const total = Math.round(Number(invoice.total_amount || 0));
   const paid = Math.round(Number(invoice.paid_amount || 0));
   const balance = total - paid;
-
-  if (balance <= 0 && total > 0) return "paid";
-  if (paid > 0 && balance > 0) return "partial";
-  
   const status = String(invoice.status || "").toLowerCase();
+
+  // A bill whose remainder moved to a later invoice can end at 0 ₫ with status "paid".
+  if (balance <= 0 && (total > 0 || status === "paid")) return "paid";
+  if (paid > 0 && balance > 0) return "partial";
+
   if (status === "overdue") return "overdue";
   if (status === "draft") return "draft";
   

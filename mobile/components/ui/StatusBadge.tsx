@@ -33,6 +33,7 @@ const LABELS: Record<string, Record<string, string>> = {
     sent: 'Chưa thanh toán',
     overdue: 'Quá hạn',
     draft: 'Bản nháp',
+    carried_forward: 'Đã chuyển kỳ sau',
   },
   contract: {
     active: 'Đang thuê',

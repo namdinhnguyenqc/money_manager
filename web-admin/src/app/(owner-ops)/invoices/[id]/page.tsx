@@ -86,7 +86,11 @@ export default function InvoiceDetailPage() {
   const outstanding = Math.max(0, total - paid);
   const status = normalizeInvoiceStatus(invoice);
   const isPaid = status === "paid";
-  const isCarriedForward = Boolean((invoice as any).carriedForward) && !isPaid;
+  // Part of this bill moved onto a later invoice ("cấn công nợ kỳ trước"), so
+  // nothing is left to collect here; the later invoice holds that debt now.
+  const carriedAmount = Number(invoice.carried_forward_amount || 0);
+  const carriedTo = invoice.carriedTo;
+  const isCarriedForward = carriedAmount > 0 || (Boolean(invoice.carriedForward) && !isPaid);
 
   const channel = invoice.payment_channel;
   const bankId = channel?.bank_id || channel?.bankId || bankConfig?.bank_id || settings.bank_name_1 || "";
@@ -102,7 +106,16 @@ export default function InvoiceDetailPage() {
 
   const previousDebt = Number((invoice as any).previous_debt || 0);
   const previousCredit = Number((invoice as any).previous_credit || 0);
-  const currentPayable = Math.max(0, total - previousDebt + previousCredit);
+  const currentPayable = Math.max(0, total + carriedAmount - previousDebt + previousCredit);
+  // Rows that make the table add up to its total, not just the line items.
+  const tableRows = [
+    ...invoiceRows,
+    ...(previousDebt > 0 ? [{ name: "Nợ kỳ trước", detail: "Cộng từ hóa đơn kỳ trước", amount: previousDebt }] : []),
+    ...(previousCredit > 0 ? [{ name: "Số dư", detail: "Tiền trả dư kỳ trước", amount: -previousCredit }] : []),
+    ...(carriedAmount > 0
+      ? [{ name: "Chuyển kỳ sau", detail: carriedTo ? `Sang hóa đơn T${carriedTo.month}/${carriedTo.year}` : "Sang hóa đơn kỳ sau", amount: -carriedAmount }]
+      : []),
+  ];
 
   const copyText = async (field: string, value: string) => {
     if (!value) return;
@@ -171,14 +184,14 @@ export default function InvoiceDetailPage() {
     }
   };
 
-  const statusLabel = isPaid
-    ? "Đã thanh toán"
-    : isCarriedForward
-      ? "Đã chuyển nợ sang kỳ sau"
+  const statusLabel = isCarriedForward
+    ? "Đã chuyển nợ sang kỳ sau"
+    : isPaid
+      ? "Đã thanh toán"
       : status === "partial"
         ? "Còn thiếu"
         : "Chưa thanh toán";
-  const statusColor = isPaid ? "text-emerald-700" : isCarriedForward ? "text-blue-600" : status === "partial" ? "text-amber-600" : "text-red-600";
+  const statusColor = isCarriedForward ? "text-blue-600" : isPaid ? "text-emerald-700" : status === "partial" ? "text-amber-600" : "text-red-600";
 
   return (
     <PageContainer width="narrow">
@@ -220,7 +233,7 @@ export default function InvoiceDetailPage() {
               <Cell border>Chi tiết</Cell>
               <Cell center>Thành tiền</Cell>
             </div>
-            {invoiceRows.map((row, i) => (
+            {tableRows.map((row, i) => (
               <div key={i} className="grid grid-cols-[36px_80px_1fr_96px] border-b border-slate-900 last:border-b-0">
                 <Cell center border>{i + 1}</Cell>
                 <Cell border>{row.name}</Cell>
@@ -229,7 +242,7 @@ export default function InvoiceDetailPage() {
               </div>
             ))}
             <div className="grid grid-cols-[36px_80px_1fr_96px] bg-slate-50">
-              <Cell center border>{invoiceRows.length + 1}</Cell>
+              <Cell center border>{tableRows.length + 1}</Cell>
               <Cell border />
               <Cell border><span className="font-black">Cộng:</span></Cell>
               <Cell center><span className="font-black">{formatMoney(total)}</span></Cell>
@@ -246,6 +259,12 @@ export default function InvoiceDetailPage() {
               )}
               <PaymentLine label="Số tiền còn nợ tháng trước:" value={`${formatMoney(previousDebt)} đ`} />
               <PaymentLine label="Phải trả tháng này:" value={`${formatMoney(currentPayable)} đ`} />
+              {carriedAmount > 0 && (
+                <PaymentLine
+                  label={carriedTo ? `Đã chuyển sang HĐ T${carriedTo.month}/${carriedTo.year}:` : "Đã chuyển sang kỳ sau:"}
+                  value={`${formatMoney(carriedAmount)} đ`}
+                />
+              )}
               <PaymentLine label="Trả cọc:" value="0 đ" />
               <div className="mt-2 mb-3 flex justify-between gap-2 border-t border-slate-300 pt-2">
                 <span className="font-black">Thành tiền phải trả:</span>
@@ -332,7 +351,11 @@ export default function InvoiceDetailPage() {
         )}
         {isCarriedForward && (
           <p className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-center text-xs font-semibold text-blue-700">
-            Phần còn thiếu của hóa đơn này đã được cộng vào công nợ kỳ sau — thu tiền trên hóa đơn kỳ sau.
+            {carriedAmount > 0 ? `${formatMoney(carriedAmount)} còn thiếu` : "Phần còn thiếu"} của hóa đơn này đã được cộng vào{" "}
+            {carriedTo ? (
+              <Link href={`/invoices/${carriedTo.id}`} className="underline">hóa đơn T{carriedTo.month}/{carriedTo.year}</Link>
+            ) : "hóa đơn kỳ sau"}
+            {" "}— thu tiền trên hóa đơn đó.
           </p>
         )}
         {!isPaid && !isCarriedForward && (
@@ -346,7 +369,7 @@ export default function InvoiceDetailPage() {
             Thêm phí phát sinh / giảm trừ
           </Button>
         )}
-        {!isPaid && (
+        {!isPaid && !isCarriedForward && paid <= 0 && (
           <Button
             variant="danger-ghost"
             size="lg"

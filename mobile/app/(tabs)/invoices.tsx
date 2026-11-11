@@ -39,9 +39,11 @@ const TABS: Array<{ key: FilterTab; label: string }> = [
 function normalizeInvoiceStatus(invoice: any): string {
   const total = Math.round(Number(invoice.total_amount || 0));
   const paid = Math.round(Number(invoice.paid_amount || 0));
-  if (total > 0 && paid >= total) return 'paid';
-  if (paid > 0 && paid < total) return 'partial';
   const status = String(invoice.status || '').toLowerCase();
+  // Remainder moved onto a later invoice: settled here, owed on that one.
+  if (Number(invoice.carried_forward_amount || 0) > 0) return 'carried_forward';
+  if (paid >= total && (total > 0 || status === 'paid')) return 'paid';
+  if (paid > 0 && paid < total) return 'partial';
   if (status === 'overdue') return 'overdue';
   if (status === 'draft') return 'draft';
   return 'sent';
@@ -72,7 +74,7 @@ function getDisplayInvoiceStatus(invoice: any, period: { month: number; year: nu
 function matchesStatus(invoice: any, filter: FilterTab, period: { month: number; year: number }): boolean {
   if (filter === 'all') return true;
   const status = getDisplayInvoiceStatus(invoice, period);
-  if (filter === 'paid') return status === 'paid';
+  if (filter === 'paid') return status === 'paid' || status === 'carried_forward';
   if (filter === 'unpaid') return status === 'sent' || status === 'partial';
   if (filter === 'overdue') return status === 'overdue';
   if (filter === 'draft') return status === 'draft';

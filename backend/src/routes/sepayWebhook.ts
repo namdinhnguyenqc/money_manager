@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { env } from "../config/env.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 import { applyInvoicePayment } from "../services/invoicePayments.js";
+import { resolveCarryingInvoice } from "../utils/billing.js";
 import { invalidateCache } from "../middleware/cache.js";
 import { getTenantUserIdByContractId, notifyPaymentSuccess } from "../services/notificationService.js";
 import { notifyOwnerPaymentReceived } from "../services/ownerPaymentNotifications.js";
@@ -211,6 +212,9 @@ sepayWebhookRoutes.post("/", async (c) => {
     });
     return jsonOk();
   }
+  // Paying an old bill whose remainder already moved to a later one (e.g. the
+  // tenant scanned last month's QR) settles the bill that holds the debt now.
+  invoice = await resolveCarryingInvoice(supabaseAdmin, invoice);
   if (urlUserId && invoice.user_id !== urlUserId) {
     await insertEvent({
       user_id: urlUserId,

@@ -93,7 +93,8 @@ const getDisplayInvoiceStatus = (invoice: Invoice, period: { month: number; year
   const isOverdue = invoice.due_date || invoice.dueDate
     ? todayInVietnam() > String(invoice.due_date || invoice.dueDate)
     : isInvoiceBeforePeriod(invoice, period) || isInvoiceBeforeCurrentMonth(invoice);
-  if ((invoice as any).carriedForward && normalizeInvoiceStatus(invoice) !== "paid") return "carried_forward";
+  if (Number(invoice.carried_forward_amount || 0) > 0) return "carried_forward";
+  if (invoice.carriedForward && normalizeInvoiceStatus(invoice) !== "paid") return "carried_forward";
   if (isOverdue && isInvoiceUnpaid(invoice)) return "overdue";
   return normalizeInvoiceStatus(invoice);
 };

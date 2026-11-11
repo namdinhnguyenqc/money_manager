@@ -15,6 +15,8 @@ import {
   resolveInvoiceRoomFee,
   computeCarryover,
   applyCreditToCurrentCharges,
+  closeCarriedSourceInvoice,
+  reopenCarriedSourceInvoice,
   applyDuePriceChanges,
   buildItemsFromRoomServices,
   buildItemsFromRoomAdjustments,
@@ -1036,7 +1038,9 @@ invoicesRoutes.post("/", async (c) => {
     }
   }
 
-  if (previousCredit > 0 || creditBalanceLeftover !== carryover.availableCreditAfterDebt) {
+  // Last period's remainder now lives on this invoice; close it there.
+  if (applyDebt) await closeCarriedSourceInvoice(db, user.id, carryover.sourceInvoiceId);
+  if (previousCredit > 0 || creditBalanceLeftover !== carryover.creditBalance) {
     await db.from("contracts").update({ credit_balance: creditBalanceLeftover }).eq("id", contractId).eq("user_id", user.id);
   }
   if (pendingAdjustments.length > 0) {
@@ -1284,7 +1288,7 @@ invoicesRoutes.get("/:id", async (c) => {
   // later invoice's previous_debt.
   const carriedRes = await db
     .from("invoices")
-    .select("id")
+    .select("id,month,year")
     .eq("user_id", user.id)
     .eq("previous_debt_source_invoice_id", id)
     .limit(1)
@@ -1295,6 +1299,7 @@ invoicesRoutes.get("/:id", async (c) => {
     data: enrichPaymentFields({
       ...invoice,
       carriedForward: Boolean(carriedRes.data),
+      carriedTo: carriedRes.data ? { id: carriedRes.data.id, month: carriedRes.data.month, year: carriedRes.data.year } : null,
       roomId: invoice.room_id,
       contractId: invoice.contract_id,
       roomFee: invoice.room_fee,
@@ -1572,11 +1577,34 @@ invoicesRoutes.delete("/:id", async (c) => {
     .single();
 
   if (invRes.error) return c.json({ error: invRes.error.message }, 404);
+  // Deleting removed only the last payment and never took the money back out
+  // of the wallet, so a bill with money on it cannot be deleted.
+  if (Number(invRes.data.paid_amount || 0) > 0) {
+    return c.json({ error: "Hóa đơn đã thu tiền, không thể xóa. Nếu lập sai, hãy dùng phí phát sinh / giảm trừ để điều chỉnh." }, 409);
+  }
+  if (Number(invRes.data.carried_forward_amount || 0) > 0) {
+    return c.json({ error: "Khoản còn thiếu của hóa đơn này đã chuyển sang hóa đơn kỳ sau. Hãy xóa hóa đơn kỳ sau trước." }, 409);
+  }
 
   const transactionId = invRes.data.transaction_id;
   await db.from("invoice_items").delete().eq("invoice_id", id).eq("user_id", user.id);
   const delInv = await db.from("invoices").delete().eq("id", id).eq("user_id", user.id);
   if (delInv.error) return c.json({ error: delInv.error.message }, 400);
+
+  // The remainder this invoice took over goes back to the invoice it came from.
+  await reopenCarriedSourceInvoice(db, user.id, invRes.data.previous_debt_source_invoice_id);
+  // Credit this invoice consumed returns to the contract.
+  const consumedCredit = Number(invRes.data.previous_credit || 0);
+  if (consumedCredit > 0 && invRes.data.contract_id) {
+    const contractRes = await db.from("contracts").select("credit_balance").eq("id", invRes.data.contract_id).eq("user_id", user.id).maybeSingle();
+    if (!contractRes.error && contractRes.data) {
+      await db
+        .from("contracts")
+        .update({ credit_balance: Number(contractRes.data.credit_balance || 0) + consumedCredit })
+        .eq("id", invRes.data.contract_id)
+        .eq("user_id", user.id);
+    }
+  }
 
   if (transactionId) {
     await db.from("transactions").delete().eq("id", transactionId).eq("user_id", user.id);
@@ -1755,7 +1783,8 @@ invoicesRoutes.post("/auto-generate", async (c) => {
         .single();
 
       if (!invRes.error && invRes.data) {
-        if (previousCredit > 0 || creditBalanceLeftover !== carryover.availableCreditAfterDebt) {
+        await closeCarriedSourceInvoice(db, user.id, carryover.sourceInvoiceId);
+        if (previousCredit > 0 || creditBalanceLeftover !== carryover.creditBalance) {
           await db.from("contracts").update({ credit_balance: creditBalanceLeftover }).eq("id", contractId).eq("user_id", user.id);
         }
         if (pendingAdjustments.length > 0) {
@@ -1925,7 +1954,8 @@ invoicesRoutes.post("/bulk-create", async (c) => {
       }
 
       const invoiceId = res.data.id;
-      if (previousCredit > 0 || creditBalanceLeftover !== carryover.availableCreditAfterDebt) {
+      await closeCarriedSourceInvoice(db, user.id, carryover.sourceInvoiceId);
+      if (previousCredit > 0 || creditBalanceLeftover !== carryover.creditBalance) {
         await db.from("contracts").update({ credit_balance: creditBalanceLeftover }).eq("id", invData.contractId).eq("user_id", user.id);
       }
       if (lineItems.length > 0) {
