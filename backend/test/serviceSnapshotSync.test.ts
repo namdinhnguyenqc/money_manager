@@ -48,3 +48,23 @@ describe('syncActiveContractSnapshots', () => {
     expect(updates[0].payload.applied_services_snapshot[1]).toMatchObject({ service_id: 's3', amount: 150000 });
   });
 });
+
+describe('older snapshot entries', () => {
+  it('matches an entry with no service_id by name', () => {
+    const old = [{ name: 'Wifi', type: 'fixed', unit_price: 70000, applied_unit_price: 70000, amount: 70000 }];
+    const next = refreshSnapshotEntries(old, [{ ...wifi, unit_price: 50000 }], { occupantCount: 1, roomHasAc: false });
+    expect(next?.[0]).toMatchObject({ service_id: 's3', applied_unit_price: 50000, amount: 50000 });
+  });
+
+  it('does not match by name when two services share it', () => {
+    const old = [{ name: 'Wifi', type: 'fixed', applied_unit_price: 70000 }];
+    const twins = [{ ...wifi, unit_price: 50000 }, { ...wifi, id: 's9', unit_price: 60000 }];
+    expect(refreshSnapshotEntries(old, twins, { occupantCount: 1, roomHasAc: false })).toBeNull();
+  });
+
+  it('re-prices a snapshot stored as a JSON string', () => {
+    const stored = JSON.stringify(buildAppliedServicesSnapshot([wifi], { occupantCount: 1, roomHasAc: false }));
+    const next = refreshSnapshotEntries(stored, [{ ...wifi, unit_price: 50000 }], { occupantCount: 1, roomHasAc: false });
+    expect(next?.[0]).toMatchObject({ applied_unit_price: 50000 });
+  });
+});

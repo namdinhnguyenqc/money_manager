@@ -440,20 +440,60 @@ export async function applyDuePriceChanges(db: SupabaseLike, userId: string): Pr
 
 type SnapshotEntry = Record<string, unknown> & { service_id?: unknown; occupant_count?: unknown };
 
+/** Snapshots are JSONB arrays, but some older rows hold the array as a JSON string. */
+export function parseSnapshot(snapshot: unknown): SnapshotEntry[] {
+  if (Array.isArray(snapshot)) return snapshot as SnapshotEntry[];
+  if (typeof snapshot === "string") {
+    try {
+      const parsed = JSON.parse(snapshot);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+const normalizeName = (value: unknown) => String(value ?? "").trim().toLowerCase();
+
+/**
+ * Finds the service a snapshot entry belongs to: by service_id (or id on older
+ * entries), else by name when the entry has no id that still exists. Without the
+ * name fallback, entries written by older app versions never picked up edits.
+ */
+function serviceForEntry(entry: SnapshotEntry, byId: Map<string, ServiceRow>, byName: Map<string, ServiceRow | null>) {
+  const id = String(entry?.service_id ?? entry?.id ?? "");
+  if (id && byId.has(id)) return byId.get(id)!;
+  return byName.get(normalizeName(entry?.name)) ?? undefined;
+}
+
+function indexServices(services: ServiceRow[]) {
+  const byId = new Map(services.map((service) => [String(service.id), service]));
+  // A name shared by two services is ambiguous, so it matches neither.
+  const byName = new Map<string, ServiceRow | null>();
+  for (const service of services) {
+    const key = normalizeName(service.name);
+    if (!key) continue;
+    byName.set(key, byName.has(key) ? null : service);
+  }
+  return { byId, byName };
+}
+
 /**
  * Re-prices the entries of a contract snapshot that belong to the given
  * services, keeping every other entry (and the entry order) as it was.
  * Returns null when nothing in the snapshot changed.
  */
 export function refreshSnapshotEntries(
-  snapshot: SnapshotEntry[],
+  snapshot: unknown,
   services: ServiceRow[],
   options: { occupantCount: number; roomHasAc: boolean },
 ): SnapshotEntry[] | null {
-  const byId = new Map(services.map((service) => [String(service.id), service]));
-  let changed = false;
-  const next = snapshot.map((entry) => {
-    const service = byId.get(String(entry?.service_id ?? ""));
+  const entries = parseSnapshot(snapshot);
+  const { byId, byName } = indexServices(services);
+  let changed = typeof snapshot === "string" && entries.length > 0;
+  const next = entries.map((entry) => {
+    const service = serviceForEntry(entry, byId, byName);
     if (!service) return entry;
     const [rebuilt] = buildAppliedServicesSnapshot([service], {
       occupantCount: Number(entry.occupant_count || options.occupantCount || 1),
@@ -464,6 +504,17 @@ export function refreshSnapshotEntries(
     return same ? entry : { ...entry, ...rebuilt };
   });
   return changed ? next : null;
+}
+
+const SERVICE_COLUMNS = "id,name,type,unit,unit_price,unit_price_ac";
+
+async function writeSnapshot(db: SupabaseLike, userId: string, contractId: unknown, snapshot: SnapshotEntry[]) {
+  const res = await db
+    .from("contracts")
+    .update({ applied_services_snapshot: snapshot, updated_at: new Date().toISOString() })
+    .eq("id", contractId)
+    .eq("user_id", userId);
+  return !res.error;
 }
 
 /**
@@ -478,15 +529,15 @@ export async function syncActiveContractSnapshots(db: SupabaseLike, userId: stri
   if (ids.length === 0) return 0;
 
   const [servicesRes, contractsRes] = await Promise.all([
-    db.from("services").select("id,name,type,unit,unit_price,unit_price_ac").eq("user_id", userId).in("id", ids),
+    db.from("services").select(SERVICE_COLUMNS).eq("user_id", userId).in("id", ids),
     db.from("contracts").select("id,room_id,occupant_count,applied_services_snapshot").eq("user_id", userId).eq("status", "active"),
   ]);
   const services: ServiceRow[] = servicesRes.data ?? [];
   if (servicesRes.error || contractsRes.error || services.length === 0) return 0;
 
+  const { byId, byName } = indexServices(services);
   const affected = (contractsRes.data ?? []).filter((contract: any) =>
-    Array.isArray(contract.applied_services_snapshot)
-    && contract.applied_services_snapshot.some((entry: SnapshotEntry) => ids.includes(String(entry?.service_id ?? ""))),
+    parseSnapshot(contract.applied_services_snapshot).some((entry) => serviceForEntry(entry, byId, byName)),
   );
   if (affected.length === 0) return 0;
 
@@ -500,15 +551,62 @@ export async function syncActiveContractSnapshots(db: SupabaseLike, userId: stri
       occupantCount: Number(contract.occupant_count || 1),
       roomHasAc: hasAc.get(String(contract.room_id)) ?? false,
     });
-    if (!next) continue;
-    const res = await db
-      .from("contracts")
-      .update({ applied_services_snapshot: next, updated_at: new Date().toISOString() })
-      .eq("id", contract.id)
-      .eq("user_id", userId);
-    if (!res.error) updated += 1;
+    if (next && (await writeSnapshot(db, userId, contract.id, next))) updated += 1;
   }
   return updated;
+}
+
+/**
+ * Brings one active contract's snapshot up to the owner's current service
+ * prices before it is billed, and saves it when anything changed. This catches
+ * prices edited before syncActiveContractSnapshots existed, or edits whose
+ * sync never reached this contract. Returns the snapshot to price from.
+ */
+export async function refreshActiveContractSnapshot(
+  db: SupabaseLike,
+  userId: string,
+  contract: { id: unknown; room_id?: unknown; status?: unknown; occupant_count?: unknown; applied_services_snapshot?: unknown },
+): Promise<unknown> {
+  if (contract.status !== "active") return contract.applied_services_snapshot;
+  const [servicesRes, roomRes] = await Promise.all([
+    db.from("services").select(SERVICE_COLUMNS).eq("user_id", userId),
+    contract.room_id
+      ? db.from("rooms").select("id,has_ac").eq("id", contract.room_id).eq("user_id", userId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (servicesRes.error || !servicesRes.data?.length) return contract.applied_services_snapshot;
+  const next = refreshSnapshotEntries(contract.applied_services_snapshot, servicesRes.data, {
+    occupantCount: Number(contract.occupant_count || 1),
+    roomHasAc: Boolean(roomRes.data?.has_ac),
+  });
+  if (!next) return contract.applied_services_snapshot;
+  await writeSnapshot(db, userId, contract.id, next);
+  return next;
+}
+
+/**
+ * The batch form of refreshActiveContractSnapshot, for list endpoints that
+ * already hold the contracts and rooms. Updates each contract in place.
+ */
+export async function refreshContractSnapshots(
+  db: SupabaseLike,
+  userId: string,
+  contracts: Array<{ id: unknown; room_id?: unknown; occupant_count?: unknown; applied_services_snapshot?: unknown }>,
+  rooms: Array<{ id: unknown; has_ac?: unknown }>,
+): Promise<void> {
+  if (contracts.length === 0) return;
+  const servicesRes = await db.from("services").select(SERVICE_COLUMNS).eq("user_id", userId);
+  if (servicesRes.error || !servicesRes.data?.length) return;
+  const hasAc = new Map(rooms.map((room) => [String(room.id), Boolean(room.has_ac)]));
+  await Promise.all(contracts.map(async (contract) => {
+    const next = refreshSnapshotEntries(contract.applied_services_snapshot, servicesRes.data, {
+      occupantCount: Number(contract.occupant_count || 1),
+      roomHasAc: hasAc.get(String(contract.room_id)) ?? false,
+    });
+    if (!next) return;
+    contract.applied_services_snapshot = next;
+    await writeSnapshot(db, userId, contract.id, next);
+  }));
 }
 
 export type RoomServiceRow = {

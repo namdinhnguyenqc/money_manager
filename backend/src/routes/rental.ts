@@ -6,7 +6,7 @@ import type { AppEnv } from "../types.js";
 import { parseJson, toId } from "../utils/validation.js";
 import { logAuditAction } from "../utils/audit.js";
 import { updateWalletBalance } from "../utils/wallet.js";
-import { summarizeRoomInvoices, buildAppliedServicesSnapshot, applyDuePriceChanges, syncActiveContractSnapshots } from "../utils/billing.js";
+import { summarizeRoomInvoices, buildAppliedServicesSnapshot, applyDuePriceChanges, syncActiveContractSnapshots, refreshActiveContractSnapshot, refreshContractSnapshots } from "../utils/billing.js";
 import { env } from "../config/env.js";
 import { buildCheckoutPreview } from "../utils/checkoutSettlement.js";
 
@@ -1407,7 +1407,12 @@ rentalRoutes.get("/contracts/active", async (c) => {
     }
   });
 
-  const data = Array.from(uniqueContractsMap.values())
+  const activeContracts = Array.from(uniqueContractsMap.values());
+  // Invoice screens in installed app versions price from this snapshot, so it
+  // must carry the owner's current service prices.
+  await refreshContractSnapshots(db, user.id, activeContracts, rooms);
+
+  const data = activeContracts
     .map((contract) => {
       const room = rooms.find((x) => String(x.id) === String(contract.room_id));
       const tenant = tenants.find((x) => String(x.id) === String(contract.tenant_id));
@@ -1454,7 +1459,7 @@ rentalRoutes.get("/contracts/:id", async (c) => {
 
   const room = roomRes.data;
   const tenant = tenantRes.data;
-  let appliedServicesSnapshot = contract.applied_services_snapshot;
+  let appliedServicesSnapshot = await refreshActiveContractSnapshot(db, user.id, contract);
 
   if (!Array.isArray(appliedServicesSnapshot) || appliedServicesSnapshot.length === 0) {
     const servicesRes = await db

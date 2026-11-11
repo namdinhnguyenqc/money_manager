@@ -1,4 +1,4 @@
-import { computeCarryover, type RoomAdjustmentRow, type RoomServiceRow } from "../utils/billing.js";
+import { computeCarryover, refreshActiveContractSnapshot, type RoomAdjustmentRow, type RoomServiceRow } from "../utils/billing.js";
 import { buildInvoiceDraft, InvoiceDraftError, snapshotServices, type InvoiceDraft } from "../utils/invoiceDraft.js";
 
 type Db = { from: (table: string) => any };
@@ -38,7 +38,10 @@ export type DraftResult =
 const periodEndDate = (month: number, year: number) =>
   `${year}-${String(month).padStart(2, "0")}-${String(new Date(Date.UTC(year, month, 0)).getUTCDate()).padStart(2, "0")}`;
 
-/** Loads everything an invoice depends on and prices it with buildInvoiceDraft. Reads only. */
+/**
+ * Loads everything an invoice depends on and prices it with buildInvoiceDraft.
+ * The only write is refreshing a stale contract price list.
+ */
 export async function loadInvoiceDraft(db: Db, userId: string, req: DraftRequest): Promise<DraftResult> {
   if (!req.contractId && !req.roomId) return { ok: false, status: 400, error: "Missing contractId or roomId" };
 
@@ -50,7 +53,12 @@ export async function loadInvoiceDraft(db: Db, userId: string, req: DraftRequest
   if (contractRes.error) return { ok: false, status: 400, error: contractRes.error.message };
   if (!contractRes.data) return { ok: false, status: 404, error: "Contract not found" };
 
-  const contract = contractRes.data;
+  // Bill from the owner's current service prices, even if an edit never
+  // reached this contract's saved price list.
+  const contract = {
+    ...contractRes.data,
+    applied_services_snapshot: await refreshActiveContractSnapshot(db, userId, contractRes.data),
+  };
   const contractId = String(contract.id);
   const services = snapshotServices(contract.applied_services_snapshot);
   if (services.length === 0) {
