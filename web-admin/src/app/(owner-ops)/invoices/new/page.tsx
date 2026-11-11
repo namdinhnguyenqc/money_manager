@@ -11,6 +11,7 @@ import { calculateProratedRent } from "@/utils/rentCalc";
 import { invalidateOwnerOpsQueries } from "@/utils/queryInvalidation";
 import Button from "@/components/ui/Button";
 import PageContainer from "@/components/ui/PageContainer";
+import FeeSignToggle, { cleanAmountInput, signedFeeAmount, type FeeSign } from "@/components/ops/FeeSignToggle";
 
 const period = currentPeriod();
 
@@ -28,7 +29,10 @@ export default function NewInvoicePage() {
     dueDate: "",
     note: "",
   });
-  const [fees, setFees] = useState<Array<{ label: string; amount: string }>>([]);
+  type ExtraFee = { label: string; amount: string; note: string; sign: FeeSign };
+  const [fees, setFees] = useState<ExtraFee[]>([]);
+  const updateFee = (index: number, patch: Partial<ExtraFee>) =>
+    setFees((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)));
   const [applyPreviousDebt, setApplyPreviousDebt] = useState(true);
 
   useEffect(() => {
@@ -150,7 +154,7 @@ export default function NewInvoicePage() {
       return sum + (type === "meter" || type === "metered" ? amount : prorate(amount));
     }, 0);
 
-    const otherAmount = fees.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const otherAmount = fees.reduce((sum, item) => sum + signedFeeAmount(item.sign, item.amount), 0);
     const rent = isSkipped("rent") ? 0 : proratedInfo ? proratedInfo.totalAmount : Number(contract?.rent_amount || 0);
     return { electricUsed, waterUsed, electricAmount, waterAmount, serviceAmount, otherAmount, rent, total: rent + electricAmount + waterAmount + serviceAmount + otherAmount };
   }, [contract?.rent_amount, contract?.occupant_count, electricityService, fees, form.electricNew, form.electricOld, form.waterNew, form.waterOld, otherServices, waterService, proratedInfo, prorate, isSkipped]);
@@ -160,6 +164,8 @@ export default function NewInvoicePage() {
       if (!contract) throw new Error("Không tìm thấy hợp đồng.");
       if (electricityIsMetered && Number(form.electricNew) < Number(form.electricOld)) throw new Error("Chỉ số điện cuối kỳ không được nhỏ hơn đầu kỳ.");
       if (waterIsMetered && Number(form.waterNew) < Number(form.waterOld)) throw new Error("Chỉ số nước cuối kỳ không được nhỏ hơn đầu kỳ.");
+      if (fees.some((item) => !item.label.trim() && Number(item.amount || 0) > 0)) throw new Error("Vui lòng nhập tên cho khoản phí phát sinh.");
+      if (computed.total < 0) throw new Error("Khoản giảm trừ lớn hơn tổng tiền phải thu.");
       return createInvoiceForContract(contract, {
         month: period.month,
         year: period.year,
@@ -174,7 +180,10 @@ export default function NewInvoicePage() {
         excludeServiceIds: canSkip
           ? appliedServices.filter((service) => isSkipped(serviceKey(service))).map((service) => String(service.service_id || service.name))
           : [],
-        items: fees.filter((item) => item.label.trim()).map((item) => ({ name: item.label.trim(), amount: Number(item.amount || 0) })),
+        invoiceNote: form.note.trim() || undefined,
+        items: fees
+          .filter((item) => item.label.trim() && Number(item.amount || 0) > 0)
+          .map((item) => ({ name: item.label.trim(), detail: item.note.trim() || undefined, amount: signedFeeAmount(item.sign, item.amount) })),
       });
     },
     onSuccess: async (invoice) => {
@@ -376,20 +385,53 @@ export default function NewInvoicePage() {
           <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2">
             <Plus size={13} className="text-slate-400" />
             <span className="text-sm font-semibold text-slate-700">Phí phát sinh</span>
-            {fees.length > 0 && <span className="ml-auto text-sm font-bold text-slate-900">{formatMoney(computed.otherAmount)}</span>}
+            {fees.length > 0 && <span className={`ml-auto text-sm font-bold ${computed.otherAmount < 0 ? "text-emerald-700" : "text-slate-900"}`}>{formatMoney(computed.otherAmount)}</span>}
           </div>
-          <div className="px-4 py-3 space-y-2">
-            {fees.map((fee, index) => (
-              <div key={index} className="flex gap-2">
-                <input className="input flex-1 text-sm" placeholder="Tên phí" value={fee.label} onChange={(e) => setFees((prev) => prev.map((item, i) => i === index ? { ...item, label: e.target.value } : item))} />
-                <input className="input w-28 text-sm" type="number" placeholder="Số tiền" value={fee.amount} onChange={(e) => setFees((prev) => prev.map((item, i) => i === index ? { ...item, amount: e.target.value } : item))} />
-                <Button type="button" variant="outline" className="shrink-0" onClick={() => setFees((prev) => prev.filter((_, i) => i !== index))} aria-label="Xóa khoản phí">
-                  <X size={14} />
-                </Button>
-              </div>
-            ))}
-            <Button type="button" variant="ghost" size="sm" onClick={() => setFees((prev) => [...prev, { label: "", amount: "" }])}>
-              <Plus size={13} /> Thêm phí
+          <div className="px-4 py-3 space-y-3">
+            {fees.map((fee, index) => {
+              const signed = signedFeeAmount(fee.sign, fee.amount);
+              return (
+                <div key={index} className={`space-y-2 rounded-lg border p-3 ${fee.sign === "discount" ? "border-emerald-200 bg-emerald-50/40" : "border-slate-200"}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <FeeSignToggle size="sm" value={fee.sign} onChange={(sign) => updateFee(index, { sign })} />
+                    <span className="flex items-center gap-2">
+                      {signed !== 0 && (
+                        <span className={`text-sm font-bold ${signed < 0 ? "text-emerald-700" : "text-slate-900"}`}>
+                          {signed < 0 ? "−" : "+"}{formatMoney(Math.abs(signed))}
+                        </span>
+                      )}
+                      <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => setFees((prev) => prev.filter((_, i) => i !== index))} aria-label="Xóa khoản phí">
+                        <X size={14} />
+                      </Button>
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-[minmax(0,1fr)_8rem] gap-2">
+                    <input
+                      className="input text-sm"
+                      placeholder={fee.sign === "discount" ? "Vd: Giảm do mất nước" : "Vd: Sửa khóa"}
+                      value={fee.label}
+                      onChange={(e) => updateFee(index, { label: e.target.value })}
+                    />
+                    <input
+                      className="input text-right text-sm"
+                      inputMode="numeric"
+                      placeholder="Số tiền"
+                      aria-label="Số tiền"
+                      value={fee.amount ? new Intl.NumberFormat("vi-VN").format(Number(fee.amount)) : ""}
+                      onChange={(e) => updateFee(index, { amount: cleanAmountInput(e.target.value) })}
+                    />
+                  </div>
+                  <input
+                    className="input text-sm"
+                    placeholder="Ghi chú (tuỳ chọn) — hiện trên hóa đơn"
+                    value={fee.note}
+                    onChange={(e) => updateFee(index, { note: e.target.value })}
+                  />
+                </div>
+              );
+            })}
+            <Button type="button" variant="ghost" size="sm" onClick={() => setFees((prev) => [...prev, { label: "", amount: "", note: "", sign: "charge" }])}>
+              <Plus size={13} /> Thêm phí / giảm trừ
             </Button>
           </div>
         </div>

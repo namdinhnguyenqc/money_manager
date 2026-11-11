@@ -167,7 +167,8 @@ const addInvoicePaymentComposition = (
 
   let itemTotal = 0;
   for (const item of items) {
-    const amount = Math.max(0, Number(item.amount || 0));
+    // Discount lines are negative and reduce the "other" share.
+    const amount = Number(item.amount || 0);
     itemTotal += amount;
     const name = String(item.name || "").toLowerCase();
     if (name.includes("điện") || name.includes("electric")) target.electricity += amount * ratio;

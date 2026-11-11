@@ -814,7 +814,9 @@ export async function createInvoice(input: {
   applyPreviousDebt?: boolean;
   /** Partial first month: charge contract services by days stayed (default) or in full. */
   prorateFirstMonthServices?: boolean;
+  /** Negative amount = discount line ("giảm trừ"). */
   items: Array<{ serviceId?: string | null; name: string; detail?: string; amount: number }>;
+  invoiceNote?: string;
   elecOld?: number | null;
   elecNew?: number | null;
   waterOld?: number | null;
@@ -838,7 +840,9 @@ export async function createInvoiceForContract(contract: ContractView, input: {
   prorateFirstMonthServices?: boolean;
   /** Contract services the owner switched off for this invoice (service_id, or name when missing). */
   excludeServiceIds?: string[];
-  items: Array<{ name: string; amount: number }>;
+  invoiceNote?: string;
+  /** Extra lines; a negative amount is a discount. */
+  items: Array<{ name: string; detail?: string; amount: number }>;
 }) {
   const excluded = new Set(input.excludeServiceIds ?? []);
   const appliedServices = (normalizeAppliedServicesSnapshot(contract.applied_services_snapshot) ?? [])
@@ -903,6 +907,7 @@ export async function createInvoiceForContract(contract: ContractView, input: {
     waterOld: input.waterOld,
     waterNew: input.waterNew,
     dueDate: input.dueDate,
+    invoiceNote: input.invoiceNote,
     items: [
       ...serviceItems,
       ...input.items,

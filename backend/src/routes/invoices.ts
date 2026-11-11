@@ -22,6 +22,7 @@ import {
   prorateFirstMonthServiceItems,
 } from "../utils/billing.js";
 import { invalidateCache } from "../middleware/cache.js";
+import { applyAddedItem, isCheckViolation, NEGATIVE_ITEMS_NEED_MIGRATION } from "../utils/invoiceAdjustments.js";
 
 
 const invoicesRoutes = new Hono<AppEnv>();
@@ -57,7 +58,8 @@ const invoiceItemSchema = z.object({
   serviceId: nullableString,
   name: z.coerce.string().min(1),
   detail: optionalString,
-  amount: z.coerce.number().nonnegative(),
+  // Negative = discount line ("giảm trừ"); the total is checked below.
+  amount: z.coerce.number().finite(),
   calculationType: optionalString,
   unitPrice: optionalNumber,
   quantity: optionalNumber,
@@ -938,10 +940,13 @@ invoicesRoutes.post("/", async (c) => {
   if (!Number.isFinite(roomFee) || roomFee < 0) {
     return c.json({ error: "Giá hóa đơn không hợp lệ." }, 400);
   }
-  if ((items || []).some((item) => !Number.isFinite(Number(item.amount)) || Number(item.amount) < 0)) {
+  if ((items || []).some((item) => !Number.isFinite(Number(item.amount)))) {
     return c.json({ error: "Có dòng dịch vụ không có giá hợp lệ. Vui lòng kiểm tra lại cấu hình dịch vụ." }, 400);
   }
   const serviceFees = items.reduce((sum, item) => sum + item.amount, 0);
+  if (roomFee + serviceFees < 0) {
+    return c.json({ error: "Khoản giảm trừ lớn hơn tổng tiền phải thu." }, 400);
+  }
 
   const carryover = await computeCarryover(db, {
     userId: user.id,
@@ -1005,15 +1010,6 @@ invoicesRoutes.post("/", async (c) => {
 
   const invoiceId = invRes.data.id;
 
-  if (previousCredit > 0 || creditBalanceLeftover !== carryover.availableCreditAfterDebt) {
-    await db.from("contracts").update({ credit_balance: creditBalanceLeftover }).eq("id", contractId).eq("user_id", user.id);
-  }
-  if (pendingAdjustments.length > 0) {
-    await db
-      .from("room_adjustments")
-      .update({ invoice_id: invoiceId })
-      .in("id", pendingAdjustments.map((a: any) => a.id));
-  }
   if (items.length > 0) {
     const rows = items.map((item) => ({
       user_id: user.id,
@@ -1032,7 +1028,22 @@ invoicesRoutes.post("/", async (c) => {
       service_snapshot: item.serviceSnapshot ?? null,
     }));
     const itemRes = await db.from("invoice_items").insert(rows);
-    if (itemRes.error) return c.json({ error: itemRes.error.message }, 400);
+    if (itemRes.error) {
+      // Nothing else has been written yet, so dropping the invoice undoes it.
+      await db.from("invoices").delete().eq("id", invoiceId).eq("user_id", user.id);
+      if (isCheckViolation(itemRes.error)) return c.json({ error: NEGATIVE_ITEMS_NEED_MIGRATION }, 400);
+      return c.json({ error: itemRes.error.message }, 400);
+    }
+  }
+
+  if (previousCredit > 0 || creditBalanceLeftover !== carryover.availableCreditAfterDebt) {
+    await db.from("contracts").update({ credit_balance: creditBalanceLeftover }).eq("id", contractId).eq("user_id", user.id);
+  }
+  if (pendingAdjustments.length > 0) {
+    await db
+      .from("room_adjustments")
+      .update({ invoice_id: invoiceId })
+      .in("id", pendingAdjustments.map((a: any) => a.id));
   }
 
   // Notify tenant asynchronously (non-blocking)
@@ -1308,7 +1319,8 @@ invoicesRoutes.get("/:id", async (c) => {
 
 const addInvoiceItemSchema = z.object({
   name: z.string().min(1),
-  amount: z.coerce.number().positive(),
+  // Negative = discount line ("giảm trừ").
+  amount: z.coerce.number().finite().refine((value) => value !== 0, "Số tiền phải khác 0."),
   note: z.string().optional(),
 });
 
@@ -1335,6 +1347,12 @@ invoicesRoutes.post("/:id/items", async (c) => {
   if (invRes.data.status === "paid") {
     return c.json({ error: "Hóa đơn đã thanh toán đủ, không thể thêm khoản phí mới." }, 409);
   }
+  const applied = applyAddedItem({
+    total: Number(invRes.data.total_amount || 0),
+    paid: Number(invRes.data.paid_amount || 0),
+    amount: parsed.data.amount,
+  });
+  if (!applied.ok) return c.json({ error: applied.error }, 400);
 
   const itemRes = await db
     .from("invoice_items")
@@ -1343,20 +1361,19 @@ invoicesRoutes.post("/:id/items", async (c) => {
       invoice_id: id,
       service_id: null,
       name: parsed.data.name,
-      detail: parsed.data.note ?? "",
+      detail: parsed.data.note?.trim() ?? "",
       amount: parsed.data.amount,
     })
     .select("*")
     .single();
-  if (itemRes.error) return c.json({ error: itemRes.error.message }, 400);
-
-  const newTotal = Number(invRes.data.total_amount || 0) + parsed.data.amount;
-  const paid = Number(invRes.data.paid_amount || 0);
-  const newStatus = paid >= newTotal ? "paid" : paid > 0 ? "partial" : "unpaid";
+  if (itemRes.error) {
+    if (isCheckViolation(itemRes.error)) return c.json({ error: NEGATIVE_ITEMS_NEED_MIGRATION }, 400);
+    return c.json({ error: itemRes.error.message }, 400);
+  }
 
   const updateRes = await db
     .from("invoices")
-    .update({ total_amount: newTotal, status: newStatus, updated_at: new Date().toISOString() })
+    .update({ total_amount: applied.newTotal, status: applied.status, updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("user_id", user.id)
     .select("*")

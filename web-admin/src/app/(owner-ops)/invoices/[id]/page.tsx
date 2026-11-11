@@ -8,6 +8,7 @@ import { Invoice, Transaction, BankConfig, buildInvoiceQrUrl, formatMoney, loadB
 import { apiDelete } from "@/utils/apiClient";
 import { useToast } from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
+import FeeSignToggle, { cleanAmountInput, signedFeeAmount, type FeeSign } from "@/components/ops/FeeSignToggle";
 import Input, { Label } from "@/components/ui/Input";
 import PageContainer from "@/components/ui/PageContainer";
 import ZaloNotificationSection from "@/components/ZaloNotificationSection";
@@ -32,7 +33,7 @@ export default function InvoiceDetailPage() {
   const [sharing, setSharing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [addFeeOpen, setAddFeeOpen] = useState(false);
-  const [feeForm, setFeeForm] = useState({ name: "", amount: "", note: "" });
+  const [feeForm, setFeeForm] = useState<{ name: string; amount: string; note: string; sign: FeeSign }>({ name: "", amount: "", note: "", sign: "charge" });
   const [savingFee, setSavingFee] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -342,7 +343,7 @@ export default function InvoiceDetailPage() {
             onClick={() => setAddFeeOpen(true)}
             icon={<PlusCircle size={17} />}
           >
-            Thêm khoản phí phát sinh
+            Thêm phí phát sinh / giảm trừ
           </Button>
         )}
         {!isPaid && (
@@ -367,23 +368,25 @@ export default function InvoiceDetailPage() {
         >
           <div role="dialog" aria-modal="true" aria-labelledby="add-fee-title" className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl sm:p-6">
             <div className="mb-5 flex items-start justify-between gap-4">
-              <h2 id="add-fee-title" className="text-xl font-bold text-slate-950">Thêm khoản phí phát sinh</h2>
+              <h2 id="add-fee-title" className="text-xl font-bold text-slate-950">Phí phát sinh / giảm trừ</h2>
               <Button type="button" variant="ghost" size="sm" onClick={() => setAddFeeOpen(false)} aria-label="Đóng" icon={<X size={18} />} />
             </div>
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                const amount = Number(feeForm.amount);
+                const amount = signedFeeAmount(feeForm.sign, feeForm.amount);
                 if (!feeForm.name.trim()) return showToast("Vui lòng nhập nội dung khoản phí.", "error");
-                if (!amount || amount <= 0) return showToast("Vui lòng nhập số tiền hợp lệ.", "error");
-                if (!confirm(`Thêm "${feeForm.name.trim()}" — ${formatMoney(amount)} đ vào hóa đơn này?`)) return;
+                if (!amount) return showToast("Vui lòng nhập số tiền hợp lệ.", "error");
+                if (total + amount < paid) return showToast("Khoản giảm trừ làm tổng hóa đơn thấp hơn số tiền đã thu.", "error");
+                const verb = amount < 0 ? `Giảm ${formatMoney(-amount)}` : `Thu thêm ${formatMoney(amount)}`;
+                if (!confirm(`${verb} — "${feeForm.name.trim()}"?\nTổng hóa đơn mới: ${formatMoney(total + amount)}`)) return;
                 setSavingFee(true);
                 try {
                   await addInvoiceItem(String(invoice.id), { name: feeForm.name.trim(), amount, note: feeForm.note.trim() || undefined });
                   await loadInvoiceOnly();
                   showToast("Đã thêm khoản phí vào hóa đơn.", "success");
                   setAddFeeOpen(false);
-                  setFeeForm({ name: "", amount: "", note: "" });
+                  setFeeForm({ name: "", amount: "", note: "", sign: "charge" });
                 } catch (err: any) {
                   showToast(err?.message || "Lỗi khi thêm khoản phí.", "error");
                 } finally {
@@ -393,27 +396,37 @@ export default function InvoiceDetailPage() {
               className="space-y-4"
             >
               <div>
+                <Label>Loại khoản</Label>
+                <FeeSignToggle value={feeForm.sign} onChange={(sign) => setFeeForm((p) => ({ ...p, sign }))} />
+              </div>
+              <div>
                 <Label>Nội dung *</Label>
                 <Input
-                  placeholder="Vd: Sửa khóa, vệ sinh máy lạnh..."
+                  placeholder={feeForm.sign === "discount" ? "Vd: Giảm do mất nước 2 ngày" : "Vd: Sửa khóa, vệ sinh máy lạnh..."}
                   value={feeForm.name}
                   onChange={(e) => setFeeForm((p) => ({ ...p, name: e.target.value }))}
                   required
                 />
               </div>
               <div>
-                <Label>Số tiền (₫) *</Label>
+                <Label>{feeForm.sign === "discount" ? "Số tiền giảm (₫) *" : "Số tiền (₫) *"}</Label>
                 <Input
-                  type="number"
-                  min={0}
-                  value={feeForm.amount}
-                  onChange={(e) => setFeeForm((p) => ({ ...p, amount: e.target.value }))}
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={feeForm.amount ? new Intl.NumberFormat("vi-VN").format(Number(feeForm.amount)) : ""}
+                  onChange={(e) => setFeeForm((p) => ({ ...p, amount: cleanAmountInput(e.target.value) }))}
                   required
                 />
+                {Number(feeForm.amount) > 0 && (
+                  <p className={`mt-1.5 text-xs font-medium ${feeForm.sign === "discount" ? "text-emerald-700" : "text-slate-500"}`}>
+                    Tổng hóa đơn: {formatMoney(total)} → <span className="font-bold">{formatMoney(total + signedFeeAmount(feeForm.sign, feeForm.amount))}</span>
+                  </p>
+                )}
               </div>
               <div>
                 <Label>Ghi chú (tuỳ chọn)</Label>
                 <Input
+                  placeholder="Hiện ở cột Chi tiết trên hóa đơn"
                   value={feeForm.note}
                   onChange={(e) => setFeeForm((p) => ({ ...p, note: e.target.value }))}
                 />
