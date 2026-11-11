@@ -33,8 +33,12 @@ describe("buildInvoiceDraft", () => {
     expect(line).toMatchObject({ metered: true, startReading: 100, endReading: 150, usageValue: 50, unitPrice: 3500 });
   });
 
-  it("refuses a meter reading that goes backwards", () => {
-    expect(() => buildInvoiceDraft({ ...base, readings: { ...base.readings, elecNew: 90 } })).toThrow(InvoiceDraftError);
+  it("bills 0 for a meter reading that goes backwards instead of refusing", () => {
+    const draft = buildInvoiceDraft({ ...base, readings: { ...base.readings, elecNew: 90 } });
+    const line = draft.lines.find((l) => l.key === "svc-e1")!;
+    expect(line).toMatchObject({ amount: 0, usageValue: 0, startReading: 100, endReading: 90 });
+    expect(line.detail).toContain("không tính tiền");
+    expect(draft.total).toBe(2_511_500 - 175_000);
   });
 
   it("prorates rent and non-metered services in a partial first month", () => {

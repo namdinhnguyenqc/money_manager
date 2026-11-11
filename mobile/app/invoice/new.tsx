@@ -292,15 +292,7 @@ export default function NewInvoiceScreen() {
       return;
     }
 
-    if (electricityIsMetered && Number(form.electricNew) < Number(form.electricOld)) {
-      showError('Chỉ số điện mới không được nhỏ hơn chỉ số cũ.', 'Chỉ số điện không hợp lệ');
-      return;
-    }
-
-    if (waterIsMetered && Number(form.waterNew) < Number(form.waterOld)) {
-      showError('Chỉ số nước mới không được nhỏ hơn chỉ số cũ.', 'Chỉ số nước không hợp lệ');
-      return;
-    }
+    // A meter reading below last period's is allowed; the server bills it at 0.
 
     if (!isValidIsoDate(form.dueDate)) {
       showError('Hạn thanh toán cần có định dạng YYYY-MM-DD, ví dụ 2026-07-25.', 'Ngày chưa hợp lệ');

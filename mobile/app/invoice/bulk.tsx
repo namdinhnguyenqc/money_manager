@@ -368,29 +368,7 @@ export default function BulkInvoiceScreen() {
       return;
     }
 
-    // Input validations
-    for (const state of selectedList) {
-      if (state.contract) {
-        const services = state.contract.applied_services_snapshot || [];
-        const hasElec = services.some((s) => s.name.toLowerCase().includes('điện'));
-        const hasWater = services.some((s) => s.name.toLowerCase().includes('nước'));
-
-        if (hasElec && state.elecNew && Number(state.elecNew) < state.elecOld) {
-          Alert.alert(
-            'Chỉ số điện lỗi',
-            `Phòng ${state.room.name}: Chỉ số điện mới không được nhỏ hơn chỉ số cũ (${state.elecOld}).`
-          );
-          return;
-        }
-        if (hasWater && state.waterNew && Number(state.waterNew) < state.waterOld) {
-          Alert.alert(
-            'Chỉ số nước lỗi',
-            `Phòng ${state.room.name}: Chỉ số nước mới không được nhỏ hơn chỉ số cũ (${state.waterOld}).`
-          );
-          return;
-        }
-      }
-    }
+    // Meter readings below last period's are allowed; the server bills them at 0.
 
     const warningRooms = selectedList.filter((state) =>
       state.elecReview?.needsReview || state.waterReview?.needsReview

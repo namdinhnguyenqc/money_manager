@@ -189,18 +189,18 @@ export function buildInvoiceDraft(input: InvoiceDraftInput): InvoiceDraft {
       const start = category === "electricity" ? r.elecOld : r.waterOld;
       const endRaw = category === "electricity" ? r.elecNew : r.waterNew;
       const end = endRaw ?? start;
-      if (end < start) {
-        throw new InvoiceDraftError(category === "electricity"
-          ? "Chỉ số điện cuối kỳ không được nhỏ hơn đầu kỳ."
-          : "Chỉ số nước cuối kỳ không được nhỏ hơn đầu kỳ.");
-      }
-      const used = end - start;
+      // A reading below last period's (meter replaced or reset, a typo) is not
+      // an error: the owner still issues the bill, and this line is just 0.
+      const wentBackwards = end < start;
+      const used = wentBackwards ? 0 : end - start;
       const full = round(used * unitPrice);
       lines.push(emptyLine({
         ...base,
         metered: true,
         calculationType: "metered",
-        detail: `${start} → ${end} × ${money(unitPrice)}`,
+        detail: wentBackwards
+          ? `${start} → ${end} (chỉ số cuối nhỏ hơn đầu, không tính tiền)`
+          : `${start} → ${end} × ${money(unitPrice)}`,
         fullAmount: full,
         amount: skipped ? 0 : full,
         startReading: start,

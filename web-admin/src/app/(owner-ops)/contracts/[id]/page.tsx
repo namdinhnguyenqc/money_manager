@@ -684,11 +684,10 @@ function RefundModal({ contract, onClose, onConfirm }: { contract: any; onClose:
     e.preventDefault();
     setError("");
     if (!preview) return setError("Chưa tính xong chi phí cho ngày trả phòng này.");
-    for (const [line, reading, label] of [[elec, elecNew, "điện"], [water, waterNew, "nước"]] as const) {
+    for (const [line, , label] of [[elec, elecNew, "điện"], [water, waterNew, "nước"]] as const) {
       const key = label === "điện" ? "electricity" : "water";
       if (!line || !isOn(key)) continue;
       if (!line.hasReading) return setError(`Nhập chỉ số ${label} lúc trả phòng, hoặc bỏ tick khoản này.`);
-      if (line.invalid) return setError(`Chỉ số ${label} mới (${reading}) nhỏ hơn chỉ số cũ (${line.meter.lastReading}).`);
     }
     if (extras.some((extra) => extra.checked && !(Number(extra.amount) > 0))) return setError("Chi phí phát sinh đã tick cần có số tiền lớn hơn 0.");
     if (moneyMoves && !walletId) return setError("Chọn ví để ghi nhận khoản thu / hoàn cọc. Nếu chưa có ví, hãy tạo ví trước.");
@@ -791,7 +790,7 @@ function RefundModal({ contract, onClose, onConfirm }: { contract: any; onClose:
             setUnchecked((prev) => ({ ...prev, [key]: e.target.value.trim() === "" }));
           }}
         />
-        {line.invalid && <div className="mt-1 text-xs font-medium text-red-600">Nhỏ hơn chỉ số cũ.</div>}
+        {line.invalid && <div className="mt-1 text-xs font-medium text-amber-600">Nhỏ hơn chỉ số cũ, không tính tiền.</div>}
       </>
     ),
   });

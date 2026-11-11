@@ -819,14 +819,14 @@ const buildInvoiceItemsFromServices = (
       const startReading = isElectricity ? readings.elecOld : isWater ? readings.waterOld : null;
       const endReading = isElectricity ? readings.elecNew : isWater ? readings.waterNew : null;
       if (startReading === null || endReading === null || endReading <= 0) return [];
-      if (endReading < startReading) {
-        throw new Error(`${name}: chỉ số mới (${endReading}) không được nhỏ hơn chỉ số cũ (${startReading}).`);
-      }
-
-      const usageValue = endReading - startReading;
+      // Below last period's reading: bill this line at 0 rather than refuse.
+      const wentBackwards = endReading < startReading;
+      const usageValue = wentBackwards ? 0 : endReading - startReading;
       return [{
         name,
-        detail: `${startReading} -> ${endReading} = ${usageValue}${service.unit || ""} x ${appliedUnitPrice.toLocaleString("vi-VN")}d`,
+        detail: wentBackwards
+          ? `${startReading} -> ${endReading} (chỉ số cuối nhỏ hơn đầu, không tính tiền)`
+          : `${startReading} -> ${endReading} = ${usageValue}${service.unit || ""} x ${appliedUnitPrice.toLocaleString("vi-VN")}d`,
         amount: usageValue * appliedUnitPrice,
         serviceId: service.id,
         calculationType: type,
