@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { API_URL } from "@/lib/api";
@@ -35,8 +35,19 @@ async function fetchWithTimeout(input: string, init: RequestInit = {}, timeoutMs
   }
 }
 
-export default function OwnerGoogleLoginButton() {
+type Props = {
+  /** True until the owner ticks the terms checkbox; every way to sign in stays blocked. */
+  disabled?: boolean;
+  /** Called when the owner clicks a blocked sign-in button. */
+  onBlockedClick?: () => void;
+};
+
+export default function OwnerGoogleLoginButton({ disabled = false, onBlockedClick }: Props) {
   const router = useRouter();
+  // Google calls back through a closure set up once, so it reads the latest
+  // value from a ref rather than from props.
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLocalDev, setIsLocalDev] = useState(false);
@@ -68,6 +79,10 @@ export default function OwnerGoogleLoginButton() {
   };
 
   const completeLogin = async (googleIdToken: string) => {
+    if (disabledRef.current) {
+      onBlockedClick?.();
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -183,20 +198,31 @@ export default function OwnerGoogleLoginButton() {
   return (
     <div className="space-y-4">
       {GOOGLE_CLIENT_ID ? (
-        <div className="flex min-h-[66px] items-center justify-center rounded-[18px] border border-slate-200 bg-white p-2 shadow-[0_12px_24px_rgba(15,23,42,0.06)] hover:shadow-[0_22px_42px_rgba(37,99,235,0.13)] hover:border-blue-200 transition-all cursor-pointer relative overflow-hidden">
-          <div id="google-btn-container" className="z-10 flex w-full justify-center">
+        <div className={`flex min-h-[66px] items-center justify-center rounded-[18px] border border-slate-200 bg-white p-2 shadow-[0_12px_24px_rgba(15,23,42,0.06)] transition-all relative overflow-hidden ${disabled ? "" : "hover:shadow-[0_22px_42px_rgba(37,99,235,0.13)] hover:border-blue-200 cursor-pointer"}`}>
+          <div id="google-btn-container" className={`z-10 flex w-full justify-center transition ${disabled ? "opacity-45 grayscale" : ""}`}>
             <div className="flex items-center gap-3 text-base font-bold text-slate-500">
               <Loader2 size={20} className="animate-spin text-blue-600" />
               Đang bảo mật kết nối...
             </div>
           </div>
+          {disabled && (
+            // Google draws its button in an iframe that cannot be disabled, so a
+            // layer on top catches the click instead.
+            <button
+              type="button"
+              aria-label="Đồng ý điều khoản để đăng nhập bằng Google"
+              onClick={onBlockedClick}
+              className="absolute inset-0 z-20 cursor-not-allowed"
+            />
+          )}
         </div>
       ) : (
         <button
           type="button"
-          onClick={() => setShowFakeAccountChooser(true)}
+          onClick={() => (disabled ? onBlockedClick?.() : setShowFakeAccountChooser(true))}
           disabled={loading}
-          className="group flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 active:scale-[0.99] shadow-[0_4px_12px_rgba(15,23,42,0.04)]"
+          aria-disabled={disabled}
+          className={`${disabled ? "opacity-45 grayscale cursor-not-allowed" : ""} group flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 active:scale-[0.99] shadow-[0_4px_12px_rgba(15,23,42,0.04)]`}
         >
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -269,7 +295,7 @@ export default function OwnerGoogleLoginButton() {
         <button
           type="button"
           onClick={() => completeLogin("mock-owner-google-token")}
-          disabled={loading}
+          disabled={loading || disabled}
           className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Đăng nhập dev local

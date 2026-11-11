@@ -11,6 +11,8 @@ export default function LoginPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [needsAgreement, setNeedsAgreement] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -163,7 +165,35 @@ export default function LoginPage() {
           </header>
 
           <div className="relative z-20 space-y-3">
-            <OwnerGoogleLoginButton />
+            <OwnerGoogleLoginButton disabled={!agreed} onBlockedClick={() => setNeedsAgreement(true)} />
+
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 text-left text-[13px] leading-relaxed transition ${
+                needsAgreement && !agreed ? "border-red-300 bg-red-50 text-red-700" : "border-slate-200 bg-white/70 text-slate-600"
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => {
+                  setAgreed(e.target.checked);
+                  if (e.target.checked) setNeedsAgreement(false);
+                }}
+                className="mt-0.5 h-[18px] w-[18px] shrink-0 cursor-pointer rounded accent-[#2563EB]"
+              />
+              <span>
+                Tôi đã đọc và đồng ý với{" "}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-[#2563EB] hover:underline">Điều khoản sử dụng</a>
+                {" "}và{" "}
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-bold text-[#2563EB] hover:underline">Chính sách bảo mật</a>
+                {" "}của TrọCare.
+              </span>
+            </label>
+            {needsAgreement && !agreed && (
+              <p role="alert" className="px-1 text-[12px] font-semibold text-red-600">
+                Vui lòng tick đồng ý điều khoản trước khi đăng nhập.
+              </p>
+            )}
           </div>
 
           <div className="mt-8 mb-6 relative flex justify-center items-center h-20">
