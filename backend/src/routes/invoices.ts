@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { z } from "zod";
 import crypto from "crypto";
 import type ExcelJS from "exceljs";
@@ -25,6 +25,8 @@ import {
 } from "../utils/billing.js";
 import { invalidateCache } from "../middleware/cache.js";
 import { applyAddedItem, isCheckViolation, NEGATIVE_ITEMS_NEED_MIGRATION } from "../utils/invoiceAdjustments.js";
+import { draftItemsForInsert } from "../utils/invoiceDraft.js";
+import { loadInvoiceDraft, type DraftRequest } from "../services/invoiceDraftLoader.js";
 
 
 const invoicesRoutes = new Hono<AppEnv>();
@@ -92,7 +94,37 @@ const createInvoiceSchema = z.object({
   waterNew: nullableNumber,
   invoiceNote: nullableString,
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  // Server-priced invoices (no `items`): the inputs below, priced by buildInvoiceDraft.
+  excludeServiceIds: z.array(z.coerce.string()).optional(),
+  skipRent: z.boolean().optional(),
+  extraItems: z.array(z.object({
+    name: z.coerce.string(),
+    detail: optionalString,
+    // Negative = discount line.
+    amount: z.coerce.number().finite(),
+  })).optional(),
 });
+
+type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
+
+const draftRequestFrom = (data: Omit<CreateInvoiceInput, "items">): DraftRequest => ({
+  contractId: data.contractId ?? null,
+  roomId: data.roomId ?? null,
+  month: data.month,
+  year: data.year,
+  elecOld: data.elecOld ?? null,
+  elecNew: data.elecNew ?? null,
+  waterOld: data.waterOld ?? null,
+  waterNew: data.waterNew ?? null,
+  excludeServiceIds: data.excludeServiceIds,
+  skipRent: data.skipRent,
+  prorateFirstMonthServices: data.prorateFirstMonthServices,
+  roomFee: data.roomFee,
+  extraItems: data.extraItems?.map((item) => ({ name: item.name, detail: item.detail ?? null, amount: item.amount })),
+  applyPreviousDebt: data.applyPreviousDebt,
+});
+
+const previewInvoiceSchema = createInvoiceSchema.omit({ items: true, paymentChannelId: true, invoiceNote: true, dueDate: true });
 
 const markPaidSchema = z.object({
   paidAmount: z.number().nonnegative(),
@@ -812,6 +844,192 @@ const buildInvoiceItemsFromServices = (
   });
 };
 
+type InvoiceRecord = {
+  userId: string;
+  roomId: string;
+  contractId: string;
+  month: number;
+  year: number;
+  roomFee: number;
+  items: Array<{
+    serviceId?: string | null;
+    name: string;
+    detail?: string | null;
+    amount: number;
+    calculationType?: string | null;
+    unitPrice?: number | null;
+    quantity?: number | null;
+    startReading?: number | null;
+    endReading?: number | null;
+    usageValue?: number | null;
+    unit?: string | null;
+    serviceSnapshot?: unknown;
+  }>;
+  total: number;
+  previousDebt: number;
+  previousCredit: number;
+  creditBalanceLeftover: number;
+  carryover: Awaited<ReturnType<typeof computeCarryover>>;
+  applyDebt: boolean;
+  elecOld: number | null;
+  elecNew: number | null;
+  waterOld: number | null;
+  waterNew: number | null;
+  note: string | null;
+  dueDate?: string;
+  paymentChannelId: string | null;
+  pendingAdjustments: Array<{ id: string }>;
+};
+
+/** Writes a priced invoice: the row, its lines, the carry-over, credit and adjustments. */
+type InsertResult =
+  | { ok: true; invoice: any; paymentChannel: any }
+  | { ok: false; status: 400 | 409; error: string; data?: unknown };
+
+async function insertInvoiceRecord(db: any, rec: InvoiceRecord): Promise<InsertResult> {
+  const existingInvoiceRes = await db
+    .from("invoices")
+    .select("*")
+    .eq("room_id", rec.roomId)
+    .eq("contract_id", rec.contractId)
+    .eq("month", rec.month)
+    .eq("year", rec.year)
+    .eq("user_id", rec.userId)
+    .maybeSingle();
+  if (existingInvoiceRes.error) return { ok: false, status: 400, error: existingInvoiceRes.error.message };
+  if (existingInvoiceRes.data) {
+    return { ok: false, status: 409, error: "Hóa đơn kỳ này của phòng đã tồn tại.", data: existingInvoiceRes.data };
+  }
+
+  const paymentChannel = rec.paymentChannelId
+    ? (await db.from("payment_channels").select("*").eq("id", rec.paymentChannelId).eq("user_id", rec.userId).maybeSingle()).data
+    : await loadDefaultPaymentChannel(db, rec.userId);
+  const dueDate = await resolveInvoiceDueDate(db, rec.userId, rec.month, rec.year, rec.dueDate);
+
+  const invRes = await db
+    .from("invoices")
+    .insert({
+      user_id: rec.userId,
+      room_id: rec.roomId,
+      contract_id: rec.contractId,
+      month: rec.month,
+      year: rec.year,
+      room_fee: rec.roomFee,
+      total_amount: rec.total,
+      previous_debt: rec.previousDebt,
+      previous_credit: rec.previousCredit,
+      previous_debt_source_invoice_id: rec.applyDebt ? rec.carryover.sourceInvoiceId : null,
+      elec_old: rec.elecOld,
+      elec_new: rec.elecNew,
+      water_old: rec.waterOld,
+      water_new: rec.waterNew,
+      note: rec.note,
+      due_date: dueDate,
+      payment_code: generatePaymentCode(),
+      payment_channel_id: paymentChannel?.id || null,
+    })
+    .select("*")
+    .single();
+
+  if (invRes.error) return { ok: false, status: 400, error: invRes.error.message };
+
+  const invoiceId = invRes.data.id;
+
+  if (rec.items.length > 0) {
+    const rows = rec.items.map((item) => ({
+      user_id: rec.userId,
+      invoice_id: invoiceId,
+      service_id: item.serviceId ?? null,
+      name: item.name,
+      detail: item.detail ?? "",
+      amount: item.amount,
+      calculation_type: item.calculationType ?? null,
+      unit_price: item.unitPrice ?? null,
+      quantity: item.quantity ?? null,
+      start_reading: item.startReading ?? null,
+      end_reading: item.endReading ?? null,
+      usage_value: item.usageValue ?? null,
+      unit: item.unit ?? null,
+      service_snapshot: item.serviceSnapshot ?? null,
+    }));
+    const itemRes = await db.from("invoice_items").insert(rows);
+    if (itemRes.error) {
+      // Nothing else has been written yet, so dropping the invoice undoes it.
+      await db.from("invoices").delete().eq("id", invoiceId).eq("user_id", rec.userId);
+      if (isCheckViolation(itemRes.error)) return { ok: false, status: 400, error: NEGATIVE_ITEMS_NEED_MIGRATION };
+      return { ok: false, status: 400, error: itemRes.error.message };
+    }
+  }
+
+  // Last period's remainder now lives on this invoice; close it there.
+  if (rec.applyDebt) await closeCarriedSourceInvoice(db, rec.userId, rec.carryover.sourceInvoiceId);
+  if (rec.previousCredit > 0 || rec.creditBalanceLeftover !== rec.carryover.creditBalance) {
+    await db.from("contracts").update({ credit_balance: rec.creditBalanceLeftover }).eq("id", rec.contractId).eq("user_id", rec.userId);
+  }
+  if (rec.pendingAdjustments.length > 0) {
+    await db
+      .from("room_adjustments")
+      .update({ invoice_id: invoiceId })
+      .in("id", rec.pendingAdjustments.map((a) => a.id));
+  }
+
+  // Notify tenant asynchronously (non-blocking)
+  getTenantUserIdByContractId(rec.contractId).then((tenantUserId) => {
+    if (tenantUserId) {
+      notifyInvoiceCreated(tenantUserId, invRes.data).catch((err) => {
+        console.error("Failed to send invoice notification to tenant:", err);
+      });
+    }
+  }).catch((err) => {
+    console.error("Failed to fetch tenant user ID for invoice notification:", err);
+  });
+
+  return { ok: true, invoice: invRes.data, paymentChannel };
+}
+
+const insertResponse = (c: Context<AppEnv>, out: InsertResult) =>
+  out.ok
+    ? c.json({ data: enrichPaymentFields(out.invoice, out.paymentChannel) }, 201)
+    : c.json({ error: out.error, data: out.data }, out.status);
+
+// Prices an invoice without saving it. The create form shows exactly this, and
+// POST / without `items` bills exactly this.
+invoicesRoutes.post("/preview", async (c) => {
+  const user = c.get("user");
+  const parsed = await parseJson(c, previewInvoiceSchema);
+  if (!parsed.ok) return parsed.response;
+  const db = c.get("supabase");
+  await applyDuePriceChanges(db, user.id);
+  const result = await loadInvoiceDraft(db, user.id, draftRequestFrom(parsed.data));
+  if (!result.ok) return c.json({ error: result.error, code: result.code }, result.status);
+  return c.json({ data: result.draft });
+});
+
+const previewBulkSchema = z.object({ invoices: z.array(previewInvoiceSchema).min(1).max(200) });
+
+// The same for many rooms at once (bulk invoice screens).
+invoicesRoutes.post("/preview-bulk", async (c) => {
+  const user = c.get("user");
+  const parsed = await parseJson(c, previewBulkSchema);
+  if (!parsed.ok) return parsed.response;
+  const db = c.get("supabase");
+  await applyDuePriceChanges(db, user.id);
+  const results: Array<Record<string, unknown>> = new Array(parsed.data.invoices.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < parsed.data.invoices.length) {
+      const index = next++;
+      const request = parsed.data.invoices[index];
+      const result = await loadInvoiceDraft(db, user.id, draftRequestFrom(request));
+      results[index] = result.ok
+        ? { contractId: result.context.contractId, roomId: result.context.roomId, draft: result.draft }
+        : { contractId: request.contractId ?? null, roomId: request.roomId ?? null, error: result.error, code: result.code };
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(BULK_CREATE_CONCURRENCY, parsed.data.invoices.length) }, worker));
+  return c.json({ data: results });
+});
+
 invoicesRoutes.post("/", async (c) => {
   const user = c.get("user");
   const parsed = await parseJson(c, createInvoiceSchema);
@@ -823,6 +1041,38 @@ invoicesRoutes.post("/", async (c) => {
   }
 
   await applyDuePriceChanges(db, user.id);
+
+  // Current clients send inputs only and the server prices the invoice, the
+  // same way /preview did. Installed apps that still send `items` use the
+  // older path below until they update.
+  if (parsed.data.items === undefined) {
+    const result = await loadInvoiceDraft(db, user.id, draftRequestFrom(parsed.data));
+    if (!result.ok) return c.json({ error: result.error, code: result.code }, result.status);
+    const { draft, context } = result;
+    return insertResponse(c, await insertInvoiceRecord(db, {
+      userId: user.id,
+      roomId: context.roomId,
+      contractId: context.contractId,
+      month: parsed.data.month,
+      year: parsed.data.year,
+      roomFee: draft.rent.amount,
+      items: draftItemsForInsert(draft, context.existingServiceIds),
+      total: draft.total,
+      previousDebt: draft.previousDebt,
+      previousCredit: draft.previousCredit,
+      creditBalanceLeftover: draft.creditLeftover,
+      carryover: context.carryover,
+      applyDebt: context.applyDebt,
+      elecOld: draft.electricity.metered ? draft.readings.elecOld : null,
+      elecNew: draft.electricity.metered ? draft.readings.elecNew ?? draft.readings.elecOld : null,
+      waterOld: draft.water.metered ? draft.readings.waterOld : null,
+      waterNew: draft.water.metered ? draft.readings.waterNew ?? draft.readings.waterOld : null,
+      note: parsed.data.invoiceNote ?? null,
+      dueDate: parsed.data.dueDate,
+      paymentChannelId: parsed.data.paymentChannelId ?? null,
+      pendingAdjustments: context.pendingAdjustments,
+    }));
+  }
 
   let contractQuery = db.from("contracts").select("*").eq("user_id", user.id);
   contractQuery = parsed.data.contractId
@@ -964,104 +1214,29 @@ invoicesRoutes.post("/", async (c) => {
   const previousDebt = applyDebt ? carryover.previousDebt : 0;
   const total = Math.max(0, roomFee + serviceFees + previousDebt - previousCredit);
 
-  const existingInvoiceRes = await db
-    .from("invoices")
-    .select("*")
-    .eq("room_id", roomId)
-    .eq("contract_id", contractId)
-    .eq("month", parsed.data.month)
-    .eq("year", parsed.data.year)
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (existingInvoiceRes.error) return c.json({ error: existingInvoiceRes.error.message }, 400);
-  if (existingInvoiceRes.data) {
-    return c.json({ error: "Invoice already exists for this room and billing period", data: existingInvoiceRes.data }, 409);
-  }
-
-  const paymentChannel = parsed.data.paymentChannelId
-    ? (await db.from("payment_channels").select("*").eq("id", parsed.data.paymentChannelId).eq("user_id", user.id).maybeSingle()).data
-    : await loadDefaultPaymentChannel(db, user.id);
-  const dueDate = await resolveInvoiceDueDate(db, user.id, parsed.data.month, parsed.data.year, parsed.data.dueDate);
-
-  const invRes = await db
-    .from("invoices")
-    .insert({
-      user_id: user.id,
-      room_id: roomId,
-      contract_id: contractId,
-      month: parsed.data.month,
-      year: parsed.data.year,
-      room_fee: roomFee,
-      total_amount: total,
-      previous_debt: previousDebt,
-      previous_credit: previousCredit,
-      previous_debt_source_invoice_id: applyDebt ? carryover.sourceInvoiceId : null,
-      elec_old: elecOld,
-      elec_new: parsed.data.elecNew ?? null,
-      water_old: waterOld,
-      water_new: parsed.data.waterNew ?? null,
-      note: parsed.data.invoiceNote ?? null,
-      due_date: dueDate,
-      payment_code: generatePaymentCode(),
-      payment_channel_id: paymentChannel?.id || null,
-    })
-    .select("*")
-    .single();
-
-  if (invRes.error) return c.json({ error: invRes.error.message }, 400);
-
-  const invoiceId = invRes.data.id;
-
-  if (items.length > 0) {
-    const rows = items.map((item) => ({
-      user_id: user.id,
-      invoice_id: invoiceId,
-      service_id: item.serviceId ?? null,
-      name: item.name,
-      detail: item.detail ?? "",
-      amount: item.amount,
-      calculation_type: item.calculationType ?? null,
-      unit_price: item.unitPrice ?? null,
-      quantity: item.quantity ?? null,
-      start_reading: item.startReading ?? null,
-      end_reading: item.endReading ?? null,
-      usage_value: item.usageValue ?? null,
-      unit: item.unit ?? null,
-      service_snapshot: item.serviceSnapshot ?? null,
-    }));
-    const itemRes = await db.from("invoice_items").insert(rows);
-    if (itemRes.error) {
-      // Nothing else has been written yet, so dropping the invoice undoes it.
-      await db.from("invoices").delete().eq("id", invoiceId).eq("user_id", user.id);
-      if (isCheckViolation(itemRes.error)) return c.json({ error: NEGATIVE_ITEMS_NEED_MIGRATION }, 400);
-      return c.json({ error: itemRes.error.message }, 400);
-    }
-  }
-
-  // Last period's remainder now lives on this invoice; close it there.
-  if (applyDebt) await closeCarriedSourceInvoice(db, user.id, carryover.sourceInvoiceId);
-  if (previousCredit > 0 || creditBalanceLeftover !== carryover.creditBalance) {
-    await db.from("contracts").update({ credit_balance: creditBalanceLeftover }).eq("id", contractId).eq("user_id", user.id);
-  }
-  if (pendingAdjustments.length > 0) {
-    await db
-      .from("room_adjustments")
-      .update({ invoice_id: invoiceId })
-      .in("id", pendingAdjustments.map((a: any) => a.id));
-  }
-
-  // Notify tenant asynchronously (non-blocking)
-  getTenantUserIdByContractId(contractId).then((tenantUserId) => {
-    if (tenantUserId) {
-      notifyInvoiceCreated(tenantUserId, invRes.data).catch((err) => {
-        console.error("Failed to send invoice notification to tenant:", err);
-      });
-    }
-  }).catch((err) => {
-    console.error("Failed to fetch tenant user ID for invoice notification:", err);
-  });
-
-  return c.json({ data: enrichPaymentFields(invRes.data, paymentChannel) }, 201);
+  return insertResponse(c, await insertInvoiceRecord(db, {
+    userId: user.id,
+    roomId: String(roomId),
+    contractId,
+    month: parsed.data.month,
+    year: parsed.data.year,
+    roomFee,
+    items,
+    total,
+    previousDebt,
+    previousCredit,
+    creditBalanceLeftover,
+    carryover,
+    applyDebt,
+    elecOld,
+    elecNew: parsed.data.elecNew ?? null,
+    waterOld,
+    waterNew: parsed.data.waterNew ?? null,
+    note: parsed.data.invoiceNote ?? null,
+    dueDate: parsed.data.dueDate,
+    paymentChannelId: parsed.data.paymentChannelId ?? null,
+    pendingAdjustments,
+  }));
 });
 
 invoicesRoutes.get("/history/:contractId", async (c) => {
@@ -1868,6 +2043,43 @@ invoicesRoutes.post("/bulk-create", async (c) => {
 
   const createOne = async (invData: any): Promise<Record<string, unknown>> => {
     try {
+      // Current clients send inputs only; the server prices each invoice with
+      // the same draft the bulk preview showed.
+      if (invData && invData.items === undefined) {
+        const parsedOne = createInvoiceSchema.safeParse(invData);
+        if (!parsedOne.success) return { roomId: invData?.roomId ?? null, error: "Dữ liệu hóa đơn không hợp lệ." };
+        const data = parsedOne.data;
+        const result = await loadInvoiceDraft(db, user.id, draftRequestFrom(data));
+        if (!result.ok) return { roomId: data.roomId ?? null, error: result.error, code: result.code };
+        const { draft, context } = result;
+        const out = await insertInvoiceRecord(db, {
+          userId: user.id,
+          roomId: context.roomId,
+          contractId: context.contractId,
+          month: data.month,
+          year: data.year,
+          roomFee: draft.rent.amount,
+          items: draftItemsForInsert(draft, context.existingServiceIds),
+          total: draft.total,
+          previousDebt: draft.previousDebt,
+          previousCredit: draft.previousCredit,
+          creditBalanceLeftover: draft.creditLeftover,
+          carryover: context.carryover,
+          applyDebt: context.applyDebt,
+          elecOld: draft.electricity.metered ? draft.readings.elecOld : null,
+          elecNew: draft.electricity.metered ? draft.readings.elecNew ?? draft.readings.elecOld : null,
+          waterOld: draft.water.metered ? draft.readings.waterOld : null,
+          waterNew: draft.water.metered ? draft.readings.waterNew ?? draft.readings.waterOld : null,
+          note: data.invoiceNote || "Lập hàng loạt",
+          dueDate: await dueDateFor(data.month, data.year, data.dueDate),
+          paymentChannelId: data.paymentChannelId || defaultPaymentChannel?.id || null,
+          pendingAdjustments: context.pendingAdjustments,
+        });
+        return out.ok
+          ? { roomId: context.roomId, id: out.invoice.id, total: draft.total, success: true }
+          : { roomId: context.roomId, error: out.error };
+      }
+
       const [existingRes, contractRes] = await Promise.all([
         db
           .from("invoices")

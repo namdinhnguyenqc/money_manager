@@ -38,7 +38,9 @@ import {
   RentalRoom,
   ContractView,
   loadServiceConfigs,
-  calculateProratedRoomFee,
+  previewInvoicesBulk,
+  type BulkDraftResult,
+  type InvoiceInputs,
 } from '@/lib/rentalOps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -181,12 +183,7 @@ export default function BulkInvoiceScreen() {
                   contract: contractData || undefined,
                   elecOld: Number(readings.elec_old || 0),
                   waterOld: Number(readings.water_old || 0),
-                  roomFee: calculateProratedRoomFee(
-                    Number(contractData?.rent_amount ?? room.price),
-                    contractData?.start_date ?? room.start_date,
-                    period.month,
-                    period.year,
-                  ),
+                  roomFee: Number(contractData?.rent_amount ?? room.price),
                   loading: false,
                 },
               };
@@ -318,127 +315,47 @@ export default function BulkInvoiceScreen() {
     });
   };
 
-  // Calculation engine mimicking backend items mapping
-  const calculateTotal = (state: RoomBillingState) => {
-    if (!state.contract) return state.roomFee;
-
-    let total = state.roomFee;
-    const services = (state.contract.applied_services_snapshot || []) as AppliedServiceSnapshot[];
-
-    services.forEach((s) => {
-      const type = String(s.type || '').toLowerCase();
-      const unitPrice = Number(s.applied_unit_price || 0);
-
-      if (type === 'fixed') {
-        total += unitPrice;
-      } else if (type === 'per_person') {
-        const occupants = Number(state.contract?.occupant_count || 1);
-        total += unitPrice * occupants;
-      } else if (type === 'per_room') {
-        total += unitPrice;
-      } else if (type === 'metered' || type === 'meter') {
-        const name = String(s.name || '').toLowerCase();
-        const isElec = name.includes('điện') || name.includes('dien') || name.includes('electric');
-        const isWater = name.includes('nước') || name.includes('nuoc') || name.includes('water');
-
-        const newVal = isElec ? Number(state.elecNew) : isWater ? Number(state.waterNew) : 0;
-        const oldVal = isElec ? state.elecOld : isWater ? state.waterOld : 0;
-
-        if (newVal > oldVal) {
-          total += (newVal - oldVal) * unitPrice;
-        }
-      }
-    });
-
-    return total;
-  };
-
-  // Build backend compatible bulk request item
-  const buildInvoicePayload = (roomId: string) => {
-    const state = billingStates[roomId];
-    if (!state || !state.contract) return null;
-
-    const contract = state.contract;
-    const items: any[] = [];
-    const services = (contract.applied_services_snapshot || []) as AppliedServiceSnapshot[];
-
-    services.forEach((s) => {
-      const type = String(s.type || '').toLowerCase();
-      const unitPrice = Number(s.applied_unit_price || 0);
-      const name = String(s.name || '').toLowerCase();
-      const isElec = name.includes('điện') || name.includes('dien') || name.includes('electric');
-      const isWater = name.includes('nước') || name.includes('nuoc') || name.includes('water');
-
-      if (type === 'fixed') {
-        items.push({
-          name: s.name,
-          detail: `${formatMoney(unitPrice)} cố định`,
-          amount: unitPrice,
-          serviceId: s.service_id,
-          calculationType: type,
-          unitPrice,
-          quantity: 1,
-          serviceSnapshot: s,
-        });
-      } else if (type === 'per_person') {
-        const occupants = Number(contract.occupant_count || 1);
-        items.push({
-          name: s.name,
-          detail: `${occupants} người x ${formatMoney(unitPrice)}`,
-          amount: unitPrice * occupants,
-          serviceId: s.service_id,
-          calculationType: type,
-          unitPrice,
-          quantity: occupants,
-          serviceSnapshot: s,
-        });
-      } else if (type === 'per_room') {
-        items.push({
-          name: s.name,
-          detail: `1 phòng x ${formatMoney(unitPrice)}`,
-          amount: unitPrice,
-          serviceId: s.service_id,
-          calculationType: type,
-          unitPrice,
-          quantity: 1,
-          serviceSnapshot: s,
-        });
-      } else if (type === 'metered' || type === 'meter') {
-        const newVal = isElec ? Number(state.elecNew) : isWater ? Number(state.waterNew) : 0;
-        const oldVal = isElec ? state.elecOld : isWater ? state.waterOld : 0;
-        const usage = Math.max(0, newVal - oldVal);
-
-        items.push({
-          name: s.name,
-          detail: `${oldVal} → ${newVal} = ${usage} x ${formatMoney(unitPrice)}`,
-          amount: usage * unitPrice,
-          serviceId: s.service_id,
-          calculationType: type,
-          unitPrice,
-          quantity: usage,
-          startReading: oldVal,
-          endReading: newVal,
-          usageValue: usage,
-          serviceSnapshot: s,
-        });
-      }
-    });
-
+  // Every room's invoice is priced by the server (/invoices/preview-bulk) and
+  // bulk create bills exactly that draft; this screen only collects readings.
+  const inputsFor = useCallback((state: RoomBillingState): InvoiceInputs | null => {
+    if (!state.contract) return null;
     return {
-      roomId,
-      contractId: contract.id,
+      roomId: String(state.room.id),
+      contractId: String(state.contract.id),
       month: period.month,
       year: period.year,
-      roomFee: state.roomFee,
-      totalAmount: calculateTotal(state),
-      elecOld: state.elecOld,
       elecNew: state.elecNew ? Number(state.elecNew) : null,
-      waterOld: state.waterOld,
       waterNew: state.waterNew ? Number(state.waterNew) : null,
-      items,
-      note: 'Lập hàng loạt',
     };
-  };
+  }, [period.month, period.year]);
+
+  const [drafts, setDrafts] = useState<Record<string, BulkDraftResult>>({});
+  const [pricing, setPricing] = useState(false);
+  useEffect(() => {
+    const ready = Object.values(billingStates).filter((state) => !state.loading && state.contract);
+    if (ready.length === 0) return;
+    let cancelled = false;
+    setPricing(true);
+    const timer = setTimeout(() => {
+      previewInvoicesBulk(ready.map((state) => inputsFor(state)!))
+        .then((results) => {
+          if (cancelled) return;
+          setDrafts(Object.fromEntries(ready.map((state, index) => [state.room.id, results[index]])));
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          if (!cancelled) setPricing(false);
+        });
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [billingStates, inputsFor]);
+
+  const calculateTotal = (state: RoomBillingState) => drafts[state.room.id]?.draft?.total ?? 0;
+  const rentFor = (state: RoomBillingState) => drafts[state.room.id]?.draft?.rent.amount ?? state.roomFee;
+  const servicesFor = (state: RoomBillingState) => drafts[state.room.id]?.draft?.serviceTotal ?? 0;
 
   // Submit batch payload
   const handleBulkSubmit = async (reviewWarningsConfirmed = false) => {
@@ -494,10 +411,22 @@ export default function BulkInvoiceScreen() {
       setSubmitting(true);
       setProgressMsg(`Đang khởi tạo lập ${selectedList.length} hóa đơn...`);
 
-      const payloads = selectedList.map((state) => buildInvoicePayload(state.room.id)).filter(Boolean);
-      
+      const payloads = selectedList
+        .map((state) => inputsFor(state))
+        .filter((input): input is InvoiceInputs => Boolean(input))
+        .map((input) => ({ ...input, invoiceNote: 'Lập hàng loạt' }));
+
       setProgressMsg(`Đang lập hóa đơn trên máy chủ...`);
-      await bulkCreateInvoices(payloads);
+      const results: Array<{ roomId?: string; error?: string }> = await bulkCreateInvoices(payloads);
+      const failed = (results || []).filter((r) => r?.error);
+      if (failed.length > 0) {
+        const names = failed
+          .map((r) => `${billingStates[String(r.roomId)]?.room.name ?? r.roomId}: ${r.error}`)
+          .join('\n');
+        Alert.alert(`${failed.length} hóa đơn chưa tạo được`, names);
+        void initData(true);
+        return;
+      }
 
       await AsyncStorage.removeItem(draftKey).catch(() => undefined);
 
@@ -728,7 +657,7 @@ export default function BulkInvoiceScreen() {
                   <View style={styles.totalBlock}>
                     <Text style={styles.totalLabel}>Dự tính tổng:</Text>
                     <Text style={styles.totalValue}>
-                      {state.loading ? 'Đang tính...' : formatMoney(calculateTotal(state))}
+                      {state.loading || !drafts[state.room.id]?.draft ? 'Đang tính...' : formatMoney(calculateTotal(state))}
                     </Text>
                   </View>
                 </View>
@@ -746,16 +675,24 @@ export default function BulkInvoiceScreen() {
                       <View style={styles.detailPill}>
                         <Ionicons name="home-outline" size={13} color={Colors.textSecondary} />
                         <Text style={styles.detailItemText}>
-                          Tiền phòng <Text style={styles.boldText}>{formatMoney(state.roomFee)}</Text>
+                          Tiền phòng <Text style={styles.boldText}>{formatMoney(rentFor(state))}</Text>
                         </Text>
                       </View>
                       <View style={styles.detailPill}>
                         <Ionicons name="construct-outline" size={13} color={Colors.textSecondary} />
                         <Text style={styles.detailItemText}>
-                          Dịch vụ <Text style={styles.boldText}>{formatMoney(calculateTotal(state) - state.roomFee)}</Text>
+                          Dịch vụ <Text style={styles.boldText}>{formatMoney(servicesFor(state))}</Text>
                         </Text>
                       </View>
                     </View>
+                    {drafts[state.room.id]?.error ? (
+                      <Text style={{ color: Colors.danger, fontSize: 12, marginTop: 6 }}>{drafts[state.room.id]?.error}</Text>
+                    ) : null}
+                    {(drafts[state.room.id]?.draft?.previousDebt ?? 0) > 0 ? (
+                      <Text style={{ color: Colors.textSecondary, fontSize: 12, marginTop: 6 }}>
+                        Gồm nợ kỳ trước {formatMoney(drafts[state.room.id]?.draft?.previousDebt)}
+                      </Text>
+                    ) : null}
 
                     {/* Inputs Row for Electric and Water */}
                     {(hasElec || hasWater) && (
@@ -840,7 +777,7 @@ export default function BulkInvoiceScreen() {
             title="Tạo hóa đơn"
             variant="primary"
             onPress={() => handleBulkSubmit()}
-            disabled={submitting || visibleSelectedCount === 0}
+            disabled={submitting || pricing || visibleSelectedCount === 0}
             style={styles.submitButton}
             textStyle={styles.submitButtonText}
             icon={submitting ? <ActivityIndicator size="small" color="#fff" /> : undefined}

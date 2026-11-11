@@ -33,14 +33,15 @@ import {
   loadContracts,
   loadLatestMeterReadings,
   loadPreviousDebt,
-  createInvoiceForContract,
+  createInvoiceFromInputs,
+  previewInvoice,
+  type InvoiceDraft,
+  type InvoiceInputs,
   currentPeriod,
   formatMoney,
   describeServiceType,
   getServiceUnitLabel,
   loadServiceConfigs,
-  calculateProratedRoomFee,
-  getRoomFeeProration,
 } from '@/lib/rentalOps';
 
 const period = currentPeriod();
@@ -218,65 +219,67 @@ export default function NewInvoiceScreen() {
   const electricityIsMetered = ['meter', 'metered'].includes(String(electricityService.type).toLowerCase());
   const waterIsMetered = ['meter', 'metered'].includes(String(waterService.type).toLowerCase());
 
-  // Dynamic calculations
-  const computed = useMemo(() => {
-    if (!contract) return { electricUsed: 0, waterUsed: 0, electricAmount: 0, waterAmount: 0, serviceAmount: 0, otherAmount: 0, previousDebt: 0, rent: 0, total: 0 };
-
-    const electricOldVal = Number(form.electricOld || 0);
-    const electricNewVal = Number(form.electricNew || 0);
-    const electricUsed = Math.max(0, electricNewVal - electricOldVal);
-
-    const waterOldVal = Number(form.waterOld || 0);
-    const waterNewVal = Number(form.waterNew || 0);
-    const waterUsed = Math.max(0, waterNewVal - waterOldVal);
-
-    const occupantCount = Number(contract.occupant_count || 1);
-
-    const electricAmount = electricityService
-      ? ['meter', 'metered'].includes(String(electricityService.type).toLowerCase())
-        ? electricUsed * Number(electricityService.applied_unit_price || 0)
-        : String(electricityService.type).toLowerCase() === 'per_person'
-        ? occupantCount * Number(electricityService.applied_unit_price || 0)
-        : Number(electricityService.amount || electricityService.applied_unit_price || 0)
-      : 0;
-
-    const waterAmount = waterService
-      ? ['meter', 'metered'].includes(String(waterService.type).toLowerCase())
-        ? waterUsed * Number(waterService.applied_unit_price || 0)
-        : String(waterService.type).toLowerCase() === 'per_person'
-        ? occupantCount * Number(waterService.applied_unit_price || 0)
-        : Number(waterService.amount || waterService.applied_unit_price || 0)
-      : 0;
-
-    const serviceAmount = otherServices.reduce((sum: number, s: any) => {
-      const type = String(s.type || '').toLowerCase();
-      const amount = type === 'per_person'
-        ? occupantCount * Number(s.applied_unit_price || 0)
-        : Number(s.amount || s.applied_unit_price || 0);
-      return sum + amount;
-    }, 0);
-
-    const otherAmount = fees.reduce((sum: number, f: any) => sum + Number(f.amount || 0), 0);
-    const previousDebt = Math.max(0, Number(form.previousDebt || 0));
-    const rent = calculateProratedRoomFee(
-      Number(contract.rent_amount || 0),
-      contract.start_date,
-      period.month,
-      period.year,
-    );
-
+  // The server prices the invoice (POST /invoices/preview); this screen only
+  // shows its draft, so the total here is exactly what gets billed.
+  const inputs: InvoiceInputs | null = useMemo(() => {
+    if (!contract) return null;
     return {
-      electricUsed,
-      waterUsed,
-      electricAmount,
-      waterAmount,
-      serviceAmount,
-      otherAmount,
-      previousDebt,
-      rent,
-      total: rent + electricAmount + waterAmount + serviceAmount + otherAmount + previousDebt,
+      contractId: String(contract.id),
+      roomId: String(contract.room_id),
+      month: period.month,
+      year: period.year,
+      elecOld: Number(form.electricOld || 0),
+      elecNew: Number(form.electricNew || 0),
+      waterOld: Number(form.waterOld || 0),
+      waterNew: Number(form.waterNew || 0),
+      extraItems: fees
+        .filter((f) => f.name.trim() && Number(String(f.amount).replace(/[^\d-]/g, '')) !== 0)
+        // A leading minus makes the line a discount ("giảm trừ").
+        .map((f) => ({ name: f.name.trim(), amount: Number(String(f.amount).replace(/[^\d-]/g, '')) })),
     };
-  }, [contract, form.electricOld, form.electricNew, form.waterOld, form.waterNew, form.previousDebt, fees, electricityService, waterService, otherServices]);
+  }, [contract, form.electricOld, form.electricNew, form.waterOld, form.waterNew, fees]);
+
+  const [draft, setDraft] = useState<InvoiceDraft | null>(null);
+  const [previewError, setPreviewError] = useState('');
+  const [previewing, setPreviewing] = useState(false);
+  useEffect(() => {
+    if (!inputs) return;
+    let cancelled = false;
+    setPreviewing(true);
+    const timer = setTimeout(() => {
+      previewInvoice(inputs)
+        .then((result) => {
+          if (cancelled) return;
+          setDraft(result);
+          setPreviewError('');
+        })
+        .catch((e: any) => {
+          if (!cancelled) setPreviewError(e?.message || 'Không tính được hóa đơn.');
+        })
+        .finally(() => {
+          if (!cancelled) setPreviewing(false);
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [inputs]);
+
+  const lineFor = (key: string) => draft?.lines.find((line) => line.key === key);
+  const electricLine = draft?.lines.find((line) => line.kind === 'electricity');
+  const waterLine = draft?.lines.find((line) => line.kind === 'water');
+  const roomLines = (draft?.lines ?? []).filter((line) => line.kind === 'room_service' || line.kind === 'adjustment');
+  const computed = {
+    electricUsed: electricLine?.usageValue ?? 0,
+    waterUsed: waterLine?.usageValue ?? 0,
+    electricAmount: electricLine?.amount ?? 0,
+    waterAmount: waterLine?.amount ?? 0,
+    previousDebt: draft?.previousDebt ?? 0,
+    previousCredit: draft?.previousCredit ?? 0,
+    rent: draft?.rent.amount ?? 0,
+    total: draft?.total ?? 0,
+  };
 
   const handleSubmit = async () => {
     if (!contract) {
@@ -301,18 +304,12 @@ export default function NewInvoiceScreen() {
 
     try {
       setSubmitting(true);
-      const invoice = await createInvoiceForContract(contract, {
-        month: period.month,
-        year: period.year,
-        roomFee: computed.rent,
-        previousDebt: computed.previousDebt,
-        electricOld: electricityIsMetered ? Number(form.electricOld || 0) : 0,
-        electricNew: electricityIsMetered ? Number(form.electricNew || 0) : 0,
-        waterOld: waterIsMetered ? Number(form.waterOld || 0) : 0,
-        waterNew: waterIsMetered ? Number(form.waterNew || 0) : 0,
+      if (!inputs) return;
+      // Priced by the server from the same inputs the preview used.
+      const invoice = await createInvoiceFromInputs({
+        ...inputs,
         dueDate: form.dueDate,
-        note: form.note.trim() || undefined,
-        items: fees.filter((f) => f.name.trim()).map((f) => ({ name: f.name.trim(), amount: Number(f.amount || 0) })),
+        invoiceNote: form.note.trim() || undefined,
       });
 
       showSuccess('Hóa đơn đã được tạo.', 'Đã tạo hóa đơn');
@@ -324,8 +321,9 @@ export default function NewInvoiceScreen() {
     }
   };
 
-  const roomFeeProration = contract
-    ? getRoomFeeProration(contract.start_date, period.month, period.year)
+  // From the server's draft, like every other amount on this screen.
+  const roomFeeProration = draft?.rent.proration
+    ? { billableDays: draft.rent.proration.stayedDays, daysInMonth: draft.rent.proration.daysInMonth }
     : null;
 
   const handleContractChange = (id: string) => {
@@ -565,7 +563,8 @@ export default function NewInvoiceScreen() {
                   {otherServices.map((s: any) => {
                     const isPerPerson = String(s.type).toLowerCase() === 'per_person';
                     const sPrice = Number(s.applied_unit_price || 0);
-                    const sAmount = isPerPerson ? Number(contract.occupant_count || 1) * sPrice : Number(s.amount || sPrice);
+                    const line = lineFor(`svc-${String(s.service_id ?? s.id ?? s.name)}`);
+                    const sAmount = line?.amount ?? 0;
 
                     return (
                       <View key={s.service_id} style={styles.serviceRow}>
@@ -585,6 +584,24 @@ export default function NewInvoiceScreen() {
               </Card>
             )}
 
+            {/* Room-level services and fees already recorded for this period */}
+            {roomLines.length > 0 && (
+              <Card style={styles.card}>
+                <Text style={styles.sectionHeader}>Dịch vụ theo phòng & phí đã ghi</Text>
+                <View style={styles.otherServicesList}>
+                  {roomLines.map((line) => (
+                    <View key={line.key} style={styles.serviceRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.serviceName}>{line.name}</Text>
+                        {line.detail ? <Text style={styles.serviceDesc}>{line.detail}</Text> : null}
+                      </View>
+                      <Text style={styles.serviceAmount}>{formatMoney(line.amount)}</Text>
+                    </View>
+                  ))}
+                </View>
+              </Card>
+            )}
+
             {/* Additional Fees */}
             <Card style={styles.card}>
               <View style={styles.sectionHeaderRow}>
@@ -595,6 +612,7 @@ export default function NewInvoiceScreen() {
                 </TouchableOpacity>
               </View>
 
+              <Text style={styles.emptyFeesText}>Nhập số âm (vd: -50000) cho khoản giảm trừ.</Text>
               {fees.length === 0 ? (
                 <Text style={styles.emptyFeesText}>Không có chi phí phát sinh.</Text>
               ) : (
@@ -614,7 +632,7 @@ export default function NewInvoiceScreen() {
                           placeholder="Số tiền"
                           value={fee.amount}
                           onChangeText={(v) => updateFee(index, 'amount', v)}
-                          keyboardType="numeric"
+                          keyboardType="numbers-and-punctuation"
                           style={[styles.feeInput, styles.feeAmountInput]}
                         />
                       </View>
@@ -638,6 +656,12 @@ export default function NewInvoiceScreen() {
                 <View style={styles.previousDebtBox}>
                   <Text style={styles.previousDebtLabel}>Nợ kỳ trước</Text>
                   <Text style={styles.previousDebtValue}>{formatMoney(computed.previousDebt)}</Text>
+                </View>
+              )}
+              {computed.previousCredit > 0 && (
+                <View style={styles.previousDebtBox}>
+                  <Text style={styles.previousDebtLabel}>Tiền dư kỳ trước (trừ vào bill)</Text>
+                  <Text style={styles.previousDebtValue}>−{formatMoney(computed.previousCredit)}</Text>
                 </View>
               )}
               <Input
@@ -665,14 +689,15 @@ export default function NewInvoiceScreen() {
       {contract && (
         <View style={styles.bottomBar}>
           <View style={styles.summaryContainer}>
-            <Text style={styles.totalLabel}>Tổng thanh toán</Text>
-            <Text style={styles.totalValue}>{formatMoney(computed.total)}</Text>
+            <Text style={styles.totalLabel}>Tổng thanh toán{previewing ? ' · đang tính…' : ''}</Text>
+            <Text style={[styles.totalValue, previewing && { opacity: 0.6 }]}>{draft ? formatMoney(computed.total) : '—'}</Text>
+            {previewError ? <Text style={{ color: Colors.danger, fontSize: 12 }}>{previewError}</Text> : null}
           </View>
           <Button
             title={submitting ? 'Đang tạo...' : 'Tạo hóa đơn'}
             variant="primary"
             onPress={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || previewing || !draft || Boolean(previewError)}
             style={styles.submitButton}
             icon={submitting ? <ActivityIndicator size="small" color="#fff" /> : undefined}
           />

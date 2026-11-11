@@ -656,109 +656,88 @@ export async function createContract(input: {
   return res?.data;
 }
 
-export async function createInvoice(input: {
-  roomId: string;
-  contractId: string;
-  month: number;
-  year: number;
-  roomFee: number;
-  previousDebt?: number;
-  items: Array<{ serviceId?: string | null; name: string; detail?: string; amount: number }>;
-  elecOld?: number | null;
-  elecNew?: number | null;
-  waterOld?: number | null;
-  waterNew?: number | null;
-  dueDate?: string;
-  invoiceNote?: string;
-}) {
-  const res = await apiPost<any>('/invoices', input);
-  return res?.data as Invoice;
-}
 
 export async function loadPreviousDebt(roomId: string, month: number, year: number) {
   const res = await apiGet<any>(`/invoices/previous-debt?roomId=${roomId}&month=${month}&year=${year}`);
   return Number(res?.data ?? 0);
 }
 
-export async function createInvoiceForContract(contract: ContractView, input: {
+// ── Server-priced invoices ──────────────────────────────────────────────────
+// The backend prices every invoice (buildInvoiceDraft). Screens send inputs and
+// show the draft it returns, so the preview always equals what gets billed and
+// a pricing change ships without a new APK.
+
+export type InvoiceDraftLine = {
+  key: string;
+  kind: 'electricity' | 'water' | 'service' | 'room_service' | 'adjustment' | 'extra';
+  serviceId: string | null;
+  name: string;
+  detail: string;
+  amount: number;
+  fullAmount: number;
+  skipped: boolean;
+  metered: boolean;
+  unitPrice: number | null;
+  quantity: number | null;
+  startReading: number | null;
+  endReading: number | null;
+  usageValue: number | null;
+  unit: string | null;
+};
+
+export type InvoiceDraft = {
   month: number;
   year: number;
-  roomFee?: number;
-  previousDebt?: number;
-  electricOld: number;
-  electricNew: number;
-  waterOld: number;
-  waterNew: number;
-  items: Array<{ name: string; amount: number }>;
+  rent: { monthly: number; fullAmount: number; amount: number; skipped: boolean; proration: { stayedDays: number; daysInMonth: number } | null };
+  lines: InvoiceDraftLine[];
+  serviceTotal: number;
+  chargesTotal: number;
+  previousDebt: number;
+  previousCredit: number;
+  creditLeftover: number;
+  total: number;
+  readings: { elecOld: number; elecNew: number | null; waterOld: number; waterNew: number | null };
+  electricity: { configured: boolean; metered: boolean };
+  water: { configured: boolean; metered: boolean };
+};
+
+export type InvoiceInputs = {
+  contractId: string;
+  roomId?: string;
+  month: number;
+  year: number;
+  elecOld?: number | null;
+  elecNew?: number | null;
+  waterOld?: number | null;
+  waterNew?: number | null;
+  applyPreviousDebt?: boolean;
+  prorateFirstMonthServices?: boolean;
+  excludeServiceIds?: string[];
+  skipRent?: boolean;
+  /** Negative amount = discount. */
+  extraItems?: Array<{ name: string; detail?: string; amount: number }>;
   dueDate?: string;
-  note?: string;
-}) {
-  const appliedServices = normalizeAppliedServicesSnapshot(contract.applied_services_snapshot) ?? [];
-  const serviceItems = appliedServices.map((service) => {
-    const category = String(service.category || getServiceCategory(service));
-    const type = String(service.type || '').toLowerCase();
-    
-    const isPerPerson = type === 'per_person';
-    const occupantCount = Number(contract.occupant_count || 1);
+  invoiceNote?: string;
+};
 
-    if (category === 'electricity' && (type === 'meter' || type === 'metered')) {
-      const used = Math.max(0, input.electricNew - input.electricOld);
-      return {
-        name: service.name,
-        detail: `${input.electricOld} → ${input.electricNew} × ${service.applied_unit_price}`,
-        amount: used * Number(service.applied_unit_price || 0),
-      };
-    }
-    if (category === 'water' && (type === 'meter' || type === 'metered')) {
-      const used = Math.max(0, input.waterNew - input.waterOld);
-      return {
-        name: service.name,
-        detail: `${input.waterOld} → ${input.waterNew} × ${service.applied_unit_price}`,
-        amount: used * Number(service.applied_unit_price || 0),
-      };
-    }
-    if (isPerPerson) {
-      const unitPrice = Number(service.applied_unit_price || 0);
-      return {
-        name: service.name,
-        detail: `${occupantCount} người × ${formatMoney(unitPrice)}`,
-        amount: occupantCount * unitPrice,
-      };
-    }
-    if (type === 'per_room') {
-      const unitPrice = Number(service.applied_unit_price || 0);
-      return {
-        name: service.name,
-        detail: `1 phòng × ${formatMoney(unitPrice)}`,
-        amount: unitPrice,
-      };
-    }
-    return {
-      name: service.name,
-      detail: undefined,
-      amount: Number(service.amount || service.applied_unit_price || 0),
-    };
-  });
-
-  return createInvoice({
-    roomId: contract.room_id,
-    contractId: contract.id,
-    month: input.month,
-    year: input.year,
-    roomFee: input.roomFee ?? contract.rent_amount,
-    previousDebt: Number(input.previousDebt || 0),
-    elecOld: input.electricOld,
-    elecNew: input.electricNew,
-    waterOld: input.waterOld,
-    waterNew: input.waterNew,
-    dueDate: input.dueDate,
-    invoiceNote: input.note,
-    items: [
-      ...serviceItems,
-      ...input.items,
-    ],
-  });
+export async function previewInvoice(input: InvoiceInputs) {
+  const res = await apiPost<any>('/invoices/preview', input);
+  return res?.data as InvoiceDraft;
 }
+
+export type BulkDraftResult = { contractId: string | null; roomId: string | null; draft?: InvoiceDraft; error?: string; code?: string };
+
+export async function previewInvoicesBulk(inputs: InvoiceInputs[]) {
+  const res = await apiPost<any>('/invoices/preview-bulk', { invoices: inputs });
+  return (res?.data ?? []) as BulkDraftResult[];
+}
+
+/** Creates an invoice priced by the server from inputs (no client-built items). */
+export async function createInvoiceFromInputs(input: InvoiceInputs) {
+  const res = await apiPost<any>('/invoices', input);
+  return res?.data as Invoice;
+}
+
 
 export async function recordPayment(invoice: Invoice, input: { amount: number; walletId: string; date: string; method: string; collector: string; note?: string }) {
   const amount = Number(input.amount || 0);

@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { X, Save, AlertCircle, Zap, Droplets, Camera } from "lucide-react";
 import Button from "@/components/ui/Button";
-import { formatMoney, RentalRoom, ContractView, AppliedServiceSnapshot, bulkCreateInvoices, loadContract } from "@/lib/rentalOps";
-import { apiGet } from "@/utils/apiClient";
+import { bulkCreateInvoices, formatMoney, previewInvoicesBulk, type BulkDraftResult, type InvoiceInputs, type RentalRoom } from "@/lib/rentalOps";
 import MeterOcrImportModal from "@/components/ops/MeterOcrImportModal";
 
 interface BulkInvoiceModalProps {
@@ -15,228 +14,102 @@ interface BulkInvoiceModalProps {
   period: { month: number; year: number };
 }
 
-interface RoomBillingState {
-  roomId: string;
-  contract?: ContractView;
-  elecOld: number;
-  elecNew: string;
-  waterOld: number;
-  waterNew: string;
-  roomFee: number;
-  loading: boolean;
-  error?: string;
+// Each room's invoice is priced by the server (/invoices/preview-bulk), and
+// bulk create bills exactly that draft. This modal only collects new meter
+// readings and shows the result.
+type Readings = { elecNew: string; waterNew: string };
+
+function useDebounced<T>(value: T, ms: number) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(timer);
+  }, [value, ms]);
+  return debounced;
 }
 
 export default function BulkInvoiceModal({ isOpen, onClose, onSuccess, pendingRooms, period }: BulkInvoiceModalProps) {
-  const [billingStates, setBillingStates] = useState<Record<string, RoomBillingState>>({});
+  const [readings, setReadings] = useState<Record<string, Readings>>({});
+  const [drafts, setDrafts] = useState<Record<string, BulkDraftResult>>({});
+  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [failures, setFailures] = useState<Record<string, string>>({});
   const [isOcrModalOpen, setIsOcrModalOpen] = useState(false);
 
-  const handleApplyOcrReadings = (readings: { roomId: string; type: "elec" | "water"; value: string }[]) => {
-    setBillingStates((prev) => {
+  const billableRooms = useMemo(() => pendingRooms.filter((room) => room.contract_id), [pendingRooms]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setReadings(Object.fromEntries(billableRooms.map((room) => [room.id, { elecNew: "", waterNew: "" }])));
+    setDrafts({});
+    setFailures({});
+  }, [isOpen, billableRooms]);
+
+  const handleApplyOcrReadings = (ocr: { roomId: string; type: "elec" | "water"; value: string }[]) => {
+    setReadings((prev) => {
       const next = { ...prev };
-      for (const r of readings) {
+      for (const r of ocr) {
         if (!next[r.roomId]) continue;
-        const field = r.type === "elec" ? "elecNew" : "waterNew";
-        next[r.roomId] = { ...next[r.roomId], [field]: r.value };
+        next[r.roomId] = { ...next[r.roomId], [r.type === "elec" ? "elecNew" : "waterNew"]: r.value };
       }
       return next;
     });
   };
 
+  const handleInputChange = (roomId: string, field: keyof Readings, value: string) => {
+    setReadings((prev) => ({ ...prev, [roomId]: { ...prev[roomId], [field]: value } }));
+  };
+
+  const inputsFor = (room: RentalRoom, values?: Readings): InvoiceInputs => ({
+    contractId: String(room.contract_id),
+    roomId: String(room.id),
+    month: period.month,
+    year: period.year,
+    elecNew: values?.elecNew ? Number(values.elecNew) : null,
+    waterNew: values?.waterNew ? Number(values.waterNew) : null,
+  });
+
+  const debouncedReadings = useDebounced(readings, 400);
   useEffect(() => {
-    if (isOpen && pendingRooms.length > 0) {
-      const initialState: Record<string, RoomBillingState> = {};
-      pendingRooms.forEach(room => {
-        initialState[room.id] = {
-          roomId: room.id,
-          elecOld: 0,
-          elecNew: "",
-          waterOld: 0,
-          waterNew: "",
-          roomFee: Number(room.price || 0),
-          loading: true,
-        };
+    if (!isOpen || billableRooms.length === 0) return;
+    let cancelled = false;
+    setLoading(true);
+    previewInvoicesBulk(billableRooms.map((room) => inputsFor(room, debouncedReadings[room.id])))
+      .then((results) => {
+        if (cancelled) return;
+        setDrafts(Object.fromEntries(billableRooms.map((room, index) => [room.id, results[index]])));
+      })
+      .catch((err) => {
+        if (!cancelled) setFailures({ _all: err?.message || "Không tính được hóa đơn." });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
-      setBillingStates(initialState);
-      loadContractDetails();
-    }
-  }, [isOpen, pendingRooms]);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, billableRooms, debouncedReadings, period.month, period.year]);
 
-  const loadContractDetails = async () => {
-    try {
-      const results = await Promise.all(
-        pendingRooms.map(async (room) => {
-          try {
-            // Fetch contract and latest readings. loadContract() normalizes
-            // applied_services_snapshot — some contracts carry an older, differently
-            // shaped snapshot (unitPrice/billingType instead of applied_unit_price/type)
-            // and reading that shape raw silently priced per_person services at 0,
-            // which is why "theo người" services looked like they had no amount here.
-            const [contract, readingsRes] = await Promise.all([
-              loadContract(String(room.contract_id)),
-              apiGet<any>(`/invoices/latest-meter-readings?roomId=${room.id}`)
-            ]);
-
-            // Prefer the latest invoice reading (subsequent months). On the FIRST
-            // bill there is none, so fall back to the contract's starting meter
-            // reading — never 0, which would overcount usage by the whole meter.
-            const latestElec = readingsRes?.data?.elec_old;
-            const latestWater = readingsRes?.data?.water_old;
-            return {
-              roomId: room.id,
-              contract: contract ?? undefined,
-              elecOld: Number(latestElec ?? contract?.electric_start ?? 0),
-              waterOld: Number(latestWater ?? contract?.water_start ?? 0),
-              roomFee: Number(contract?.rent_amount ?? room.price),
-            };
-          } catch (e) {
-            return { roomId: room.id, error: "Lỗi tải thông tin" };
-          }
-        })
-      );
-
-      setBillingStates(prev => {
-        const next = { ...prev };
-        results.forEach(res => {
-          if (next[res.roomId]) {
-            next[res.roomId] = {
-              ...next[res.roomId],
-              ...res,
-              loading: false,
-            };
-          }
-        });
-        return next;
-      });
-    } catch (err) {
-      console.error("Failed to load details", err);
-    }
-  };
-
-  const handleInputChange = (roomId: string, field: "elecNew" | "waterNew", value: string) => {
-    setBillingStates(prev => ({
-      ...prev,
-      [roomId]: {
-        ...prev[roomId],
-        [field]: value
-      }
-    }));
-  };
-
-  // Single source of truth for how one service line is priced + described, so
-  // the preview total and the persisted invoice item always match. Mirrors the
-  // single-invoice page: per_person scales by occupants, metered uses readings,
-  // and every other type (fixed, per_room — wifi/rác/dịch vụ cố định) is a flat
-  // monthly fee. Previously per_room was dropped entirely → its price was never
-  // added to the total nor shown in the detail.
-  const computeServiceLine = (s: AppliedServiceSnapshot, state: RoomBillingState) => {
-    const type = String(s.type || "").toLowerCase();
-    const unitPrice = Number(s.applied_unit_price || 0);
-    // BR-06: identify electricity/water by category first (robust), fall back to
-    // name keywords for older snapshots that don't carry a category.
-    const category = String(s.category || "").toLowerCase();
-    const name = String(s.name || "").toLowerCase();
-    const isElec = category === "electricity" || name.includes("điện") || name.includes("dien") || name.includes("electric");
-    const isWater = category === "water" || name.includes("nước") || name.includes("nuoc") || name.includes("water");
-
-    if (type === "metered" || type === "meter") {
-      const newVal = isElec ? Number(state.elecNew) : isWater ? Number(state.waterNew) : 0;
-      const oldVal = isElec ? state.elecOld : isWater ? state.waterOld : 0;
-      const usage = Math.max(0, newVal - oldVal);
-      return {
-        amount: usage * unitPrice,
-        detail: `${oldVal} → ${newVal} = ${usage} x ${formatMoney(unitPrice)}`,
-        calculationType: type,
-        unitPrice,
-        quantity: usage,
-        startReading: oldVal,
-        endReading: newVal,
-        usageValue: usage,
-      };
-    }
-
-    if (type === "per_person") {
-      const occupants = Number(state.contract?.occupant_count || 1);
-      return {
-        amount: unitPrice * occupants,
-        detail: `${occupants} người x ${formatMoney(unitPrice)}`,
-        calculationType: type,
-        unitPrice,
-        quantity: occupants,
-      };
-    }
-
-    // fixed / per_room / any other flat fee
-    const amount = Number(s.amount ?? unitPrice ?? 0);
-    return {
-      amount,
-      detail: `${formatMoney(amount)} / kỳ`,
-      calculationType: type || "fixed",
-      unitPrice: amount,
-      quantity: 1,
-    };
-  };
-
-  const calculateTotal = (state: RoomBillingState) => {
-    if (!state.contract) return state.roomFee;
-    const services = (state.contract.applied_services_snapshot || []) as AppliedServiceSnapshot[];
-    return services.reduce((total, s) => total + computeServiceLine(s, state).amount, state.roomFee);
-  };
-
-  const buildInvoicePayload = (roomId: string) => {
-    const state = billingStates[roomId];
-    if (!state.contract) return null;
-
-    const contract = state.contract;
-    const services = (contract.applied_services_snapshot || []) as AppliedServiceSnapshot[];
-    const items = services.map((s) => {
-      const line = computeServiceLine(s, state);
-      return {
-        name: s.name,
-        detail: line.detail,
-        amount: line.amount,
-        serviceId: s.service_id,
-        calculationType: line.calculationType,
-        unitPrice: line.unitPrice,
-        quantity: line.quantity,
-        startReading: (line as any).startReading,
-        endReading: (line as any).endReading,
-        usageValue: (line as any).usageValue,
-        serviceSnapshot: s,
-      };
-    });
-
-    return {
-      roomId,
-      contractId: contract.id,
-      month: period.month,
-      year: period.year,
-      roomFee: state.roomFee,
-      totalAmount: calculateTotal(state),
-      elecOld: state.elecOld,
-      elecNew: state.elecNew ? Number(state.elecNew) : null,
-      waterOld: state.waterOld,
-      waterNew: state.waterNew ? Number(state.waterNew) : null,
-      items,
-      note: "Lập hàng loạt"
-    };
-  };
+  const isStale = loading || readings !== debouncedReadings;
+  const readyRooms = billableRooms.filter((room) => drafts[room.id]?.draft);
 
   const handleBulkSubmit = async () => {
-    const payloads = pendingRooms
-      .map(room => buildInvoicePayload(room.id))
-      .filter(Boolean);
-
-    if (payloads.length === 0) return;
-
+    if (readyRooms.length === 0) return;
     setSubmitting(true);
+    setFailures({});
     try {
-      await bulkCreateInvoices(payloads);
+      const results: Array<{ roomId?: string; error?: string }> = await bulkCreateInvoices(
+        readyRooms.map((room) => ({ ...inputsFor(room, readings[room.id]), invoiceNote: "Lập hàng loạt" })),
+      );
+      const failed = Object.fromEntries(results.filter((r) => r?.error).map((r) => [String(r.roomId), String(r.error)]));
+      if (Object.keys(failed).length > 0) {
+        setFailures(failed);
+        onSuccess();
+        return;
+      }
       onSuccess();
       onClose();
-    } catch (err) {
-      alert("Lỗi khi lập hóa đơn hàng loạt.");
+    } catch (err: any) {
+      setFailures({ _all: err?.message || "Lỗi khi lập hóa đơn hàng loạt." });
     } finally {
       setSubmitting(false);
     }
@@ -252,7 +125,7 @@ export default function BulkInvoiceModal({ isOpen, onClose, onSuccess, pendingRo
           <div>
             <h3 className="text-xl font-bold text-slate-800">Lập hóa đơn hàng loạt</h3>
             <p className="text-sm text-slate-500 mt-1">
-              Tháng {period.month}/{period.year} • {pendingRooms.length} phòng đang chờ
+              Tháng {period.month}/{period.year} • {billableRooms.length} phòng đang chờ
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -283,83 +156,81 @@ export default function BulkInvoiceModal({ isOpen, onClose, onSuccess, pendingRo
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {pendingRooms.map((room) => {
-                const state = billingStates[room.id];
-                if (!state) return null;
-
-                const hasElec = state.contract?.applied_services_snapshot?.some(s => String(s.category || "").toLowerCase() === "electricity" || s.name.toLowerCase().includes("điện"));
-                const hasWater = state.contract?.applied_services_snapshot?.some(s => String(s.category || "").toLowerCase() === "water" || s.name.toLowerCase().includes("nước"));
+              {billableRooms.map((room) => {
+                const result = drafts[room.id];
+                const draft = result?.draft;
+                const values = readings[room.id] ?? { elecNew: "", waterNew: "" };
+                const elec = draft?.lines.find((line) => line.kind === "electricity");
+                const water = draft?.lines.find((line) => line.kind === "water");
+                const rowError = failures[room.id] || result?.error;
+                const meterInput = (line: typeof elec, field: keyof Readings, old: number | undefined, tone: string, icon: React.ReactNode) =>
+                  line?.metered ? (
+                    <div className="flex flex-col gap-1">
+                      <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-tight ${tone}`}>
+                        {icon} Cũ: {old ?? "…"}
+                      </div>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={values[field]}
+                        onChange={(e) => handleInputChange(room.id, field, e.target.value)}
+                        placeholder="Số mới"
+                        className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-bold"
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-slate-300 text-xs italic">{line ? "Không theo công tơ" : "-"}</span>
+                  );
 
                 return (
-                  <tr key={room.id} className="hover:bg-slate-50/50 transition-colors">
+                  <tr key={room.id} className="hover:bg-slate-50/50 transition-colors align-top">
                     <td className="px-6 py-4">
                       <div className="font-bold text-slate-800">{room.name}</div>
                       <div className="text-xs text-slate-500 uppercase tracking-tighter font-semibold">{room.tenant_name || "Trống"}</div>
-                      {/* G-05: breakdown so the owner sees exactly what the total includes */}
-                      <div className="mt-2 space-y-0.5">
-                        <div className="flex items-center justify-between gap-3 text-[11px] text-slate-500">
-                          <span>Tiền phòng</span>
-                          <span className="font-semibold text-slate-700">{formatMoney(state.roomFee)}</span>
-                        </div>
-                        {((state.contract?.applied_services_snapshot || []) as AppliedServiceSnapshot[]).map((s, i) => {
-                          const line = computeServiceLine(s, state);
-                          return (
-                            <div key={`${s.service_id}-${i}`} className="flex items-center justify-between gap-3 text-[11px] text-slate-500">
-                              <span className="truncate">{s.name}</span>
+                      {rowError && <div className="mt-1 text-xs font-semibold text-red-600">{rowError}</div>}
+                      {/* What the total includes, straight from the server's draft */}
+                      {draft && (
+                        <div className="mt-2 space-y-0.5">
+                          <div className="flex items-center justify-between gap-3 text-[11px] text-slate-500">
+                            <span>Tiền phòng{draft.rent.proration ? ` (${draft.rent.proration.stayedDays}/${draft.rent.proration.daysInMonth} ngày)` : ""}</span>
+                            <span className="font-semibold text-slate-700">{formatMoney(draft.rent.amount)}</span>
+                          </div>
+                          {draft.lines.filter((line) => !line.skipped).map((line) => (
+                            <div key={line.key} className="flex items-center justify-between gap-3 text-[11px] text-slate-500">
+                              <span className="truncate">{line.name}</span>
                               <span className="font-semibold text-slate-700 whitespace-nowrap">{formatMoney(line.amount)}</span>
                             </div>
-                          );
-                        })}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {hasElec ? (
-                        <div className="flex flex-col gap-1">
-                           <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-600 uppercase tracking-tight">
-                            <Zap size={10} /> Cũ: {state.elecOld}
-                          </div>
-                          <input
-                            type="number"
-                            value={state.elecNew}
-                            onChange={(e) => handleInputChange(room.id, "elecNew", e.target.value)}
-                            placeholder="Số mới"
-                            className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-bold"
-                          />
+                          ))}
+                          {draft.previousDebt > 0 && (
+                            <div className="flex items-center justify-between gap-3 text-[11px] text-amber-700">
+                              <span>Nợ kỳ trước</span>
+                              <span className="font-semibold whitespace-nowrap">{formatMoney(draft.previousDebt)}</span>
+                            </div>
+                          )}
+                          {draft.previousCredit > 0 && (
+                            <div className="flex items-center justify-between gap-3 text-[11px] text-emerald-700">
+                              <span>Tiền dư kỳ trước</span>
+                              <span className="font-semibold whitespace-nowrap">−{formatMoney(draft.previousCredit)}</span>
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-slate-300 text-xs italic">-</span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
-                      {hasWater ? (
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-600 uppercase tracking-tight">
-                            <Droplets size={10} /> Cũ: {state.waterOld}
-                          </div>
-                          <input
-                            type="number"
-                            value={state.waterNew}
-                            onChange={(e) => handleInputChange(room.id, "waterNew", e.target.value)}
-                            placeholder="Số mới"
-                            className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-bold"
-                          />
-                        </div>
-                      ) : (
-                        <span className="text-slate-300 text-xs italic">-</span>
-                      )}
+                    <td className="px-6 py-4">{meterInput(elec, "elecNew", draft?.readings.elecOld, "text-amber-600", <Zap size={10} />)}</td>
+                    <td className="px-6 py-4">{meterInput(water, "waterNew", draft?.readings.waterOld, "text-blue-600", <Droplets size={10} />)}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="text-sm font-semibold text-slate-700">{draft ? formatMoney(draft.rent.amount) : "…"}</div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="text-sm font-semibold text-slate-700">{formatMoney(state.roomFee)}</div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="text-lg font-bold text-blue-600">{formatMoney(calculateTotal(state))}</div>
+                      <div className={`text-lg font-bold text-blue-600 ${isStale ? "opacity-60" : ""}`}>{draft ? formatMoney(draft.total) : "…"}</div>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          {pendingRooms.length === 0 && (
+          {failures._all && <div className="m-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{failures._all}</div>}
+          {billableRooms.length === 0 && (
             <div className="py-20 flex flex-col items-center justify-center text-slate-400">
                <AlertCircle size={40} className="mb-2 opacity-20" />
                <p>Không có phòng nào cần lập hóa đơn.</p>
@@ -374,10 +245,10 @@ export default function BulkInvoiceModal({ isOpen, onClose, onSuccess, pendingRo
             variant="primary" 
             icon={<Save size={18} />} 
             onClick={handleBulkSubmit}
-            disabled={submitting || pendingRooms.length === 0}
+            disabled={submitting || isStale || readyRooms.length === 0}
             loading={submitting}
           >
-            Xác nhận lập {pendingRooms.length} hóa đơn
+            Xác nhận lập {readyRooms.length} hóa đơn
           </Button>
         </div>
       </div>
@@ -385,7 +256,7 @@ export default function BulkInvoiceModal({ isOpen, onClose, onSuccess, pendingRo
       <MeterOcrImportModal
         isOpen={isOcrModalOpen}
         onClose={() => setIsOcrModalOpen(false)}
-        rooms={pendingRooms}
+        rooms={billableRooms}
         onApply={handleApplyOcrReadings}
       />
     </div>

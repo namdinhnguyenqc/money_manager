@@ -808,116 +808,84 @@ export async function loadPreviousDebt(roomId: string, month: number, year: numb
   return Number(res?.data || 0);
 }
 
-export async function createInvoice(input: {
-  roomId: string;
-  contractId: string;
+
+// ── Server-priced invoices ──────────────────────────────────────────────────
+// The backend prices every invoice (buildInvoiceDraft). Screens send inputs and
+// show the draft it returns, so the preview always equals what gets billed.
+
+export type InvoiceDraftLine = {
+  key: string;
+  kind: "electricity" | "water" | "service" | "room_service" | "adjustment" | "extra";
+  serviceId: string | null;
+  name: string;
+  detail: string;
+  amount: number;
+  fullAmount: number;
+  skipped: boolean;
+  metered: boolean;
+  unitPrice: number | null;
+  quantity: number | null;
+  startReading: number | null;
+  endReading: number | null;
+  usageValue: number | null;
+  unit: string | null;
+};
+
+export type InvoiceDraft = {
   month: number;
   year: number;
-  roomFee: number;
-  /** Opt out of rolling last period's unpaid balance into this bill. Defaults to on. */
-  applyPreviousDebt?: boolean;
-  /** Partial first month: charge contract services by days stayed (default) or in full. */
-  prorateFirstMonthServices?: boolean;
-  /** Negative amount = discount line ("giảm trừ"). */
-  items: Array<{ serviceId?: string | null; name: string; detail?: string; amount: number }>;
-  invoiceNote?: string;
+  rent: { monthly: number; fullAmount: number; amount: number; skipped: boolean; proration: { stayedDays: number; daysInMonth: number } | null };
+  lines: InvoiceDraftLine[];
+  serviceTotal: number;
+  chargesTotal: number;
+  previousDebt: number;
+  previousCredit: number;
+  creditLeftover: number;
+  total: number;
+  readings: { elecOld: number; elecNew: number | null; waterOld: number; waterNew: number | null };
+  electricity: { configured: boolean; metered: boolean };
+  water: { configured: boolean; metered: boolean };
+};
+
+export type InvoiceInputs = {
+  contractId: string;
+  roomId?: string;
+  month: number;
+  year: number;
   elecOld?: number | null;
   elecNew?: number | null;
   waterOld?: number | null;
   waterNew?: number | null;
+  applyPreviousDebt?: boolean;
+  prorateFirstMonthServices?: boolean;
+  /** Contract services switched off (service_id, or name when missing). */
+  excludeServiceIds?: string[];
+  skipRent?: boolean;
+  /** Negative amount = discount. */
+  extraItems?: Array<{ name: string; detail?: string; amount: number }>;
   dueDate?: string;
-}) {
+  invoiceNote?: string;
+  paymentChannelId?: string;
+};
+
+export async function previewInvoice(input: InvoiceInputs) {
+  const res = await apiPost<any>("/invoices/preview", input);
+  return res?.data as InvoiceDraft;
+}
+
+export type BulkDraftResult = { contractId: string | null; roomId: string | null; draft?: InvoiceDraft; error?: string; code?: string };
+
+export async function previewInvoicesBulk(inputs: InvoiceInputs[]) {
+  const res = await apiPost<any>("/invoices/preview-bulk", { invoices: inputs });
+  return (res?.data ?? []) as BulkDraftResult[];
+}
+
+/** Creates an invoice priced by the server from inputs (no client-built items). */
+export async function createInvoiceFromInputs(input: InvoiceInputs) {
   const res = await apiPost<any>("/invoices", input);
   return res?.data as Invoice;
 }
 
-export async function createInvoiceForContract(contract: ContractView, input: {
-  month: number;
-  year: number;
-  roomFee?: number;
-  electricOld: number;
-  electricNew: number;
-  waterOld: number;
-  waterNew: number;
-  dueDate?: string;
-  applyPreviousDebt?: boolean;
-  prorateFirstMonthServices?: boolean;
-  /** Contract services the owner switched off for this invoice (service_id, or name when missing). */
-  excludeServiceIds?: string[];
-  invoiceNote?: string;
-  /** Extra lines; a negative amount is a discount. */
-  items: Array<{ name: string; detail?: string; amount: number }>;
-}) {
-  const excluded = new Set(input.excludeServiceIds ?? []);
-  const appliedServices = (normalizeAppliedServicesSnapshot(contract.applied_services_snapshot) ?? [])
-    .filter((service) => !excluded.has(String(service.service_id || service.name)));
-  const serviceItems = appliedServices.map((service) => {
-    const category = String(service.category || getServiceCategory(service));
-    const type = String(service.type || "").toLowerCase();
-    
-    // Water/Electric can also be per_person
-    const isPerPerson = type === "per_person";
-    const occupantCount = Number(contract.occupant_count || 1);
-
-    if (category === "electricity" && (type === "meter" || type === "metered")) {
-      const used = Math.max(0, input.electricNew - input.electricOld);
-      return {
-        name: service.name,
-        detail: `${input.electricOld} → ${input.electricNew} × ${service.applied_unit_price}`,
-        amount: used * Number(service.applied_unit_price || 0),
-      };
-    }
-    if (category === "water" && (type === "meter" || type === "metered")) {
-      const used = Math.max(0, input.waterNew - input.waterOld);
-      return {
-        name: service.name,
-        detail: `${input.waterOld} → ${input.waterNew} × ${service.applied_unit_price}`,
-        amount: used * Number(service.applied_unit_price || 0),
-      };
-    }
-    if (isPerPerson) {
-      const unitPrice = Number(service.applied_unit_price || 0);
-      return {
-        name: service.name,
-        detail: `${occupantCount} người × ${formatMoney(unitPrice)}`,
-        amount: occupantCount * unitPrice,
-      };
-    }
-    if (type === "per_room") {
-      const unitPrice = Number(service.applied_unit_price || 0);
-      return {
-        name: service.name,
-        detail: `1 phòng × ${formatMoney(unitPrice)}`,
-        amount: unitPrice,
-      };
-    }
-    return {
-      name: service.name,
-      detail: undefined,
-      amount: Number(service.amount || service.applied_unit_price || 0),
-    };
-  });
-
-  return createInvoice({
-    roomId: contract.room_id,
-    contractId: contract.id,
-    month: input.month,
-    year: input.year,
-    roomFee: input.roomFee ?? contract.rent_amount,
-    applyPreviousDebt: input.applyPreviousDebt,
-    prorateFirstMonthServices: input.prorateFirstMonthServices,
-    elecOld: input.electricOld,
-    elecNew: input.electricNew,
-    waterOld: input.waterOld,
-    waterNew: input.waterNew,
-    dueDate: input.dueDate,
-    invoiceNote: input.invoiceNote,
-    items: [
-      ...serviceItems,
-      ...input.items,
-    ],
-  });
-}
 
 export async function recordPayment(invoice: Invoice, input: { amount: number; walletId: string; date: string; method: string; collector: string; note?: string }) {
   const res = await apiPost<any>(`/invoices/${invoice.id}/collect-payment`, {
