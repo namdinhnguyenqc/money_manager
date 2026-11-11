@@ -83,7 +83,10 @@ export default function NewInvoiceScreen() {
       try {
         setLoading(true);
 
-        const services = await loadServiceConfigs(false);
+        // The contract is loaded alongside the service check and the contract
+        // list instead of after them.
+        const detail = contract_id ? fetchContractDetail(contract_id) : null;
+        const [services, data] = await Promise.all([loadServiceConfigs(false), loadContracts()]);
         if (services.length === 0) {
           Alert.alert(
             'Chưa cấu hình dịch vụ',
@@ -110,12 +113,11 @@ export default function NewInvoiceScreen() {
           return;
         }
 
-        const data = await loadContracts();
         const active = data.filter((c: any) => c.status === 'active' || c.status === 'expiring_soon');
         setContracts(active);
 
-        if (contract_id) {
-          await fetchContractDetail(contract_id);
+        if (detail) {
+          await detail;
         } else if (active.length > 0) {
           // Pre-select first contract if none provided
           setSelectedContractId(active[0].id);
@@ -139,8 +141,6 @@ export default function NewInvoiceScreen() {
       if (!c) {
         throw new Error('Không tìm thấy hợp đồng.');
       }
-      setContract(c);
-
       // Pre-populate due date
       const billingDay = Math.min(28, Math.max(1, Number(c.billing_day || 5)));
       const today = new Date();
@@ -175,6 +175,9 @@ export default function NewInvoiceScreen() {
         waterNew: waterMetered ? String(readings.water_old || c.water_start || 0) : '0',
         previousDebt: String(previousDebt || 0),
       }));
+      // Set together with the readings so the first preview already uses
+      // them, instead of pricing zero readings and then pricing again.
+      setContract(c);
     } catch (e: any) {
       showToast(e?.message || 'Lỗi tải chi tiết hợp đồng.', 'error');
     } finally {
@@ -246,6 +249,7 @@ export default function NewInvoiceScreen() {
     if (!inputs) return;
     let cancelled = false;
     setPreviewing(true);
+    // Debounce typing, but price the first draft at once.
     const timer = setTimeout(() => {
       previewInvoice(inputs)
         .then((result) => {
@@ -259,11 +263,12 @@ export default function NewInvoiceScreen() {
         .finally(() => {
           if (!cancelled) setPreviewing(false);
         });
-    }, 350);
+    }, draft ? 350 : 0);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputs]);
 
   const lineFor = (key: string) => draft?.lines.find((line) => line.key === key);

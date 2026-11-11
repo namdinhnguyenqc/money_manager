@@ -1,4 +1,19 @@
-import { getDaysInMonth, differenceInDays, startOfMonth, endOfMonth, isSameMonth } from 'date-fns';
+// Plain date math instead of date-fns: importing date-fns cost ~400ms of every
+// serverless cold start for the five helpers used here.
+const getDaysInMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+const isSameMonth = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+const DAY_MS = 86_400_000;
+const timeOfDay = (d: Date) => ((d.getHours() * 60 + d.getMinutes()) * 60 + d.getSeconds()) * 1000 + d.getMilliseconds();
+/** Whole days from start to end in local time, like date-fns differenceInDays. */
+const differenceInDays = (end: Date, start: Date) => {
+  let days = Math.round(
+    (Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) - Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())) / DAY_MS,
+  );
+  // A partial last day does not count.
+  if (days > 0 && timeOfDay(end) < timeOfDay(start)) days -= 1;
+  else if (days < 0 && timeOfDay(end) > timeOfDay(start)) days += 1;
+  return days;
+};
 
 /**
  * Tính số ngày thực tế trong tháng của một ngày cụ thể

@@ -744,6 +744,12 @@ export async function createTransaction(input: { type: "income" | "expense"; amo
   return res?.data ?? res;
 }
 
+/** Payments recorded against one invoice (not the owner's latest transactions, filtered). */
+export async function loadTransactionsByInvoice(invoiceId: string) {
+  const res = await apiGet<any>(`/transactions?invoiceId=${encodeURIComponent(invoiceId)}&limit=100`);
+  return (res?.data ?? []) as Transaction[];
+}
+
 export async function loadTransactionsByContract(contractId: string) {
   const res = await apiGet<any>(`/transactions?contractId=${contractId}&limit=50`);
   return (res?.data ?? []) as Transaction[];

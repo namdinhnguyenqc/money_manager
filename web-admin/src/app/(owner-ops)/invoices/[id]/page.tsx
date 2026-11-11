@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Check, Copy, Wallet, Trash2, History, PlusCircle, X } from "lucide-react";
-import { Invoice, Transaction, BankConfig, buildInvoiceQrUrl, formatMoney, loadBankConfig, loadInvoice, normalizeInvoiceStatus, loadTransactions, loadSettingsMap, addInvoiceItem } from "@/lib/rentalOps";
+import { Invoice, Transaction, BankConfig, buildInvoiceQrUrl, formatMoney, loadBankConfig, loadInvoice, normalizeInvoiceStatus, loadTransactionsByInvoice, loadSettingsMap, addInvoiceItem } from "@/lib/rentalOps";
 import { apiDelete } from "@/utils/apiClient";
 import { useToast } from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
@@ -52,7 +52,7 @@ export default function InvoiceDetailPage() {
       try {
         const [inv, txs, settingsData, bankData] = await Promise.all([
           loadInvoice(String(id)),
-          loadTransactions(),
+          loadTransactionsByInvoice(String(id)),
           loadSettingsMap(),
           loadBankConfig(),
         ]);

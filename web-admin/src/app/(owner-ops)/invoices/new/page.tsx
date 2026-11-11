@@ -24,11 +24,17 @@ import FeeSignToggle, { cleanAmountInput, signedFeeAmount, type FeeSign } from "
 const period = currentPeriod();
 
 /** Waits until `value` stops changing for `ms` before passing it on. */
+/** Debounces typing; the first real value goes through at once so the page doesn't wait. */
 function useDebounced<T>(value: T, ms: number) {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
+    if (debounced == null && value != null) {
+      setDebounced(value);
+      return;
+    }
     const timer = setTimeout(() => setDebounced(value), ms);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, ms]);
   return debounced;
 }
@@ -43,6 +49,10 @@ export default function NewInvoicePage() {
   const [error, setError] = useState("");
   // Meter fields start empty: the first preview fills in last period's readings.
   const [readings, setReadings] = useState<{ electricOld: string; electricNew: string; waterOld: string; waterNew: string } | null>(null);
+  // Readings are filled from the first draft. They are sent back only once the
+  // owner edits one; sending the prefilled values would just re-price the same
+  // draft a second time.
+  const [readingsEdited, setReadingsEdited] = useState(false);
   const [dueDate, setDueDate] = useState("");
   const [note, setNote] = useState("");
   const [fees, setFees] = useState<ExtraFee[]>([]);
@@ -72,14 +82,15 @@ export default function NewInvoicePage() {
   const previousDebt = previousDebtQuery.data || 0;
 
   const inputs: InvoiceInputs | null = useMemo(() => {
-    if (!contract) return null;
+    // Priced from the contract id alone, so the draft loads alongside the
+    // contract instead of after it.
+    if (!contractId) return null;
     const toNumber = (value: string) => (value.trim() === "" ? null : Number(value));
     return {
-      contractId: String(contract.id),
-      roomId: String(contract.room_id),
+      contractId: String(contractId),
       month: period.month,
       year: period.year,
-      ...(readings
+      ...(readings && readingsEdited
         ? {
             elecOld: toNumber(readings.electricOld),
             elecNew: toNumber(readings.electricNew),
@@ -95,7 +106,7 @@ export default function NewInvoicePage() {
         .filter((fee) => fee.label.trim() && Number(fee.amount || 0) > 0)
         .map((fee) => ({ name: fee.label.trim(), detail: fee.note.trim() || undefined, amount: signedFeeAmount(fee.sign, fee.amount) })),
     };
-  }, [contract, readings, applyPreviousDebt, prorateServices, skipped, fees]);
+  }, [contractId, readings, readingsEdited, applyPreviousDebt, prorateServices, skipped, fees]);
 
   const debouncedInputs = useDebounced(inputs, 300);
   const previewQuery = useQuery({
@@ -190,10 +201,10 @@ export default function NewInvoicePage() {
         {line.metered ? (
           <div className="grid grid-cols-2 gap-3 px-4 py-3">
             <CompactField label="Chỉ số đầu">
-              <input className="input text-sm" type="number" inputMode="decimal" value={readings[oldKey]} onChange={(e) => setReadings((p) => p && ({ ...p, [oldKey]: e.target.value }))} />
+              <input className="input text-sm" type="number" inputMode="decimal" value={readings[oldKey]} onChange={(e) => { setReadingsEdited(true); setReadings((p) => p && ({ ...p, [oldKey]: e.target.value })); }} />
             </CompactField>
             <CompactField label="Chỉ số cuối">
-              <input className="input text-sm" type="number" inputMode="decimal" value={readings[newKey]} onChange={(e) => setReadings((p) => p && ({ ...p, [newKey]: e.target.value }))} />
+              <input className="input text-sm" type="number" inputMode="decimal" value={readings[newKey]} onChange={(e) => { setReadingsEdited(true); setReadings((p) => p && ({ ...p, [newKey]: e.target.value })); }} />
             </CompactField>
             <div className="col-span-2 text-xs text-slate-500">
               Tiêu thụ: <strong>{line.usageValue ?? 0} {unit}</strong> × {formatMoney(line.unitPrice)}/{unit}

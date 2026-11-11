@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Printer, ArrowLeft } from "lucide-react";
-import { BankConfig, Invoice, Transaction, buildInvoiceQrUrl, formatMoney, getInvoiceRemainingAmount, loadBankConfig, loadInvoice, loadSettingsMap, loadTransactions } from "@/lib/rentalOps";
+import { BankConfig, Invoice, Transaction, buildInvoiceQrUrl, formatMoney, getInvoiceRemainingAmount, loadBankConfig, loadInvoice, loadSettingsMap, loadTransactionsByInvoice } from "@/lib/rentalOps";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 
 export default function ReceiptViewPage() {
@@ -24,7 +24,7 @@ export default function ReceiptViewPage() {
         const [invoiceData, settingsData, txs, bankData] = await Promise.all([
           loadInvoice(String(id)),
           loadSettingsMap(),
-          loadTransactions(),
+          loadTransactionsByInvoice(String(id)),
           loadBankConfig(),
         ]);
         setInvoice(invoiceData);

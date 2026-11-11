@@ -1,4 +1,12 @@
-import { computeCarryover, refreshActiveContractSnapshot, type RoomAdjustmentRow, type RoomServiceRow } from "../utils/billing.js";
+import {
+  computeCarryover,
+  refreshSnapshotEntries,
+  SERVICE_COLUMNS,
+  writeSnapshot,
+  type RoomAdjustmentRow,
+  type RoomServiceRow,
+  type ServiceRow,
+} from "../utils/billing.js";
 import { buildInvoiceDraft, InvoiceDraftError, snapshotServices, type InvoiceDraft } from "../utils/invoiceDraft.js";
 
 type Db = { from: (table: string) => any };
@@ -53,28 +61,16 @@ export async function loadInvoiceDraft(db: Db, userId: string, req: DraftRequest
   if (contractRes.error) return { ok: false, status: 400, error: contractRes.error.message };
   if (!contractRes.data) return { ok: false, status: 404, error: "Contract not found" };
 
-  // Bill from the owner's current service prices, even if an edit never
-  // reached this contract's saved price list.
-  const contract = {
-    ...contractRes.data,
-    applied_services_snapshot: await refreshActiveContractSnapshot(db, userId, contractRes.data),
-  };
-  const contractId = String(contract.id);
-  const services = snapshotServices(contract.applied_services_snapshot);
-  if (services.length === 0) {
-    return {
-      ok: false,
-      status: 409,
-      code: "SERVICES_NOT_CONFIGURED",
-      error: "Hợp đồng chưa có bảng giá dịch vụ. Hãy cấu hình dịch vụ và cập nhật hợp đồng trước khi tạo hóa đơn.",
-    };
-  }
-  const roomId = String(req.roomId ?? contract.room_id ?? "");
+  const loaded = contractRes.data;
+  const contractId = String(loaded.id);
+  const roomId = String(req.roomId ?? loaded.room_id ?? "");
   if (!roomId) return { ok: false, status: 400, error: "Missing roomId" };
 
-  const serviceIds = services.map((s) => (s.service_id != null ? String(s.service_id) : "")).filter(Boolean);
-  const [roomRes, lastInvoiceRes, roomServicesRes, adjustmentsRes, servicesRes, carryover] = await Promise.all([
-    db.from("rooms").select("id,price").eq("id", roomId).eq("user_id", userId).maybeSingle(),
+  // Everything below depends only on the contract, so it is read in one round
+  // trip; each extra sequential query is felt on every keystroke of the form.
+  const [roomRes, servicesRes, lastInvoiceRes, roomServicesRes, adjustmentsRes, carryover] = await Promise.all([
+    db.from("rooms").select("id,price,has_ac").eq("id", roomId).eq("user_id", userId).maybeSingle(),
+    db.from("services").select(SERVICE_COLUMNS).eq("user_id", userId),
     db
       .from("invoices")
       .select("elec_new,water_new")
@@ -102,13 +98,34 @@ export async function loadInvoiceDraft(db: Db, userId: string, req: DraftRequest
       .eq("period_month", req.month)
       .eq("period_year", req.year)
       .is("invoice_id", null),
-    serviceIds.length
-      ? db.from("services").select("id").eq("user_id", userId).in("id", serviceIds)
-      : Promise.resolve({ data: [], error: null }),
     computeCarryover(db, { userId, contractId, month: req.month, year: req.year }),
   ]);
   if (roomRes.error) return { ok: false, status: 400, error: roomRes.error.message };
   if (lastInvoiceRes.error) return { ok: false, status: 400, error: lastInvoiceRes.error.message };
+
+  // Bill from the owner's current service prices, even if an edit never
+  // reached this contract's saved price list; save the refreshed list.
+  const ownerServices = (servicesRes.error ? [] : servicesRes.data ?? []) as ServiceRow[];
+  let snapshot: unknown = loaded.applied_services_snapshot;
+  if (loaded.status === "active" && ownerServices.length > 0) {
+    const refreshed = refreshSnapshotEntries(snapshot, ownerServices, {
+      occupantCount: Number(loaded.occupant_count || 1),
+      roomHasAc: Boolean(roomRes.data?.has_ac),
+    });
+    if (refreshed) {
+      snapshot = refreshed;
+      await writeSnapshot(db, userId, contractId, refreshed);
+    }
+  }
+  const contract = { ...loaded, applied_services_snapshot: snapshot };
+  if (snapshotServices(snapshot).length === 0) {
+    return {
+      ok: false,
+      status: 409,
+      code: "SERVICES_NOT_CONFIGURED",
+      error: "Hợp đồng chưa có bảng giá dịch vụ. Hãy cấu hình dịch vụ và cập nhật hợp đồng trước khi tạo hóa đơn.",
+    };
+  }
 
   const elecOld = req.elecOld ?? Number(lastInvoiceRes.data?.elec_new ?? contract.electric_start ?? 0);
   const waterOld = req.waterOld ?? Number(lastInvoiceRes.data?.water_new ?? contract.water_start ?? 0);
@@ -146,7 +163,7 @@ export async function loadInvoiceDraft(db: Db, userId: string, req: DraftRequest
         pendingAdjustments,
         carryover,
         applyDebt,
-        existingServiceIds: new Set((servicesRes.data ?? []).map((row: any) => String(row.id))),
+        existingServiceIds: new Set(ownerServices.map((row) => String(row.id))),
       },
     };
   } catch (error) {

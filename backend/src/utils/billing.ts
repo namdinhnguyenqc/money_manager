@@ -416,7 +416,24 @@ export async function resolveCarryingInvoice<T extends { id: string; user_id: st
  * reads or bills service prices, so a scheduled change never has a window
  * where it silently fails to apply.
  */
+// Scheduled price changes take effect by date, so checking once a minute per
+// user is enough. Invoice previews run on every keystroke and would otherwise
+// pay this query each time.
+const DUE_PRICE_CHECK_MS = 60_000;
+const lastDuePriceCheck = new Map<string, number>();
+
+/** Makes the next applyDuePriceChanges call check again (after scheduling a change). */
+export function forgetDuePriceCheck(userId: string) {
+  lastDuePriceCheck.delete(userId);
+}
+
 export async function applyDuePriceChanges(db: SupabaseLike, userId: string): Promise<void> {
+  const now = Date.now();
+  const last = lastDuePriceCheck.get(userId);
+  if (last !== undefined && now - last < DUE_PRICE_CHECK_MS) return;
+  if (lastDuePriceCheck.size > 5000) lastDuePriceCheck.clear();
+  lastDuePriceCheck.set(userId, now);
+
   const { data: due, error } = await db
     .from("service_price_history")
     .select("id,service_id,new_unit_price,new_unit_price_ac,effective_date")
@@ -506,9 +523,9 @@ export function refreshSnapshotEntries(
   return changed ? next : null;
 }
 
-const SERVICE_COLUMNS = "id,name,type,unit,unit_price,unit_price_ac";
+export const SERVICE_COLUMNS = "id,name,type,unit,unit_price,unit_price_ac";
 
-async function writeSnapshot(db: SupabaseLike, userId: string, contractId: unknown, snapshot: SnapshotEntry[]) {
+export async function writeSnapshot(db: SupabaseLike, userId: string, contractId: unknown, snapshot: SnapshotEntry[]) {
   const res = await db
     .from("contracts")
     .update({ applied_services_snapshot: snapshot, updated_at: new Date().toISOString() })

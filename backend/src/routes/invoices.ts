@@ -1418,22 +1418,41 @@ invoicesRoutes.get("/:id", async (c) => {
 
   const invoice = await ensureInvoicePaymentFields(db, invRes.data, user.id);
 
-  const [itemsRes, roomRes, contractRes] = await Promise.all([
+  // Everything below depends only on the invoice, so it is read in parallel
+  // (the tenant waits for the contract, but nothing else waits for either).
+  const contractAndTenant = (async () => {
+    const contractRes = await db.from("contracts").select("*").eq("id", invoice.contract_id).eq("user_id", user.id).maybeSingle();
+    if (contractRes.error || !contractRes.data?.tenant_id) return { contractRes, tenantRes: { data: null, error: null } };
+    const tenantRes = await db.from("tenants").select("*").eq("id", contractRes.data.tenant_id).eq("user_id", user.id).maybeSingle();
+    return { contractRes, tenantRes };
+  })();
+  const [itemsRes, roomRes, { contractRes, tenantRes }, channelRes, carriedRes] = await Promise.all([
     db.from("invoice_items").select("*").eq("invoice_id", id).eq("user_id", user.id),
     db.from("rooms").select("*").eq("id", invoice.room_id).eq("user_id", user.id).maybeSingle(),
-    db.from("contracts").select("*").eq("id", invoice.contract_id).eq("user_id", user.id).maybeSingle(),
+    contractAndTenant,
+    invoice.payment_channel_id
+      ? db.from("payment_channels").select("*").eq("id", invoice.payment_channel_id).eq("user_id", user.id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    // Was this invoice's unpaid remainder already carried into a later bill?
+    // If so, its own "còn thiếu" is redundant — the amount now lives on that
+    // later invoice's previous_debt.
+    db
+      .from("invoices")
+      .select("id,month,year")
+      .eq("user_id", user.id)
+      .eq("previous_debt_source_invoice_id", id)
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   if (itemsRes.error) return c.json({ error: itemsRes.error.message }, 500);
   if (roomRes.error) return c.json({ error: roomRes.error.message }, 500);
   if (contractRes.error) return c.json({ error: contractRes.error.message }, 500);
-
-  let tenant = null;
-  if (contractRes.data?.tenant_id) {
-    const tenantRes = await db.from("tenants").select("*").eq("id", contractRes.data.tenant_id).eq("user_id", user.id).maybeSingle();
-    if (tenantRes.error) return c.json({ error: tenantRes.error.message }, 500);
-    tenant = tenantRes.data;
-  }
+  if (tenantRes.error) return c.json({ error: tenantRes.error.message }, 500);
+  if (channelRes.error) return c.json({ error: channelRes.error.message }, 500);
+  if (carriedRes.error) return c.json({ error: carriedRes.error.message }, 500);
+  const tenant = tenantRes.data;
+  const paymentChannel = channelRes.data;
 
   const formattedItems = (itemsRes.data ?? []).map(item => ({
     ...item,
@@ -1445,30 +1464,6 @@ invoicesRoutes.get("/:id", async (c) => {
     usageValue: item.usage_value,
     serviceSnapshot: item.service_snapshot,
   }));
-
-  let paymentChannel = null;
-  if (invoice.payment_channel_id) {
-    const channelRes = await db
-      .from("payment_channels")
-      .select("*")
-      .eq("id", invoice.payment_channel_id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (channelRes.error) return c.json({ error: channelRes.error.message }, 500);
-    paymentChannel = channelRes.data;
-  }
-
-  // Was this invoice's unpaid remainder already carried into a later bill?
-  // If so, its own "còn thiếu" is redundant — the amount now lives on that
-  // later invoice's previous_debt.
-  const carriedRes = await db
-    .from("invoices")
-    .select("id,month,year")
-    .eq("user_id", user.id)
-    .eq("previous_debt_source_invoice_id", id)
-    .limit(1)
-    .maybeSingle();
-  if (carriedRes.error) return c.json({ error: carriedRes.error.message }, 500);
 
   return c.json({
     data: enrichPaymentFields({

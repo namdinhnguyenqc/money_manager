@@ -6,7 +6,7 @@ import type { AppEnv } from "../types.js";
 import { parseJson, toId } from "../utils/validation.js";
 import { logAuditAction } from "../utils/audit.js";
 import { updateWalletBalance } from "../utils/wallet.js";
-import { summarizeRoomInvoices, buildAppliedServicesSnapshot, applyDuePriceChanges, syncActiveContractSnapshots, refreshActiveContractSnapshot, refreshContractSnapshots } from "../utils/billing.js";
+import { summarizeRoomInvoices, buildAppliedServicesSnapshot, applyDuePriceChanges, forgetDuePriceCheck, syncActiveContractSnapshots, refreshActiveContractSnapshot, refreshContractSnapshots } from "../utils/billing.js";
 import { env } from "../config/env.js";
 import { buildCheckoutPreview } from "../utils/checkoutSettlement.js";
 
@@ -1044,6 +1044,7 @@ rentalRoutes.delete("/services/:id", async (c) => {
 
 rentalRoutes.post("/services/:id/price-update", async (c) => {
   const user = c.get("user");
+  forgetDuePriceCheck(user.id);
   const id = toId(c.req.param("id"));
   if (!id) return c.json({ error: "Invalid service id" }, 400);
 
@@ -1452,14 +1453,15 @@ rentalRoutes.get("/contracts/:id", async (c) => {
 
   if (error || !contract) return c.json({ error: "Contract not found" }, 404);
 
-  const [roomRes, tenantRes] = await Promise.all([
+  const [roomRes, tenantRes, refreshedSnapshot] = await Promise.all([
     db.from("rooms").select("*").eq("id", contract.room_id).eq("user_id", user.id).maybeSingle(),
     db.from("tenants").select("*").eq("id", contract.tenant_id).eq("user_id", user.id).maybeSingle(),
+    refreshActiveContractSnapshot(db, user.id, contract),
   ]);
 
   const room = roomRes.data;
   const tenant = tenantRes.data;
-  let appliedServicesSnapshot = await refreshActiveContractSnapshot(db, user.id, contract);
+  let appliedServicesSnapshot = refreshedSnapshot;
 
   if (!Array.isArray(appliedServicesSnapshot) || appliedServicesSnapshot.length === 0) {
     const servicesRes = await db
