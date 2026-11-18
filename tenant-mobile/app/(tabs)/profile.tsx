@@ -297,7 +297,7 @@ export default function ProfileTab() {
                       </View>
                     </View>
                     <Text style={styles.srvPrice}>
-                      {formatMoney(srv.unit_price)}/{unitLabel}
+                      {formatMoney(srv.applied_unit_price ?? srv.unit_price)}/{unitLabel}
                     </Text>
                   </View>
                   {idx < services.length - 1 && <View style={styles.separator} />}

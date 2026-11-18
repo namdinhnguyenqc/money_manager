@@ -416,6 +416,9 @@ export async function resolveCarryingInvoice<T extends { id: string; user_id: st
  * reads or bills service prices, so a scheduled change never has a window
  * where it silently fails to apply.
  */
+/** Today's date in Vietnam (YYYY-MM-DD). UTC "today" lags until 07:00 local time. */
+export const vnToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
+
 // Scheduled price changes take effect by date, so checking once a minute per
 // user is enough. Invoice previews run on every keystroke and would otherwise
 // pay this query each time.
@@ -439,7 +442,7 @@ export async function applyDuePriceChanges(db: SupabaseLike, userId: string): Pr
     .select("id,service_id,new_unit_price,new_unit_price_ac,effective_date")
     .eq("user_id", userId)
     .eq("applied", false)
-    .lte("effective_date", new Date().toISOString().slice(0, 10))
+    .lte("effective_date", vnToday())
     .order("effective_date", { ascending: true });
 
   if (error || !due || due.length === 0) return;

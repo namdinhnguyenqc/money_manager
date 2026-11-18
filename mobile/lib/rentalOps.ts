@@ -210,7 +210,25 @@ export type OwnerRoom = {
   latestInvoiceStatus?: string | null;
 };
 
+/** Payment details resolved by the server (account + VietQR), shared by every screen. */
+export type InvoicePayment = {
+  account: {
+    source: 'channel' | 'bank_config' | 'settings';
+    channelId: string | null;
+    provider: string | null;
+    displayName: string | null;
+    bankId: string;
+    accountNo: string;
+    accountName: string;
+    staticQrUrl: string | null;
+  } | null;
+  amount: number;
+  content: string;
+  qrUrl: string | null;
+};
+
 export type Invoice = {
+  payment?: InvoicePayment | null;
   id: string;
   room_id: string;
   contract_id: string;
@@ -304,14 +322,41 @@ export const getInvoiceRemainingAmount = (invoice?: Invoice | null) => {
 };
 
 export const buildInvoiceQrUrl = (invoice: Invoice, fallback?: { bankId?: string; accountNo?: string }) => {
+  // Prefer the server's QR (same account and amount on every screen).
+  if (invoice.payment) return invoice.payment.qrUrl || '';
   const channel = invoice.payment_channel;
   const bankId = channel?.bank_id || channel?.bankId || fallback?.bankId || '';
   const accountNo = channel?.account_no || channel?.accountNo || fallback?.accountNo || '';
-  const amount = getInvoiceRemainingAmount(invoice) || Number(invoice.total_amount || 0);
+  // Only what is left to pay: a paid invoice gets no QR rather than one for the full total.
+  const amount = getInvoiceRemainingAmount(invoice);
   const addInfo = invoice.payment_code || invoice.paymentCode || '';
 
-  if (!bankId || !accountNo || !addInfo) return '';
+  if (!bankId || !accountNo || !addInfo || amount <= 0) return '';
   return `https://img.vietqr.io/image/${String(bankId).replace(/\s/g, '')}-${String(accountNo).replace(/\s/g, '')}-compact2.png?amount=${Math.round(amount)}&addInfo=${encodeURIComponent(addInfo)}`;
+};
+
+/**
+ * What an invoice screen shows in its payment box. The server resolves the
+ * account and QR; this only reads them (with a plain fallback for old responses).
+ */
+export const invoicePaymentView = (invoice: Invoice) => {
+  const payment = invoice.payment;
+  const channel = invoice.payment_channel;
+  const account = payment?.account;
+  const amount = payment ? payment.amount : getInvoiceRemainingAmount(invoice);
+  const qrUrl = buildInvoiceQrUrl(invoice);
+  return {
+    bankId: account?.bankId ?? (channel?.bank_id || channel?.bankId || ''),
+    accountNo: account?.accountNo ?? (channel?.account_no || channel?.accountNo || ''),
+    accountName: account?.accountName ?? (channel?.account_name || channel?.accountName || ''),
+    provider: account?.provider ?? channel?.provider ?? null,
+    content: payment?.content ?? (invoice.payment_code || invoice.paymentCode || ''),
+    amount,
+    qrUrl,
+    /** The owner's uploaded QR image: no amount or code, so only when no account is set. */
+    staticQrUrl: !qrUrl && amount > 0 ? account?.staticQrUrl || null : null,
+    hasAccount: Boolean(account?.bankId && account?.accountNo) || Boolean((channel?.bank_id || channel?.bankId) && (channel?.account_no || channel?.accountNo)),
+  };
 };
 
 export const currentPeriod = () => {

@@ -60,6 +60,18 @@ export default function ContractPrintScreen() {
   const contract = profileData?.contract;
   const room = contract?.room;
   const services = contract?.appliedServices || [];
+  // Landlord and prices come from the API (current prices, the real owner),
+  // never from hard-coded values.
+  const landlord = contract?.landlord || {};
+  const landlordName = landlord.name || "……………………………………";
+  const landlordPhone = landlord.phone || "…………………………";
+  const address = room?.boardingHouse?.address || "……………………………………………………";
+  const priceText = (service: any, fallbackUnit: string) => {
+    const price = Number(service?.applied_unit_price ?? service?.unit_price ?? 0);
+    const type = String(service?.type || "").toLowerCase();
+    const unit = type === "per_person" ? "người" : type === "metered" || type === "meter" ? (service?.unit || fallbackUnit) : "tháng";
+    return price > 0 ? `${formatMoney(price)} / ${unit}` : `……… / ${fallbackUnit} (theo thỏa thuận)`;
+  };
 
   if (!contract) {
     return (
@@ -91,25 +103,25 @@ CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
 
 HỢP ĐỒNG THUÊ PHÒNG TRỌ
 
-Hôm nay ngày ${day} tháng ${month} năm ${year}; tại địa chỉ: ${room?.boardingHouse?.address || "60/7/4A đường số 4, phường Thủ Đức, TP Hồ Chí Minh"}
+Hôm nay ngày ${day} tháng ${month} năm ${year}; tại địa chỉ: ${address}
 Chúng tôi gồm:
 
 1. Đại diện bên cho thuê phòng trọ (Bên A):
-Ông/bà: Nguyễn Đình Hà Nam
-CMND/CCCD số: 054099004728
-Số điện thoại: 0927368772
+Ông/bà: ${landlordName}
+CMND/CCCD số: ………………………
+Số điện thoại: ${landlordPhone}
 
 2. Bên thuê phòng trọ (Bên B):
 Ông/bà: ${profileData.name}
 Số CMND/CCCD: ${profileData.idCard || "Chưa cung cấp"}
 Số điện thoại: ${profileData.phone || "Chưa cung cấp"}
 
-Hai bên cùng thống nhất thỏa thuận thuê phòng trọ tại địa chỉ ${room?.boardingHouse?.address || "60/7/4A đường số 4, phường Thủ Đức, TP Hồ Chí Minh"} với các điều khoản sau:
+Hai bên cùng thống nhất thỏa thuận thuê phòng trọ tại địa chỉ ${address} với các điều khoản sau:
 - Giá thuê: ${formatMoney(contract.rentAmount)} / tháng
 - Tiền cọc: ${formatMoney(contract.deposit)}
-- Tiền điện: ${formatMoney(electricity?.unit_price || 3500)} đ/kwh ${room?.hasAc ? "(Có máy lạnh)" : "(Không máy lạnh)"}
-- Tiền nước: ${formatMoney(water?.unit_price || 50000)} đ/người
-- Tiền rác: ${formatMoney(garbage?.unit_price || 36500)} đ/tháng
+- Tiền điện: ${priceText(electricity, "kWh")} ${room?.hasAc ? "(Có máy lạnh)" : "(Không máy lạnh)"}
+- Tiền nước: ${priceText(water, "m³")}
+- Tiền rác: ${priceText(garbage, "tháng")}
 - Hạn hợp đồng: Từ ${contract.startDate || "…"} đến ${contract.endDate || "vô thời hạn"}
   `;
 
@@ -151,17 +163,17 @@ Hai bên cùng thống nhất thỏa thuận thuê phòng trọ tại địa ch�
 
           {/* Intro */}
           <Text style={styles.paragraph}>
-            Hôm nay ngày <Text style={styles.boldText}>{day}</Text> tháng <Text style={styles.boldText}>{month}</Text> năm <Text style={styles.boldText}>{year}</Text>; tại địa điểm: <Text style={styles.italicText}>{room?.boardingHouse?.address || "60/7/4A đường số 4, phường Thủ Đức, TP Hồ Chí Minh"}</Text>.
+            Hôm nay ngày <Text style={styles.boldText}>{day}</Text> tháng <Text style={styles.boldText}>{month}</Text> năm <Text style={styles.boldText}>{year}</Text>; tại địa điểm: <Text style={styles.italicText}>{address}</Text>.
           </Text>
 
           {/* Section A */}
           <Text style={styles.sectionTitle}>Chúng tôi gồm:</Text>
           <Text style={styles.partyTitle}>1. Đại diện bên cho thuê phòng trọ (Bên A):</Text>
           <View style={styles.detailsBlock}>
-            <Text style={styles.paragraph}>Ông/bà: <Text style={styles.boldText}>Nguyễn Đình Hà Nam</Text></Text>
+            <Text style={styles.paragraph}>Ông/bà: <Text style={styles.boldText}>{landlordName}</Text></Text>
             <Text style={styles.paragraph}>Nơi đăng ký HK: 90 Nguyễn Văn Cừ, Phường Tuy Hòa, Tỉnh Đắk Lắk</Text>
-            <Text style={styles.paragraph}>CMND/CCCD số: 054099004728</Text>
-            <Text style={styles.paragraph}>Số điện thoại: <Text style={styles.boldText}>0927368772</Text></Text>
+            <Text style={styles.paragraph}>CMND/CCCD số: ………………………</Text>
+            <Text style={styles.paragraph}>Số điện thoại: <Text style={styles.boldText}>{landlordPhone}</Text></Text>
           </View>
 
           {/* Section B */}
@@ -175,7 +187,7 @@ Hai bên cùng thống nhất thỏa thuận thuê phòng trọ tại địa ch�
 
           {/* Specifications */}
           <Text style={styles.paragraph}>
-            Sau khi bàn bạc thống nhất, Bên A đồng ý cho Bên B thuê 01 phòng ở tại địa chỉ {room?.boardingHouse?.address || "60/7/4A đường số 4, phường Thủ Đức, TP Hồ Chí Minh"} với các thỏa thuận chi tiết như sau:
+            Sau khi bàn bạc thống nhất, Bên A đồng ý cho Bên B thuê 01 phòng ở tại địa chỉ {address} với các thỏa thuận chi tiết như sau:
           </Text>
 
           <View style={styles.specList}>
@@ -186,14 +198,14 @@ Hai bên cùng thống nhất thỏa thuận thuê phòng trọ tại địa ch�
               · Tiền đặt cọc: <Text style={styles.boldText}>{formatMoney(contract.deposit)}</Text>.
             </Text>
             <Text style={styles.specItem}>
-              · Tiền điện: <Text style={styles.boldText}>{formatMoney(electricity?.unit_price || 3500)} / kwh</Text> {room?.hasAc ? "(Có máy lạnh)" : "(Không máy lạnh)"} tính theo số đo công tơ.
+              · Tiền điện: <Text style={styles.boldText}>{priceText(electricity, "kWh")}</Text> {room?.hasAc ? "(Có máy lạnh)" : "(Không máy lạnh)"} tính theo số đo công tơ.
             </Text>
             <Text style={styles.specItem}>
-              · Tiền nước: <Text style={styles.boldText}>{formatMoney(water?.unit_price || 50000)} / người</Text>.
+              · Tiền nước: <Text style={styles.boldText}>{priceText(water, "m³")}</Text>.
             </Text>
             {garbage && (
               <Text style={styles.specItem}>
-                · Tiền rác: <Text style={styles.boldText}>{formatMoney(garbage?.unit_price || 36500)} / tháng</Text>.
+                · Tiền rác: <Text style={styles.boldText}>{priceText(garbage, "tháng")}</Text>.
               </Text>
             )}
             <Text style={styles.specItem}>
@@ -223,7 +235,7 @@ Hai bên cùng thống nhất thỏa thuận thuê phòng trọ tại địa ch�
             <View style={styles.sigCol}>
               <Text style={styles.sigTitle}>ĐẠI DIỆN BÊN A</Text>
               <Text style={styles.sigSubtitle}>(Ký và ghi rõ họ tên)</Text>
-              <Text style={styles.sigName}>Nguyễn Đình Hà Nam</Text>
+              <Text style={styles.sigName}>{landlord.name || ""}</Text>
             </View>
           </View>
         </View>

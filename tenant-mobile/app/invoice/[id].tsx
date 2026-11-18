@@ -82,22 +82,28 @@ export default function InvoiceDetailScreen() {
   const total = Number(invoice.total_amount || 0);
   const paid = Number(invoice.paid_amount || 0);
   const outstanding = Math.max(0, total - paid);
-  const status = paid >= total && total > 0 ? 'paid' : paid > 0 ? 'partial' : 'sent';
+  // A bill whose remainder moved to the next invoice can end at 0 ₫ and is settled.
+  const settled = outstanding <= 0 && (total > 0 || Number(invoice.carried_forward_amount || 0) > 0 || String(invoice.status || '').toLowerCase() === 'paid');
+  const status = settled ? 'paid' : paid > 0 ? 'partial' : 'sent';
   const items = invoice.items || [];
-  const paymentCode = invoice.payment_code || '';
+  // Account, amount and QR are resolved by the server: the same as the owner's
+  // invoice screen and Zalo message, and none once nothing is left to pay.
+  const payment = invoice.payment;
+  const paymentCode = payment?.content ?? (invoice.payment_code || '');
   const channel = invoice.paymentChannel || invoice.payment_channel;
-  const bankId = channel?.bank_id || channel?.bankId || '';
+  const bankId = payment?.account?.bankId ?? (channel?.bank_id || channel?.bankId || '');
   const bankLabel = getBankLabel(bankId);
-  const accountNo = channel?.account_no || channel?.accountNo || '';
-  const accountName = channel?.account_name || channel?.accountName || '';
+  const accountNo = payment?.account?.accountNo ?? (channel?.account_no || channel?.accountNo || '');
+  const accountName = payment?.account?.accountName ?? (channel?.account_name || channel?.accountName || '');
   const previousDebt = Number(invoice.previous_debt || 0);
   const currentPayable = Math.max(0, total - previousDebt);
   const depositReturn = 0;
 
-  // VietQR generation parameters
-  const qrUrl = channel
-    ? `https://img.vietqr.io/image/${bankId.toLowerCase()}-${accountNo}-compact2.png?amount=${outstanding}&addInfo=${paymentCode}&accountName=${encodeURIComponent(accountName)}`
-    : null;
+  const qrUrl: string | null = payment
+    ? payment.qrUrl
+    : channel && outstanding > 0 && bankId && accountNo && paymentCode
+      ? `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${outstanding}&addInfo=${encodeURIComponent(paymentCode)}&accountName=${encodeURIComponent(accountName)}`
+      : null;
 
   const invoiceRows = [
     {

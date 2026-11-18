@@ -15,7 +15,7 @@ import Button from '@/components/ui/Button';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import DataErrorState from '@/components/ui/DataErrorState';
 import { apiGet, apiDelete, apiPost } from '@/lib/api';
-import { buildInvoiceQrUrl } from '@/lib/rentalOps';
+import { buildInvoiceQrUrl, invoicePaymentView } from '@/lib/rentalOps';
 import { useAppToast } from '@/components/ui/ToastProvider';
 
 const formatMoney = (v?: number | null) => `${new Intl.NumberFormat('vi-VN').format(Math.round(Number(v || 0)))} ₫`;
@@ -91,14 +91,17 @@ export default function InvoiceDetailScreen() {
     ? 'carried_forward'
     : paid >= total && (total > 0 || String(invoice.status || '').toLowerCase() === 'paid') ? 'paid' : paid > 0 ? 'partial' : 'sent';
   const items = invoice.items || [];
-  const paymentCode = invoice.payment_code || invoice.paymentCode || '';
+  // Account, amount and QR come from the server, the same as web and the tenant
+  // app; bank config is only a fallback for older server responses.
+  const pay = invoicePaymentView(invoice);
+  const paymentCode = pay.content;
   const channel = invoice.payment_channel;
-  const bankId = channel?.bank_id || channel?.bankId || bankConfig?.bank_id || '';
+  const bankId = pay.bankId || bankConfig?.bank_id || '';
   const bankLabel = getBankLabel(bankId);
-  const accountNo = channel?.account_no || channel?.accountNo || bankConfig?.account_no || '';
-  const accountName = channel?.account_name || channel?.accountName || bankConfig?.account_name || '';
-  const qrUrl = buildInvoiceQrUrl(invoice, { bankId, accountNo }) || bankConfig?.qr_uri || '';
-  const paymentProvider = channel?.provider === 'sepay' ? 'SePay tự động' : 'Chuyển khoản';
+  const accountNo = pay.accountNo || bankConfig?.account_no || '';
+  const accountName = pay.accountName || bankConfig?.account_name || '';
+  const qrUrl = pay.qrUrl || pay.staticQrUrl || (invoice.payment ? '' : buildInvoiceQrUrl(invoice, { bankId, accountNo }));
+  const paymentProvider = (pay.provider ?? channel?.provider) === 'sepay' ? 'SePay tự động' : 'Chuyển khoản';
   const previousDebt = Number(invoice.previous_debt || invoice.previousDebt || 0);
   const previousCredit = Number((invoice as any).previous_credit || 0);
   const currentPayable = Math.max(0, total + carriedAmount - previousDebt + previousCredit);

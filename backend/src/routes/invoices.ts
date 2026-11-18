@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { buildInvoicePayment, publicAccountFields, resolvePaymentAccount, type InvoicePayment } from "../utils/paymentAccount.js";
 import { z } from "zod";
 import crypto from "crypto";
 import type ExcelJS from "exceljs";
@@ -200,7 +201,7 @@ const ensureInvoicePaymentFields = async (db: any, invoice: any, userId: string)
   return data || { ...invoice, ...payload };
 };
 
-const enrichPaymentFields = (invoice: any, channel?: any | null) => {
+const enrichPaymentFields = (invoice: any, channel?: any | null, payment?: InvoicePayment) => {
   const total = Number(invoice.total_amount || 0);
   const paid = Number(invoice.paid_amount || 0);
   const remaining = Math.max(0, total - paid);
@@ -239,6 +240,10 @@ const enrichPaymentFields = (invoice: any, channel?: any | null) => {
       autoReconcileEnabled: channel.auto_reconcile_enabled,
       auto_reconcile_enabled: channel.auto_reconcile_enabled,
     } : null,
+    // The resolved account wins over the stored channel: a disabled or deleted
+    // channel must not keep collecting money on old invoices.
+    ...(payment ? { payment_channel: publicAccountFields(payment.account) } : {}),
+    payment: payment ?? null,
     remainingAmount: remaining,
     remaining_amount: remaining,
   };
@@ -1426,13 +1431,11 @@ invoicesRoutes.get("/:id", async (c) => {
     const tenantRes = await db.from("tenants").select("*").eq("id", contractRes.data.tenant_id).eq("user_id", user.id).maybeSingle();
     return { contractRes, tenantRes };
   })();
-  const [itemsRes, roomRes, { contractRes, tenantRes }, channelRes, carriedRes] = await Promise.all([
+  const [itemsRes, roomRes, { contractRes, tenantRes }, paymentAccount, carriedRes] = await Promise.all([
     db.from("invoice_items").select("*").eq("invoice_id", id).eq("user_id", user.id),
     db.from("rooms").select("*").eq("id", invoice.room_id).eq("user_id", user.id).maybeSingle(),
     contractAndTenant,
-    invoice.payment_channel_id
-      ? db.from("payment_channels").select("*").eq("id", invoice.payment_channel_id).eq("user_id", user.id).maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
+    resolvePaymentAccount(db, user.id, invoice.payment_channel_id),
     // Was this invoice's unpaid remainder already carried into a later bill?
     // If so, its own "còn thiếu" is redundant — the amount now lives on that
     // later invoice's previous_debt.
@@ -1449,10 +1452,9 @@ invoicesRoutes.get("/:id", async (c) => {
   if (roomRes.error) return c.json({ error: roomRes.error.message }, 500);
   if (contractRes.error) return c.json({ error: contractRes.error.message }, 500);
   if (tenantRes.error) return c.json({ error: tenantRes.error.message }, 500);
-  if (channelRes.error) return c.json({ error: channelRes.error.message }, 500);
   if (carriedRes.error) return c.json({ error: carriedRes.error.message }, 500);
   const tenant = tenantRes.data;
-  const paymentChannel = channelRes.data;
+  const payment = buildInvoicePayment(invoice, paymentAccount);
 
   const formattedItems = (itemsRes.data ?? []).map(item => ({
     ...item,
@@ -1488,7 +1490,7 @@ invoicesRoutes.get("/:id", async (c) => {
       tenantPhone: tenant?.phone ?? "",
       tenant_phone: tenant?.phone ?? "",
       items: formattedItems,
-    }, paymentChannel),
+    }, null, payment),
   });
 });
 

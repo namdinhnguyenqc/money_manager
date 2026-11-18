@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { refreshActiveContractSnapshot } from "../utils/billing.js";
+import { buildInvoicePayment, publicAccountFields, resolvePaymentAccount } from "../utils/paymentAccount.js";
 import { z } from "zod";
 import { supabaseAdmin } from "../lib/supabase.js";
 import { requireAuth, requireTenant } from "../middleware/auth.js";
@@ -66,7 +68,7 @@ tenantApiRoutes.get("/me", async (c) => {
         .maybeSingle(),
       supabaseAdmin
         .from("contracts")
-        .select("id, start_date, end_date, deposit, rent_amount, status, applied_services_snapshot, room_id")
+        .select("id, user_id, start_date, end_date, deposit, rent_amount, status, occupant_count, applied_services_snapshot, room_id")
         .eq("tenant_id", tenantId)
     ]);
 
@@ -83,6 +85,23 @@ tenantApiRoutes.get("/me", async (c) => {
     const activeContract = activeContracts.sort((a: any, b: any) => 
       Number(b.rent_amount || 0) - Number(a.rent_amount || 0)
     )[0] || null;
+
+    // The tenant sees the same current prices the owner bills, and the real
+    // landlord on the printed contract (it used to be hard-coded).
+    let landlord: { name: string | null; phone: string | null } | null = null;
+    if (activeContract) {
+      const ownerId = String(activeContract.user_id);
+      const [snapshot, ownerRes, profileRes] = await Promise.all([
+        refreshActiveContractSnapshot(supabaseAdmin, ownerId, activeContract),
+        supabaseAdmin.from("users").select("name").eq("id", ownerId).maybeSingle(),
+        supabaseAdmin.from("user_profiles").select("full_name,phone").eq("user_id", ownerId).maybeSingle(),
+      ]);
+      activeContract.applied_services_snapshot = snapshot;
+      landlord = {
+        name: profileRes.data?.full_name || ownerRes.data?.name || null,
+        phone: profileRes.data?.phone || null,
+      };
+    }
 
     let roomWithBh = null;
     if (activeContract && activeContract.room_id) {
@@ -136,6 +155,7 @@ tenantApiRoutes.get("/me", async (c) => {
           rentAmount: activeContract.rent_amount,
           status: activeContract.status,
           appliedServices: activeContract.applied_services_snapshot,
+          landlord,
           room: roomWithBh ? {
             id: roomWithBh.id,
             name: roomWithBh.name,
@@ -325,22 +345,19 @@ tenantApiRoutes.get("/invoices/:id", async (c) => {
       .select("*")
       .eq("invoice_id", id);
 
-    // Fetch payment channel details
-    let paymentChannel = null;
-    if (invoice.payment_channel_id) {
-      const { data: pc } = await supabaseAdmin
-        .from("payment_channels")
-        .select("*")
-        .eq("id", invoice.payment_channel_id)
-        .maybeSingle();
-      paymentChannel = pc || null;
-    }
+    // Same account and QR as the owner sees. Only public account fields are
+    // returned: the channel row also holds the owner's wallet and settings.
+    const account = await resolvePaymentAccount(supabaseAdmin, String(invoice.user_id), invoice.payment_channel_id);
+    const payment = buildInvoicePayment(invoice, account);
+    const paymentChannel = publicAccountFields(account);
 
     return c.json({
       data: {
         ...invoice,
         items: items || [],
         paymentChannel,
+        payment_channel: paymentChannel,
+        payment,
       },
     });
   } catch (err: any) {

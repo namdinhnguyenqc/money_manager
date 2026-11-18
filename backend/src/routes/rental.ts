@@ -6,7 +6,7 @@ import type { AppEnv } from "../types.js";
 import { parseJson, toId } from "../utils/validation.js";
 import { logAuditAction } from "../utils/audit.js";
 import { updateWalletBalance } from "../utils/wallet.js";
-import { summarizeRoomInvoices, buildAppliedServicesSnapshot, applyDuePriceChanges, forgetDuePriceCheck, syncActiveContractSnapshots, refreshActiveContractSnapshot, refreshContractSnapshots } from "../utils/billing.js";
+import { summarizeRoomInvoices, buildAppliedServicesSnapshot, applyDuePriceChanges, forgetDuePriceCheck, vnToday, syncActiveContractSnapshots, refreshActiveContractSnapshot, refreshContractSnapshots } from "../utils/billing.js";
 import { env } from "../config/env.js";
 import { buildCheckoutPreview } from "../utils/checkoutSettlement.js";
 
@@ -766,6 +766,9 @@ rentalRoutes.patch("/rooms/:id", async (c) => {
       );
     } catch { /* room_types table may not exist */ }
   }
+  const previousRoom = payload.price !== undefined || payload.has_ac !== undefined
+    ? (await db.from("rooms").select("price,has_ac").eq("id", id).eq("user_id", user.id).maybeSingle()).data
+    : null;
   let { data, error } = await db.from("rooms").update(payload).eq("id", id).eq("user_id", user.id).select("*").single();
 
   // Retry without room_type if column doesn't exist
@@ -777,7 +780,29 @@ rentalRoutes.patch("/rooms/:id", async (c) => {
   }
 
   if (error) return c.json({ error: error.message }, 400);
-  return c.json({ data: { ...data, hasAc: data.has_ac, numPeople: data.num_people, roomType: data.room_type ?? null } });
+
+  // A new room price carries into the active contract when that contract was
+  // simply billing the room price. A rent negotiated separately (different
+  // from the old room price) is the tenant's agreement and is left alone.
+  let contractRentUpdated = false;
+  if (previousRoom && payload.price !== undefined && Number(previousRoom.price) !== Number(data.price)) {
+    const res = await db
+      .from("contracts")
+      .update({ rent_amount: data.price, updated_at: new Date().toISOString() })
+      .eq("room_id", id)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .eq("rent_amount", previousRoom.price)
+      .select("id");
+    contractRentUpdated = !res.error && (res.data?.length ?? 0) > 0;
+  }
+  // Air-conditioning changes the electricity rate in the contract price list.
+  if (previousRoom && payload.has_ac !== undefined && Boolean(previousRoom.has_ac) !== Boolean(data.has_ac)) {
+    const { data: active } = await db.from("contracts").select("*").eq("room_id", id).eq("user_id", user.id).eq("status", "active");
+    await Promise.all((active ?? []).map((contract: any) => refreshActiveContractSnapshot(db, user.id, contract)));
+  }
+
+  return c.json({ data: { ...data, hasAc: data.has_ac, numPeople: data.num_people, roomType: data.room_type ?? null }, contractRentUpdated });
 });
 
 rentalRoutes.delete("/rooms/:id", async (c) => {
@@ -1008,9 +1033,27 @@ rentalRoutes.patch("/services/:id", async (c) => {
 
 
   const db = c.get("supabase");
+  const before = payload.unit_price !== undefined || payload.unit_price_ac !== undefined
+    ? (await db.from("services").select("unit_price,unit_price_ac").eq("id", id).eq("user_id", user.id).maybeSingle()).data
+    : null;
   const { data, error } = await db.from("services").update(payload).eq("id", id).eq("user_id", user.id).select("*").single();
 
   if (error) return c.json({ error: error.message }, 400);
+  // Every price change lands in the price history, whichever screen made it
+  // (the edit form here, or "cập nhật giá" with an effective date).
+  if (before && (Number(before.unit_price) !== Number(data.unit_price) || Number(before.unit_price_ac || 0) !== Number(data.unit_price_ac || 0))) {
+    await db.from("service_price_history").insert({
+      user_id: user.id,
+      service_id: id,
+      old_unit_price: before.unit_price,
+      old_unit_price_ac: before.unit_price_ac,
+      new_unit_price: data.unit_price,
+      new_unit_price_ac: data.unit_price_ac,
+      effective_date: vnToday(),
+      applied: true,
+      updated_by: user.id,
+    });
+  }
   const contractsUpdated = await syncActiveContractSnapshots(db, user.id, [String(id)]);
   return c.json({ data: { ...data, unitPrice: data.unit_price, unitPriceAc: data.unit_price_ac }, contractsUpdated });
 });
@@ -1057,8 +1100,7 @@ rentalRoutes.post("/services/:id/price-update", async (c) => {
   if (!serviceRes.data) return c.json({ error: "Service not found" }, 404);
 
   const newUnitPriceAc = parsed.data.newUnitPriceAc ?? Number(serviceRes.data.unit_price_ac || 0);
-  const today = new Date().toISOString().slice(0, 10);
-  const isImmediate = parsed.data.effectiveDate <= today;
+  const isImmediate = parsed.data.effectiveDate <= vnToday();
 
   const historyRes = await db
     .from("service_price_history")
@@ -2169,8 +2211,10 @@ rentalRoutes.get("/contracts/:id/settlement-preview", async (c) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(moveOutDate)) return c.json({ error: "Ngày trả phòng không hợp lệ." }, 400);
 
   const db = c.get("supabase");
-  const { data: contract, error } = await db.from("contracts").select("*, rooms(*)").eq("id", id).eq("user_id", user.id).single();
-  if (error || !contract) return c.json({ error: "Contract not found" }, 404);
+  const { data: loadedContract, error } = await db.from("contracts").select("*, rooms(*)").eq("id", id).eq("user_id", user.id).single();
+  if (error || !loadedContract) return c.json({ error: "Contract not found" }, 404);
+  // Settle at the owner's current service prices, like a normal invoice.
+  const contract = { ...loadedContract, applied_services_snapshot: await refreshActiveContractSnapshot(db, user.id, loadedContract) };
   if (contract.start_date && moveOutDate < String(contract.start_date).slice(0, 10)) {
     return c.json({ error: "Ngày trả phòng không thể trước ngày bắt đầu hợp đồng." }, 400);
   }

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Printer, ArrowLeft } from "lucide-react";
-import { BankConfig, Invoice, Transaction, buildInvoiceQrUrl, formatMoney, getInvoiceRemainingAmount, loadBankConfig, loadInvoice, loadSettingsMap, loadTransactionsByInvoice } from "@/lib/rentalOps";
+import { Invoice, Transaction, invoicePaymentView, formatMoney, loadInvoice, loadTransactionsByInvoice } from "@/lib/rentalOps";
 import LoadingSkeleton from "@/components/ops/LoadingSkeleton";
 
 export default function ReceiptViewPage() {
@@ -11,8 +11,6 @@ export default function ReceiptViewPage() {
   const router = useRouter();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [settings, setSettings] = useState<Record<string, any>>({});
-  const [bankConfig, setBankConfig] = useState<BankConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -21,15 +19,11 @@ export default function ReceiptViewPage() {
       setLoading(true);
       setError("");
       try {
-        const [invoiceData, settingsData, txs, bankData] = await Promise.all([
+        const [invoiceData, txs] = await Promise.all([
           loadInvoice(String(id)),
-          loadSettingsMap(),
           loadTransactionsByInvoice(String(id)),
-          loadBankConfig(),
         ]);
         setInvoice(invoiceData);
-        setSettings(settingsData);
-        setBankConfig(bankData);
         setTransactions((txs || []).filter(t => String(t.invoice_id) === String(id)));
       } catch (err: any) {
         setError(err?.message || "Không tải được thông báo thu tiền.");
@@ -62,27 +56,15 @@ export default function ReceiptViewPage() {
   const elecUsed = Math.max(0, (invoice.elec_new || 0) - (invoice.elec_old || 0));
   const waterUsed = Math.max(0, (invoice.water_new || 0) - (invoice.water_old || 0));
 
-  const totalPayable = getInvoiceRemainingAmount(invoice) || invoice.total_amount;
-  
-  // Bank details from invoice's payment channel, dedicated bank config, or settings with fallbacks
-  const channel = invoice.payment_channel;
-  const bankName1 = channel?.bank_id || channel?.bankId || bankConfig?.bank_id || settings.bank_name_1 || "ACB";
-  const bankAccount1 = channel?.account_no || channel?.accountNo || bankConfig?.account_no || settings.bank_account_1 || "252369089";
-  const bankOwner1 = channel?.account_name || channel?.accountName || bankConfig?.account_name || settings.bank_owner_1 || "Nguyễn Đình Hà Nam";
-  
-  const bankName2 = settings.bank_name_2;
-  const bankAccount2 = settings.bank_account_2;
-  const bankOwner2 = settings.bank_owner_2;
-
-  const paymentNote = invoice.payment_code || invoice.paymentCode || settings.payment_note || "(Không ghi nội dung Chuyển khoản)";
-  
-  // QR Code URL (Use invoice-specific URL, dedicated bank config's QR, static URL, or generate default VietQR)
-  const qrUrl = buildInvoiceQrUrl(invoice, { bankId: bankName1, accountNo: bankAccount1 }) || 
-    bankConfig?.qr_uri || 
-    settings.bank_qr_static_url || 
-    (bankName1 && bankAccount1
-      ? `https://img.vietqr.io/image/${String(bankName1).replace(/\s/g, "")}-${String(bankAccount1).replace(/\s/g, "")}-compact2.png?amount=${totalPayable}&addInfo=${encodeURIComponent(paymentNote)}`
-      : "");
+  // Account, amount and QR come from the server, the same as the invoice screen
+  // and the tenant app. No hard-coded fallback account: with nothing configured
+  // the receipt shows no bank box rather than someone else's account.
+  const pay = invoicePaymentView(invoice);
+  const bankName1 = pay.bankId;
+  const bankAccount1 = pay.accountNo;
+  const bankOwner1 = pay.accountName;
+  const paymentNote = pay.content || "(Không ghi nội dung chuyển khoản)";
+  const qrUrl = pay.qrUrl || pay.staticQrUrl || "";
 
   const isPaid = invoice.status === "paid" || (invoice.paid_amount || 0) >= invoice.total_amount;
   const isPartial = (invoice.paid_amount || 0) > 0 && !isPaid;
@@ -166,7 +148,7 @@ export default function ReceiptViewPage() {
 
           <div className="mb-8">
             <p className="text-[10pt] font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <div className="w-1.5 h-4 bg-blue-600 rounded-full"></div>
+              <span className="inline-block w-1.5 h-4 bg-blue-600 rounded-full"></span>
               CHI TIẾT CÁC KHOẢN PHÍ
             </p>
             <table className="w-full border-collapse">

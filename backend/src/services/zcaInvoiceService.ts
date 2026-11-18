@@ -1,4 +1,5 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { buildInvoicePayment, publicAccountFields, resolvePaymentAccount, type PaymentAccount } from "../utils/paymentAccount.js";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -38,6 +39,7 @@ type InvoiceBundle = {
   room: any;
   items: any[];
   paymentChannel: any | null;
+  paymentAccount: PaymentAccount | null;
 };
 
 export type ZcaBulkInvoiceItem = {
@@ -528,13 +530,11 @@ async function loadInvoiceBundle(ownerId: string, invoiceId: string): Promise<In
     .maybeSingle();
   if (invoiceError || !invoice) throw new Error("Không tìm thấy hóa đơn.");
 
-  const [itemsRes, roomRes, contractRes, channelRes] = await Promise.all([
+  const [itemsRes, roomRes, contractRes, paymentAccount] = await Promise.all([
     db.from("invoice_items").select("*").eq("invoice_id", invoiceId).eq("user_id", ownerId),
     db.from("rooms").select("*").eq("id", invoice.room_id).eq("user_id", ownerId).maybeSingle(),
     db.from("contracts").select("*").eq("id", invoice.contract_id).eq("user_id", ownerId).maybeSingle(),
-    invoice.payment_channel_id
-      ? db.from("payment_channels").select("*").eq("id", invoice.payment_channel_id).eq("user_id", ownerId).maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
+    resolvePaymentAccount(db, ownerId, invoice.payment_channel_id),
   ]);
 
   if (itemsRes.error) throw new Error(itemsRes.error.message);
@@ -554,7 +554,9 @@ async function loadInvoiceBundle(ownerId: string, invoiceId: string): Promise<In
     tenant,
     room: roomRes.data,
     items: itemsRes.data || [],
-    paymentChannel: channelRes.data || null,
+    // Shaped like a channel row so the message and image code read it as before.
+    paymentChannel: publicAccountFields(paymentAccount),
+    paymentAccount,
   };
 }
 
@@ -684,14 +686,8 @@ async function fetchImageAsDataUri(url: string) {
 }
 
 function buildInvoiceQrUrl(bundle: InvoiceBundle) {
-  const invoice = bundle.invoice;
-  const channel = bundle.paymentChannel;
-  const bankId = String(channel?.bank_id || "").replace(/\s/g, "");
-  const accountNo = String(channel?.account_no || "").replace(/\s/g, "");
-  const paymentCode = invoice.payment_code || "";
-  const remaining = Math.max(0, Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0));
-  if (!bankId || !accountNo || !paymentCode) return "";
-  return `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${Math.round(remaining || Number(invoice.total_amount || 0))}&addInfo=${encodeURIComponent(paymentCode)}`;
+  // Same QR as the owner and tenant screens; none once nothing is left to pay.
+  return buildInvoicePayment(bundle.invoice, bundle.paymentAccount).qrUrl ?? "";
 }
 
 async function renderInvoicePng(bundle: InvoiceBundle, outputPath: string) {
@@ -835,8 +831,10 @@ async function buildMessage(bundle: InvoiceBundle) {
     year: invoice.year || "",
     room_amount: money(invoice.room_fee || 0),
     service_amount: money(Math.max(0, Number(invoice.total_amount || 0) - Number(invoice.room_fee || 0))),
-    total_amount: money(outstanding || invoice.total_amount),
-    amount_due: money(outstanding || invoice.total_amount),
+    // Both read "số tiền cần thanh toán" in templates: what is left to pay. A paid
+    // invoice used to fall back to the full total and ask for it again.
+    total_amount: money(outstanding),
+    amount_due: money(outstanding),
     payment_code: invoice.payment_code || "Chưa có",
     due_date: formatDateVi(invoice.due_date),
     invoice_url: invoice.public_url || "",

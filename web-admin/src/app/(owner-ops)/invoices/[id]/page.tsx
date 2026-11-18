@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Check, Copy, Wallet, Trash2, History, PlusCircle, X } from "lucide-react";
-import { Invoice, Transaction, BankConfig, buildInvoiceQrUrl, formatMoney, loadBankConfig, loadInvoice, normalizeInvoiceStatus, loadTransactionsByInvoice, loadSettingsMap, addInvoiceItem } from "@/lib/rentalOps";
+import { Invoice, Transaction, invoicePaymentView, formatMoney, loadInvoice, normalizeInvoiceStatus, loadTransactionsByInvoice, addInvoiceItem } from "@/lib/rentalOps";
 import { apiDelete } from "@/utils/apiClient";
 import { useToast } from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
@@ -25,8 +25,6 @@ export default function InvoiceDetailPage() {
   const { showToast } = useToast();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [bankConfig, setBankConfig] = useState<BankConfig | null>(null);
-  const [settings, setSettings] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
@@ -50,15 +48,12 @@ export default function InvoiceDetailPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const [inv, txs, settingsData, bankData] = await Promise.all([
+        // The invoice already carries its payment account and QR (resolved on the server).
+        const [inv, txs] = await Promise.all([
           loadInvoice(String(id)),
           loadTransactionsByInvoice(String(id)),
-          loadSettingsMap(),
-          loadBankConfig(),
         ]);
         setInvoice(inv);
-        setSettings(settingsData);
-        setBankConfig(bankData);
         setTransactions((txs || []).filter((t) => String(t.invoice_id) === String(id)));
       } catch (err: any) {
         setError(err?.message || "Không tải được hóa đơn.");
@@ -92,17 +87,11 @@ export default function InvoiceDetailPage() {
   const carriedTo = invoice.carriedTo;
   const isCarriedForward = carriedAmount > 0 || (Boolean(invoice.carriedForward) && !isPaid);
 
-  const channel = invoice.payment_channel;
-  const bankId = channel?.bank_id || channel?.bankId || bankConfig?.bank_id || settings.bank_name_1 || "";
-  const accountNo = channel?.account_no || channel?.accountNo || bankConfig?.account_no || settings.bank_account_1 || "";
-  const accountName = channel?.account_name || channel?.accountName || bankConfig?.account_name || settings.bank_owner_1 || "";
-  const paymentCode = invoice.payment_code || invoice.paymentCode || "";
-  const qrUrl = buildInvoiceQrUrl(invoice, { bankId, accountNo }) ||
-    bankConfig?.qr_uri ||
-    settings.bank_qr_static_url ||
-    (bankId && accountNo
-      ? `https://img.vietqr.io/image/${bankId.replace(/\s/g, "")}-${accountNo.replace(/\s/g, "")}-compact2.png?amount=${outstanding || total}&addInfo=${encodeURIComponent(paymentCode)}`
-      : "");
+  // Account, amount and QR come from the server, the same on every screen.
+  const pay = invoicePaymentView(invoice);
+  const { bankId, accountNo, accountName } = pay;
+  const paymentCode = pay.content;
+  const qrUrl = pay.qrUrl || pay.staticQrUrl || "";
 
   const previousDebt = Number((invoice as any).previous_debt || 0);
   const previousCredit = Number((invoice as any).previous_credit || 0);
@@ -299,11 +288,13 @@ export default function InvoiceDetailPage() {
                   <img src={qrUrl} alt="QR thanh toán" className="h-64 w-64 object-contain" />
                 </div>
               ) : (
-                <div className="flex h-64 w-64 items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 text-center text-[10px] font-semibold text-slate-400">
-                  Chưa cấu hình QR
+                <div className="flex h-64 w-64 items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 p-4 text-center text-[10px] font-semibold text-slate-400">
+                  {pay.amount <= 0 ? "Hóa đơn không còn tiền phải thu" : pay.hasAccount ? "Chưa có mã chuyển khoản" : "Chưa cấu hình tài khoản nhận tiền (Cài đặt → Thanh toán)"}
                 </div>
               )}
-              <p className="text-[10px] text-slate-400 text-center">Quét để thanh toán</p>
+              <p className="text-[10px] text-slate-400 text-center">
+                {pay.qrUrl ? `Quét để thanh toán ${formatMoney(pay.amount)}` : pay.staticQrUrl ? `QR tĩnh: nhập ${formatMoney(pay.amount)}, ghi nội dung ${paymentCode}` : ""}
+              </p>
             </div>
           </div>
         </div>
